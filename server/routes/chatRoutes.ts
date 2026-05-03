@@ -1,8 +1,8 @@
 import express from 'express';
-import { getChatHistory, sendMessage, getContacts, getChallengeMessages, sendMediaMessage, pingPresence, getPresence } from '../controllers/chatController';
-import { authenticateToken } from '../middleware/auth';
-import upload from '../middleware/upload';
-import { uploadAudio, optimizeImage, verifyUploadBytes } from '../middleware/upload';
+import { getChatHistory, sendMessage, getContacts, getChallengeMessages, sendMediaMessage, pingPresence, getPresence } from '../controllers/chatController.js';
+import { authenticateToken } from '../middleware/auth.js';
+import upload from '../middleware/upload.js';
+import { uploadAudio, optimizeImage, verifyUploadBytes } from '../middleware/upload.js';
 
 const router = express.Router();
 

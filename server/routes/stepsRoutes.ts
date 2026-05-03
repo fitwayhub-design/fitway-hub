@@ -6,8 +6,8 @@ import {
   getWeeklyStats,
   getMonthlyStats,
   deleteSteps
-} from '../controllers/stepsController';
-import { authenticateToken } from '../middleware/auth';
+} from '../controllers/stepsController.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = Router();
 

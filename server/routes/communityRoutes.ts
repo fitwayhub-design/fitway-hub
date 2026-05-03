@@ -4,13 +4,13 @@ import {
   likePost, unlikePost, getPostComments, addComment, followUser, unfollowUser,
   requestChat, acceptChatRequest, getChatRequests, getMessages, sendMessage, getUserProfile,
   deletePost, getTrendingTags
-} from '../controllers/communityController';
-import { authenticateToken } from '../middleware/auth';
+} from '../controllers/communityController.js';
+import { authenticateToken } from '../middleware/auth.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { optimizeImage } from '../middleware/upload';
+import { optimizeImage } from '../middleware/upload.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,7 +58,7 @@ router.get('/users/:id/profile', authenticateToken, getUserProfile);
 router.get('/stats', authenticateToken, async (req: any, res: any) => {
   if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
   try {
-    const { query } = await import('../config/database');
+    const { query } = await import('../config/database.js');
     const [postRow]: any = await query('SELECT COUNT(*) as cnt FROM posts');
     const [likeRow]: any = await query('SELECT COUNT(*) as cnt FROM post_likes');
     const [commentRow]: any = await query('SELECT COUNT(*) as cnt FROM post_comments');

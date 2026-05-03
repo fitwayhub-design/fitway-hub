@@ -31,8 +31,8 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { authenticateToken } from '../middleware/auth';
-import { get, run, query } from '../config/database';
+import { authenticateToken } from '../middleware/auth.js';
+import { get, run, query } from '../config/database.js';
 import https from 'https';
 
 const router = Router();

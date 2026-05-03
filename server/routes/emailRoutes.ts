@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { authenticateToken } from '../middleware/auth';
-import { get, run, query } from '../config/database';
-import { getMailDomain, sendMail, getSmtpSettings, saveSmtpSettings, testSmtpConnection } from '../emailServer';
+import { authenticateToken } from '../middleware/auth.js';
+import { get, run, query } from '../config/database.js';
+import { getMailDomain, sendMail, getSmtpSettings, saveSmtpSettings, testSmtpConnection } from '../emailServer.js';
 
 const router = Router();
 

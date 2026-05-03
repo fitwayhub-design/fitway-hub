@@ -5,7 +5,7 @@
  *
  * Usage: npx tsx server/scripts/init-db-only.ts
  */
-import { initDatabase, query } from '../config/database';
+import { initDatabase, query } from '../config/database.js';
 
 async function main() {
   console.log('Initialising local database…');

@@ -1,9 +1,9 @@
 import { Router, Response } from 'express';
-import { bookSession } from '../controllers/coachingController';
-import { authenticateToken, requireActiveCoachMembershipForDeals } from '../middleware/auth';
-import { upload, optimizeImage, uploadToR2 } from '../middleware/upload';
-import { get, run, query } from '../config/database';
-import { sendPushFromTemplate, sendPushToUser } from '../notificationService';
+import { bookSession } from '../controllers/coachingController.js';
+import { authenticateToken, requireActiveCoachMembershipForDeals } from '../middleware/auth.js';
+import { upload, optimizeImage, uploadToR2 } from '../middleware/upload.js';
+import { get, run, query } from '../config/database.js';
+import { sendPushFromTemplate, sendPushToUser } from '../notificationService.js';
 
 const router = Router();
 

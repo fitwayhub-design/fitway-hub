@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth';
-import { uploadVideo, uploadToR2 } from '../middleware/upload';
-import { get, query, run } from '../config/database';
+import { authenticateToken } from '../middleware/auth.js';
+import { uploadVideo, uploadToR2 } from '../middleware/upload.js';
+import { get, query, run } from '../config/database.js';
 
 const router = Router();
 

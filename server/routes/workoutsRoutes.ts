@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { authenticateToken, requireActiveCoachMembershipForDeals } from '../middleware/auth';
-import { get, query, run } from '../config/database';
-import { optimizeImage, uploadToR2, uploadVideo, validateVideoSize } from '../middleware/upload';
+import { authenticateToken, requireActiveCoachMembershipForDeals } from '../middleware/auth.js';
+import { get, query, run } from '../config/database.js';
+import { optimizeImage, uploadToR2, uploadVideo, validateVideoSize } from '../middleware/upload.js';
 
 const router = Router();
 

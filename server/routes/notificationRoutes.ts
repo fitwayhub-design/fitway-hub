@@ -3,8 +3,8 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateToken } from '../middleware/auth';
-import { query, get, run } from '../config/database';
+import { authenticateToken } from '../middleware/auth.js';
+import { query, get, run } from '../config/database.js';
 
 const adminOnly = (req: any, res: Response, next: NextFunction) => {
   if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin access required' });
@@ -17,7 +17,7 @@ import {
   sendPushFromTemplate,
   sendPushToSegment,
   createInAppNotification,
-} from '../notificationService';
+} from '../notificationService.js';
 
 const router = Router();
 

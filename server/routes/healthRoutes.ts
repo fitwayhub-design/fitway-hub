@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { getDailySteps, syncSteps } from '../controllers/healthController';
-import { authenticateToken } from '../middleware/auth';
+import { getDailySteps, syncSteps } from '../controllers/healthController.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = Router();
 

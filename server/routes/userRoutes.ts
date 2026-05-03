@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth';
-import { get, run, query } from '../config/database';
+import { authenticateToken } from '../middleware/auth.js';
+import { get, run, query } from '../config/database.js';
 
 const router = Router();
 
@@ -77,7 +77,7 @@ router.patch('/step-goal', authenticateToken, async (req: any, res: any) => {
 });
 
 // ── Upload proof image ─────────────────────────────────────────────────────────
-import { upload, optimizeImage, uploadToR2 } from '../middleware/upload';
+import { upload, optimizeImage, uploadToR2 } from '../middleware/upload.js';
 router.post('/upload-proof', authenticateToken, upload.single('image'), optimizeImage(), async (req: any, res: any) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });

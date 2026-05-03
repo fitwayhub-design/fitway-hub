@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { analyzeSteps } from '../controllers/aiController';
-import { authenticateToken } from '../middleware/auth';
+import { analyzeSteps } from '../controllers/aiController.js';
+import { authenticateToken } from '../middleware/auth.js';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 const router = Router();

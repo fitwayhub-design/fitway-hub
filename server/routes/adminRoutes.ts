@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { authenticateToken } from '../middleware/auth';
-import { get, run, query, getPool, seedDefaultAppSettings } from '../config/database';
-import { uploadVideo, uploadFont, upload, optimizeImage, validateVideoSize, verifyUploadBytes, uploadToR2 } from '../middleware/upload';
-import { sendPushToUser } from '../notificationService';
+import { authenticateToken } from '../middleware/auth.js';
+import { get, run, query, getPool, seedDefaultAppSettings } from '../config/database.js';
+import { uploadVideo, uploadFont, upload, optimizeImage, validateVideoSize, verifyUploadBytes, uploadToR2 } from '../middleware/upload.js';
+import { sendPushToUser } from '../notificationService.js';
 import bcrypt from 'bcryptjs';
 
 const router = Router();

@@ -13,9 +13,9 @@ import {
   updateProfile,
   oauthGoogleStart,
   oauthGoogleCallback,
-} from '../controllers/authController';
-import { authenticateToken } from '../middleware/auth';
-import { get } from '../config/database';
+} from '../controllers/authController.js';
+import { authenticateToken } from '../middleware/auth.js';
+import { get } from '../config/database.js';
 
 const router = Router();
 

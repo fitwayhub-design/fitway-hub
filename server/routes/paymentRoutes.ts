@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { autoRefundSubscription } from './paymobRoutes.js';
-import { authenticateToken } from '../middleware/auth';
-import { run, get, query } from '../config/database';
-import { upload, optimizeImage, uploadToR2 } from '../middleware/upload';
+import { authenticateToken } from '../middleware/auth.js';
+import { run, get, query } from '../config/database.js';
+import { upload, optimizeImage, uploadToR2 } from '../middleware/upload.js';
 import https from 'https';
-import { sendPushFromTemplate, sendPushToUser } from '../notificationService';
+import { sendPushFromTemplate, sendPushToUser } from '../notificationService.js';
 
 const router = Router();
 

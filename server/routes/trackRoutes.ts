@@ -1,6 +1,6 @@
 import express from 'express';
-import { saveSession } from '../controllers/trackController';
-import { authenticateToken } from '../middleware/auth';
+import { saveSession } from '../controllers/trackController.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 

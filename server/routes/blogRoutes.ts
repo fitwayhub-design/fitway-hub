@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { run, get } from '../config/database';
-import { authenticateToken } from '../middleware/auth';
-import { uploadVideo, optimizeImage, validateVideoSize } from '../middleware/upload';
+import { run, get } from '../config/database.js';
+import { authenticateToken } from '../middleware/auth.js';
+import { uploadVideo, optimizeImage, validateVideoSize } from '../middleware/upload.js';
 import {
   createBlog,
   deleteBlog,
@@ -9,7 +9,7 @@ import {
   getPublicBlogBySlug,
   getPublicBlogs,
   updateBlog,
-} from '../controllers/blogController';
+} from '../controllers/blogController.js';
 
 const router = Router();
 
