@@ -257,7 +257,12 @@ export default function AdminSettings() {
     showFlash("Admin name updated");
   };
 
-  const filtered = settings.filter(s => s.category === activeTab && s.setting_key !== 'user_premium_fee_usd' && s.setting_key !== 'free_user_max_videos');
+  const filtered = settings.filter(s =>
+    s.category === activeTab
+    && s.setting_key !== 'user_premium_fee_usd'
+    && s.setting_key !== 'free_user_max_videos'
+    && s.setting_key !== 'free_user_can_access_coaching'
+  );
 
   async function saveAppSettings() {
     setSaving(true);

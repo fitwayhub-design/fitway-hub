@@ -61,9 +61,16 @@
   --btn-hover-type:    glow;
   --btn-hover-color:   rgba(255,214,0,0.30);
 
-  --font-en:       'Gotham', 'DM Sans', sans-serif;
-  --font-ar:       'Alexandria', 'Cairo', sans-serif;
-  --font-heading:  'Gotham', 'Syne', sans-serif;
+  /* Fonts — these are overridden at runtime by BrandingContext from the admin
+     panel. Defaults are intentionally generic so nothing is hardcoded to a
+     specific brand face. */
+  --font-en:       sans-serif;
+  --font-ar:       sans-serif;
+  --font-heading:  sans-serif;
+  /* FWH theme aliases — re-use admin-controlled fonts so nothing is hardcoded. */
+  --fwh-display:   var(--font-heading);
+  --fwh-mono:      var(--font-en);
+  --fwh-serif:     var(--font-heading);
 
   /* ── Web view design tokens ── */
   --web-header-height: 72px;
@@ -638,7 +645,7 @@ a:active { transform: scale(0.98); }
 ═══════════════════════════════════════════════════════════ */
 
 .web-view {
-  --web-font-display: 'Syne', sans-serif;
+  --web-font-display: var(--font-heading);
   font-family: var(--font-en);
 }
 
@@ -1224,30 +1231,66 @@ html.light .dash-featured-overlay {
   border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--bg-card);
-  padding: 14px 16px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.dash-ad-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
-  background: var(--accent-dim);
-  flex-shrink: 0;
   overflow: hidden;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
 }
-.dash-ad-cta {
+.dash-ad-hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+.dash-ad-hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.dash-ad-body {
+  padding: 12px 14px 14px;
   display: flex;
   align-items: center;
+  gap: 12px;
+}
+.dash-ad-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dash-ad-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+.dash-ad-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.dash-ad-cta {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 9px 16px;
   border-radius: 99px;
-  background: var(--main);
-  color: #fff;
+  background: var(--accent);
+  color: #0a0a0a;
   font-weight: 700;
   font-size: 12px;
   text-decoration: none;
@@ -1263,6 +1306,15 @@ html.light .dash-featured-overlay {
   font-weight: 700;
   white-space: nowrap;
   flex-shrink: 0;
+}
+.dash-ad-badge--overlay {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 /* ── Shared horizontal scroll ────────────────────────────── */
@@ -1461,6 +1513,9 @@ html.light .dash-featured-overlay {
 /* ── Mobile responsive tweaks ────────────────────────────── */
 /* ── Ad section wrapper ──────────────────────────────────── */
 .dash-ads-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 0 20px 16px;
 }
 
@@ -1636,13 +1691,11 @@ html.light .dash-featured-overlay {
   --text-secondary: #C8C8C8;
   --text-muted:     #8C8C8C;
 
-  /* Typography. The Bold theme used to hardcode 'Archivo Black' here,
-     which silently overrode the admin's font picker on Bold-themed
-     pages. We now respect the admin's font_en / font_heading and only
-     fall back to Archivo Black if the admin hasn't set one. */
-  --font-en:        var(--admin-font-en, 'Archivo Black', 'Archivo', 'Inter', sans-serif);
-  --font-heading:   var(--admin-font-heading, 'Archivo Black', 'Archivo', 'Inter', sans-serif);
-  --font-mono:      'JetBrains Mono', ui-monospace, monospace;
+  /* Typography — fully driven by the admin font picker (BrandingContext sets
+     --admin-font-* at runtime). No hardcoded fallback brand faces. */
+  --font-en:        var(--admin-font-en, sans-serif);
+  --font-heading:   var(--admin-font-heading, sans-serif);
+  --font-mono:      ui-monospace, monospace;
 
   background: var(--bold-ink);
   color: var(--text-primary);
@@ -1959,14 +2012,12 @@ html.light .web-bold [data-bold="card"] {
   --fwh-tm:        #888888;
   --fwh-td:        #444444;
 
-  /* These resolve to whatever the admin has chosen in /admin/settings →
-     Branding (font_en / font_heading), set by BrandingContext as inline
-     CSS vars on <html>. The original Barlow/Barlow-Condensed names are
-     kept ONLY as the fallback chain when the admin var isn't set. */
-  --fwh-serif:     'Instrument Serif', 'Cairo', serif;
-  --fwh-mono:      'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
-  --fwh-sans:      var(--font-en, 'Barlow', 'Inter', 'Helvetica Neue', sans-serif);
-  --fwh-display:   var(--font-heading, 'Barlow Condensed', 'Barlow', 'Helvetica Neue', sans-serif);
+  /* All FWH typography aliases resolve to admin-controlled fonts so nothing
+     is hardcoded to a specific brand face. */
+  --fwh-serif:     var(--font-heading);
+  --fwh-mono:      var(--font-en);
+  --fwh-sans:      var(--font-en);
+  --fwh-display:   var(--font-heading);
 
   /* Override project tokens so existing var(--bg-primary)/var(--text-primary) cascade still works */
   --bg-primary:    var(--fwh-bg);
@@ -1990,10 +2041,10 @@ html.light .web-bold [data-bold="card"] {
   font-family: var(--fwh-sans);
 }
 .web-fwh[dir="rtl"], .web-fwh.rtl {
-  /* RTL pages use the admin's Arabic font (font_ar). Cairo is the fallback. */
-  --fwh-sans:      var(--font-ar, 'Cairo', 'Barlow', sans-serif);
-  --fwh-display:   var(--font-ar, 'Cairo', 'Barlow Condensed', sans-serif);
-  --fwh-serif:     var(--font-ar, 'Cairo', 'Instrument Serif', serif);
+  /* RTL pages use the admin's Arabic font (font_ar). */
+  --fwh-sans:      var(--font-ar);
+  --fwh-display:   var(--font-ar);
+  --fwh-serif:     var(--font-ar);
 }
 
 html.light .web-fwh {
@@ -3189,42 +3240,31 @@ html.light .app-fwh .dash-hero-overlay {
   margin: 0;
 }
 
-/* Sponsored ad card */
+/* Sponsored ad card (FWH theme overrides) */
 .app-fwh .dash-ad-card {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  flex-direction: column;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 12px !important;
-}
-.app-fwh .dash-ad-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px !important;
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  border-radius: 16px;
   overflow: hidden;
+  padding: 0;
 }
-.app-fwh .dash-ad-icon img { border-radius: 12px !important; }
 .app-fwh .dash-ad-cta {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 12px;
-  background: var(--main);
+  padding: 9px 16px;
+  background: var(--accent);
   color: var(--fwh-ac-fg, #0a0a0a);
-  border-radius: 12px !important;
+  border-radius: 99px;
   text-decoration: none;
   font-family: var(--fwh-mono, ui-monospace, monospace);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 600;
+  white-space: nowrap;
 }
 .app-fwh .dash-ad-badge {
   font-family: var(--fwh-mono, ui-monospace, monospace);
@@ -3233,8 +3273,13 @@ html.light .app-fwh .dash-hero-overlay {
   text-transform: uppercase;
   color: var(--text-muted);
   border: 1px solid var(--border);
-  padding: 3px 7px;
-  border-radius: 12px;
+  padding: 4px 8px;
+  border-radius: 99px;
+}
+.app-fwh .dash-ad-badge--overlay {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.55);
 }
 
 /* Horizontal scroll rail */

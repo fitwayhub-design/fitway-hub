@@ -24,7 +24,7 @@ const navItems: NavItem[] = [
   { path: "/coach/ads/creatives",  icon: Image,           label: "Creatives" },
   { path: "/coach/ads/analytics",  icon: BarChart2,       label: "Analytics" },
   { path: "/coach/ads/wallet",     icon: Wallet,          label: "Wallet" },
-  { path: "/coach/blogs",          icon: FileText,        label: "No Pain No Shawerma" },
+  { path: "/coach/blogs",          icon: FileText,        label: "Our Blog" },
   { path: "/coach/community",      icon: Globe,           label: "Community" },
   { path: "/coach/workouts",       icon: Dumbbell,        label: "Workouts" },
   { path: "/coach/notifications",  icon: Bell,            label: "Notifications" },

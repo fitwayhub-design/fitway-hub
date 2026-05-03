@@ -6,7 +6,7 @@ export default function AppBlogs() {
   return (
     <BlogExperience
       mode="app"
-      heading={lang === "ar" ? "مافيش تعب مافيش شاورما" : "No Pain No Shawerma"}
+      heading={lang === "ar" ? "مدونتنا" : "Our Blog"}
       subheading="Read focused fitness content without leaving your training workspace."
       allowWriting
     />

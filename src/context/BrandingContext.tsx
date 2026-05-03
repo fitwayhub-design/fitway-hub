@@ -28,6 +28,8 @@ export interface Branding {
   font_en: string;
   font_ar: string;
   font_heading: string;
+  coming_soon_enabled: string;
+  coming_soon_bg_image: string;
 }
 
 const defaults: Branding = {
@@ -56,6 +58,8 @@ const defaults: Branding = {
   font_en: "Gotham",
   font_ar: "Alexandria",
   font_heading: "Gotham",
+  coming_soon_enabled: "0",
+  coming_soon_bg_image: "",
 };
 
 interface BrandingContextValue {
@@ -127,6 +131,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
           logo_url_ar_light: resolveAssetUrl(data?.logo_url_ar_light || ""),
           logo_url_ar_dark: resolveAssetUrl(data?.logo_url_ar_dark || ""),
           favicon_url: resolveAssetUrl(data?.favicon_url || ""),
+          coming_soon_bg_image: resolveAssetUrl(data?.coming_soon_bg_image || ""),
         };
         setBranding(prev => ({ ...prev, ...normalized }));
       })

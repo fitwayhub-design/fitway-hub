@@ -54,8 +54,8 @@ const SECTION_TYPES: { type: string; label: string; icon: any; defaultContent: a
     defaultContent: { phone: "+1 234 567 8900", email: "hello@example.com", chatHours: "9am – 5pm", faqs: [{ q: "Question here?", a: "Answer here." }] } },
   { type: "calculator", label: "Calorie Calculator", icon: Grid,
     defaultContent: { sectionLabel: "Free Tool", heading: "Calorie Calculator" } },
-  { type: "latest_blogs", label: "No Pain No Shawerma", icon: Type,
-    defaultContent: { sectionLabel: "FROM NO PAIN NO SHAWERMA", heading: "Latest No Pain No Shawerma Articles" } },
+  { type: "latest_blogs", label: "Our Blog", icon: Type,
+    defaultContent: { sectionLabel: "OUR BLOG", heading: "Latest Articles" } },
   { type: "team", label: "Team Section", icon: Users,
     defaultContent: {
       sectionLabel: "WHO WE ARE",
@@ -744,7 +744,7 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {bilingualInput("sectionLabel", "Section Label")}
         {bilingualInput("heading", "Heading")}
-        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{l("This section auto-loads latest No Pain No Shawerma posts from the public API.", "هذا القسم يحمل أحدث منشورات مافيش تعب مافيش شاورما تلقائيًا من الواجهة العامة.")}</p>
+        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{l("This section auto-loads the latest blog posts from the public API.", "يحمّل هذا القسم أحدث مقالات المدونة تلقائيًا من الواجهة العامة.")}</p>
       </div>
     );
 

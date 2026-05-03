@@ -518,12 +518,6 @@ export default function Chat({ supportOnly = false }: { supportOnly?: boolean } 
                           fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                           color: sel ? cv.accent : cv.textPrimary,
                         }}>{ct.role === 'admin' ? 'Fit Way Hub Support' : ct.name}</span>
-                        {ct.is_premium === 1 && (
-                          <span style={{
-                            fontSize: 9, padding: "1px 5px", borderRadius: "var(--radius-full)",
-                            backgroundColor: "rgba(255,214,0,0.15)", color: cv.accent, fontWeight: 700,
-                          }}>PRO</span>
-                        )}
                       </div>
                       <p style={{
                         fontSize: 11.5, color: cv.textMuted, marginTop: 2,

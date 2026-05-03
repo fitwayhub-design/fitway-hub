@@ -2,7 +2,7 @@ import { Outlet, Link, NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Settings, Activity,
   Gift, DollarSign, Video, Megaphone, UserCheck, Globe, MessageCircle, FileText,
-  ClipboardList, Wallet, Mail, Bell, ShieldCheck, Flag, Image as ImageIcon,
+  ClipboardList, Wallet, Bell, ShieldCheck, Flag, Image as ImageIcon,
 } from "lucide-react";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useI18n } from "@/context/I18nContext";
@@ -21,12 +21,11 @@ const navItems: NavItem[] = [
   { path: "/admin/ad-settings", icon: Settings,        label: "Ads Settings" },
   { path: "/admin/chat",      icon: MessageCircle,   label: "Chat" },
   { path: "/admin/gifts",     icon: Gift,            label: "Gifts" },
-  { path: "/admin/blogs",          icon: FileText,        label: "No Pain No Shawerma" },
+  { path: "/admin/blogs",          icon: FileText,        label: "Our Blog" },
   { path: "/admin/website",        icon: Globe,           label: "Website" },
   { path: "/admin/app-images",     icon: ImageIcon,       label: "App Images" },
   { path: "/admin/subscriptions",  icon: ClipboardList,   label: "Subscriptions" },
   { path: "/admin/withdrawals",    icon: Wallet,          label: "Withdrawals" },
-  { path: "/admin/email",          icon: Mail,            label: "Email Server" },
   { path: "/admin/notifications",  icon: Bell,            label: "Notifications" },
   { path: "/admin/settings",       icon: Settings,        label: "Settings" },
 ];
@@ -47,7 +46,6 @@ const moreItems: NavItem[] = [
   { path: "/admin/website",        icon: Globe,         label: "Website" },
   { path: "/admin/subscriptions",  icon: ClipboardList, label: "Subscriptions" },
   { path: "/admin/withdrawals",    icon: Wallet,        label: "Withdrawals" },
-  { path: "/admin/email",          icon: Mail,          label: "Email Server" },
   { path: "/admin/notifications",  icon: Bell,          label: "Notifications" },
 ];
 
@@ -69,12 +67,11 @@ export function AdminLayout() {
     { path: "/admin/ads",       icon: Megaphone,       label: t("ads_manager") },
     { path: "/admin/chat",      icon: MessageCircle,   label: t("chat") },
     { path: "/admin/gifts",     icon: Gift,            label: t("gifts") },
-    { path: "/admin/blogs",          icon: FileText,        label: "No Pain No Shawerma" },
+    { path: "/admin/blogs",          icon: FileText,        label: "Our Blog" },
     { path: "/admin/website",        icon: Globe,           label: t("website") },
     { path: "/admin/app-images",     icon: ImageIcon,       label: t("app_images") || "App Images" },
     { path: "/admin/subscriptions",  icon: ClipboardList,   label: t("subscriptions") || "Subscriptions" },
     { path: "/admin/withdrawals",    icon: Wallet,          label: t("withdrawals") || "Withdrawals" },
-    { path: "/admin/email",          icon: Mail,            label: t("email_server") },
     { path: "/admin/notifications",  icon: Bell,            label: t("notifications") },
     { path: "/admin/settings",       icon: Settings,        label: t("settings") },
   ];
@@ -93,12 +90,11 @@ export function AdminLayout() {
     { path: "/admin/coach-reports", icon: Flag,      label: t("coach_reports") },
     { path: "/admin/chat",           icon: MessageCircle,  label: t("chat") },
     { path: "/admin/gifts",          icon: Gift,           label: t("gifts") },
-    { path: "/admin/blogs",          icon: FileText,       label: "No Pain No Shawerma" },
+    { path: "/admin/blogs",          icon: FileText,       label: "Our Blog" },
     { path: "/admin/website",        icon: Globe,          label: t("website") },
     { path: "/admin/app-images",     icon: ImageIcon,      label: t("app_images") || "App Images" },
     { path: "/admin/subscriptions",  icon: ClipboardList,  label: t("subscriptions") || "Subscriptions" },
     { path: "/admin/withdrawals",    icon: Wallet,         label: t("withdrawals") || "Withdrawals" },
-    { path: "/admin/email",          icon: Mail,           label: t("email_server") },
     { path: "/admin/notifications",  icon: Bell,           label: t("notifications") },
   ];
   const currentPageLabel = translatedNavItems.find((item) => item.path === location.pathname)?.label || t("dashboard");

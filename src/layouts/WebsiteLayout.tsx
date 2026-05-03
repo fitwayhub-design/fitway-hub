@@ -436,12 +436,6 @@ export function WebsiteLayout() {
         transition: "background-color 0.2s",
       }}>
         <div style={{ maxWidth: 1400, margin: "0 auto", padding: "80px 32px 40px" }}>
-          {/* Top section meta */}
-          <div className="fwh-section-meta" style={{ marginBottom: 32 }}>
-            <span>{lang === "ar" ? "تذييل · ٢٠٢٦" : "FOOTER · V.2026"}</span>
-            <span>{lang === "ar" ? "كل النظام يعمل" : "ALL SYSTEMS GO"}</span>
-          </div>
-
           {/* Top row — brand + socials */}
           <div style={{
             display: "flex", justifyContent: "space-between", alignItems: "flex-start",
@@ -540,16 +534,11 @@ export function WebsiteLayout() {
             </div>
           </div>
 
-          {/* Huge wordmark */}
-          <div className="fwh-foot-mark" style={{ marginTop: 64, marginBottom: 32 }}>
-            {(branding.app_name || "FitWay Hub")}<span className="fwh-foot-mark-yellow">.</span>
-          </div>
-
           {/* Bottom bar */}
           <div style={{
-            marginTop: 24, paddingTop: 24,
+            marginTop: 48, paddingTop: 24,
             borderTop: "1px solid var(--border)",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
+            display: "flex", alignItems: "center", justifyContent: "center",
             flexWrap: "wrap", gap: 12,
           }}>
             <p style={{
@@ -557,22 +546,10 @@ export function WebsiteLayout() {
               fontFamily: "var(--font-mono, ui-monospace, monospace)",
               letterSpacing: "0.16em",
               textTransform: "uppercase",
+              textAlign: "center",
             }}>
               {branding.copyright_text || `© ${new Date().getFullYear()} ${t("fitway_hub")} — ${t("all_rights_reserved")}`}
             </p>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <div style={{
-                width: 6, height: 6, borderRadius: "50%",
-                background: "var(--green)",
-                boxShadow: "0 0 8px var(--green)",
-                animation: "pulse-dot 2s infinite",
-              }} />
-              <span style={{
-                fontSize: 11, color: "var(--text-muted)", fontWeight: 500,
-                fontFamily: "var(--font-mono, ui-monospace, monospace)",
-                letterSpacing: "0.16em", textTransform: "uppercase",
-              }}>{lang === "ar" ? "كل النظام يعمل" : "All systems operational"}</span>
-            </div>
           </div>
         </div>
       </footer>

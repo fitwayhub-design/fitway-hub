@@ -10,27 +10,16 @@ const API = getApiBase();
 type Slot = { slug: string; label: string; hint?: string; category: string };
 
 const PRESET_SLOTS: Slot[] = [
-  // Onboarding
-  { slug: "onboarding_step_1", label: "Onboarding — Step 1", hint: "Welcome / hero illustration", category: "onboarding" },
-  { slug: "onboarding_step_2", label: "Onboarding — Step 2", hint: "Goals / preferences", category: "onboarding" },
-  { slug: "onboarding_step_3", label: "Onboarding — Step 3", hint: "Coaches / community", category: "onboarding" },
-  { slug: "onboarding_step_4", label: "Onboarding — Step 4", hint: "Ready-to-go final screen", category: "onboarding" },
-
-  // Features (Why Fitway phone mockups) — 4 features shown on homepage
-  { slug: "feature_workouts_phone",  label: "Feature — Workouts",          hint: "Phone screenshot of the workouts tab",      category: "features" },
-  { slug: "feature_coaches_phone",   label: "Feature — Certified Coaches", hint: "Coach discovery / connect screen",          category: "features" },
-  { slug: "feature_progress_phone",  label: "Feature — Smart Analytics",   hint: "Progress / analytics dashboard screen",     category: "features" },
-  { slug: "feature_community_phone", label: "Feature — Community",         hint: "Community & challenges feed screen",        category: "features" },
-
-  // Branding
-  { slug: "loading_brand", label: "Brand — Loader Mark", hint: "Used if favicon is not ideal for the loader", category: "branding" },
+  // Onboarding (full-screen backgrounds for each step)
+  { slug: "onboarding_step_1", label: "Onboarding — Step 1", hint: "Full background for step 1", category: "onboarding" },
+  { slug: "onboarding_step_2", label: "Onboarding — Step 2", hint: "Full background for step 2", category: "onboarding" },
+  { slug: "onboarding_step_3", label: "Onboarding — Step 3", hint: "Full background for step 3", category: "onboarding" },
+  { slug: "onboarding_step_4", label: "Onboarding — Step 4", hint: "Full background for step 4", category: "onboarding" },
 ];
 
 const CATEGORY_META: Record<string, { label: string; color: string; desc: string }> = {
-  onboarding: { label: "Onboarding",     color: "#FFD600", desc: "Images shown on the onboarding steps (replace default Lucide icons)" },
-  features:   { label: "Why Fitway",     color: "#7C6EFA", desc: "Phone mockups for the scroll-flip 'Everything you need' section" },
-  branding:   { label: "Branding",       color: "#10b981", desc: "Logos & marks used across the app" },
-  custom:     { label: "Custom Slots",   color: "#8b5cf6", desc: "Additional slots created by admins" },
+  onboarding: { label: "Onboarding", color: "#FFD600", desc: "Full-screen background images shown behind each onboarding step" },
+  custom:     { label: "Custom Slots", color: "#8b5cf6", desc: "Additional slots created by admins" },
 };
 
 export default function AppImagesManager() {

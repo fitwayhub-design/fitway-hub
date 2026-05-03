@@ -7,7 +7,6 @@ import { ArrowRight, ArrowLeft, Check, Activity } from "lucide-react";
 import { getApiBase } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import AppImage from "@/components/ui/AppImage";
 import { useAppImage } from "@/context/AppImagesContext";
 
 const goalSchema = z.object({ goal: z.enum(["lose_weight", "maintain_weight", "gain_weight", "build_muscle"]) });
@@ -112,9 +111,36 @@ export default function Onboarding() {
 
   const inputStyle: CSSProperties = { backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px", width: "100%", fontSize: 14, color: "var(--text-primary)", fontFamily: "var(--font-en)", outline: "none" };
 
+  const stepBg = useAppImage(`onboarding_step_${step}`)?.url;
+
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: "100%", maxWidth: 480, backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", overflow: "hidden" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        position: "relative",
+        backgroundColor: "var(--bg-primary)",
+        backgroundImage: stepBg ? `url(${stepBg})` : "none",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+      }}
+    >
+      {stepBg && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.65) 100%)",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+      <div style={{ position: "relative", width: "100%", maxWidth: 480, backgroundColor: "color-mix(in srgb, var(--bg-surface) 92%, transparent)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", overflow: "hidden", backdropFilter: "blur(6px)" }}>
         {/* Progress bar */}
         <div style={{ height: 3, backgroundColor: "var(--border)" }}>
           <div style={{ height: "100%", width: `${(step / totalSteps) * 100}%`, backgroundColor: "var(--accent)", transition: "width 0.4s ease", boxShadow: "0 0 8px var(--accent-glow)" }} />
@@ -131,9 +157,6 @@ export default function Onboarding() {
             </div>
             <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", letterSpacing: "0.08em" }}>{t("step_n").replace("{n}", String(step)).replace("{total}", String(totalSteps))}</span>
           </div>
-
-          {/* Step illustration (admin-uploaded; falls back to nothing if not configured) */}
-          <StepIllustration step={step} />
 
           <h2 style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700, marginBottom: 24 }}>{step === 1 ? t("main_goal") : step === 2 ? t("tell_about") : step === 3 ? t("activity_health") : t("set_targets")}</h2>
 
@@ -304,18 +327,3 @@ export default function Onboarding() {
   );
 }
 
-/** Renders the per-step admin-uploaded illustration. Returns null gracefully when not configured. */
-function StepIllustration({ step }: { step: number }) {
-  const slug = `onboarding_step_${step}`;
-  const img = useAppImage(slug);
-  if (!img?.url) return null;
-  return (
-    <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
-      <AppImage
-        slug={slug}
-        style={{ maxWidth: "100%", maxHeight: 180, objectFit: "contain" }}
-        loading="eager"
-      />
-    </div>
-  );
-}

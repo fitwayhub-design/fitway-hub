@@ -219,25 +219,32 @@ export default function Dashboard() {
 
       {/* ═══════ SPONSORED ADS ═════════════════════════ */}
       {vis("dash_ads_visible") && ads.length > 0 && (
-        <div className="dash-ads-section" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="dash-ads-section">
           {ads.map((ad: any) => (
             <div key={ad.id} className="dash-ad-card">
-              <div className="dash-ad-icon">
-                {ad.image_url ? <img src={ad.image_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} /> : <Star size={18} color="var(--accent)" />}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>{ad.title}</p>
-                <p style={{ fontSize: 11, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ad.description}</p>
-              </div>
-              {ad.objective === "direct_call" && ad.contact_phone ? (
-                <a href={`tel:${(ad.contact_phone || '').replace(/\s/g, '')}`}
-                  onClick={() => fetch(getApiBase() + `/api/coach/ads/${ad.id}/click`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(() => {})}
-                  className="dash-ad-cta">
-                  <Phone size={13} /> Call
-                </a>
-              ) : (
-                <span className="dash-ad-badge">Sponsored</span>
+              {ad.image_url && (
+                <div className="dash-ad-hero">
+                  <img src={ad.image_url} alt="" />
+                  <span className="dash-ad-badge dash-ad-badge--overlay">Sponsored</span>
+                </div>
               )}
+              <div className="dash-ad-body">
+                <div className="dash-ad-text">
+                  <p className="dash-ad-title">{ad.title}</p>
+                  {ad.description && <p className="dash-ad-desc">{ad.description}</p>}
+                </div>
+                {ad.objective === "direct_call" && ad.contact_phone ? (
+                  <a
+                    href={`tel:${(ad.contact_phone || '').replace(/\s/g, '')}`}
+                    onClick={() => fetch(getApiBase() + `/api/coach/ads/${ad.id}/click`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(() => {})}
+                    className="dash-ad-cta"
+                  >
+                    <Phone size={14} /> Call
+                  </a>
+                ) : !ad.image_url ? (
+                  <span className="dash-ad-badge">Sponsored</span>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>

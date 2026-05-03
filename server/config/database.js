@@ -1040,11 +1040,13 @@ export async function seedDefaultAppSettings() {
         ['font_en', 'Plus Jakarta Sans', 'font', 'branding', 'English Font'],
         ['font_ar', 'Cairo', 'font', 'branding', 'Arabic Font'],
         ['font_heading', 'Plus Jakarta Sans', 'font', 'branding', 'Heading Font'],
-        ['free_user_can_access_coaching', '1', 'boolean', 'access', 'Free Users Can Browse Coaches'],
+        ['coming_soon_enabled', '0', 'boolean', 'branding', 'Coming Soon Mode'],
+        ['coming_soon_bg_image', '', 'image', 'branding', 'Coming Soon Background'],
         ['max_video_upload_size_mb', '40', 'number', 'access', 'Max Video Upload Size (MB)'],
         ['free_user_max_videos', '3', 'number', 'access', 'Free Videos Limit'],
         ['coach_membership_fee_egp', '500', 'number', 'pricing', 'Coach Monthly Fee (EGP)'],
         ['coach_membership_fee_usd', '29.99', 'number', 'pricing', 'Coach Monthly Fee (USD, IAP)'],
+        ['coach_membership_cycle', 'monthly', 'text', 'pricing', 'Coach Membership Cycle'],
         ['user_premium_fee_usd', '9.99', 'number', 'pricing', 'User Premium Monthly (USD, IAP)'],
         ['registration_points_gift', '200', 'number', 'points', 'Registration Bonus Points'],
         ['video_watch_points', '2', 'number', 'points', 'Points per Video Watch'],
@@ -1301,6 +1303,28 @@ export async function initDatabase() {
     // Auto-renew migration
     try {
         await run('ALTER TABLE coach_subscriptions ADD COLUMN auto_renew TINYINT(1) DEFAULT 1');
+    }
+    catch { }
+    // Cleanup: remove deprecated settings
+    try {
+        await run("DELETE FROM app_settings WHERE setting_key = 'free_user_can_access_coaching'");
+    }
+    catch { }
+    // Force monthly cycle + monthly label for existing coach fee rows
+    try {
+        await run("UPDATE app_settings SET setting_value = 'monthly' WHERE setting_key = 'coach_membership_cycle'");
+        await run("UPDATE app_settings SET label = 'Coach Monthly Fee (EGP)' WHERE setting_key = 'coach_membership_fee_egp'");
+        await run("UPDATE app_settings SET label = 'Coach Monthly Fee (USD, IAP)' WHERE setting_key = 'coach_membership_fee_usd'");
+    }
+    catch { }
+    // Seed default welcome push messages so new athletes/coaches get a push on registration
+    try {
+        await getPool().execute(
+            `INSERT IGNORE INTO welcome_messages (target, channel, subject, title, body, enabled) VALUES
+        ('user', 'push', '', 'Welcome to {{app_name}}, {{first_name}}! 💪', 'Your fitness journey starts now. Tap to set up your profile and crush your first workout.', 1),
+        ('coach', 'push', '', 'Welcome Coach {{first_name}}! 🏆', 'Athletes are waiting. Complete your profile and start coaching today.', 1)`,
+            []
+        );
     }
     catch { }
     console.log('🎉 Database fully initialised');

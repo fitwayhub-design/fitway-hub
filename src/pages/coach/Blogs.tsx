@@ -6,7 +6,7 @@ export default function CoachBlogs() {
   return (
     <BlogExperience
       mode="coach"
-      heading={lang === "ar" ? "مافيش تعب مافيش شاورما" : "No Pain No Shawerma"}
+      heading={lang === "ar" ? "مدونتنا" : "Our Blog"}
       subheading="Write, upload media, and publish expert stories for your athletes and the public."
       allowWriting
     />

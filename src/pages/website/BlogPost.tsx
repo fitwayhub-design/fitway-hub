@@ -85,7 +85,7 @@ export default function BlogPost() {
         padding: "120px 40px 40px"
       }}>
         <h2 style={{ color: "var(--text-primary)" }}>
-          {lang === "ar" ? "مقال مافيش تعب مافيش شاورما غير موجود" : "No Pain No Shawerma Article Not Found"}
+          {lang === "ar" ? "المقال غير موجود" : "Article Not Found"}
         </h2>
         <p style={{ color: "var(--text-secondary)" }}>
           {error || (lang === "ar" ? "هذا المقال غير متاح حالياً." : "This article is not available right now.")}
@@ -107,7 +107,7 @@ export default function BlogPost() {
           }}
         >
           <ArrowLeft size={18} />
-          {lang === "ar" ? "العودة إلى مافيش تعب مافيش شاورما" : "Back to No Pain No Shawerma"}
+          {lang === "ar" ? "العودة إلى المدونة" : "Back to Our Blog"}
         </Link>
       </div>
     );

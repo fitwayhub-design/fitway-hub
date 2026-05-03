@@ -32,7 +32,7 @@ const TOP_NAV = [
   { path: "/app/tools",      icon: Wrench,        label: "Tools" },
   { path: "/app/analytics",  icon: BarChart2,     label: "Analytics" },
   { path: "/app/plans",          icon: CreditCard,    label: "Plans" },
-  { path: "/app/blogs",          icon: BookOpen,       label: "No Pain No Shawerma" },
+  { path: "/app/blogs",          icon: BookOpen,       label: "Our Blog" },
   { path: "/app/notifications",  icon: Bell,           label: "Notifications" },
 ];
 

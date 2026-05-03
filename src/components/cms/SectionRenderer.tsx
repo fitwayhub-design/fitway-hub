@@ -488,8 +488,8 @@ export function LatestBlogsSection({ c, lang }: { c?: any; lang: RenderLang }) {
       .finally(() => setLoading(false));
   }, [lang]);
 
-  const sectionLabel = c ? pickText(c, "sectionLabel", lang) : (lang === "ar" ? "من مافيش تعب مافيش شاورما" : "FROM NO PAIN NO SHAWERMA");
-  const heading = c ? pickText(c, "heading", lang) : (lang === "ar" ? "أحدث مقالات مافيش تعب مافيش شاورما" : "Latest No Pain No Shawerma Articles");
+  const sectionLabel = c ? pickText(c, "sectionLabel", lang) : (lang === "ar" ? "مدونتنا" : "OUR BLOG");
+  const heading = c ? pickText(c, "heading", lang) : (lang === "ar" ? "أحدث المقالات" : "Latest Articles");
 
   // Skeleton placeholders shown while loading
   if (loading) {

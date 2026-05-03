@@ -6,7 +6,7 @@ export default function AdminBlogs() {
   return (
     <BlogExperience
       mode="admin"
-      heading={lang === "ar" ? "مافيش تعب مافيش شاورما" : "No Pain No Shawerma"}
+      heading={lang === "ar" ? "مدونتنا" : "Our Blog"}
       subheading="Manage platform articles, publish announcements, and curate long-form content."
       allowWriting
     />

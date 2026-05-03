@@ -268,7 +268,7 @@ export default function Community() {
     cursor: "pointer", transition: "all 0.2s",
     backgroundColor: active ? _color : "var(--bg-surface)",
     color: active ? "#000000" : "var(--text-secondary)",
-    fontFamily: active ? "'Gotham', sans-serif" : "'Gotham', sans-serif",
+    fontFamily: "var(--font-en)",
   });
 
   /* ──────────────────────────── RENDER ──────────────────────────── */
@@ -293,7 +293,7 @@ export default function Community() {
                 cursor: "pointer", transition: "all 0.2s",
                 backgroundColor: activeTab === tab ? "var(--accent)" : "transparent",
                 color: activeTab === tab ? "#000000" : "var(--text-secondary)",
-                fontFamily: activeTab === tab ? "'Gotham', sans-serif" : "inherit",
+                fontFamily: "var(--font-en)",
               }}>
                 {tab === "feed" ? "Feed" : "Challenges"}
               </button>

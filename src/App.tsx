@@ -97,6 +97,7 @@ const WebsiteLayout = lazy(() => import("@/layouts/WebsiteLayout").then((m) => (
 
 const CmsPage = lazy(() => import("@/pages/website/CmsPage"));
 const HomePage = lazy(() => import("@/pages/website/Home"));
+const ComingSoonPage = lazy(() => import("@/pages/website/ComingSoon"));
 const AboutPage = lazy(() => import("@/pages/website/About"));
 const WebsiteBlogs = lazy(() => import("@/pages/website/Blogs"));
 const WebsiteBlogPost = lazy(() => import("@/pages/website/BlogPost"));
@@ -134,7 +135,6 @@ const WorkoutPlan = lazy(() => import("@/pages/app/WorkoutPlan"));
 const NutritionPlan = lazy(() => import("@/pages/app/NutritionPlan"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const AdminBlogs = lazy(() => import("@/pages/admin/Blogs"));
-const AdminEmailServer = lazy(() => import("@/pages/admin/EmailServer"));
 const AdminNotifications = lazy(() => import("@/pages/admin/Notifications"));
 const AdminAdSettings = lazy(() => import("@/pages/admin/AdSettings"));
 const AdminSettings = lazy(() => import("@/pages/admin/Settings"));
@@ -194,11 +194,29 @@ function PushBanner() {
 
 function SmartRedirect() {
   const { user, isReady } = useAuth();
+  const { branding } = useBranding();
   if (!isReady) return null;
-  if (!user) return <HomePage />;
+  if (!user) {
+    const csOn = String(branding.coming_soon_enabled || "0") === "1";
+    // Lazy-import the bypass helper to avoid pulling ComingSoon into the main bundle.
+    let bypassed = false;
+    try { bypassed = localStorage.getItem("fitway_cs_bypass") === "1"; } catch {}
+    if (csOn && !bypassed) return <ComingSoonPage />;
+    return <HomePage />;
+  }
   if (user.role === "admin") return <Navigate to="/admin/dashboard" replace />;
   if (user.role === "coach") return <Navigate to="/coach/dashboard" replace />;
   return <Navigate to="/app/dashboard" replace />;
+}
+
+/** Wraps a public website page so it shows the Coming Soon screen when enabled. */
+function PublicGate({ children }: { children: ReactNode }) {
+  const { branding } = useBranding();
+  const csOn = String(branding.coming_soon_enabled || "0") === "1";
+  let bypassed = false;
+  try { bypassed = localStorage.getItem("fitway_cs_bypass") === "1"; } catch {}
+  if (csOn && !bypassed) return <ComingSoonPage />;
+  return <>{children}</>;
 }
 
 function NativeUrlHandler() {
@@ -279,10 +297,10 @@ export default function App() {
               {/* Public Website Routes */}
               <Route element={<WebsiteLayout />}>
                 <Route path="/" element={<SmartRedirect />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/contact" element={<CmsPage page="contact" />} />
-                <Route path="/blogs" element={<WebsiteBlogs />} />
-                <Route path="/blogs/:slug" element={<WebsiteBlogPost />} />
+                <Route path="/about" element={<PublicGate><AboutPage /></PublicGate>} />
+                <Route path="/contact" element={<PublicGate><CmsPage page="contact" /></PublicGate>} />
+                <Route path="/blogs" element={<PublicGate><WebsiteBlogs /></PublicGate>} />
+                <Route path="/blogs/:slug" element={<PublicGate><WebsiteBlogPost /></PublicGate>} />
               </Route>
 
               {/* Auth Routes */}
@@ -368,7 +386,6 @@ export default function App() {
                 <Route path="/admin/subscriptions" element={<AdminDashboard />} />
                 <Route path="/admin/withdrawals" element={<AdminDashboard />} />
                 <Route path="/admin/blogs" element={<AdminBlogs />} />
-                <Route path="/admin/email" element={<AdminEmailServer />} />
                 <Route path="/admin/notifications" element={<AdminNotifications />} />
                 <Route path="/admin/certifications" element={<AdminCertifications />} />
                 <Route path="/admin/coach-reports" element={<AdminCoachReports />} />
