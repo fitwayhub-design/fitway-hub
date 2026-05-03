@@ -1,0 +1,30 @@
+
+> react-example@0.0.0 dev
+> tsx server.ts
+
+[dotenv@17.3.1] injecting env (48) from .env -- tip: 🤖 agentic secret storage: https://dotenvx.com/as2
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛡️ auth for agents: https://vestauth.com
+✅ Database "fitwayhub" ensured
+✅ All MySQL tables ready
+✅ Standard push templates seeded (30)
+✅ Default website sections seeded
+⚙️  Running ads system migration (004)…
+✅ Ads system migration complete
+🎉 Database fully initialised
+⚠️  SMTP port 2525 already in use — skipping SMTP server
+✅ Serving built frontend from dist/
+node:events:497
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:3000
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+ [0mGET /api/ping [32m200[0m 5.151 ms - 54[0m
+[0mPOST /api/auth/login [32m200[0m 134.485 ms - 584[0m
+[0mGET /api/admin/app-settings [32m200[0m 141.476 ms - 27741[0m
