@@ -1,0 +1,775 @@
+import type React from "react";
+import { Link } from "react-router-dom";
+import DOMPurify from "dompurify";
+import { ArrowRight, CheckCircle2, Target, Eye, Shield, Globe, Users, BookOpen, Heart, Dumbbell, Brain, BarChart, Zap, Star, Award, Activity, HelpCircle, ChevronDown, ChevronUp, Mail, MessageCircle, Phone, Send, Smartphone, Calendar, User, Linkedin, Twitter, Instagram } from "lucide-react";
+import { useState, useEffect, type CSSProperties } from "react";
+import { CalorieCalculator } from "@/components/website/CalorieCalculator";
+import { useI18n } from "@/context/I18nContext";
+import { getApiBase } from "@/lib/api";
+import { resolveMediaUrl, type BlogPost } from "@/lib/blogs";
+
+const ICONS: Record<string, any> = { Target, Eye, Shield, Globe, Users, BookOpen, Heart, Dumbbell, Brain, BarChart, Zap, Star, Award, Activity, ArrowRight, Smartphone };
+
+type RenderLang = "en" | "ar";
+
+// Translation overrides loaded from DB at runtime
+let _translationOverrides: Record<string, string> | null = null;
+let _overridesLoading = false;
+
+function loadTranslationOverrides() {
+  if (_translationOverrides || _overridesLoading) return;
+  _overridesLoading = true;
+  fetch(getApiBase() + "/api/cms/translations")
+    .then(r => r.json())
+    .then(d => { _translationOverrides = d.translations || {}; })
+    .catch(() => { _translationOverrides = {}; })
+    .finally(() => { _overridesLoading = false; });
+}
+
+const WEBSITE_TEXT_AR: Record<string, string> = {
+  "#1 DIGITAL FITNESS ECOSYSTEM IN EGYPT": "#1 منظومة لياقة رقمية في مصر",
+  "Transform Your Body.": "غيّر جسمك.",
+  "Empower Your Mind.": "قوّي عقلك.",
+  "Join Fitway Hub for accessible, certified, and human-driven fitness programs. Whether you're a beginner or a pro, we have a plan for you.": "انضم لفيت واي هب واستفاد ببرامج لياقة معتمدة، سهلة الوصول، وبلمسة بشرية حقيقية. سواء لسه بادئ أو محترف، عندنا خطة تناسبك.",
+  "Start Free Today": "ابدأ مجانًا النهارده",
+  "Learn More": "اعرف أكتر",
+  "Active Members": "أعضاء نشطين",
+  "Programs": "برامج",
+  "App Rating": "تقييم التطبيق",
+  "Satisfaction": "رضا العملاء",
+  "Why Fitway": "ليه فيت واي",
+  "Everything you need to win": "كل اللي محتاجه عشان تكسب",
+  "Workout Programs": "برامج تمرين",
+  "From beginner bodyweight to advanced powerlifting — certified and structured.": "من تمارين وزن الجسم للمبتدئين لحد الباورليفتنج المتقدم، وكلها بشكل منظم ومعتمد.",
+  "Certified Human Coaches": "كوتشات معتمدين حقيقيين",
+  "Real certified coaches build personalised plans tailored to your body, goals, and schedule.": "كوتشات معتمدين حقيقيين بيبنولك خطط مخصصة حسب جسمك وأهدافك وروتينك.",
+  "Smart Analytics": "تحليلات ذكية",
+  "Track steps, calories, and activity trends with beautiful visual dashboards.": "تابع خطواتك وسعراتك ونشاطك من خلال لوحات واضحة وسهلة.",
+  "Community & Challenges": "المجتمع والتحديات",
+  "Join thousands of members, compete in challenges, and stay accountable.": "انضم لآلاف الأعضاء، وادخل تحديات، وخليك ملتزم أكتر.",
+  "What is Digital Fitness?": "يعني إيه لياقة رقمية؟",
+  "The gym in your pocket.": "الجيم في جيبك.",
+  "Digital fitness bridges physical wellness and technology. We bring certified training plans, nutrition guides, and community support right to your device — anytime, anywhere.": "اللياقة الرقمية بتربط بين الصحة البدنية والتكنولوجيا. بنوصلك خطط تدريب معتمدة، وإرشادات تغذية، ودعم من المجتمع على جهازك في أي وقت ومن أي مكان.",
+  "Access workouts anytime, anywhere": "وصّل للتمارين في أي وقت ومن أي مكان",
+  "Track your progress with smart tools": "تابع تقدمك بأدوات ذكية",
+  "Connect with a supportive community": "اتواصل مع مجتمع بيدعمك",
+  "Get expert advice from certified trainers": "خد نصايح من مدربين معتمدين",
+  "Our mission": "مهمتنا",
+  "JOIN OUR MEMBERS": "انضم لأعضائنا",
+  "Your best shape starts today.": "أفضل نسخة منك تبدأ النهارده.",
+  "Free to join. No credit card required.": "الانضمام مجاني، ومن غير بطاقة بنكية.",
+  "Create Free Account": "اعمل حساب مجاني",
+  "Our Story": "حكايتنا",
+  "About Fitway Hub": "عن فيت واي هب",
+  "Egypt's leading digital fitness ecosystem — bridging physical wellness, digital support, and community empowerment.": "منصة مصر الرائدة في اللياقة الرقمية، بتجمع بين الصحة البدنية، والدعم الرقمي، وتمكين المجتمع.",
+  "Our Mission": "مهمتنا",
+  "To empower individuals in Egypt with accessible, certified, and human-driven digital fitness services that foster healthy lifestyles and strong communities.": "إننا نمكّن الناس في مصر بخدمات لياقة رقمية سهلة، معتمدة، وبروح بشرية، تساعد على حياة صحية ومجتمع أقوى.",
+  "Our Vision": "رؤيتنا",
+  "To become Egypt & GCC's leading digital fitness ecosystem — bridging the gap between physical wellness, digital support, and community empowerment.": "إننا نكون المنظومة الرائدة في مصر والخليج في اللياقة الرقمية، ونقرب المسافة بين الصحة البدنية والدعم الرقمي وتمكين المجتمع.",
+  "What We Stand For": "المبادئ اللي ماشيين بيها",
+  "Core Values": "قيمنا الأساسية",
+  "Authenticity": "الصدق والواقعية",
+  "Real trainers, real support — no AI-generated training.": "مدربين حقيقيين ودعم حقيقي، من غير تدريب متولد آليًا.",
+  "Accessibility": "سهولة الوصول",
+  "Bilingual support and offline programs for all connectivity levels.": "دعم بلغتين وبرامج تشتغل حتى مع الاتصال الضعيف أو بدون نت.",
+  "Community": "المجتمع",
+  "Group challenges, chat groups, and accountability forums.": "تحديات جماعية، وجروبات شات، ومساحات تشجعك تلتزم.",
+  "Knowledge": "المعرفة",
+  "Courses on fitness, nutrition, and holistic wellness.": "محتوى ودورات عن اللياقة والتغذية والصحة بشكل شامل.",
+  "Accountability": "الالتزام والمتابعة",
+  "Follow-ups, milestones, and regular assessment features.": "متابعات مستمرة، ومراحل واضحة، وتقييمات دورية.",
+  "Start Your Journey Today": "ابدأ رحلتك النهارده",
+  "Join thousands transforming their lives with Fitway Hub.": "انضم لآلاف الناس اللي غيّروا حياتهم مع فيت واي هب.",
+  "Sign Up Free": "سجّل مجانًا",
+  "Support": "الدعم",
+  "Get in Touch": "تواصل معانا",
+  "Have questions? We're here to help — reach out or check our FAQs.": "عندك أسئلة؟ إحنا هنا نساعدك، تواصل معانا أو شوف الأسئلة الشائعة.",
+  "Is the app available in Arabic?": "هل التطبيق متاح بالعربي؟",
+  "Yes! Fitway Hub is entirely bilingual, offering full support in both Arabic and English.": "أيوه، فيت واي هب بيدعم العربي والإنجليزي بالكامل.",
+  "Do I need gym equipment?": "هل لازم أكون عندي معدات جيم؟",
+  "Not necessarily. We offer programs for gym, home (with equipment), and home (bodyweight only).": "مش شرط. عندنا برامج للجيم، وللبيت بمعدات، وللبيت بوزن الجسم بس.",
+  "Are the trainers certified?": "هل المدربين معتمدين؟",
+  "Absolutely. All our trainers are certified professionals — no AI bots.": "أكيد. كل مدربينا محترفين ومعتمدين، ومفيش بديل وهمي.",
+  "Can I cancel my subscription?": "أقدر ألغي الاشتراك؟",
+  "Yes, you can cancel at any time from your account settings with no hassle.": "أيوه، تقدر تلغي في أي وقت من إعدادات حسابك بسهولة.",
+  "Hero Section": "قسم البطل",
+  "Stats Bar": "شريط الإحصائيات",
+  "Features Grid": "شبكة المميزات",
+  "Digital Fitness Explainer": "شرح اللياقة الرقمية",
+  "Bottom CTA": "دعوة الإجراء السفلية",
+  "About Hero": "مقدمة عنّا",
+  "Mission & Vision": "المهمة والرؤية",
+  "About CTA": "دعوة الإجراء لصفحة عنّا",
+  "Contact Hero": "مقدمة التواصل",
+  "Contact Details": "تفاصيل التواصل",
+};
+
+function localizeWebsiteText(text: string, lang: RenderLang): string {
+  if (lang !== "ar") return text;
+  // DB overrides take priority over hardcoded defaults
+  if (_translationOverrides?.[text]) return _translationOverrides[text];
+  return WEBSITE_TEXT_AR[text] || text;
+}
+
+function pickText(obj: any, field: string, lang: RenderLang): string {
+  const en = obj?.[field];
+  const ar = obj?.[`${field}_ar`];
+  if (lang === "ar") return localizeWebsiteText((ar || en || "") as string, lang);
+  return (en || ar || "") as string;
+}
+
+function pickList(obj: any, field: string, lang: RenderLang): string[] {
+  const en = obj?.[field];
+  const ar = obj?.[`${field}_ar`];
+  if (lang === "ar") {
+    if (Array.isArray(ar) && ar.length > 0) return ar.map((item) => localizeWebsiteText(String(item), lang));
+    return Array.isArray(en) ? en.map((item) => localizeWebsiteText(String(item), lang)) : [];
+  }
+  if (Array.isArray(en) && en.length > 0) return en;
+  return Array.isArray(ar) ? ar : [];
+}
+
+function Btn({ text, link, accent }: { text: string; link: string; accent?: boolean }) {
+  return (
+    <Link to={link} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: "var(--radius-full)", backgroundColor: accent ? "var(--accent)" : "transparent", color: accent ? "#000000" : "var(--text-primary)", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 15, textDecoration: "none", border: accent ? "none" : "1px solid var(--border-light)", letterSpacing: "0.02em" }}>
+      {text} {accent && <ArrowRight size={17} />}
+    </Link>
+  );
+}
+
+function isFullWidth(content: any) {
+  return String(content?.widthMode || "boxed") === "full";
+}
+
+// ── Section: Hero ─────────────────────────────────────────────────────────────
+function HeroSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const badge = pickText(c, "badge", lang);
+  const heading = pickText(c, "heading", lang);
+  const headingAccent = pickText(c, "headingAccent", lang);
+  const subheading = pickText(c, "subheading", lang);
+  const primaryBtnText = pickText(c, "primaryBtnText", lang);
+  const secondaryBtnText = pickText(c, "secondaryBtnText", lang);
+  const fullWidth = isFullWidth(c);
+  return (
+    <section style={{ padding: "80px 24px 100px", textAlign: "center", position: "relative", overflow: "hidden", maxWidth: fullWidth ? "100%" : 1100, margin: fullWidth ? 0 : "0 auto", borderRadius: fullWidth ? 0 : 24 }}>
+      {c.backgroundImage ? (
+        <div style={{ position: "absolute", inset: 0, backgroundImage: `url(${c.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center", opacity: 0.15, zIndex: 0 }} />
+      ) : (
+        <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 500, height: 300, backgroundColor: "var(--accent)", opacity: 0.06, filter: "blur(100px)", borderRadius: "50%", pointerEvents: "none" }} />
+      )}
+      <div style={{ position: "relative", zIndex: 1 }}>
+        {badge && (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent-dim)", border: "1px solid rgba(255,214,0,0.25)", marginBottom: 28 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "var(--accent)", display: "inline-block" }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", letterSpacing: "0.06em" }}>{badge}</span>
+          </div>
+        )}
+        <h1 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(32px, 6vw, 68px)", fontWeight: 700, lineHeight: 1.05, marginBottom: 20, color: "var(--text-primary)" }}>
+          {heading}<br />
+          {headingAccent && <span style={{ color: "var(--accent)" }}>{headingAccent}</span>}
+        </h1>
+        {subheading && <p style={{ fontSize: 17, color: "var(--text-secondary)", maxWidth: 520, margin: "0 auto 36px", lineHeight: 1.7 }}>{subheading}</p>}
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          {primaryBtnText && <Btn text={primaryBtnText} link={c.primaryBtnLink || "/"} accent />}
+          {secondaryBtnText && <Btn text={secondaryBtnText} link={c.secondaryBtnLink || "/"} />}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Stats ────────────────────────────────────────────────────────────
+function StatsSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const items: { value: string; label: string }[] = c.items || [];
+  return (
+    <section style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", backgroundColor: "var(--bg-surface)" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(140px, 1fr))`, gap: 0 }}>
+        {items.map((s, i) => (
+          <div key={i} style={{ textAlign: "center", padding: "16px", borderInlineEnd: i < items.length - 1 ? "1px solid var(--border)" : "none" }}>
+            <p style={{ fontFamily: "var(--font-en)", fontSize: 30, fontWeight: 700, color: "var(--accent)", lineHeight: 1 }}>{s.value}</p>
+            <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>{lang === "ar" ? localizeWebsiteText((s as any).label_ar || s.label || "", lang) : s.label || (s as any).label_ar}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Features Grid ────────────────────────────────────────────────────
+function FeaturesSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const items: { icon?: string; title: string; desc: string; imageUrl?: string }[] = c.items || [];
+  const sectionLabel = pickText(c, "sectionLabel", lang);
+  const heading = pickText(c, "heading", lang);
+  return (
+    <section style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 24px" }}>
+      <div style={{ textAlign: "center", marginBottom: 56 }}>
+        {sectionLabel && <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>{sectionLabel}</p>}
+        {heading && <h2 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 700, color: "var(--text-primary)" }}>{heading}</h2>}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+        {items.map((f, i) => {
+          const Icon = f.icon ? ICONS[f.icon] : null;
+          return (
+            <div key={i} style={{ padding: "24px", backgroundColor: "var(--bg-card)", borderRadius: "var(--radius-full)", transition: "box-shadow 0.2s, transform 0.2s", overflow: "hidden" }}
+              onMouseOver={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 16px rgba(255,214,0,0.12)"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(-3px)"; }}
+              onMouseOut={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)"; }}>
+              {(f as any).imageUrl && (
+                <img src={(f as any).imageUrl} alt={f.title} style={{ width: "100%", borderRadius: "var(--radius-full)", objectFit: "cover", marginBottom: 16, maxHeight: 180 }} />
+              )}
+              {Icon && !((f as any).imageUrl) && (
+                <div style={{ width: 44, height: 44, borderRadius: "var(--radius-full)", backgroundColor: "var(--accent-dim)", border: "1px solid rgba(255,214,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+                  <Icon size={20} color="var(--accent)" />
+                </div>
+              )}
+              <h3 style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700, marginBottom: 8, color: "var(--text-primary)" }}>{lang === "ar" ? localizeWebsiteText((f as any).title_ar || f.title || "", lang) : f.title || (f as any).title_ar}</h3>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65 }}>{lang === "ar" ? localizeWebsiteText((f as any).desc_ar || f.desc || "", lang) : f.desc || (f as any).desc_ar}</p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Text + Image ─────────────────────────────────────────────────────
+function TextImageSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const { t } = useI18n();
+  const isRight = c.imageSide !== "left";
+  const sectionLabel = pickText(c, "sectionLabel", lang);
+  const heading = pickText(c, "heading", lang);
+  const text = pickText(c, "text", lang);
+  const linkText = pickText(c, "linkText", lang);
+  const bullets = pickList(c, "bullets", lang);
+  const textBlock = (
+    <div>
+      {sectionLabel && <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>{sectionLabel}</p>}
+      <h2 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(24px, 3.5vw, 38px)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 16, lineHeight: 1.2 }}>{heading}</h2>
+      {text && <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.75, marginBottom: 24 }}>{text}</p>}
+      {bullets.length > 0 && (
+        <ul style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
+          {bullets.map((b, i) => (
+            <li key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--text-secondary)" }}>
+              <CheckCircle2 size={16} color="var(--accent)" style={{ flexShrink: 0 }} /> {b}
+            </li>
+          ))}
+        </ul>
+      )}
+      {linkText && c.linkUrl && (
+        <Link to={c.linkUrl} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+          {linkText} <ArrowRight size={15} />
+        </Link>
+      )}
+    </div>
+  );
+  const imageBlock = (
+    <div style={{ position: "relative" }}>
+      <div style={{ position: "absolute", inset: -16, backgroundColor: "var(--accent)", opacity: 0.05, borderRadius: "50%", filter: "blur(60px)" }} />
+      {c.imageUrl ? (
+        <img src={c.imageUrl} alt={heading} style={{ width: "100%", borderRadius: "var(--radius-full)", objectFit: "cover", position: "relative", border: "1px solid var(--border)" }} />
+      ) : (
+        <div style={{ width: "100%", aspectRatio: "16/9", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>{t("image")}</div>
+      )}
+    </div>
+  );
+  return (
+    <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" }} className="hero-grid">
+        {isRight ? <>{textBlock}{imageBlock}</> : <>{imageBlock}{textBlock}</>}
+      </div>
+    </section>
+  );
+}
+
+// ── Section: CTA ──────────────────────────────────────────────────────────────
+function CtaSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const badge = pickText(c, "badge", lang);
+  const heading = pickText(c, "heading", lang);
+  const subheading = pickText(c, "subheading", lang);
+  const btnText = pickText(c, "btnText", lang);
+  const fullWidth = isFullWidth(c);
+  return (
+    <section style={{ maxWidth: fullWidth ? "100%" : 1100, margin: fullWidth ? 0 : "0 auto", padding: fullWidth ? "0 0 96px" : "0 24px 96px" }}>
+      <div style={{ padding: "56px 40px", borderRadius: fullWidth ? 0 : "var(--radius-full)", backgroundColor: "var(--bg-surface)", border: fullWidth ? "none" : "1px solid var(--border)", textAlign: "center", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 400, height: 200, backgroundColor: "var(--accent)", opacity: 0.06, filter: "blur(80px)", borderRadius: "50%", pointerEvents: "none" }} />
+        <div style={{ position: "relative", zIndex: 1 }}>
+          {badge && (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 20, padding: "5px 14px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent-dim)", border: "1px solid rgba(255,214,0,0.25)" }}>
+              <Zap size={13} color="var(--accent)" />
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", letterSpacing: "0.06em" }}>{badge}</span>
+            </div>
+          )}
+          {c.iconName && ICONS[c.iconName] && (() => { const I = ICONS[c.iconName]; return <div style={{ width: 52, height: 52, borderRadius: "var(--radius-full)", backgroundColor: "var(--accent-dim)", border: "1px solid rgba(255,214,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}><I size={24} color="var(--accent)" /></div>; })()}
+          <h2 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(24px, 4vw, 44px)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 12, lineHeight: 1.1 }}>{heading}</h2>
+          {subheading && <p style={{ fontSize: 15, color: "var(--text-secondary)", marginBottom: 32 }}>{subheading}</p>}
+          {btnText && c.btnLink && (
+            <Link to={c.btnLink} style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "14px 32px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent)", color: "#000000", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 15, textDecoration: "none", letterSpacing: "0.02em" }}>
+              {btnText} <ArrowRight size={17} />
+            </Link>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Cards ────────────────────────────────────────────────────────────
+function CardsSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const items: { icon?: string; title: string; desc: string; imageUrl?: string; color?: string }[] = c.items || [];
+  const colorsMap: Record<string, string> = { accent: "var(--accent)", blue: "var(--blue)", cyan: "var(--cyan)", amber: "var(--amber)", red: "var(--red)" };
+  const sectionLabel = pickText(c, "sectionLabel", lang);
+  const heading = pickText(c, "heading", lang);
+  return (
+    <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 72px" }}>
+      {(sectionLabel || heading) && (
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          {sectionLabel && <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 10 }}>{sectionLabel}</p>}
+          {heading && <h2 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(22px, 4vw, 36px)", fontWeight: 700 }}>{heading}</h2>}
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, maxWidth: items.length <= 2 ? 720 : undefined, margin: items.length <= 2 ? "0 auto" : undefined }}>
+        {items.map((item, i) => {
+          const Icon = item.icon ? ICONS[item.icon] : null;
+          const color = colorsMap[item.color || ""] || "var(--accent)";
+          const title = lang === "ar" ? localizeWebsiteText((item as any).title_ar || item.title || "", lang) : item.title || (item as any).title_ar;
+          const desc = lang === "ar" ? localizeWebsiteText((item as any).desc_ar || item.desc || "", lang) : item.desc || (item as any).desc_ar;
+          return (
+            <div key={i} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "28px 24px", overflow: "hidden", position: "relative" }}>
+              {item.imageUrl && <img src={item.imageUrl} alt={title} style={{ width: "100%", height: 140, objectFit: "cover", borderRadius: "var(--radius-full)", marginBottom: 16 }} />}
+              {Icon && (
+                <div style={{ width: 46, height: 46, borderRadius: "var(--radius-full)", backgroundColor: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+                  <Icon size={22} color={color} />
+                </div>
+              )}
+              <h3 style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{title}</h3>
+              <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7 }}>{desc}</p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Contact Info ─────────────────────────────────────────────────────
+function ContactInfoSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const faqs: { q: string; a: string }[] = c.faqs || [];
+  const inputStyle: CSSProperties = { backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px", width: "100%", fontSize: 14, color: "var(--text-primary)", fontFamily: "var(--font-en)", outline: "none" };
+  const formTitle = pickText(c, "formTitle", lang) || (lang === "ar" ? "راسلنا" : "Send us a message");
+  const nameLabel = pickText(c, "nameLabel", lang) || (lang === "ar" ? "الاسم" : "Name");
+  const emailLabel = pickText(c, "emailLabel", lang) || (lang === "ar" ? "البريد الإلكتروني" : "Email");
+  const namePlaceholder = pickText(c, "namePlaceholder", lang) || (lang === "ar" ? "اسمك" : "Your name");
+  const emailPlaceholder = pickText(c, "emailPlaceholder", lang) || "you@example.com";
+  const subjectLabel = pickText(c, "subjectLabel", lang) || (lang === "ar" ? "الموضوع" : "Subject");
+  const messageLabel = pickText(c, "messageLabel", lang) || (lang === "ar" ? "الرسالة" : "Message");
+  const messagePlaceholder = pickText(c, "messagePlaceholder", lang) || (lang === "ar" ? "كيف يمكننا مساعدتك؟" : "How can we help you?");
+  const sendBtnText = pickText(c, "sendBtnText", lang) || (lang === "ar" ? "إرسال الرسالة" : "Send Message");
+  const quickContactTitle = pickText(c, "quickContactTitle", lang) || (lang === "ar" ? "تواصل سريع" : "Quick Contact");
+  const liveChatLabel = pickText(c, "liveChatLabel", lang) || (lang === "ar" ? "الدردشة المباشرة" : "Live Chat");
+  const whatsappLabel = pickText(c, "whatsappLabel", lang) || "WhatsApp";
+  const emailContactLabel = pickText(c, "emailContactLabel", lang) || (lang === "ar" ? "البريد" : "Email");
+  const faqTitle = pickText(c, "faqTitle", lang) || "FAQ";
+  const subjectOptions = pickList(c, "subjectOptions", lang);
+  const fallbackSubjects = lang === "ar" ? ["استفسار عام", "الدعم", "شراكة", "ملاحظات"] : ["General Inquiry", "Support", "Partnership", "Feedback"];
+  const subjects = subjectOptions.length > 0 ? subjectOptions : fallbackSubjects;
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, alignItems: "start" }}>
+        {/* Contact Form */}
+        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "28px 24px" }}>
+          <h2 style={{ fontFamily: "var(--font-en)", fontSize: 17, fontWeight: 700, marginBottom: 22 }}>{formTitle}</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {[{ label: nameLabel, placeholder: namePlaceholder, email: false }, { label: emailLabel, placeholder: emailPlaceholder, email: true }].map((field) => (
+                <div key={field.label}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>{field.label}</label>
+                  <input type={field.email ? "email" : "text"} placeholder={field.placeholder} style={inputStyle} />
+                </div>
+              ))}
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>{subjectLabel}</label>
+              <select style={{ ...inputStyle, cursor: "pointer" }}>
+                {subjects.map((subject) => <option key={subject}>{subject}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>{messageLabel}</label>
+              <textarea rows={4} placeholder={messagePlaceholder} style={{ ...inputStyle, resize: "vertical" }} />
+            </div>
+            <button style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent)", color: "#000000", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}>
+              <Send size={15} /> {sendBtnText}
+            </button>
+          </div>
+        </div>
+        {/* Right column */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "22px 20px" }}>
+            <h3 style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, marginBottom: 16 }}>{quickContactTitle}</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[
+                { icon: MessageCircle, label: liveChatLabel, detail: c.chatHours || "9am - 5pm", color: "var(--accent)" },
+                { icon: Phone, label: whatsappLabel, detail: c.phone || "+20 123 456 7890", color: "var(--cyan)" },
+                { icon: Mail, label: emailContactLabel, detail: c.email || "support@fitwayhub.com", color: "var(--blue)" },
+              ].map(ci => (
+                <div key={ci.label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: "var(--radius-full)", backgroundColor: `${ci.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <ci.icon size={17} color={ci.color} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600 }}>{ci.label}</p>
+                    <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 1 }}>{ci.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {faqs.length > 0 && (
+            <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "22px 20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                <HelpCircle size={16} color="var(--accent)" />
+                <h3 style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700 }}>{faqTitle}</h3>
+              </div>
+              {faqs.map((faq, i) => (
+                <div key={i} style={{ borderBottom: i < faqs.length - 1 ? "1px solid var(--border)" : "none" }}>
+                  <button onClick={() => setOpenFaq(openFaq === i ? null : i)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", background: "none", border: "none", cursor: "pointer", textAlign: "start", color: "var(--text-primary)", fontSize: 13, fontWeight: 500 }}>
+                    {lang === "ar" ? localizeWebsiteText((faq as any).q_ar || faq.q || "", lang) : faq.q || (faq as any).q_ar}
+                    {openFaq === i ? <ChevronUp size={15} color="var(--accent)" /> : <ChevronDown size={15} color="var(--text-muted)" />}
+                  </button>
+                  {openFaq === i && <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65 }}>{lang === "ar" ? localizeWebsiteText((faq as any).a_ar || faq.a || "", lang) : faq.a || (faq as any).a_ar}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Section: Custom HTML ──────────────────────────────────────────────────────
+function HtmlSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const html = lang === "ar" ? c.html_ar || c.html || "" : c.html || c.html_ar || "";
+  return (
+    <section style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px" }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }} />
+  );
+}
+
+// ── Section: Calorie Calculator ───────────────────────────────────────────────
+function CalcSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const sectionLabel = pickText(c, "sectionLabel", lang);
+  const heading = pickText(c, "heading", lang);
+  return (
+    <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 80px" }}>
+      <div style={{ textAlign: "center", marginBottom: 40 }}>
+        {sectionLabel && <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>{sectionLabel}</p>}
+        {heading && <h2 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(24px, 3.5vw, 38px)", fontWeight: 700, color: "var(--text-primary)" }}>{heading}</h2>}
+      </div>
+      <CalorieCalculator />
+    </section>
+  );
+}
+
+// ── Section: Latest Blogs ─────────────────────────────────────────────────────
+export function LatestBlogsSection({ c, lang }: { c?: any; lang: RenderLang }) {
+  const { t } = useI18n();
+  const [blogs, setBlogs] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  useEffect(() => { const h = () => setIsMobile(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
+
+  // Re-fetch when language changes so Arabic/English blogs load correctly
+  useEffect(() => {
+    setLoading(true);
+    fetch(`${getApiBase()}/api/blogs/public?limit=4&lang=${lang}`)
+      .then(r => r.json())
+      .then(d => setBlogs((d.posts || []).slice(0, 4)))
+      .catch(() => setBlogs([]))
+      .finally(() => setLoading(false));
+  }, [lang]);
+
+  const sectionLabel = c ? pickText(c, "sectionLabel", lang) : (lang === "ar" ? "من مافيش تعب مافيش شاورما" : "FROM NO PAIN NO SHAWERMA");
+  const heading = c ? pickText(c, "heading", lang) : (lang === "ar" ? "أحدث مقالات مافيش تعب مافيش شاورما" : "Latest No Pain No Shawerma Articles");
+
+  // Skeleton placeholders shown while loading
+  if (loading) {
+    return (
+      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 24px" }}>
+        <div style={{ textAlign: "center", marginBottom: 48 }}>
+          {sectionLabel && <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>{sectionLabel}</p>}
+          {heading && <h2 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 700, color: "var(--text-primary)" }}>{heading}</h2>}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 24 }}>
+          {[1,2,3,4].map(i => (
+            <div key={i} style={{ backgroundColor: "var(--bg-card)", borderRadius: "var(--radius-full)", overflow: "hidden" }}>
+              <div style={{ height: 180, backgroundColor: "var(--bg-surface)", animation: "pulse 1.5s ease-in-out infinite" }} />
+              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ height: 16, borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", width: "80%" }} />
+                <div style={{ height: 12, borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", width: "60%" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  // No posts yet — show a friendly placeholder instead of vanishing
+  if (blogs.length === 0) {
+    return (
+      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 24px", textAlign: "center" }}>
+        <div style={{ marginBottom: 24 }}>
+          {sectionLabel && <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>{sectionLabel}</p>}
+          {heading && <h2 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 700, color: "var(--text-primary)" }}>{heading}</h2>}
+        </div>
+        <div style={{ padding: "48px 24px", backgroundColor: "var(--bg-card)", borderRadius: "var(--radius-full)", display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          <BookOpen size={40} color="var(--text-muted)" />
+          <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
+            {lang === "ar" ? "لا توجد مقالات منشورة بعد." : "No articles published yet."}
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 24px" }}>
+      <div style={{ textAlign: "center", marginBottom: 48 }}>
+        {sectionLabel && <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>{sectionLabel}</p>}
+        {heading && <h2 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 700, color: "var(--text-primary)" }}>{heading}</h2>}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 24 }}>
+        {blogs.map(blog => {
+          const img = resolveMediaUrl(blog.header_image_url);
+          const date = blog.published_at || blog.created_at;
+          const formattedDate = date ? new Date(date).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
+          // Link to the individual blog post, not the listing page
+          const postUrl = `/blogs/${blog.slug}${lang === "ar" ? "?lang=ar" : ""}`;
+          return (
+            <Link
+              key={blog.id}
+              to={postUrl}
+              style={{ backgroundColor: "var(--bg-card)", borderRadius: "var(--radius-full)", overflow: "hidden", textDecoration: "none", display: "flex", flexDirection: "column", transition: "box-shadow 0.2s, transform 0.2s" }}
+              onMouseOver={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(255,214,0,0.12)"; e.currentTarget.style.transform = "translateY(-4px)"; }}
+              onMouseOut={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "translateY(0)"; }}
+            >
+              <div style={{ height: 180, overflow: "hidden", backgroundColor: "var(--bg-surface)", position: "relative" }}>
+                {img ? (
+                  <img src={img} alt={blog.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <BookOpen size={36} color="var(--text-muted)" />
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: "18px 20px", flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+                <h3 style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as any }}>{blog.title}</h3>
+                {blog.excerpt && <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as any, flex: 1 }}>{blog.excerpt}</p>}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {blog.author_avatar ? (
+                      <img src={resolveMediaUrl(blog.author_avatar)} alt={blog.author_name} style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }} />
+                    ) : (
+                      <User size={14} color="var(--text-muted)" />
+                    )}
+                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{blog.author_name || t("fitway_hub")}</span>
+                  </div>
+                  {formattedDate && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <Calendar size={11} color="var(--text-muted)" />
+                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{formattedDate}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+      <div style={{ textAlign: "center", marginTop: 40 }}>
+        <Link to="/blogs" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 28px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent)", color: "#000000", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, textDecoration: "none", letterSpacing: "0.02em" }}>
+          {t("view_all_articles")} <ArrowRight size={16} />
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Team ─────────────────────────────────────────────────────────────
+function TeamSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const sectionLabel = pickText(c, "sectionLabel", lang);
+  const heading = pickText(c, "heading", lang);
+  const subheading = pickText(c, "subheading", lang);
+  const members: { name: string; role: string; bio: string; imageUrl?: string; linkedin?: string; twitter?: string; instagram?: string }[] = c.members || [];
+  const SOCIAL_ICONS: Record<string, any> = { linkedin: Linkedin, twitter: Twitter, instagram: Instagram };
+  return (
+    <section style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 24px" }}>
+      <div style={{ textAlign: "center", marginBottom: 56 }}>
+        {sectionLabel && <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>{sectionLabel}</p>}
+        {heading && <h2 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 700, color: "var(--text-primary)" }}>{heading}</h2>}
+        {subheading && <p style={{ fontSize: 15, color: "var(--text-secondary)", marginTop: 12, maxWidth: 600, margin: "12px auto 0", lineHeight: 1.7 }}>{subheading}</p>}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24 }}>
+        {members.map((m, i) => {
+          const name = lang === "ar" ? ((m as any).name_ar || m.name) : m.name;
+          const role = lang === "ar" ? ((m as any).role_ar || m.role) : m.role;
+          const bio = lang === "ar" ? ((m as any).bio_ar || m.bio) : m.bio;
+          return (
+            <div key={i} style={{ textAlign: "center", padding: 28, backgroundColor: "var(--bg-card)", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", transition: "box-shadow 0.2s, transform 0.2s" }}
+              onMouseOver={e => { e.currentTarget.style.boxShadow = "0 8px 28px rgba(255,214,0,0.1)"; e.currentTarget.style.transform = "translateY(-4px)"; }}
+              onMouseOut={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "translateY(0)"; }}>
+              <div style={{ width: 96, height: 96, borderRadius: "50%", margin: "0 auto 16px", overflow: "hidden", border: "3px solid var(--accent)", backgroundColor: "var(--bg-surface)" }}>
+                {m.imageUrl ? (
+                  <img src={m.imageUrl} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <User size={36} color="var(--text-muted)" />
+                  </div>
+                )}
+              </div>
+              <h3 style={{ fontFamily: "var(--font-en)", fontSize: 17, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>{name}</h3>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", marginBottom: 10 }}>{role}</p>
+              {bio && <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65 }}>{bio}</p>}
+              <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 14 }}>
+                {(["linkedin", "twitter", "instagram"] as const).map(s => {
+                  const url = (m as any)[s];
+                  if (!url) return null;
+                  const Icon = SOCIAL_ICONS[s];
+                  return <a key={s} href={url} target="_blank" rel="noopener noreferrer" style={{ width: 32, height: 32, borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={14} color="var(--text-secondary)" /></a>;
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Carousel ─────────────────────────────────────────────────────────
+function CarouselSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const sectionLabel = pickText(c, "sectionLabel", lang);
+  const heading = pickText(c, "heading", lang);
+  const items: { title: string; desc: string; imageUrl: string }[] = c.items || [];
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    if (items.length <= 1) return;
+    const timer = setInterval(() => setActive(prev => (prev + 1) % items.length), 4000);
+    return () => clearInterval(timer);
+  }, [items.length]);
+
+  if (items.length === 0) return null;
+  const item = items[active];
+  const title = lang === "ar" ? ((item as any).title_ar || item.title) : item.title;
+  const desc = lang === "ar" ? ((item as any).desc_ar || item.desc) : item.desc;
+  const fullWidth = isFullWidth(c);
+
+  return (
+    <section style={{ maxWidth: fullWidth ? "100%" : 1100, margin: fullWidth ? 0 : "0 auto", padding: fullWidth ? "80px 0" : "80px 24px" }}>
+      <div style={{ textAlign: "center", marginBottom: 48 }}>
+        {sectionLabel && <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>{sectionLabel}</p>}
+        {heading && <h2 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 700, color: "var(--text-primary)" }}>{heading}</h2>}
+      </div>
+      <div style={{ position: "relative", borderRadius: fullWidth ? 0 : "var(--radius-full)", overflow: "hidden", aspectRatio: "16/7", backgroundColor: "var(--bg-surface)", border: fullWidth ? "none" : "1px solid var(--border)" }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ position: "absolute", inset: 0, opacity: i === active ? 1 : 0, transition: "opacity 0.8s ease-in-out" }}>
+            {it.imageUrl && <img src={it.imageUrl} alt={it.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 60%)" }} />
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "32px 40px" }}>
+              <h3 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(18px, 3vw, 28px)", fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+                {lang === "ar" ? ((it as any).title_ar || it.title) : it.title}
+              </h3>
+              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.85)", maxWidth: 600, lineHeight: 1.6 }}>
+                {lang === "ar" ? ((it as any).desc_ar || it.desc) : it.desc}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* Dots */}
+      {items.length > 1 && (
+        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 20 }}>
+          {items.map((_, i) => (
+            <button key={i} onClick={() => setActive(i)} style={{ width: i === active ? 28 : 10, height: 10, borderRadius: "var(--radius-full)", border: "none", cursor: "pointer", backgroundColor: i === active ? "var(--accent)" : "var(--border)", transition: "all 0.3s" }} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ── Section: FAQ (standalone) ─────────────────────────────────────────────────
+function FaqSection({ c, lang }: { c: any; lang: RenderLang }) {
+  const sectionLabel = pickText(c, "sectionLabel", lang);
+  const heading = pickText(c, "heading", lang);
+  const subheading = pickText(c, "subheading", lang);
+  const faqs: { q: string; a: string }[] = c.faqs || [];
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+
+  return (
+    <section style={{ maxWidth: 800, margin: "0 auto", padding: "80px 24px" }}>
+      <div style={{ textAlign: "center", marginBottom: 48 }}>
+        {sectionLabel && <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>{sectionLabel}</p>}
+        {heading && <h2 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(24px, 3.5vw, 38px)", fontWeight: 700, color: "var(--text-primary)" }}>{heading}</h2>}
+        {subheading && <p style={{ fontSize: 15, color: "var(--text-secondary)", marginTop: 12, lineHeight: 1.7 }}>{subheading}</p>}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {faqs.map((faq, i) => {
+          const isOpen = openIdx === i;
+          const q = lang === "ar" ? localizeWebsiteText((faq as any).q_ar || faq.q || "", lang) : faq.q;
+          const a = lang === "ar" ? localizeWebsiteText((faq as any).a_ar || faq.a || "", lang) : faq.a;
+          return (
+            <div key={i} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", overflow: "hidden", transition: "box-shadow 0.2s" }}
+              onMouseOver={e => { e.currentTarget.style.boxShadow = "0 2px 12px rgba(255,214,0,0.06)"; }}
+              onMouseOut={e => { e.currentTarget.style.boxShadow = "none"; }}>
+              <button onClick={() => setOpenIdx(isOpen ? null : i)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", background: "none", border: "none", cursor: "pointer", textAlign: "start", color: "var(--text-primary)", fontSize: 15, fontWeight: 600, fontFamily: "var(--font-en)", gap: 12 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <HelpCircle size={18} color={isOpen ? "var(--accent)" : "var(--text-muted)"} style={{ flexShrink: 0 }} />
+                  {q}
+                </span>
+                {isOpen ? <ChevronUp size={18} color="var(--accent)" style={{ flexShrink: 0 }} /> : <ChevronDown size={18} color="var(--text-muted)" style={{ flexShrink: 0 }} />}
+              </button>
+              <div style={{ maxHeight: isOpen ? 300 : 0, overflow: "hidden", transition: "max-height 0.35s ease" }}>
+                <div style={{ padding: "0 22px 20px 52px", fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7 }}>{a}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ── Main Renderer ─────────────────────────────────────────────────────────────
+export interface CmsSection {
+  id: number;
+  type: string;
+  content: any;
+  is_visible: number;
+}
+
+export default function SectionRenderer({ section }: { section: CmsSection }) {
+  const { lang } = useI18n();
+  loadTranslationOverrides();
+  const { type, content: c } = section;
+  let rendered: React.JSX.Element | null = null;
+  switch (type) {
+    case "hero":         rendered = <HeroSection c={c} lang={lang} />; break;
+    case "stats":        rendered = <StatsSection c={c} lang={lang} />; break;
+    case "features":     rendered = <FeaturesSection c={c} lang={lang} />; break;
+    case "text_image":   rendered = <TextImageSection c={c} lang={lang} />; break;
+    case "cta":          rendered = <CtaSection c={c} lang={lang} />; break;
+    case "cards":        rendered = <CardsSection c={c} lang={lang} />; break;
+    case "contact_info": rendered = <ContactInfoSection c={c} lang={lang} />; break;
+    case "calculator":   rendered = <CalcSection c={c} lang={lang} />; break;
+    case "html":         rendered = <HtmlSection c={c} lang={lang} />; break;
+    case "latest_blogs": rendered = <LatestBlogsSection c={c} lang={lang} />; break;
+    case "team":         rendered = <TeamSection c={c} lang={lang} />; break;
+    case "carousel":     rendered = <CarouselSection c={c} lang={lang} />; break;
+    case "faq":          rendered = <FaqSection c={c} lang={lang} />; break;
+    default:              rendered = null;
+  }
+  if (!rendered) return null;
+  return <div data-reveal>{rendered}</div>;
+}

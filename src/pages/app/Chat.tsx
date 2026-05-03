@@ -1,0 +1,944 @@
+import { getApiBase } from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { useState, useEffect, useRef, useMemo } from "react";
+import React from "react";
+import {
+  Search, Send, Paperclip, X, Users, Image as ImageIcon,
+  ArrowLeft, SmilePlus, CheckCheck, Hash, Mic, Square, Play, Pause
+} from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
+
+/* ---------- types ---------- */
+interface UserContact {
+  id: number; name: string; avatar: string; role: string; is_premium: number;
+  online?: boolean;
+}
+interface ChatChallenge {
+  id: number; title: string; description: string; participant_count: number;
+}
+interface Message {
+  id: number; sender_id: number; receiver_id: number | null; challenge_id: number | null;
+  content: string; media_url: string | null; created_at: string;
+  sender_name: string; sender_avatar: string;
+}
+
+/* ---------- helpers ---------- */
+const fmt = (iso: string) => {
+  const d = new Date(iso);
+  const h = d.getHours(); const m = d.getMinutes();
+  const ampm = h >= 12 ? "PM" : "AM";
+  return `${h % 12 || 12}:${m.toString().padStart(2, "0")} ${ampm}`;
+};
+
+const dateSeparator = (iso: string) => {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date(); yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: d.getFullYear() !== today.getFullYear() ? "numeric" : undefined });
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  coach: "#FFD600", admin: "#FF6B6B", user: "#6CB4EE",
+};
+
+const avatarFallback = (name: string) => {
+  const parts = name.split(" ");
+  return parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2);
+};
+
+const isAudioUrl = (url: string) => /\.(webm|ogg|mp3|wav|m4a|aac|opus)$/i.test(url) || url.includes('voice-');
+
+/* Keyframes injected once */
+const STYLE_ID = "chat-keyframes";
+if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
+  const style = document.createElement("style");
+  style.id = STYLE_ID;
+  style.textContent = `
+    @keyframes chatSlideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  `;
+  document.head.appendChild(style);
+}
+
+/* ========================================================= */
+export default function Chat({ supportOnly = false }: { supportOnly?: boolean } = {}) {
+  const { user, token } = useAuth();
+  const { t } = useI18n();
+  const canUseChallengeChat = !supportOnly;
+
+  /* state */
+  const [contacts, setContacts] = useState<UserContact[]>([]);
+  const [challenges, setChallenges] = useState<ChatChallenge[]>([]);
+  const [selectedContact, setSelectedContact] = useState<UserContact | null>(null);
+  const [selectedChallenge, setSelectedChallenge] = useState<ChatChallenge | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"contacts" | "challenges">("contacts");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sending, setSending] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState("");
+  const [error, setError] = useState("");
+  const [onlineUserIds, setOnlineUserIds] = useState<number[]>([]);
+  const onlineSetRef = useRef<Set<number>>(new Set());
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  /* voice recording */
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Log stream tracks to verify we're getting real audio
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        console.error('No audio tracks detected');
+        setError('No microphone detected');
+        return;
+      }
+      
+      // Verify audio is actually flowing
+      const audioTrack = audioTracks[0];
+      logger.log('Audio track obtained:', {
+        label: audioTrack.label,
+        enabled: audioTrack.enabled,
+        readyState: audioTrack.readyState,
+      });
+
+      const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg', 'audio/mp4', 'audio/aac'];
+      const supported = mimeTypes.find(m => MediaRecorder.isTypeSupported(m));
+      const mediaRecorder = supported ? new MediaRecorder(stream, { mimeType: supported }) : new MediaRecorder(stream);
+      
+      logger.log('MediaRecorder created with mime:', mediaRecorder.mimeType);
+      
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => {
+        logger.log('Data available, chunk size:', e.data.size);
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      
+      mediaRecorder.onstop = async () => {
+        logger.log('Recording stopped, total chunks:', audioChunksRef.current.length);
+        stream.getTracks().forEach(t => t.stop());
+        
+        const mime = mediaRecorder.mimeType || 'audio/webm';
+        const blob = new Blob(audioChunksRef.current, { type: mime });
+        
+        logger.log('Blob created with size:', blob.size, 'mime:', mime);
+        
+        // Reduced threshold to 100 bytes for shorter recordings
+        if (blob.size < 100) {
+          logger.warn('Recording too small:', blob.size, 'bytes');
+          setError('Recording too short - please record at least 1 second');
+          return;
+        }
+        
+        const ext = mime.includes('mp4') || mime.includes('aac') ? 'mp4' : mime.includes('ogg') ? 'ogg' : 'webm';
+        await sendVoiceNote(blob, ext);
+      };
+      
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start(250);
+      setIsRecording(true);
+      setRecordingDuration(0);
+      recordingTimerRef.current = setInterval(() => setRecordingDuration(d => d + 1), 1000);
+      
+      logger.log('Recording started');
+    } catch (err) {
+      console.error('Recording error:', err);
+      setError('Microphone permission denied or not available');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+    }
+    setIsRecording(false);
+    setRecordingDuration(0);
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+  };
+
+  const sendVoiceNote = async (blob: Blob, ext: string) => {
+    setSending(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', blob, `voice-${Date.now()}.${ext}`);
+      if (selectedContact) fd.append('receiverId', selectedContact.id.toString());
+      if (selectedChallenge && canUseChallengeChat) fd.append('challengeId', selectedChallenge.id.toString());
+      const response = await fetch(getApiBase() + '/api/chat/send-voice', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+      if (response.status === 403) {
+        const d = await response.json().catch(() => ({}));
+        setSubscriptionError(d.message || 'You must subscribe to this coach before chatting.');
+        return;
+      }
+      setSubscriptionError('');
+      if (selectedContact) fetchMessages(selectedContact.id);
+      else if (selectedChallenge && canUseChallengeChat) fetchChallengeMessages(selectedChallenge.id);
+    } catch {} finally { setSending(false); }
+  };
+
+  const formatRecTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+
+  /* responsive */
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", h); return () => window.removeEventListener("resize", h);
+  }, []);
+
+  /* fetch contacts + challenges */
+  useEffect(() => {
+    fetchContacts();
+    if (canUseChallengeChat) fetchChallenges();
+    else setChallenges([]);
+  }, [token, canUseChallengeChat]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const syncPresence = async () => {
+      try {
+        await fetch(getApiBase() + "/api/chat/presence/ping", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const r = await fetch(getApiBase() + "/api/chat/presence", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const d = await r.json();
+        const ids = Array.isArray(d?.onlineUserIds) ? d.onlineUserIds.map((x: any) => Number(x)) : [];
+        setOnlineUserIds(ids);
+        onlineSetRef.current = new Set(ids);
+      } catch {}
+    };
+
+    syncPresence();
+    const id = setInterval(syncPresence, 5000);
+    return () => {
+      clearInterval(id);
+    };
+  }, [token]);
+
+  useEffect(() => {
+    setContacts((prev) => prev.map((c) => ({ ...c, online: onlineSetRef.current.has(Number(c.id)) })));
+  }, [onlineUserIds]);
+
+  useEffect(() => {
+    if (!canUseChallengeChat && activeTab === "challenges") {
+      setActiveTab("contacts");
+      setSelectedChallenge(null);
+    }
+  }, [activeTab, canUseChallengeChat]);
+
+  /* poll messages */
+  useEffect(() => {
+    setSubscriptionError("");
+    if (selectedContact) {
+      setSelectedChallenge(null);
+      fetchMessages(selectedContact.id);
+      const i = setInterval(() => fetchMessages(selectedContact.id), 3000);
+      return () => clearInterval(i);
+    } else if (selectedChallenge && canUseChallengeChat) {
+      setSelectedContact(null);
+      fetchChallengeMessages(selectedChallenge.id);
+      const i = setInterval(() => fetchChallengeMessages(selectedChallenge.id), 3000);
+      return () => clearInterval(i);
+    }
+  }, [selectedContact, selectedChallenge, token, canUseChallengeChat]);
+
+  /* auto-scroll */
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  /* file preview */
+  useEffect(() => {
+    if (!selectedFile) { setFilePreview(null); return; }
+    if (selectedFile.type.startsWith("image/")) {
+      const url = URL.createObjectURL(selectedFile);
+      setFilePreview(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setFilePreview(null);
+  }, [selectedFile]);
+
+  /* ---- API calls (fixed unwrapping) ---- */
+  const fetchContacts = async () => {
+    try {
+      const r = await fetch(getApiBase() + `/api/chat/users${supportOnly ? "?supportOnly=1" : ""}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      const list: UserContact[] = Array.isArray(data) ? data : Array.isArray(data?.users) ? data.users : [];
+      setContacts(list.map((c) => ({ ...c, online: onlineSetRef.current.has(Number(c.id)) || Boolean((c as any).online) })));
+    } catch { setContacts([]); }
+  };
+
+  const fetchChallenges = async () => {
+    try {
+      const r = await fetch(getApiBase() + "/api/community/challenges", { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      setChallenges(Array.isArray(data) ? data : Array.isArray(data?.challenges) ? data.challenges : []);
+    } catch { setChallenges([]); }
+  };
+
+  const fetchMessages = async (id: number) => {
+    try {
+      const r = await fetch(getApiBase() + `/api/chat/messages/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      setMessages(Array.isArray(data) ? data : Array.isArray(data?.messages) ? data.messages : []);
+    } catch { setMessages([]); }
+  };
+
+  const fetchChallengeMessages = async (id: number) => {
+    try {
+      const r = await fetch(getApiBase() + `/api/chat/challenge/${id}/messages`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      setMessages(Array.isArray(data) ? data : Array.isArray(data?.messages) ? data.messages : []);
+    } catch { setMessages([]); }
+  };
+
+  const sendMsg = async () => {
+    if ((!newMessage.trim() && !selectedFile) || sending) return;
+    setSending(true);
+    try {
+      let response: Response;
+      if (selectedFile) {
+        const fd = new FormData();
+        fd.append("file", selectedFile);
+        if (newMessage.trim()) fd.append("content", newMessage);
+        if (selectedContact) fd.append("receiverId", selectedContact.id.toString());
+        if (selectedChallenge && canUseChallengeChat) fd.append("challengeId", selectedChallenge.id.toString());
+        response = await fetch(getApiBase() + "/api/chat/send-media", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+        setSelectedFile(null);
+      } else {
+        const body: any = { content: newMessage };
+        if (selectedContact) body.receiverId = selectedContact.id;
+        if (selectedChallenge && canUseChallengeChat) body.challengeId = selectedChallenge.id;
+        response = await fetch(getApiBase() + "/api/chat/send", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+      }
+      if (response.status === 403) {
+        const d = await response.json().catch(() => ({}));
+        setSubscriptionError(d.message || "You must subscribe to this coach before chatting.");
+        return;
+      }
+      setSubscriptionError("");
+      setNewMessage("");
+      if (selectedContact) fetchMessages(selectedContact.id);
+      else if (selectedChallenge && canUseChallengeChat) fetchChallengeMessages(selectedChallenge.id);
+    } catch {} finally { setSending(false); }
+  };
+
+  /* ---- derived ---- */
+  const filteredContacts = contacts.filter((c) => c.role !== 'admin' && c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredChallenges = challenges.filter((c) => c.title.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  /* Group messages: attach flags for grouping & date separators */
+  const groupedMessages = useMemo(() => {
+    return messages.map((m, i) => {
+      const prev = i > 0 ? messages[i - 1] : null;
+      const sameSender = prev ? prev.sender_id === m.sender_id : false;
+      const sameDay = prev ? new Date(prev.created_at).toDateString() === new Date(m.created_at).toDateString() : false;
+      const closeTime = prev ? (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime()) < 120000 : false;
+      const grouped = sameSender && sameDay && closeTime;
+      const showDate = !sameDay || i === 0;
+      return { ...m, grouped, showDate };
+    });
+  }, [messages]);
+
+  const showSidebar = !isMobile || !(selectedContact || selectedChallenge);
+  const showChatArea = !isMobile || !!(selectedContact || selectedChallenge);
+
+  /* ---- CSS vars ---- */
+  const cv = {
+    bg: "var(--bg-card)", border: "var(--border)", surface: "var(--bg-surface)",
+    accent: "var(--accent)", textPrimary: "var(--text-primary)", textSecondary: "var(--text-secondary)",
+    textMuted: "var(--text-muted)", accentDim: "var(--accent-dim)",
+  };
+
+  /* ============================================================ */
+  return (
+    <div style={{
+      height: "calc(100dvh - 120px)", display: "flex", gap: 0, overflow: "hidden",
+      maxWidth: 960, margin: "0 auto", fontFamily: "var(--font-en)",
+    }}>
+
+      {/* ====== SIDEBAR ====== */}
+      {showSidebar && (
+        <div style={{
+          width: isMobile ? "100%" : 320, flexShrink: 0, backgroundColor: cv.bg,
+          borderRadius: isMobile ? 0 : 18, border: `1px solid ${cv.border}`,
+          display: "flex", flexDirection: "column", overflow: "hidden",
+        }}>
+          {/* Header */}
+          <div style={{ padding: "18px 18px 4px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <h2 style={{
+                fontSize: 22, fontWeight: 700, fontFamily: "var(--font-en)",
+                color: cv.textPrimary, margin: 0, letterSpacing: "-0.3px",
+              }}>{supportOnly ? "Support" : "Messages"}</h2>
+              {!supportOnly && (
+                <button
+                  onClick={async () => {
+                    let support = contacts.find((c) => c.role === "admin");
+                    if (!support) {
+                      try {
+                        const r = await fetch(getApiBase() + "/api/chat/support-contact", { headers: { Authorization: `Bearer ${token}` } });
+                        const data = await r.json();
+                        if (data?.contact) {
+                          support = { ...data.contact, online: false };
+                          setContacts((prev) => [...prev, support!]);
+                        }
+                      } catch {}
+                    }
+                    if (!support) {
+                      alert("No support agent found. Please try again later.");
+                      return;
+                    }
+                    setActiveTab("contacts");
+                    setSelectedChallenge(null);
+                    setSelectedContact(support);
+                  }}
+                  style={{
+                    border: "1px solid var(--border)",
+                    background: "var(--bg-surface)",
+                    color: "var(--text-secondary)",
+                    borderRadius: "var(--radius-full)",
+                    padding: "6px 10px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Chat with Support
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={{ padding: "10px 14px 6px" }}>
+            <div style={{
+              display: "flex", gap: 4, backgroundColor: cv.surface, padding: 3, borderRadius: "var(--radius-full)",
+            }}>
+              {(["contacts", ...(canUseChallengeChat ? ["challenges"] as const : [])] as ("contacts" | "challenges")[]).map((tab) => (
+                <button key={tab} onClick={() => setActiveTab(tab)} style={{
+                  flex: 1, padding: "8px 0", borderRadius: "var(--radius-full)", fontSize: 12.5, fontWeight: 600,
+                  border: "none", cursor: "pointer", transition: "all 0.2s",
+                  backgroundColor: activeTab === tab ? cv.accent : "transparent",
+                  color: activeTab === tab ? "#000000" : cv.textSecondary,
+                  fontFamily: "var(--font-en)",
+                }}>
+                  {tab === "contacts" ? "Direct" : "Groups"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Search */}
+          <div style={{ padding: "6px 14px 12px" }}>
+            <div style={{ position: "relative" }}>
+              <Search size={14} style={{
+                position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)", color: cv.textMuted,
+              }} />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search conversations…"
+                style={{
+                  width: "100%", backgroundColor: cv.surface, border: `1px solid ${cv.border}`,
+                  borderRadius: "var(--radius-full)", padding: "9px 12px 9px 34px", fontSize: 13,
+                  color: cv.textPrimary, fontFamily: "var(--font-en)", outline: "none",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Contact / Challenge List */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 8px" }}>
+            {activeTab === "contacts" && (
+              filteredContacts.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: cv.textMuted }}>
+                  <Users size={32} style={{ marginBottom: 8, opacity: 0.4 }} />
+                  <p style={{ fontSize: 13 }}>No contacts found</p>
+                </div>
+              ) : filteredContacts.map((ct) => {
+                const sel = selectedContact?.id === ct.id;
+                return (
+                  <button key={ct.id} onClick={() => { setSelectedContact(ct); inputRef.current?.focus(); }} style={{
+                    display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "10px 10px",
+                    borderRadius: "var(--radius-full)", border: "none", cursor: "pointer", marginBottom: 2, textAlign: "start",
+                    transition: "all 0.15s",
+                    backgroundColor: sel ? cv.accentDim : "transparent",
+                  }}>
+                    {/* Avatar + online dot */}
+                    <div style={{ position: "relative", flexShrink: 0 }}>
+                      {ct.avatar ? (
+                        <img src={ct.avatar} alt="" style={{
+                          width: 44, height: 44, borderRadius: "50%",
+                          border: sel ? `2px solid ${cv.accent}` : `1px solid ${cv.border}`,
+                          objectFit: "cover",
+                        }} />
+                      ) : (
+                        <div style={{
+                          width: 44, height: 44, borderRadius: "50%",
+                          backgroundColor: cv.accentDim, display: "flex", alignItems: "center", justifyContent: "center",
+                          fontWeight: 700, fontSize: 14, color: cv.accent, textTransform: "uppercase",
+                        }}>{avatarFallback(ct.name)}</div>
+                      )}
+                      {ct.online && ct.role !== 'admin' && (
+                        <div style={{
+                          position: "absolute", bottom: 1, insetInlineEnd: 1, width: 10, height: 10,
+                          borderRadius: "50%", backgroundColor: "#34D399", border: "2px solid var(--bg-card)",
+                        }} />
+                      )}
+                    </div>
+                    {/* Name + role */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{
+                          fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          color: sel ? cv.accent : cv.textPrimary,
+                        }}>{ct.role === 'admin' ? 'Fit Way Hub Support' : ct.name}</span>
+                        {ct.is_premium === 1 && (
+                          <span style={{
+                            fontSize: 9, padding: "1px 5px", borderRadius: "var(--radius-full)",
+                            backgroundColor: "rgba(255,214,0,0.15)", color: cv.accent, fontWeight: 700,
+                          }}>PRO</span>
+                        )}
+                      </div>
+                      <p style={{
+                        fontSize: 11.5, color: cv.textMuted, marginTop: 2,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
+                        <span style={{
+                          display: "inline-block", width: 6, height: 6, borderRadius: "50%",
+                          backgroundColor: STATUS_COLORS[ct.role] || "#999", marginInlineEnd: 5, verticalAlign: "middle",
+                        }} />
+                        {ct.role === 'admin' ? 'Support' : ct.role}
+                      </p>
+                    </div>
+                    {/* Unread indicator */}
+                    {ct.online && !sel && ct.role !== 'admin' && (
+                      <div style={{
+                        width: 8, height: 8, borderRadius: "50%", backgroundColor: cv.accent, flexShrink: 0,
+                      }} />
+                    )}
+                  </button>
+                );
+              })
+            )}
+
+            {canUseChallengeChat && activeTab === "challenges" && (
+              filteredChallenges.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: cv.textMuted }}>
+                  <Hash size={32} style={{ marginBottom: 8, opacity: 0.4 }} />
+                  <p style={{ fontSize: 13 }}>No group chats</p>
+                </div>
+              ) : filteredChallenges.map((ch) => {
+                const sel = selectedChallenge?.id === ch.id;
+                return (
+                  <button key={ch.id} onClick={() => setSelectedChallenge(ch)} style={{
+                    display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "10px 10px",
+                    borderRadius: "var(--radius-full)", border: "none", cursor: "pointer", marginBottom: 2, textAlign: "start",
+                    transition: "all 0.15s",
+                    backgroundColor: sel ? cv.accentDim : "transparent",
+                  }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: "var(--radius-full)", backgroundColor: cv.accentDim,
+                      border: sel ? `2px solid ${cv.accent}` : `1px solid rgba(255,214,0,0.15)`,
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>
+                      <Users size={18} color={cv.accent} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{
+                        fontSize: 14, fontWeight: 600, display: "block",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        color: sel ? cv.accent : cv.textPrimary,
+                      }}>{ch.title}</span>
+                      <p style={{ fontSize: 11.5, color: cv.textMuted, marginTop: 2 }}>
+                        {ch.participant_count} members
+                      </p>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ====== CHAT AREA ====== */}
+      {showChatArea && (selectedContact || selectedChallenge) && (
+        <div style={{
+          flex: 1, display: "flex", flexDirection: "column", backgroundColor: cv.bg,
+          borderRadius: isMobile ? 0 : 18, border: `1px solid ${cv.border}`,
+          overflow: "hidden", marginInlineStart: isMobile ? 0 : 12,
+        }}>
+          {/* ---- Header ---- */}
+          <div style={{
+            padding: "12px 18px", borderBottom: `1px solid ${cv.border}`,
+            display: "flex", alignItems: "center", gap: 12, flexShrink: 0,
+            background: `linear-gradient(180deg, rgba(255,214,0,0.03) 0%, transparent 100%)`,
+          }}>
+            {isMobile && (
+              <button onClick={() => { setSelectedContact(null); setSelectedChallenge(null); }} style={{
+                background: "none", border: "none", cursor: "pointer", color: cv.textSecondary,
+                padding: 4, marginInlineEnd: 2, display: "flex", alignItems: "center",
+              }}>
+                <ArrowLeft size={20} />
+              </button>
+            )}
+
+            {selectedContact && (
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <img src={selectedContact.avatar} alt="" style={{
+                  width: 40, height: 40, borderRadius: "50%", border: `2px solid ${cv.accent}`, objectFit: "cover",
+                }} />
+                {selectedContact.online && selectedContact.role !== 'admin' && (
+                  <div style={{
+                    position: "absolute", bottom: 0, insetInlineEnd: 0, width: 10, height: 10,
+                    borderRadius: "50%", backgroundColor: "#34D399", border: "2px solid var(--bg-card)",
+                  }} />
+                )}
+              </div>
+            )}
+            {selectedChallenge && (
+              <div style={{
+                width: 40, height: 40, borderRadius: "var(--radius-full)", backgroundColor: cv.accentDim,
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                border: `1px solid rgba(255,214,0,0.2)`,
+              }}>
+                <Users size={18} color={cv.accent} />
+              </div>
+            )}
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 15, fontWeight: 700, margin: 0, fontFamily: "var(--font-en)" }}>
+                {selectedContact ? (selectedContact.role === 'admin' ? 'Fit Way Hub Support' : selectedContact.name) : selectedChallenge?.title}
+              </p>
+              {selectedContact && (
+                <p style={{ fontSize: 11.5, margin: 0, marginTop: 1, color: selectedContact.role === 'admin' ? cv.textMuted : (selectedContact.online ? "#34D399" : cv.textMuted) }}>
+                  {selectedContact.role === 'admin' ? 'Support' : (selectedContact.online ? "Online" : "Offline")}
+                </p>
+              )}
+              {selectedChallenge && (
+                <p style={{ fontSize: 11.5, margin: 0, marginTop: 1, color: cv.textMuted }}>
+                  {selectedChallenge.participant_count} members
+                </p>
+              )}
+            </div>
+
+
+          </div>
+
+          {/* ---- Messages ---- */}
+          <div style={{
+            flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column",
+            background: `radial-gradient(ellipse at 50% 0%, rgba(255,214,0,0.02), transparent 60%)`,
+          }}>
+            {groupedMessages.length === 0 ? (
+              <div style={{
+                flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: 10, opacity: 0.6,
+              }}>
+                <div style={{
+                  width: 64, height: 64, borderRadius: "50%", backgroundColor: cv.surface,
+                  border: `1px solid ${cv.border}`, display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Send size={24} color={cv.textMuted} />
+                </div>
+                <p style={{ fontSize: 14, color: cv.textMuted, textAlign: "center" }}>
+                  No messages yet.<br />
+                  <span style={{ fontSize: 12.5 }}>Say hello! 👋</span>
+                </p>
+              </div>
+            ) : (
+              groupedMessages.map((m) => {
+                const isMe = m.sender_id === Number(user?.id);
+                return (
+                  <React.Fragment key={m.id}>
+                    {/* Date separator */}
+                    {m.showDate && (
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 12, margin: "16px 0 10px",
+                      }}>
+                        <div style={{ flex: 1, height: 1, backgroundColor: cv.border }} />
+                        <span style={{
+                          fontSize: 10.5, color: cv.textMuted, fontWeight: 600, textTransform: "uppercase",
+                          letterSpacing: "0.5px", flexShrink: 0,
+                        }}>{dateSeparator(m.created_at)}</span>
+                        <div style={{ flex: 1, height: 1, backgroundColor: cv.border }} />
+                      </div>
+                    )}
+
+                    {/* Message row */}
+                    <div style={{
+                      display: "flex", flexDirection: isMe ? "row-reverse" : "row",
+                      alignItems: "flex-end", gap: 8,
+                      marginTop: m.grouped ? 2 : 10,
+                      animation: "chatSlideUp 0.2s ease",
+                    }}>
+                      {/* Avatar (only if not grouped) */}
+                      {!isMe ? (
+                        m.grouped ? (
+                          <div style={{ width: 30, flexShrink: 0 }} />
+                        ) : (
+                          m.sender_avatar ? (
+                            <img src={m.sender_avatar} alt="" style={{
+                              width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                              border: `1px solid ${cv.border}`, objectFit: "cover",
+                            }} />
+                          ) : (
+                            <div style={{
+                              width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                              backgroundColor: cv.accentDim, display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 10, fontWeight: 700, color: cv.accent,
+                            }}>{avatarFallback(m.sender_name)}</div>
+                          )
+                        )
+                      ) : null}
+
+                      {/* Bubble */}
+                      <div style={{ maxWidth: "70%", display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
+                        {/* Sender name for group chats */}
+                        {!isMe && !m.grouped && selectedChallenge && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, marginBottom: 3, paddingInlineStart: 4,
+                            color: STATUS_COLORS[contacts.find(cx => cx.id === m.sender_id)?.role ?? "user"] || cv.accent,
+                          }}>{m.sender_name}</span>
+                        )}
+
+                        <div style={{
+                          padding: m.media_url ? "4px" : "9px 14px",
+                          borderRadius: isMe
+                            ? (m.grouped ? "16px 16px 4px 16px" : "16px 16px 4px 16px")
+                            : (m.grouped ? "16px 16px 16px 4px" : "4px 16px 16px 16px"),
+                          backgroundColor: isMe ? cv.accent : cv.surface,
+                          color: isMe ? "#000000" : cv.textPrimary,
+                          border: isMe ? "none" : `1px solid ${cv.border}`,
+                          fontSize: 14, lineHeight: 1.55, wordBreak: "break-word",
+                          position: "relative",
+                          boxShadow: isMe ? "0 1px 4px rgba(255,214,0,0.15)" : "0 1px 3px rgba(0,0,0,0.1)",
+                        }}>
+                          {m.media_url && isAudioUrl(m.media_url) ? (
+                            <div style={{ padding: "8px 10px", minWidth: 200 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                <Mic size={14} color={isMe ? "#000000" : cv.accent} />
+                                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.7 }}>Voice note</span>
+                              </div>
+                              <audio controls preload="metadata" style={{ width: "100%", height: 32, borderRadius: "var(--radius-full)" }}
+                                src={m.media_url.startsWith('http') ? m.media_url : getApiBase() + m.media_url} />
+                            </div>
+                          ) : m.media_url ? (
+                            <img src={m.media_url.startsWith('http') ? m.media_url : getApiBase() + m.media_url} alt="media" style={{
+                              maxWidth: "100%", maxHeight: 220, borderRadius: m.content ? "12px 12px 4px 4px" : 12,
+                              display: "block",
+                            }} />
+                          ) : null}
+                          {m.content && (
+                            <span style={{ display: "block", padding: m.media_url ? "6px 10px 4px" : 0 }}>{m.content}</span>
+                          )}
+
+                          {/* Timestamp + read indicator */}
+                          <span style={{
+                            display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3,
+                            marginTop: 3, opacity: 0.55,
+                          }}>
+                            <span style={{ fontSize: 9.5 }}>{fmt(m.created_at)}</span>
+                            {isMe && <CheckCheck size={11} />}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* ---- File preview bar ---- */}
+          {selectedFile && (
+            <div style={{
+              padding: "8px 16px", borderTop: `1px solid ${cv.border}`, display: "flex", alignItems: "center", gap: 10,
+              backgroundColor: cv.surface,
+            }}>
+              {filePreview ? (
+                <img src={filePreview} alt="preview" style={{ width: 48, height: 48, borderRadius: "var(--radius-full)", objectFit: "cover" }} />
+              ) : (
+                <div style={{
+                  width: 48, height: 48, borderRadius: "var(--radius-full)", backgroundColor: cv.accentDim,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Paperclip size={18} color={cv.accent} />
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 600, color: cv.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>
+                  {selectedFile.name}
+                </p>
+                <p style={{ fontSize: 11, color: cv.textMuted, margin: 0, marginTop: 2 }}>
+                  {(selectedFile.size / 1024).toFixed(1)} KB · Image/PDF max 5 MB — Video max 50 MB
+                </p>
+              </div>
+              <button onClick={() => setSelectedFile(null)} style={{
+                width: 28, height: 28, borderRadius: "var(--radius-full)", backgroundColor: "rgba(255,100,100,0.15)",
+                border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <X size={14} color="#FF6B6B" />
+              </button>
+            </div>
+          )}
+
+          {/* ---- Subscription Error Banner ---- */}
+          {subscriptionError && (
+            <div style={{ padding: "10px 16px", backgroundColor: "rgba(255,68,68,0.06)", borderTop: `1px solid rgba(255,68,68,0.2)`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <p style={{ fontSize: 12, color: "var(--red, #FF4444)", margin: 0, flex: 1 }}>🔒 {subscriptionError}</p>
+              <a href="/app/coaching" style={{ fontSize: 11, fontWeight: 600, color: "var(--accent, #FFD600)", textDecoration: "none", whiteSpace: "nowrap", padding: "4px 10px", borderRadius: "var(--radius-full)", background: "var(--accent-dim, rgba(255,214,0,0.1))", border: "1px solid rgba(255,214,0,0.2)" }}>Subscribe</a>
+            </div>
+          )}
+
+          {/* ---- Input ---- */}
+          <div style={{
+            padding: "10px 14px", borderTop: `1px solid ${cv.border}`,
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <input type="file" ref={fileInputRef} accept="image/*,video/*,.pdf,.doc,.docx" onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)} style={{ display: "none" }} />
+            {/* Size hint shown only when a file is selected */}
+
+            {isRecording ? (
+              /* Recording UI */
+              <>
+                <button onClick={cancelRecording} style={{
+                  width: 38, height: 38, borderRadius: "var(--radius-full)", backgroundColor: "rgba(255,68,68,0.12)",
+                  border: "1px solid rgba(255,68,68,0.3)", cursor: "pointer", display: "flex",
+                  alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <X size={16} color="#FF6B6B" />
+                </button>
+                <div style={{
+                  flex: 1, display: "flex", alignItems: "center", gap: 10, padding: "8px 14px",
+                  backgroundColor: "rgba(255,68,68,0.06)", borderRadius: "var(--radius-full)", border: "1px solid rgba(255,68,68,0.15)",
+                }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#FF4444", animation: "chatSlideUp 1s ease-in-out infinite alternate" }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#FF6B6B", fontFamily: "var(--font-en)" }}>
+                    Recording {formatRecTime(recordingDuration)}
+                  </span>
+                </div>
+                <button onClick={stopRecording} style={{
+                  width: 38, height: 38, borderRadius: "var(--radius-full)", backgroundColor: cv.accent,
+                  border: "none", cursor: "pointer", display: "flex",
+                  alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <Send size={16} color="#000000" />
+                </button>
+              </>
+            ) : (
+              /* Normal input */
+              <>
+                <button onClick={() => fileInputRef.current?.click()} style={{
+                  width: 38, height: 38, borderRadius: "var(--radius-full)", backgroundColor: cv.surface,
+                  border: `1px solid ${cv.border}`, cursor: "pointer", display: "flex",
+                  alignItems: "center", justifyContent: "center", flexShrink: 0, color: cv.textMuted,
+                  transition: "all 0.15s",
+                }}>
+                  <Paperclip size={16} />
+                </button>
+
+                <div style={{ flex: 1, position: "relative" }}>
+                  <input
+                    ref={inputRef}
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(); } }}
+                    placeholder={t("type_message") || "Type a message…"}
+                    style={{
+                      width: "100%", backgroundColor: cv.surface, border: `1px solid ${cv.border}`,
+                      borderRadius: "var(--radius-full)", padding: "10px 44px 10px 14px", fontSize: 14,
+                      color: cv.textPrimary, fontFamily: "var(--font-en)", outline: "none",
+                    }}
+                  />
+                  <button style={{
+                    position: "absolute", insetInlineEnd: 6, top: "50%", transform: "translateY(-50%)",
+                    background: "none", border: "none", cursor: "pointer", color: cv.textMuted, padding: 4,
+                  }}>
+                    <SmilePlus size={18} />
+                  </button>
+                </div>
+
+                {/* Mic button — shown when no text or file */}
+                {!newMessage.trim() && !selectedFile ? (
+                  <button onClick={startRecording} style={{
+                    width: 38, height: 38, borderRadius: "var(--radius-full)", backgroundColor: cv.surface,
+                    border: `1px solid ${cv.border}`, cursor: "pointer", display: "flex",
+                    alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    transition: "all 0.2s",
+                  }}>
+                    <Mic size={16} color={cv.textMuted} />
+                  </button>
+                ) : (
+                  <button onClick={sendMsg} disabled={sending} style={{
+                    width: 38, height: 38, borderRadius: "var(--radius-full)",
+                    backgroundColor: cv.accent,
+                    border: "none",
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    transition: "all 0.2s", opacity: sending ? 0.6 : 1,
+                  }}>
+                    <Send size={16} color="#000000" />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ====== EMPTY STATE (desktop) ====== */}
+      {!isMobile && !(selectedContact || selectedChallenge) && (
+        <div style={{
+          flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+          flexDirection: "column", gap: 14, marginInlineStart: 12,
+          background: `radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.04), transparent 70%)`,
+          borderRadius: "var(--radius-full)", border: `1px solid ${cv.border}`,
+        }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: "50%", backgroundColor: cv.bg,
+            border: `2px solid ${cv.border}`, display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
+          }}>
+            <Send size={28} color={cv.accent} style={{ transform: "rotate(-15deg)" }} />
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <p style={{
+              fontSize: 17, fontWeight: 700, color: cv.textPrimary, margin: 0,
+              fontFamily: "var(--font-en)",
+            }}>Start a Conversation</p>
+            <p style={{ fontSize: 13, color: cv.textMuted, margin: "6px 0 0", lineHeight: 1.5 }}>
+              Select a contact or group<br />to start chatting
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
