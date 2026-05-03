@@ -1,35 +1,51 @@
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import { query as dbQuery } from '../config/database.js';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { fileTypeFromBuffer } from 'file-type';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 // ── Cloudflare R2 Client (S3-compatible) ─────────────────────────────────────
+function isR2Configured() {
+    return !!(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID &&
+        process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME &&
+        process.env.R2_PUBLIC_URL);
+}
 const r2 = new S3Client({
     region: 'auto',
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    endpoint: `https://${process.env.R2_ACCOUNT_ID || 'placeholder'}.r2.cloudflarestorage.com`,
     credentials: {
         accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
         secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
     },
 });
 /**
- * Upload a buffered file to Cloudflare R2.
- * @param file  The multer file with a populated `buffer` property.
- * @param folder  Logical folder prefix inside the bucket (e.g. 'images', 'videos').
- * @returns  The public URL of the uploaded object.
+ * Upload a buffered file to Cloudflare R2, or fall back to local disk
+ * when R2 credentials are not configured.
  */
 export async function uploadToR2(file, folder = 'uploads') {
     const ext = path.extname(file.originalname).replace(/[^a-zA-Z0-9.]/g, '').toLowerCase() || '.bin';
     const safeFieldname = file.fieldname.replace(/[^a-zA-Z0-9_-]/g, '');
-    const key = `${folder}/${safeFieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
-    await r2.send(new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME,
-        Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-    }));
-    return `${process.env.R2_PUBLIC_URL}/${key}`;
+    const filename = `${safeFieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    if (isR2Configured()) {
+        const key = `${folder}/${filename}`;
+        await r2.send(new PutObjectCommand({
+            Bucket: process.env.R2_BUCKET_NAME,
+            Key: key,
+            Body: file.buffer,
+            ContentType: file.mimetype,
+        }));
+        return `${process.env.R2_PUBLIC_URL}/${key}`;
+    }
+    // Local disk fallback — saves to <project-root>/uploads/<folder>/
+    const uploadDir = path.join(__dirname, '..', '..', 'uploads', folder);
+    fs.mkdirSync(uploadDir, { recursive: true });
+    fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+    const baseUrl = (process.env.APP_BASE_URL || '').replace(/\/$/, '');
+    return `${baseUrl}/uploads/${folder}/${filename}`;
 }
 // ── All multer instances use memory storage ───────────────────────────────────
 const storage = multer.memoryStorage();
