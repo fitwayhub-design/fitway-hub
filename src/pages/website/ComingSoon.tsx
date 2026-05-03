@@ -19,8 +19,7 @@ export function setComingSoonBypassed(on: boolean) {
 
 /**
  * Listens globally for the user typing "adminlogin" anywhere on the page
- * (case-insensitive, ignores other keys). When matched, the gate is bypassed
- * and the page reloads to show the real website.
+ * (case-insensitive). Once matched, the gate is bypassed and the page reloads.
  */
 export function useAdminLoginKeystrokeBypass() {
   useEffect(() => {
@@ -44,12 +43,13 @@ export default function ComingSoon() {
   const { lang } = useI18n();
   const brandLogo = getBrandLogoForLang(branding, lang, isDark);
   const bg = branding.coming_soon_bg_image;
+  const accent = branding.primary_color || "#FFD600";
 
   useAdminLoginKeystrokeBypass();
 
   const isAr = lang === "ar";
-  const headline = isAr ? "قريباً" : "Coming Soon";
-  const sub = isAr ? "ترقّبوا" : "Stay tuned";
+  const headline = isAr ? "قريبًا" : "COMING SOON";
+  const tagline = isAr ? "حيث تلتقي اللياقة بالحركة الأمامية" : "Where Fitness Meets Forward Motion";
 
   return (
     <div
@@ -63,66 +63,108 @@ export default function ComingSoon() {
         alignItems: "center",
         justifyContent: "center",
         textAlign: "center",
-        padding: 24,
-        backgroundColor: "var(--bg-primary)",
+        padding: "32px 24px",
+        backgroundColor: "#000000",
         backgroundImage: bg ? `url(${bg})` : "none",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-        color: "var(--text-primary)",
+        color: "#ffffff",
         fontFamily: "var(--font-en)",
+        overflow: "hidden",
       }}
     >
-      {/* Soft overlay so logo + text stay readable on any image */}
+      {/* Subtle dark wash so headline + logo always read on any image */}
       {bg && (
         <div
+          aria-hidden
           style={{
             position: "absolute",
             inset: 0,
-            background: isDark
-              ? "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.65) 100%)"
-              : "linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.55) 100%)",
+            background: "linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.65) 60%, rgba(0,0,0,0.85) 100%)",
             pointerEvents: "none",
           }}
         />
       )}
 
-      <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 28, maxWidth: 640 }}>
+      {/* Centerpiece: logo above huge headline */}
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 24,
+          maxWidth: 1100,
+          width: "100%",
+        }}
+      >
         {brandLogo && (
           <img
             src={brandLogo}
             alt={branding.app_name || "FitWay Hub"}
-            style={{ maxWidth: 220, maxHeight: 120, objectFit: "contain" }}
+            style={{
+              maxWidth: "min(360px, 60vw)",
+              maxHeight: 160,
+              objectFit: "contain",
+            }}
           />
         )}
 
         <h1
           style={{
             fontFamily: "var(--font-heading)",
-            fontSize: "clamp(40px, 8vw, 84px)",
-            fontWeight: 800,
+            fontSize: "clamp(56px, 13vw, 200px)",
+            fontWeight: 900,
             letterSpacing: "-0.02em",
             margin: 0,
-            lineHeight: 1.05,
+            lineHeight: 0.95,
+            color: accent,
+            textTransform: "uppercase",
+            whiteSpace: "nowrap",
           }}
         >
           {headline}
         </h1>
+      </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 14, opacity: 0.85 }}>
-          <span style={{ width: 36, height: 1, background: "currentColor", opacity: 0.4 }} />
-          <p style={{
-            margin: 0,
-            fontSize: 16,
-            fontWeight: 500,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            fontFamily: "var(--font-en)",
-          }}>
-            {sub}
-          </p>
-          <span style={{ width: 36, height: 1, background: "currentColor", opacity: 0.4 }} />
-        </div>
+      {/* Tagline anchored to bottom-center, like the reference */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "calc(40px + env(safe-area-inset-bottom))",
+          left: 0,
+          right: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12,
+          color: accent,
+          fontSize: 14,
+          letterSpacing: "0.02em",
+          padding: "0 24px",
+        }}
+      >
+        <span
+          aria-hidden
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: "50%",
+            border: `1.5px solid ${accent}`,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 12,
+            fontWeight: 600,
+            flexShrink: 0,
+          }}
+        >
+          ©
+        </span>
+        <p style={{ margin: 0, fontFamily: "var(--font-en)", lineHeight: 1.4, textAlign: isAr ? "right" : "left" }}>
+          {tagline}
+        </p>
       </div>
     </div>
   );

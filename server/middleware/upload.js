@@ -86,6 +86,12 @@ const upload = multer({
     fileFilter: imageFilter,
     limits: { fileSize: 5 * 1024 * 1024 }
 });
+// Higher-limit upload for branding assets (logos can be transparent PNGs).
+const uploadBranding = multer({
+    storage: storage,
+    fileFilter: imageFilter,
+    limits: { fileSize: 15 * 1024 * 1024 }
+});
 // Upload for videos (40MB limit)
 const uploadVideo = multer({
     storage: storage,
@@ -233,6 +239,21 @@ function optimizeImage(maxWidth = 1920, maxHeight = 1920, quality = 80) {
 }
 export default upload;
 /**
+ * Wraps a multer middleware so multer errors come back as JSON instead of HTML.
+ */
+function multerToJson(mw) {
+    return (req, res, next) => {
+        mw(req, res, (err) => {
+            if (!err) return next();
+            const code = err?.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+            const msg = err?.code === 'LIMIT_FILE_SIZE'
+                ? 'Image is too large. Please upload a smaller file.'
+                : (err?.message || 'Upload failed');
+            res.status(code).json({ message: msg });
+        });
+    };
+}
+/**
  * Middleware to validate video file size against app_settings.
  * Checks max_video_upload_size_mb setting after upload.
  * Deletes file and returns error if oversized.
@@ -350,5 +371,5 @@ function verifyUploadBytes(kind) {
         }
     };
 }
-export { upload, uploadAny, uploadVideo, uploadFont, uploadAudio, optimizeImage, validateVideoSize, verifyUploadBytes, };
+export { upload, uploadAny, uploadVideo, uploadFont, uploadAudio, uploadBranding, optimizeImage, validateVideoSize, verifyUploadBytes, multerToJson, };
 //# sourceMappingURL=upload.js.map

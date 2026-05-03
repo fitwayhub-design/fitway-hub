@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { get, run, query, getPool, seedDefaultAppSettings } from '../config/database.js';
-import { uploadVideo, uploadFont, upload, optimizeImage, validateVideoSize, verifyUploadBytes, uploadToR2 } from '../middleware/upload.js';
+import { uploadVideo, uploadFont, upload, uploadBranding, optimizeImage, validateVideoSize, verifyUploadBytes, uploadToR2, multerToJson } from '../middleware/upload.js';
 import { sendPushToUser } from '../notificationService.js';
 import bcrypt from 'bcryptjs';
 
@@ -1198,21 +1198,27 @@ router.get('/dashboard-config', async (_req: Request, res: Response) => {
 });
 
 // ── Branding image upload (logo / favicon) ───────────────────────────────────
-router.post('/upload-branding-image', authenticateToken, adminOnly, upload.single('image'), optimizeImage(), async (req: any, res: Response) => {
+router.post('/upload-branding-image', authenticateToken, adminOnly, multerToJson(uploadBranding.single('image')), optimizeImage(), async (req: any, res: Response) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No image file provided' });
     const imageUrl = await uploadToR2(req.file, 'branding');
     res.json({ url: imageUrl });
-  } catch { res.status(500).json({ message: 'Image upload failed' }); }
+  } catch (err: any) {
+    console.error('[upload-branding-image]', err);
+    res.status(500).json({ message: err?.message || 'Image upload failed' });
+  }
 });
 
 // ── Dashboard image upload ───────────────────────────────────────────────────
-router.post('/upload-dashboard-image', authenticateToken, adminOnly, upload.single('image'), optimizeImage(), async (req: any, res: Response) => {
+router.post('/upload-dashboard-image', authenticateToken, adminOnly, multerToJson(uploadBranding.single('image')), optimizeImage(), async (req: any, res: Response) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No image file provided' });
     const imageUrl = await uploadToR2(req.file, 'dashboard');
     res.json({ url: imageUrl });
-  } catch { res.status(500).json({ message: 'Image upload failed' }); }
+  } catch (err: any) {
+    console.error('[upload-dashboard-image]', err);
+    res.status(500).json({ message: err?.message || 'Image upload failed' });
+  }
 });
 
 // ── Font file upload ─────────────────────────────────────────────────────────

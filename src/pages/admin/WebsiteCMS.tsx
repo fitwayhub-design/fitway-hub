@@ -221,9 +221,10 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
         "btn_hover_type", "btn_hover_color",
         "font_en", "font_ar", "font_heading",
         "social_instagram", "social_facebook", "social_twitter", "social_youtube",
+        "coming_soon_enabled", "coming_soon_bg_image",
       ];
 
-      for (const key of ["logo_url_en_light", "logo_url_en_dark", "logo_url_ar_light", "logo_url_ar_dark"]) {
+      for (const key of ["logo_url_en_light", "logo_url_en_dark", "logo_url_ar_light", "logo_url_ar_dark", "coming_soon_enabled", "coming_soon_bg_image"]) {
         if (!(key in brandingForm)) {
           try {
             await api("/api/admin/app-settings/add", {
@@ -259,8 +260,8 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       });
-      const d = await resp.json();
-      if (!resp.ok || !d?.url) throw new Error("upload failed");
+      const d = await resp.json().catch(() => ({} as any));
+      if (!resp.ok || !d?.url) throw new Error(d?.message || `upload failed (${resp.status})`);
       setBrandingForm(prev => ({ ...prev, [key]: d.url }));
 
       if (!(key in brandingForm)) {
@@ -284,8 +285,9 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
       showMsg(t("cms_image_uploaded"));
       window.dispatchEvent(new Event("branding:refresh"));
       await loadBranding();
-    } catch {
-      showMsg(t("cms_failed_upload_branding_image"));
+    } catch (err: any) {
+      const reason = err?.message ? `: ${err.message}` : "";
+      showMsg(`${t("cms_failed_upload_branding_image")}${reason}`);
     }
   };
 
@@ -1305,6 +1307,49 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
               <div><label style={labelS}>{t("cms_facebook")}</label><input style={iS} value={brandingForm.social_facebook || ""} onChange={e => setBrandingForm(v => ({ ...v, social_facebook: e.target.value }))} /></div>
               <div><label style={labelS}>{t("cms_twitter")}</label><input style={iS} value={brandingForm.social_twitter || ""} onChange={e => setBrandingForm(v => ({ ...v, social_twitter: e.target.value }))} /></div>
               <div><label style={labelS}>{t("cms_youtube")}</label><input style={iS} value={brandingForm.social_youtube || ""} onChange={e => setBrandingForm(v => ({ ...v, social_youtube: e.target.value }))} /></div>
+            </div>
+
+            {/* Coming Soon Mode — toggles a public-site holding page with admin-uploaded background */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Coming Soon Mode</p>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 12, background: "var(--bg-surface)" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>Show Coming Soon page</div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>Type "adminlogin" on the page to bypass.</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBrandingForm(v => ({ ...v, coming_soon_enabled: v.coming_soon_enabled === "1" ? "0" : "1" }))}
+                  aria-pressed={brandingForm.coming_soon_enabled === "1"}
+                  style={{
+                    width: 44, height: 24, borderRadius: 99, border: "none",
+                    background: brandingForm.coming_soon_enabled === "1" ? "var(--accent)" : "var(--bg-card)",
+                    position: "relative", cursor: "pointer", flexShrink: 0,
+                    boxShadow: brandingForm.coming_soon_enabled === "1" ? "0 0 0 2px var(--accent-glow)" : "inset 0 0 0 1px var(--border)",
+                  }}
+                >
+                  <span style={{
+                    position: "absolute", top: 3, left: brandingForm.coming_soon_enabled === "1" ? 23 : 3,
+                    width: 18, height: 18, borderRadius: "50%", background: "#fff",
+                    transition: "left .2s",
+                  }} />
+                </button>
+              </div>
+              <div>
+                <label style={labelS}>Background image</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input style={{ ...iS, flex: 1 }} value={brandingForm.coming_soon_bg_image || ""} onChange={e => setBrandingForm(v => ({ ...v, coming_soon_bg_image: e.target.value }))} placeholder="URL or upload" />
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px dashed var(--border)", background: "var(--bg-surface)", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                    Upload
+                    <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) uploadBrandingImage("coming_soon_bg_image", f); e.target.value = ""; }} />
+                  </label>
+                </div>
+                {brandingForm.coming_soon_bg_image && (
+                  <div style={{ marginTop: 8, width: "100%", aspectRatio: "16 / 9", borderRadius: 10, overflow: "hidden", border: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+                    <img src={brandingForm.coming_soon_bg_image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
