@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { run } from '../config/database';
-import { uploadToR2 } from '../middleware/upload';
+import { run } from '../config/database.js';
+import { uploadToR2 } from '../middleware/upload.js';
 
 export const bookSession = async (req: Request, res: Response) => {
   try {

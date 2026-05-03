@@ -1,4 +1,4 @@
-import { run, get, query } from '../config/database';
+import { run, get, query } from '../config/database.js';
 
 export interface DailySummary {
   id: number; user_id: number; date: string; steps: number; ai_analysis: string; created_at: string;

@@ -1,7 +1,7 @@
 // Rich seed — run with: npm run seed
-import { run, query, get } from './config/database';
+import { run, query, get } from './config/database.js';
 import bcrypt from 'bcryptjs';
-import { initDatabase } from './config/database';
+import { initDatabase } from './config/database.js';
 
 // ── Data pools ────────────────────────────────────────────────────────────────
 

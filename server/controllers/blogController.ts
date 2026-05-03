@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { get, query, run } from '../config/database';
-import { uploadToR2 } from '../middleware/upload';
+import { get, query, run } from '../config/database.js';
+import { uploadToR2 } from '../middleware/upload.js';
 
 const WRITER_ROLES = new Set(['coach', 'admin']);
 

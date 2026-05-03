@@ -1,4 +1,4 @@
-import { run, get } from './config/database';
+import { run, get } from './config/database.js';
 
 /**
  * Seed the website CMS with baseline content.

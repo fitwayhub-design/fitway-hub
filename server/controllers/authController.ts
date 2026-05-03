@@ -3,9 +3,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomUUID, createHash } from 'crypto';
 import { resolve4, resolve6, resolveMx } from 'dns/promises';
-import { UserModel } from '../models/User';
-import { get, run, query } from '../config/database';
-import { sendWelcomeMessages } from '../notificationService';
+import { UserModel } from '../models/User.js';
+import { get, run, query } from '../config/database.js';
+import { sendWelcomeMessages } from '../notificationService.js';
 
 const DISPOSABLE_OR_FAKE_DOMAINS = new Set([
   'example.com',

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { query, get, run } from '../config/database';
+import { query, get, run } from '../config/database.js';
 
 export const getStepsHistory = async (req: Request, res: Response) => {
   try {

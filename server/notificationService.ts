@@ -5,8 +5,8 @@
  * Welcome emails are sent via the existing SMTP email system.
  */
 
-import { run, query, get } from './config/database';
-import { getSmtpSettings, sendMail, sendSystemEmail } from './emailServer';
+import { run, query, get } from './config/database.js';
+import { getSmtpSettings, sendMail, sendSystemEmail } from './emailServer.js';
 
 // ── Token helpers ──────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { query, run } from '../config/database';
+import { query, run } from '../config/database.js';
 
 export async function migrate() {
   try {

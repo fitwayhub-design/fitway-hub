@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { get, run } from '../config/database';
+import { get, run } from '../config/database.js';
 
 // getDailySteps: reads from steps_entries (the canonical steps table)
 export const getDailySteps = async (req: Request, res: Response) => {

@@ -1,4 +1,4 @@
-import { query, run, get } from '../config/database';
+import { query, run, get } from '../config/database.js';
 
 export interface User {
   id: number;

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { get, query } from '../config/database';
+import { get, query } from '../config/database.js';
 
 export const getMyAnalytics = async (req: Request, res: Response) => {
   try {

@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
 import { Request, Response, NextFunction } from 'express';
-import { get } from '../config/database';
+import { get } from '../config/database.js';
 
 interface JwtPayload { id: number; email: string; role?: string; }
 

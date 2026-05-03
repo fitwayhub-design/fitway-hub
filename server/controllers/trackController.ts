@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { get, run } from '../config/database';
+import { get, run } from '../config/database.js';
 
 /** Convert ISO 8601 string to MySQL DATETIME format */
 function toMySQLDatetime(iso: string | null | undefined): string | null {

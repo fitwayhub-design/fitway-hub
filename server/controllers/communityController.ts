@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { query, get, run } from '../config/database';
-import { uploadToR2 } from '../middleware/upload';
-import { sendPushFromTemplate } from '../notificationService';
+import { query, get, run } from '../config/database.js';
+import { uploadToR2 } from '../middleware/upload.js';
+import { sendPushFromTemplate } from '../notificationService.js';
 
 export const getPosts = async (req: Request, res: Response) => {
   try {

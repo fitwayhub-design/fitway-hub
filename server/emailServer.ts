@@ -2,7 +2,7 @@ import { SMTPServer } from 'smtp-server';
 import { simpleParser } from 'mailparser';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
-import { run, query, get } from './config/database';
+import { run, query, get } from './config/database.js';
 
 let smtpInstance: SMTPServer | null = null;
 

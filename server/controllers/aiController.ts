@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
-import { run } from '../config/database';
-import { DailySummaryModel } from '../models/DailySummary';
+import { run } from '../config/database.js';
+import { DailySummaryModel } from '../models/DailySummary.js';
 
 export const analyzeSteps = async (req: Request, res: Response) => {
   try {

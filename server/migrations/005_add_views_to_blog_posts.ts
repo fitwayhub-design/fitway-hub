@@ -1,4 +1,4 @@
-import { run, get } from '../config/database';
+import { run, get } from '../config/database.js';
 
 export async function up() {
   const col = await get<any>(

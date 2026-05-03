@@ -2,7 +2,7 @@ import multer from 'multer';
 import path from 'path';
 import sharp from 'sharp';
 import { Request, Response, NextFunction } from 'express';
-import { query as dbQuery } from '../config/database';
+import { query as dbQuery } from '../config/database.js';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { fileTypeFromBuffer } from 'file-type';
 

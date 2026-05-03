@@ -1,4 +1,4 @@
-import { run, get } from '../config/database';
+import { run, get } from '../config/database.js';
 
 /**
  * app_images — admin-managed image slots keyed by slug.
