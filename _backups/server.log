@@ -28,3 +28,5 @@ Emitted 'error' event on Server instance at:
  [0mGET /api/ping [32m200[0m 5.151 ms - 54[0m
 [0mPOST /api/auth/login [32m200[0m 134.485 ms - 584[0m
 [0mGET /api/admin/app-settings [32m200[0m 141.476 ms - 27741[0m
+[0mGET / [32m200[0m 105.063 ms - 5610[0m
+[0mGET /api/ping [32m200[0m 45.273 ms - 54[0m

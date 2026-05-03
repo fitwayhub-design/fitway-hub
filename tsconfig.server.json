@@ -1,24 +1,52 @@
 {
+  // ─────────────────────────────────────────────────────────────────────────
+  // Server-only TS config used to:
+  //   - type-check the server in dev (`tsc --noEmit -p tsconfig.server.json`)
+  //   - compile the server for production (`npm run build:server`)
+  //
+  // Output: emits .js files alongside their .ts sources, with server.ts
+  // landing at the project root as `server.js`. This is what Hostinger's
+  // Node.js panel expects (`node server.js` from the project root).
+  //
+  // Why these specific module/moduleResolution values:
+  //   - The project is "type": "module" (ESM)
+  //   - Node.js runtime needs NodeNext resolution to find packages and
+  //     respect .js extensions in relative imports (which the source
+  //     already includes — e.g. `import x from './x.js'`)
+  // ─────────────────────────────────────────────────────────────────────────
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": [
-      "ES2022"
-    ],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
     "skipLibCheck": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "experimentalDecorators": true,
     "allowJs": true,
-    "noEmit": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "strict": false
+    "strict": false,
+
+    // Emit settings
+    "noEmit": false,
+    "rootDir": ".",
+    "outDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+
+    // Don't write .js files for content under `src/` (the React frontend
+    // — vite handles those). We only emit `server.ts` + `server/**/*.ts`.
+    "isolatedModules": true
   },
   "include": [
-    "server/**/*",
-    "server.ts"
+    "server.ts",
+    "server/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src",
+    "dist",
+    "server/__tests__",
+    "**/*.test.ts"
   ]
 }
