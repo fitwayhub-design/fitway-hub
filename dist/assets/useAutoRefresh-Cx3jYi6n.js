@@ -1,0 +1,1 @@
+import{a as s}from"./vendor-forms-Bg0DskW0.js";function u(e,t=3e4){const i=s.useRef(e);i.current=e,s.useEffect(()=>{const n=()=>i.current(),c=setInterval(n,t),r=()=>{document.visibilityState==="visible"&&n()};return document.addEventListener("visibilitychange",r),()=>{clearInterval(c),document.removeEventListener("visibilitychange",r)}},[t])}export{u};
