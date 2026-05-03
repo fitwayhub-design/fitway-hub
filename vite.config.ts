@@ -5,7 +5,7 @@ import { defineConfig, loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
-  const isCapacitor = process.env.CAPACITOR_BUILD === 'true' || mode === 'production';
+  const isCapacitor = process.env.CAPACITOR_BUILD === 'true';
 
   const manualChunks = (id: string): string | undefined => {
     if (!id.includes('node_modules')) return undefined;
