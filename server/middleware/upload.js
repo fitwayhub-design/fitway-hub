@@ -61,9 +61,42 @@ function isUnsafeImage(file) {
         return true;
     return false;
 }
+function isSvg(file) {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (ext === '.svg') return true;
+    const mt = String(file.mimetype || '').toLowerCase();
+    return mt === 'image/svg+xml' || mt === 'image/svg';
+}
+function sanitizeSvgBuffer(buf) {
+    let svg = buf.toString('utf8');
+    svg = svg.replace(/<\?xml[\s\S]*?\?>/gi, '');
+    svg = svg.replace(/<!DOCTYPE[\s\S]*?>/gi, '');
+    svg = svg.replace(/<script[\s\S]*?<\/script\s*>/gi, '');
+    svg = svg.replace(/<script\b[^>]*\/>/gi, '');
+    svg = svg.replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, '');
+    svg = svg.replace(/\s+on[a-z]+\s*=\s*"[^"]*"/gi, '');
+    svg = svg.replace(/\s+on[a-z]+\s*=\s*'[^']*'/gi, '');
+    svg = svg.replace(/\s+on[a-z]+\s*=\s*[^\s>]+/gi, '');
+    svg = svg.replace(/(href|xlink:href)\s*=\s*"\s*javascript:[^"]*"/gi, '$1="#"');
+    svg = svg.replace(/(href|xlink:href)\s*=\s*'\s*javascript:[^']*'/gi, "$1='#'");
+    if (!/<svg[\s>]/i.test(svg)) {
+        throw new Error('Invalid SVG: missing <svg> root after sanitisation');
+    }
+    return Buffer.from(svg, 'utf8');
+}
 const imageFilter = (req, file, cb) => {
     if (isUnsafeImage(file))
         return cb(new Error('SVG uploads are not allowed'), false);
+    if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    }
+    else {
+        cb(new Error('Only images are allowed'), false);
+    }
+};
+// Branding-only filter: SVG is allowed; sanitiseSvgIfPresent runs after multer.
+const brandingImageFilter = (req, file, cb) => {
+    if (isSvg(file)) return cb(null, true);
     if (file.mimetype.startsWith('image/')) {
         cb(null, true);
     }
@@ -86,10 +119,11 @@ const upload = multer({
     fileFilter: imageFilter,
     limits: { fileSize: 5 * 1024 * 1024 }
 });
-// Higher-limit upload for branding assets (logos can be transparent PNGs).
+// Higher-limit upload for branding assets (logos can be transparent PNGs or
+// SVG; SVG goes through sanitiseSvgIfPresent before storage.)
 const uploadBranding = multer({
     storage: storage,
-    fileFilter: imageFilter,
+    fileFilter: brandingImageFilter,
     limits: { fileSize: 15 * 1024 * 1024 }
 });
 // Upload for videos (40MB limit)
@@ -168,10 +202,11 @@ function optimizeImage(maxWidth = 1920, maxHeight = 1920, quality = 80) {
                 if (!file.buffer || file.buffer.length === 0)
                     continue;
                 const ext = path.extname(file.originalname).toLowerCase();
-                // SVG was already rejected by the filter; reject again defensively
-                // (any image/svg or .svg/.svgz bytes here means a fileFilter bypass).
+                // SVG: sharp can't optimise vector files. For paths that reject
+                // SVG the fileFilter already blocked it; for branding the
+                // sanitiser runs separately. Skip here either way.
                 if (ext === '.svg' || ext === '.svgz' || file.mimetype === 'image/svg+xml') {
-                    return next(new Error('SVG uploads are not allowed'));
+                    continue;
                 }
                 // GIF — sharp handles animated GIFs poorly. Skip optimization but still
                 // gate the magic bytes to reject anything that isn't actually a GIF.
@@ -371,5 +406,25 @@ function verifyUploadBytes(kind) {
         }
     };
 }
-export { upload, uploadAny, uploadVideo, uploadFont, uploadAudio, uploadBranding, optimizeImage, validateVideoSize, verifyUploadBytes, multerToJson, };
+/**
+ * If the uploaded file is an SVG, sanitise its bytes in-place. Used by the
+ * admin branding endpoint where SVG logos are allowed.
+ */
+function sanitiseSvgIfPresent(req, _res, next) {
+    try {
+        const file = req.file;
+        if (!file || !file.buffer || file.buffer.length === 0) return next();
+        const ext = path.extname(file.originalname || '').toLowerCase();
+        const looksSvg = ext === '.svg' || file.mimetype === 'image/svg+xml' || file.mimetype === 'image/svg';
+        if (!looksSvg) return next();
+        file.buffer = sanitizeSvgBuffer(file.buffer);
+        file.size = file.buffer.length;
+        file.mimetype = 'image/svg+xml';
+        if (!file.originalname.toLowerCase().endsWith('.svg')) {
+            file.originalname = file.originalname.replace(/\.[^.]+$/, '') + '.svg';
+        }
+        next();
+    } catch (err) { next(err); }
+}
+export { upload, uploadAny, uploadVideo, uploadFont, uploadAudio, uploadBranding, optimizeImage, validateVideoSize, verifyUploadBytes, multerToJson, sanitiseSvgIfPresent, };
 //# sourceMappingURL=upload.js.map

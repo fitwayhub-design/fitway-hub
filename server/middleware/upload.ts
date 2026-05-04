@@ -69,8 +69,57 @@ function isUnsafeImage(file: any): boolean {
   return false;
 }
 
+function isSvg(file: any): boolean {
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  if (ext === '.svg') return true;
+  const mt = String(file.mimetype || '').toLowerCase();
+  return mt === 'image/svg+xml' || mt === 'image/svg';
+}
+
+/**
+ * Strip script-execution vectors out of an SVG before we serve it from our
+ * own origin. Removes <script>, <foreignObject>, on* event handlers, and
+ * `javascript:` URLs in href/xlink:href. Admin-only branding uploads are
+ * the only path that calls this — rejecting <script>/handlers is enough
+ * for that threat model.
+ */
+function sanitizeSvgBuffer(buf: Buffer): Buffer {
+  let svg = buf.toString('utf8');
+  // Drop the XML/DOCTYPE preamble — it's optional and a vector for entity
+  // expansion / external DTD pulls.
+  svg = svg.replace(/<\?xml[\s\S]*?\?>/gi, '');
+  svg = svg.replace(/<!DOCTYPE[\s\S]*?>/gi, '');
+  // Drop dangerous element trees outright.
+  svg = svg.replace(/<script[\s\S]*?<\/script\s*>/gi, '');
+  svg = svg.replace(/<script\b[^>]*\/>/gi, '');
+  svg = svg.replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, '');
+  // Strip on* event-handler attributes (onload="...", onclick=..., etc).
+  svg = svg.replace(/\s+on[a-z]+\s*=\s*"[^"]*"/gi, '');
+  svg = svg.replace(/\s+on[a-z]+\s*=\s*'[^']*'/gi, '');
+  svg = svg.replace(/\s+on[a-z]+\s*=\s*[^\s>]+/gi, '');
+  // Strip javascript: pseudo-URLs anywhere.
+  svg = svg.replace(/(href|xlink:href)\s*=\s*"\s*javascript:[^"]*"/gi, '$1="#"');
+  svg = svg.replace(/(href|xlink:href)\s*=\s*'\s*javascript:[^']*'/gi, "$1='#'");
+  // Sanity-check: must still parse as something resembling an SVG root.
+  if (!/<svg[\s>]/i.test(svg)) {
+    throw new Error('Invalid SVG: missing <svg> root after sanitisation');
+  }
+  return Buffer.from(svg, 'utf8');
+}
+
 const imageFilter = (req: any, file: any, cb: any) => {
   if (isUnsafeImage(file)) return cb(new Error('SVG uploads are not allowed'), false);
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only images are allowed'), false);
+  }
+};
+
+// Branding-only filter: SVG is allowed because the branding upload is an
+// admin-only endpoint and the SVG is sanitised before storage.
+const brandingImageFilter = (req: any, file: any, cb: any) => {
+  if (isSvg(file)) return cb(null, true);
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
@@ -93,10 +142,11 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }
 });
 
-// Higher-limit upload for branding assets (logos can be transparent PNGs).
+// Higher-limit upload for branding assets (logos can be transparent PNGs or
+// SVG. SVG goes through sanitiseSvgIfPresent before storage.)
 const uploadBranding = multer({
   storage: storage,
-  fileFilter: imageFilter,
+  fileFilter: brandingImageFilter,
   limits: { fileSize: 15 * 1024 * 1024 }
 });
 
@@ -182,10 +232,11 @@ function optimizeImage(maxWidth = 1920, maxHeight = 1920, quality = 80) {
 
         const ext = path.extname(file.originalname).toLowerCase();
 
-        // SVG was already rejected by the filter; reject again defensively
-        // (any image/svg or .svg/.svgz bytes here means a fileFilter bypass).
+        // SVG: sharp can't optimise vector files, and for paths that reject
+        // SVG the fileFilter already blocked it. For branding (where SVG is
+        // permitted) sanitiseSvgIfPresent runs separately. Just skip here.
         if (ext === '.svg' || ext === '.svgz' || file.mimetype === 'image/svg+xml') {
-          return next(new Error('SVG uploads are not allowed'));
+          continue;
         }
         // GIF — sharp handles animated GIFs poorly. Skip optimization but still
         // gate the magic bytes to reject anything that isn't actually a GIF.
@@ -389,7 +440,29 @@ function verifyUploadBytes(kind: 'audio' | 'font') {
   };
 }
 
+/**
+ * If the uploaded file is an SVG, sanitise its bytes in-place. Used by the
+ * admin branding endpoint where SVG logos are allowed.
+ */
+function sanitiseSvgIfPresent(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const file: any = (req as any).file;
+    if (!file || !file.buffer || file.buffer.length === 0) return next();
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const looksSvg = ext === '.svg' || file.mimetype === 'image/svg+xml' || file.mimetype === 'image/svg';
+    if (!looksSvg) return next();
+    file.buffer = sanitizeSvgBuffer(file.buffer);
+    file.size = file.buffer.length;
+    file.mimetype = 'image/svg+xml';
+    if (!file.originalname.toLowerCase().endsWith('.svg')) {
+      file.originalname = file.originalname.replace(/\.[^.]+$/, '') + '.svg';
+    }
+    next();
+  } catch (err) { next(err); }
+}
+
 export {
   upload, uploadAny, uploadVideo, uploadFont, uploadAudio, uploadBranding,
   optimizeImage, validateVideoSize, verifyUploadBytes, multerToJson,
+  sanitiseSvgIfPresent,
 };
