@@ -1198,9 +1198,24 @@ router.get('/dashboard-config', async (_req: Request, res: Response) => {
 });
 
 // ── Branding image upload (logo / favicon) ───────────────────────────────────
+// Branding assets are stored inline as base64 data URLs in app_settings rather
+// than written to disk or R2. Reasons:
+//   • The local-disk fallback is wiped on every redeploy on Railway/Render-style
+//     hosts, which makes the logo "disappear" once you push a new build.
+//   • Branding images are small (logos, favicons, the Coming Soon background)
+//     and rarely change, so inlining them avoids an extra HTTP round-trip.
+// Falls back to R2 if a file would exceed INLINE_LIMIT after optimisation —
+// for the typical logo/favicon/SVG path that branch never triggers.
+const INLINE_LIMIT = 1.5 * 1024 * 1024; // 1.5 MB
+
 router.post('/upload-branding-image', authenticateToken, adminOnly, multerToJson(uploadBranding.single('image')), sanitiseSvgIfPresent, optimizeImage(), async (req: any, res: Response) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No image file provided' });
+    if (req.file.buffer && req.file.buffer.length <= INLINE_LIMIT) {
+      const mime = req.file.mimetype || 'application/octet-stream';
+      const dataUrl = `data:${mime};base64,${req.file.buffer.toString('base64')}`;
+      return res.json({ url: dataUrl });
+    }
     const imageUrl = await uploadToR2(req.file, 'branding');
     res.json({ url: imageUrl });
   } catch (err: any) {

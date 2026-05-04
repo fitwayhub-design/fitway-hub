@@ -734,7 +734,7 @@ async function initTables() {
     `CREATE TABLE IF NOT EXISTS app_settings (
       id INT AUTO_INCREMENT PRIMARY KEY,
       setting_key VARCHAR(100) UNIQUE NOT NULL,
-      setting_value TEXT,
+      setting_value LONGTEXT,
       setting_type VARCHAR(20) DEFAULT 'text',
       category VARCHAR(50) DEFAULT 'general',
       label VARCHAR(100),
@@ -1422,6 +1422,12 @@ export async function initDatabase() {
   // Cleanup: remove deprecated settings
   try {
     await run("DELETE FROM app_settings WHERE setting_key = 'free_user_can_access_coaching'");
+  } catch {}
+
+  // Branding images are stored inline as base64 data URLs (see /upload-branding-image),
+  // so widen setting_value from TEXT (64KB) to LONGTEXT (4GB) for existing tables.
+  try {
+    await run("ALTER TABLE app_settings MODIFY COLUMN setting_value LONGTEXT");
   } catch {}
 
   // Force monthly cycle + monthly label for existing coach fee rows

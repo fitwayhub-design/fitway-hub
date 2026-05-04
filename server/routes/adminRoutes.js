@@ -1210,10 +1210,18 @@ router.get('/dashboard-config', async (_req, res) => {
     }
 });
 // ── Branding image upload (logo / favicon) ───────────────────────────────────
+// Branding assets are stored inline as base64 data URLs in app_settings.
+// See adminRoutes.ts for rationale.
+const INLINE_LIMIT = 1.5 * 1024 * 1024;
 router.post('/upload-branding-image', authenticateToken, adminOnly, multerToJson(uploadBranding.single('image')), sanitiseSvgIfPresent, optimizeImage(), async (req, res) => {
     try {
         if (!req.file)
             return res.status(400).json({ message: 'No image file provided' });
+        if (req.file.buffer && req.file.buffer.length <= INLINE_LIMIT) {
+            const mime = req.file.mimetype || 'application/octet-stream';
+            const dataUrl = `data:${mime};base64,${req.file.buffer.toString('base64')}`;
+            return res.json({ url: dataUrl });
+        }
         const imageUrl = await uploadToR2(req.file, 'branding');
         res.json({ url: imageUrl });
     }
