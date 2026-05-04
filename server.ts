@@ -251,13 +251,20 @@ async function startServer() {
 
   // Serve uploads — restrict to known media file extensions only
   app.use('/uploads', (req: any, res: any, next: any) => {
-    const allowed = /\.(jpg|jpeg|png|gif|webp|mp4|webm|mov|mp3|webm|ogg|pdf)$/i;
+    const allowed = /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|mov|mp3|webm|ogg|pdf)$/i;
     if (!allowed.test(req.path)) return res.status(403).json({ message: 'Forbidden' });
     next();
   }, express.static(path.join(__dirname, 'uploads'), {
-    setHeaders: (res: any) => {
+    setHeaders: (res: any, filePath: string) => {
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      // SVG: force the correct MIME (so nosniff doesn't block it) and a
+      // strict CSP that disables script execution even if any sneaks past
+      // the upload-time sanitiser.
+      if (/\.svg$/i.test(filePath)) {
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src data:;");
+      }
     }
   }));
 
