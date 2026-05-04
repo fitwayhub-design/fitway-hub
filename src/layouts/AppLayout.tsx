@@ -1,9 +1,9 @@
-import { Outlet, NavLink, Link, useLocation } from "react-router-dom";
+import { Outlet, NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Home, Dumbbell, Activity, Users, Bell,
   MessageCircle, Wrench, CreditCard, BarChart2,
-  UserCheck, BookOpen, ClipboardList, User, Utensils,
+  UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
@@ -66,12 +66,14 @@ function useIsDesktop() {
 }
 
 export function AppLayout() {
-  const { token, user } = useAuth();
+  const { token, user, logout } = useAuth();
   const { lang, t } = useI18n();
   const { branding } = useBranding();
   const { isDark } = useTheme();
   const isRtl = lang === "ar";
   const location = useLocation();
+  const navigate = useNavigate();
+  const handleSignOut = useCallback(() => { logout(); navigate("/auth/login", { replace: true }); }, [logout, navigate]);
   const [showLocation, setShowLocation] = useState(false);
   const [features, setFeatures] = useState<Record<string, boolean>>({});
   const brandLogo = getBrandLogoForLang(branding, lang, isDark);
@@ -203,17 +205,31 @@ export function AppLayout() {
 
           {/* User avatar at bottom */}
           {user && (
-            <NavLink to="/app/profile" className="user-panel-profile-link" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", padding: "16px 18px", borderTop: "1px solid var(--border)" }}>
-              <img src={user.avatar || getAvatar(user.email, null, (user as any).gender, user.name)} alt="" style={{ width: 32, height: 32, borderRadius: 12, objectFit: "cover", border: "1px solid var(--main)" }} />
-              <div style={{ minWidth: 0 }}>
-                <span style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name || user.email}</span>
-                <span style={{
-                  display: "block", fontSize: 9, color: "var(--text-muted)",
-                  textTransform: "uppercase", letterSpacing: "0.18em",
-                  fontFamily: "var(--fwh-mono, ui-monospace, monospace)", marginTop: 2,
-                }}>{user.role}</span>
-              </div>
-            </NavLink>
+            <div style={{ borderTop: "1px solid var(--border)" }}>
+              <NavLink to="/app/profile" className="user-panel-profile-link" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", padding: "16px 18px" }}>
+                <img src={user.avatar || getAvatar(user.email, null, (user as any).gender, user.name)} alt="" style={{ width: 32, height: 32, borderRadius: 12, objectFit: "cover", border: "1px solid var(--main)" }} />
+                <div style={{ minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name || user.email}</span>
+                  <span style={{
+                    display: "block", fontSize: 9, color: "var(--text-muted)",
+                    textTransform: "uppercase", letterSpacing: "0.18em",
+                    fontFamily: "var(--fwh-mono, ui-monospace, monospace)", marginTop: 2,
+                  }}>{user.role}</span>
+                </div>
+              </NavLink>
+              <button
+                onClick={handleSignOut}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%",
+                  padding: "12px 18px", border: "none", background: "transparent",
+                  color: "var(--red)", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                  borderTop: "1px solid var(--border)",
+                }}
+              >
+                <LogOut size={16} />
+                {t("sign_out")}
+              </button>
+            </div>
           )}
         </aside>
       )}
@@ -295,6 +311,18 @@ export function AppLayout() {
                   </NavLink>
                 );
               })}
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="app-top-scroll-item"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)" }}
+                aria-label={t("sign_out")}
+              >
+                <div className="app-top-scroll-icon-wrap">
+                  <LogOut size={14} strokeWidth={2} />
+                </div>
+                <span className="app-top-scroll-label">{t("sign_out")}</span>
+              </button>
             </div>
           </nav>
         </header>
