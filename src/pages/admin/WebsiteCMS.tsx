@@ -221,10 +221,10 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
         "btn_hover_type", "btn_hover_color",
         "font_en", "font_ar", "font_heading",
         "social_instagram", "social_facebook", "social_twitter", "social_youtube",
-        "coming_soon_enabled", "coming_soon_bg_image",
+        "coming_soon_enabled", "coming_soon_bg_image", "coming_soon_text", "coming_soon_text_ar",
       ];
 
-      for (const key of ["logo_url_en_light", "logo_url_en_dark", "logo_url_ar_light", "logo_url_ar_dark", "coming_soon_enabled", "coming_soon_bg_image"]) {
+      for (const key of ["logo_url_en_light", "logo_url_en_dark", "logo_url_ar_light", "logo_url_ar_dark", "coming_soon_enabled", "coming_soon_bg_image", "coming_soon_text", "coming_soon_text_ar"]) {
         if (!(key in brandingForm)) {
           try {
             await api("/api/admin/app-settings/add", {
@@ -1336,6 +1336,14 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
                 </button>
               </div>
               <div>
+                <label style={labelS}>Headline (English)</label>
+                <input style={iS} value={brandingForm.coming_soon_text || ""} onChange={e => setBrandingForm(v => ({ ...v, coming_soon_text: e.target.value }))} placeholder="COMING SOON" />
+              </div>
+              <div>
+                <label style={labelS}>Headline (Arabic)</label>
+                <input style={iS} dir="rtl" value={brandingForm.coming_soon_text_ar || ""} onChange={e => setBrandingForm(v => ({ ...v, coming_soon_text_ar: e.target.value }))} placeholder="قريباً" />
+              </div>
+              <div>
                 <label style={labelS}>Background image</label>
                 <div style={{ display: "flex", gap: 8 }}>
                   <input style={{ ...iS, flex: 1 }} value={brandingForm.coming_soon_bg_image || ""} onChange={e => setBrandingForm(v => ({ ...v, coming_soon_bg_image: e.target.value }))} placeholder="URL or upload" />
@@ -1349,6 +1357,9 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
                     <img src={brandingForm.coming_soon_bg_image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   </div>
                 )}
+                <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>
+                  Facebook and Instagram icons on the page link to whatever you set in the <strong>Social links</strong> column above.
+                </p>
               </div>
             </div>
           </div>

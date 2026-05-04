@@ -30,6 +30,8 @@ export interface Branding {
   font_heading: string;
   coming_soon_enabled: string;
   coming_soon_bg_image: string;
+  coming_soon_text: string;
+  coming_soon_text_ar: string;
 }
 
 const defaults: Branding = {
@@ -60,6 +62,8 @@ const defaults: Branding = {
   font_heading: "Gotham",
   coming_soon_enabled: "0",
   coming_soon_bg_image: "",
+  coming_soon_text: "COMING SOON",
+  coming_soon_text_ar: "قريباً",
 };
 
 interface BrandingContextValue {
