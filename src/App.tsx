@@ -98,6 +98,8 @@ const WebsiteLayout = lazy(() => import("@/layouts/WebsiteLayout").then((m) => (
 const CmsPage = lazy(() => import("@/pages/website/CmsPage"));
 const HomePage = lazy(() => import("@/pages/website/Home"));
 const ComingSoonPage = lazy(() => import("@/pages/website/ComingSoon"));
+const PrivacyPolicyPage = lazy(() => import("@/pages/website/PrivacyPolicy"));
+const TermsOfServicePage = lazy(() => import("@/pages/website/TermsOfService"));
 const AboutPage = lazy(() => import("@/pages/website/About"));
 const WebsiteBlogs = lazy(() => import("@/pages/website/Blogs"));
 const WebsiteBlogPost = lazy(() => import("@/pages/website/BlogPost"));
@@ -301,6 +303,8 @@ export default function App() {
                 <Route path="/contact" element={<PublicGate><CmsPage page="contact" /></PublicGate>} />
                 <Route path="/blogs" element={<PublicGate><WebsiteBlogs /></PublicGate>} />
                 <Route path="/blogs/:slug" element={<PublicGate><WebsiteBlogPost /></PublicGate>} />
+                <Route path="/privacy" element={<PublicGate><PrivacyPolicyPage /></PublicGate>} />
+                <Route path="/terms" element={<PublicGate><TermsOfServicePage /></PublicGate>} />
               </Route>
 
               {/* Auth Routes */}

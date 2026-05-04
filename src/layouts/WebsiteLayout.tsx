@@ -40,7 +40,10 @@ export function WebsiteLayout() {
     { name: t("about"), path: "/about" },
     { name: t("contact"), path: "/contact" },
   ];
-  const legalLinks = [t("privacy_policy"), t("terms")];
+  const legalLinks: Array<{ name: string; path: string }> = [
+    { name: t("privacy_policy"), path: "/privacy" },
+    { name: t("terms"), path: "/terms" },
+  ];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -521,7 +524,7 @@ export function WebsiteLayout() {
             <div>
               <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.18em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 18, fontFamily: "var(--font-mono, ui-monospace, monospace)" }}>{t("legal")}</p>
               {legalLinks.map((l) => (
-                <a key={l} href="#" className="web-footer-link">{l}</a>
+                <Link key={l.path} to={l.path} className="web-footer-link">{l.name}</Link>
               ))}
             </div>
 
