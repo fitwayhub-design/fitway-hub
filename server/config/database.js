@@ -336,6 +336,10 @@ async function initTables() {
       duration VARCHAR(20),
       duration_seconds INT DEFAULT 0,
       category VARCHAR(100) DEFAULT 'General',
+      goal VARCHAR(40) DEFAULT NULL,
+      body_area VARCHAR(40) DEFAULT NULL,
+      equipment VARCHAR(40) DEFAULT NULL,
+      level VARCHAR(40) DEFAULT NULL,
       is_premium TINYINT(1) DEFAULT 0,
       is_short TINYINT(1) DEFAULT 0,
       thumbnail TEXT,
@@ -1319,6 +1323,11 @@ export async function initDatabase() {
         await run("ALTER TABLE app_settings MODIFY COLUMN setting_value LONGTEXT");
     }
     catch { }
+    // Workout video metadata for athlete-side filtering. Existing rows default to NULL.
+    try { await run("ALTER TABLE workout_videos ADD COLUMN goal VARCHAR(40) DEFAULT NULL"); } catch { }
+    try { await run("ALTER TABLE workout_videos ADD COLUMN body_area VARCHAR(40) DEFAULT NULL"); } catch { }
+    try { await run("ALTER TABLE workout_videos ADD COLUMN equipment VARCHAR(40) DEFAULT NULL"); } catch { }
+    try { await run("ALTER TABLE workout_videos ADD COLUMN level VARCHAR(40) DEFAULT NULL"); } catch { }
     // Force monthly cycle + monthly label for existing coach fee rows
     try {
         await run("UPDATE app_settings SET setting_value = 'monthly' WHERE setting_key = 'coach_membership_cycle'");

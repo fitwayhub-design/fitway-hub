@@ -472,7 +472,7 @@ export default function Coaching() {
                     {subscribedCoaches[c.id].latestStatus === "active"
                       ? `✓ Subscribed · Expires ${subscribedCoaches[c.id].subscription?.expires_at ? new Date(subscribedCoaches[c.id].subscription.expires_at).toLocaleDateString() : "-"}${formatSubscriptionRemaining(subscribedCoaches[c.id].subscription?.expires_at) ? ` · ${formatSubscriptionRemaining(subscribedCoaches[c.id].subscription?.expires_at)}` : ""}`
                       : subscribedCoaches[c.id].latestStatus === "pending_admin"
-                        ? "⏳ Payment pending admin verification"
+                        ? "⏳ Confirming your payment"
                         : subscribedCoaches[c.id].latestStatus === "pending_coach"
                           ? "⏳ Waiting for coach decision"
                           : subscribedCoaches[c.id].latestStatus === "rejected_by_coach"
@@ -701,7 +701,7 @@ export default function Coaching() {
                 coachId={subscribeCoach.id}
                 coachName={subscribeCoach.name}
                 onSuccess={() => {
-                  setSubMsg("✅ Request sent. Waiting for admin verification then coach decision.");
+                  setSubMsg("✅ Request sent. We're confirming your payment, then your coach will respond.");
                   setSubscribedCoaches(prev => ({ ...prev, [subscribeCoach.id]: { ...(prev[subscribeCoach.id] || {}), subscribed: false, latestStatus: "pending_admin", canRequestNew: false } }));
                   setTimeout(() => { setSubscribeCoach(null); setSubMsg(""); }, 2000);
                 }}

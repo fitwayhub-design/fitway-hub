@@ -810,22 +810,22 @@ a:active { transform: scale(0.98); }
 .app-bottom-nav-inner {
   margin: 0 auto;
   max-width: 560px;
-  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 65%, transparent);
   border: 1px solid var(--border-light);
   border-radius: 999px;
   display: flex;
   align-items: stretch;
   padding: 6px;
   pointer-events: all;
-  backdrop-filter: blur(28px) saturate(140%);
-  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.35),
     0 0 0 1px rgba(255, 255, 255, 0.04) inset;
 }
 
 html.light .app-bottom-nav-inner {
-  background: color-mix(in srgb, #ffffff 88%, transparent);
+  background: color-mix(in srgb, #ffffff 70%, transparent);
   box-shadow:
     0 10px 30px rgba(0, 0, 0, 0.10),
     0 0 0 1px rgba(0, 0, 0, 0.04) inset;
@@ -906,12 +906,12 @@ html.light .app-bottom-nav-inner {
   right: 0;
   z-index: 90;
   padding-top: env(safe-area-inset-top);
-  background: color-mix(in srgb, var(--bg-primary) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 60%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
   display: flex;
   flex-direction: column;
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(36px) saturate(180%);
+  -webkit-backdrop-filter: blur(36px) saturate(180%);
 }
 
 .app-top-bar-inner {
@@ -1535,14 +1535,17 @@ html.light .dash-featured-overlay {
 
 /* ── Content section spacing ─────────────────────────────── */
 .dash-section {
-  padding-bottom: 16px;
+  padding-bottom: 24px;
+}
+.dash-section + .dash-section {
+  margin-top: 4px;
 }
 .dash-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .dash-section-header h2 {
   font-size: 18px;
@@ -3168,25 +3171,30 @@ html.light .app-fwh .dash-hero-overlay {
   font-weight: 600;
 }
 
-/* Analytics grid → 3 sharp stat cards */
+/* Analytics grid → 3 spaced stat cards */
 .app-fwh .dash-analytics-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0;
-  border: 1px solid var(--border);
-  margin-bottom: 24px;
+  gap: 12px;
+  margin: 0 20px 24px;
+  border: none;
+  padding: 0;
+  overflow: visible;
 }
 .app-fwh .dash-analytics-card {
   padding: 18px 16px;
   background: var(--bg-card);
-  border-right: 1px solid var(--border);
-  border-radius: 12px !important;
+  border: 1px solid var(--border);
+  border-radius: 14px !important;
   text-decoration: none;
   color: var(--text-primary);
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
 }
-.app-fwh .dash-analytics-card:last-child { border-right: none; }
-.app-fwh .dash-analytics-card:hover { background: color-mix(in srgb, var(--main) 4%, transparent); }
+.app-fwh .dash-analytics-card:hover {
+  background: color-mix(in srgb, var(--main) 4%, transparent);
+  border-color: color-mix(in srgb, var(--main) 28%, var(--border));
+  transform: translateY(-1px);
+}
 .app-fwh .dash-analytics-kicker {
   font-family: var(--fwh-mono, ui-monospace, monospace);
   font-size: 9px;
@@ -3299,10 +3307,14 @@ html.light .app-fwh .dash-hero-overlay {
 /* Horizontal scroll rail */
 .app-fwh .dash-hscroll {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   overflow-x: auto;
-  padding: 4px 0 14px;
+  padding: 4px 20px 14px;
   scrollbar-width: none;
+  scroll-padding-inline: 20px;
+}
+@media (max-width: 480px) {
+  .app-fwh .dash-hscroll { padding-inline: 16px; }
 }
 .app-fwh .dash-hscroll::-webkit-scrollbar { display: none; }
 

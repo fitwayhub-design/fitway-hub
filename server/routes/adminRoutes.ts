@@ -291,7 +291,7 @@ router.post('/videos', authenticateToken, adminOnly, uploadVideo.fields([
   { name: 'thumbnail', maxCount: 1 }
 ]), validateVideoSize, optimizeImage(), async (req: any, res: Response) => {
   try {
-    const { title, description, duration, category, is_premium } = req.body;
+    const { title, description, duration, category, is_premium, goal, body_area, equipment, level } = req.body;
     if (!title) return res.status(400).json({ message: 'Title is required' });
     const isShort = req.body.is_short === '1' || req.body.is_short === true ? 1 : 0;
 
@@ -306,8 +306,8 @@ router.post('/videos', authenticateToken, adminOnly, uploadVideo.fields([
     const durationSeconds = videoFile.size > 0 ? Math.ceil(videoFile.size / (1024 * 1024)) : parseInt(duration || '0');
 
     const { insertId } = await run(
-      'INSERT INTO workout_videos (title, description, url, duration, duration_seconds, category, is_premium, thumbnail, is_short, source_type, approval_status, submitted_by, approved_by, approved_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      [title, description || '', videoUrl, duration || '', durationSeconds, category || 'General', is_premium === '1' || is_premium === true ? 1 : 0, thumbnailUrl || '', isShort, 'upload', 'approved', req.user.id, req.user.id, new Date()]
+      'INSERT INTO workout_videos (title, description, url, duration, duration_seconds, category, is_premium, thumbnail, is_short, source_type, approval_status, submitted_by, approved_by, approved_at, goal, body_area, equipment, level) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [title, description || '', videoUrl, duration || '', durationSeconds, category || 'General', is_premium === '1' || is_premium === true ? 1 : 0, thumbnailUrl || '', isShort, 'upload', 'approved', req.user.id, req.user.id, new Date(), goal || null, body_area || null, equipment || null, level || null]
     );
       const coachId = req.body.coach_id ? parseInt(req.body.coach_id) : null;
       if (coachId) await run('UPDATE workout_videos SET coach_id = ? WHERE id = ?', [coachId, insertId]);
@@ -322,7 +322,7 @@ router.post('/videos', authenticateToken, adminOnly, uploadVideo.fields([
 // Create video from YouTube URL
 router.post('/videos/youtube', authenticateToken, adminOnly, async (req: any, res: Response) => {
   try {
-    const { title, description, duration, category, is_premium, is_short, coach_id, youtube_url } = req.body;
+    const { title, description, duration, category, is_premium, is_short, coach_id, youtube_url, goal, body_area, equipment, level } = req.body;
     if (!title) return res.status(400).json({ message: 'Title is required' });
     if (!youtube_url) return res.status(400).json({ message: 'YouTube URL is required' });
 
@@ -339,8 +339,8 @@ router.post('/videos/youtube', authenticateToken, adminOnly, async (req: any, re
     const isPremiumVal = is_premium === '1' || is_premium === true ? 1 : 0;
 
     const { insertId } = await run(
-      'INSERT INTO workout_videos (title, description, url, youtube_url, source_type, duration, duration_seconds, category, is_premium, thumbnail, is_short, approval_status, submitted_by, approved_by, approved_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      [title, description || '', embedUrl, youtube_url, 'youtube', duration || '', 0, category || 'General', isPremiumVal, thumbnail, isShortVal, 'approved', req.user.id, req.user.id, new Date()]
+      'INSERT INTO workout_videos (title, description, url, youtube_url, source_type, duration, duration_seconds, category, is_premium, thumbnail, is_short, approval_status, submitted_by, approved_by, approved_at, goal, body_area, equipment, level) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [title, description || '', embedUrl, youtube_url, 'youtube', duration || '', 0, category || 'General', isPremiumVal, thumbnail, isShortVal, 'approved', req.user.id, req.user.id, new Date(), goal || null, body_area || null, equipment || null, level || null]
     );
     const coachIdVal = coach_id ? parseInt(coach_id) : null;
     if (coachIdVal) await run('UPDATE workout_videos SET coach_id = ? WHERE id = ?', [coachIdVal, insertId]);
@@ -367,13 +367,18 @@ router.patch('/videos/:id', authenticateToken, adminOnly, uploadVideo.fields([
 
     const videoUrl = videoFile ? await uploadToR2(videoFile, 'videos') : existing.url;
     const thumbnailUrl = thumbnailFile ? await uploadToR2(thumbnailFile, 'thumbnails') : existing.thumbnail;
-    const { title, description, duration, category, is_premium } = req.body;
+    const { title, description, duration, category, is_premium, goal, body_area, equipment, level } = req.body;
     const isShort = req.body.is_short === '1' || req.body.is_short === true ? 1 : (req.body.is_short === '0' || req.body.is_short === false ? 0 : existing.is_short || 0);
 
     await run(
-      'UPDATE workout_videos SET title=?, description=?, url=?, duration=?, category=?, is_premium=?, thumbnail=?, is_short=?, updated_at=NOW() WHERE id=?',
+      'UPDATE workout_videos SET title=?, description=?, url=?, duration=?, category=?, is_premium=?, thumbnail=?, is_short=?, goal=?, body_area=?, equipment=?, level=?, updated_at=NOW() WHERE id=?',
       [title || existing.title, description ?? existing.description, videoUrl, duration || existing.duration,
-       category || existing.category, is_premium === '1' || is_premium === true ? 1 : 0, thumbnailUrl, isShort, id]
+       category || existing.category, is_premium === '1' || is_premium === true ? 1 : 0, thumbnailUrl, isShort,
+       goal !== undefined ? (goal || null) : existing.goal,
+       body_area !== undefined ? (body_area || null) : existing.body_area,
+       equipment !== undefined ? (equipment || null) : existing.equipment,
+       level !== undefined ? (level || null) : existing.level,
+       id]
     );
     const coachIdPatch = req.body.coach_id !== undefined ? (req.body.coach_id ? parseInt(req.body.coach_id) : null) : undefined;
     if (coachIdPatch !== undefined) await run('UPDATE workout_videos SET coach_id = ? WHERE id = ?', [coachIdPatch, id]);

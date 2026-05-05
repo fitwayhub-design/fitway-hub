@@ -271,10 +271,10 @@ export function SharedSidebar({
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 90,
       height: "calc(56px + env(safe-area-inset-top))",
       paddingTop: "env(safe-area-inset-top)",
-      backgroundColor: "color-mix(in srgb, var(--bg-primary) 78%, transparent)",
+      backgroundColor: "color-mix(in srgb, var(--bg-primary) 60%, transparent)",
       borderBottom: "1px solid color-mix(in srgb, var(--border) 65%, transparent)",
-      backdropFilter: "blur(24px) saturate(140%)",
-      WebkitBackdropFilter: "blur(24px) saturate(140%)",
+      backdropFilter: "blur(36px) saturate(180%)",
+      WebkitBackdropFilter: "blur(36px) saturate(180%)",
       display: "flex", alignItems: "flex-end",
     }}>
       <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 56 }}>
@@ -360,13 +360,13 @@ export function SharedSidebar({
       <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100, padding: `0 12px calc(12px + env(safe-area-inset-bottom))`, pointerEvents: "none" }} aria-label="Main navigation">
         <div style={{
           margin: "0 auto", maxWidth: 560,
-          background: "color-mix(in srgb, var(--bg-card) 85%, transparent)",
+          background: "color-mix(in srgb, var(--bg-card) 65%, transparent)",
           border: "1px solid var(--border-light)",
           borderRadius: 999,
           display: "flex", alignItems: "stretch", padding: 6,
           pointerEvents: "all",
-          backdropFilter: "blur(28px) saturate(140%)",
-          WebkitBackdropFilter: "blur(28px) saturate(140%)",
+          backdropFilter: "blur(40px) saturate(180%)",
+          WebkitBackdropFilter: "blur(40px) saturate(180%)",
           boxShadow: "0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04) inset",
         }}>
           {bottomItems.map(({ path, icon: Icon, label }) => {

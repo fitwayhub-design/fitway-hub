@@ -77,7 +77,7 @@ export default function AdminDashboard() {
   const [userEditSaving, setUserEditSaving] = useState(false);
   const [medicalUploading, setMedicalUploading] = useState(false);
   const [giftForm, setGiftForm] = useState({ user_id: 0, title: "", description: "", type: "points", value: 100 });
-  const [videoForm, setVideoForm] = useState({ title: "", description: "", duration: "", category: "HIIT", is_premium: false, is_short: false, coach_id: "" });
+  const [videoForm, setVideoForm] = useState({ title: "", description: "", duration: "", category: "HIIT", is_premium: false, is_short: false, coach_id: "", goal: "", body_area: "", equipment: "", level: "" });
   const [userEditForm, setUserEditForm] = useState<any>({
     id: "",
     name: "",
@@ -368,7 +368,7 @@ export default function AdminDashboard() {
         if (res.ok && data.video) {
           setVideos(v => [data.video, ...v]);
           setShowVideoModal(false);
-          setVideoForm({ title: "", description: "", duration: "", category: "HIIT", is_premium: false, is_short: false, coach_id: "" });
+          setVideoForm({ title: "", description: "", duration: "", category: "HIIT", is_premium: false, is_short: false, coach_id: "", goal: "", body_area: "", equipment: "", level: "" });
           setYoutubeUrl("");
           setVideoSourceType("upload");
           showMsg("🎬 YouTube video added!");
@@ -382,6 +382,10 @@ export default function AdminDashboard() {
         formData.append("is_premium", videoForm.is_premium ? "1" : "0");
         formData.append("is_short", videoForm.is_short ? "1" : "0");
         if (videoForm.coach_id) formData.append("coach_id", videoForm.coach_id);
+        if (videoForm.goal) formData.append("goal", videoForm.goal);
+        if (videoForm.body_area) formData.append("body_area", videoForm.body_area);
+        if (videoForm.equipment) formData.append("equipment", videoForm.equipment);
+        if (videoForm.level) formData.append("level", videoForm.level);
         formData.append("video", videoFile!);
         if (thumbnailFile) formData.append("thumbnail", thumbnailFile);
         const res = await fetch(getApiBase() + "/api/admin/videos", {
@@ -393,7 +397,7 @@ export default function AdminDashboard() {
         if (res.ok && data.video) {
           setVideos(v => [data.video, ...v]);
           setShowVideoModal(false);
-          setVideoForm({ title: "", description: "", duration: "", category: "HIIT", is_premium: false, is_short: false, coach_id: "" });
+          setVideoForm({ title: "", description: "", duration: "", category: "HIIT", is_premium: false, is_short: false, coach_id: "", goal: "", body_area: "", equipment: "", level: "" });
           setVideoFile(null); setThumbnailFile(null);
           showMsg("🎬 Video uploaded!");
         } else { showMsg("❌ " + (data.message || "Failed to upload video")); }
@@ -1702,6 +1706,47 @@ export default function AdminDashboard() {
                   <option value="">No coach (general)</option>
                   {coaches.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
                 </select>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Goal</label>
+                  <select className="input-base" value={videoForm.goal} onChange={e => setVideoForm(f => ({ ...f, goal: e.target.value }))}>
+                    <option value="">— Any —</option>
+                    <option value="fat_loss">Fat loss</option>
+                    <option value="muscle_gain">Muscle gain</option>
+                    <option value="mobility">Mobility</option>
+                    <option value="endurance">Endurance</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Body Area</label>
+                  <select className="input-base" value={videoForm.body_area} onChange={e => setVideoForm(f => ({ ...f, body_area: e.target.value }))}>
+                    <option value="">— Any —</option>
+                    <option value="full_body">Full body</option>
+                    <option value="legs">Legs</option>
+                    <option value="core">Core</option>
+                    <option value="upper_body">Upper body</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Equipment</label>
+                  <select className="input-base" value={videoForm.equipment} onChange={e => setVideoForm(f => ({ ...f, equipment: e.target.value }))}>
+                    <option value="">— Any —</option>
+                    <option value="none">No equipment</option>
+                    <option value="dumbbells">Dumbbells</option>
+                    <option value="bands">Bands</option>
+                    <option value="gym">Gym</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Level</label>
+                  <select className="input-base" value={videoForm.level} onChange={e => setVideoForm(f => ({ ...f, level: e.target.value }))}>
+                    <option value="">— Any —</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
               </div>
               <div style={{ display: "flex", gap: 20 }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
