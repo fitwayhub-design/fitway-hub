@@ -271,10 +271,10 @@ export function SharedSidebar({
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 90,
       height: "calc(56px + env(safe-area-inset-top))",
       paddingTop: "env(safe-area-inset-top)",
-      backgroundColor: "var(--bg-primary)",
-      borderBottom: "1px solid var(--border)",
-      backdropFilter: "blur(20px)",
-      WebkitBackdropFilter: "blur(20px)",
+      backgroundColor: "color-mix(in srgb, var(--bg-primary) 78%, transparent)",
+      borderBottom: "1px solid color-mix(in srgb, var(--border) 65%, transparent)",
+      backdropFilter: "blur(24px) saturate(140%)",
+      WebkitBackdropFilter: "blur(24px) saturate(140%)",
       display: "flex", alignItems: "flex-end",
     }}>
       <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 56 }}>
@@ -356,27 +356,90 @@ export function SharedSidebar({
         </div>
       )}
 
-      {/* Floating pill nav */}
-      <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100, padding: "0 12px 10px", paddingBottom: "calc(10px + env(safe-area-inset-bottom))", pointerEvents: "none" }} aria-label="Main navigation">
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-light)", borderRadius: 26, display: "flex", alignItems: "center", padding: 6, pointerEvents: "all", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", boxShadow: "0 8px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04) inset" }}>
+      {/* Floating pill nav (modernised) */}
+      <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100, padding: `0 12px calc(12px + env(safe-area-inset-bottom))`, pointerEvents: "none" }} aria-label="Main navigation">
+        <div style={{
+          margin: "0 auto", maxWidth: 560,
+          background: "color-mix(in srgb, var(--bg-card) 85%, transparent)",
+          border: "1px solid var(--border-light)",
+          borderRadius: 999,
+          display: "flex", alignItems: "stretch", padding: 6,
+          pointerEvents: "all",
+          backdropFilter: "blur(28px) saturate(140%)",
+          WebkitBackdropFilter: "blur(28px) saturate(140%)",
+          boxShadow: "0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04) inset",
+        }}>
           {bottomItems.map(({ path, icon: Icon, label }) => {
             const active = isActive(path);
             return (
-              <Link key={path} to={path} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: "8px 4px", textDecoration: "none", borderRadius: 20 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", background: active ? `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}cc 100%)` : "transparent", boxShadow: active ? `0 4px 14px ${accentColor}55` : "none", transition: "all 0.22s cubic-bezier(0.4,0,0.2,1)" }}>
-                  <Icon size={20} color={active ? "#fff" : "var(--text-muted)"} strokeWidth={active ? 2.5 : 1.8} />
+              <Link key={path} to={path} style={{
+                flex: 1, display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", gap: 3,
+                padding: "8px 4px", textDecoration: "none",
+                borderRadius: 999,
+                background: active ? `${accentColor}1f` : "transparent",
+                transition: "background 0.25s cubic-bezier(0.4,0,0.2,1)",
+                position: "relative",
+              }}>
+                <div style={{
+                  width: 26, height: 26, borderRadius: 999,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: active ? accentColor : "var(--text-muted)",
+                  transition: "color 0.22s, transform 0.22s cubic-bezier(0.4,0,0.2,1)",
+                  transform: active ? "translateY(-1px)" : "none",
+                }}>
+                  <Icon size={20} strokeWidth={active ? 2.4 : 1.8} />
                 </div>
-                <span style={{ fontSize: 10, fontWeight: active ? 700 : 500, color: active ? accentColor : "var(--text-muted)", letterSpacing: "0.01em", transition: "color 0.2s" }}>{label}</span>
+                <span style={{
+                  fontSize: 9, fontWeight: active ? 600 : 500,
+                  color: active ? accentColor : "var(--text-muted)",
+                  letterSpacing: "0.16em", textTransform: "uppercase",
+                  fontFamily: "var(--fwh-mono, 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace)",
+                  transition: "color 0.2s", whiteSpace: "nowrap",
+                }}>{label}</span>
+                {active && (
+                  <span style={{
+                    position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)",
+                    width: 4, height: 4, borderRadius: "50%",
+                    background: accentColor, boxShadow: `0 0 8px ${accentColor}`,
+                  }} />
+                )}
               </Link>
             );
           })}
 
           {hasMoreItems && (
-            <button onClick={() => setMoreOpen(o => !o)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: "8px 4px", background: "none", border: "none", cursor: "pointer" }}>
-              <div style={{ width: 38, height: 38, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", background: moreActive || moreOpen ? `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}cc 100%)` : "transparent", boxShadow: moreActive || moreOpen ? `0 4px 14px ${accentColor}55` : "none", transition: "all 0.22s cubic-bezier(0.4,0,0.2,1)" }}>
-                <Grid size={20} color={moreActive || moreOpen ? "#fff" : "var(--text-muted)"} strokeWidth={1.8} />
+            <button onClick={() => setMoreOpen(o => !o)} style={{
+              flex: 1, display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center", gap: 3,
+              padding: "8px 4px", background: (moreActive || moreOpen) ? `${accentColor}1f` : "none",
+              border: "none", cursor: "pointer", borderRadius: 999,
+              transition: "background 0.25s cubic-bezier(0.4,0,0.2,1)",
+              position: "relative",
+            }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: 999,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: (moreActive || moreOpen) ? accentColor : "var(--text-muted)",
+                transition: "color 0.22s, transform 0.22s cubic-bezier(0.4,0,0.2,1)",
+                transform: (moreActive || moreOpen) ? "translateY(-1px)" : "none",
+              }}>
+                <Grid size={20} strokeWidth={(moreActive || moreOpen) ? 2.4 : 1.8} />
               </div>
-              <span style={{ fontSize: 10, fontWeight: moreActive || moreOpen ? 700 : 500, color: moreActive || moreOpen ? accentColor : "var(--text-muted)", transition: "color 0.2s" }}>More</span>
+              <span style={{
+                fontSize: 9, fontWeight: (moreActive || moreOpen) ? 600 : 500,
+                color: (moreActive || moreOpen) ? accentColor : "var(--text-muted)",
+                letterSpacing: "0.16em", textTransform: "uppercase",
+                fontFamily: "var(--fwh-mono, 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace)",
+                transition: "color 0.2s",
+              }}>More</span>
+              {(moreActive || moreOpen) && (
+                <span style={{
+                  position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)",
+                  width: 4, height: 4, borderRadius: "50%",
+                  background: accentColor, boxShadow: `0 0 8px ${accentColor}`,
+                }} />
+              )}
             </button>
           )}
         </div>
