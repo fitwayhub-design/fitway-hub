@@ -19,6 +19,7 @@ export interface Branding {
   social_facebook: string;
   social_twitter: string;
   social_youtube: string;
+  social_tiktok: string;
   primary_color: string;
   secondary_color: string;
   bg_primary: string;
@@ -51,6 +52,7 @@ const defaults: Branding = {
   social_facebook: "",
   social_twitter: "",
   social_youtube: "",
+  social_tiktok: "",
   primary_color: "#FFD600",
   secondary_color: "#3B8BFF",
   bg_primary: "#000000",

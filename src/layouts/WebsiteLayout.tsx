@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Activity, Instagram, Facebook, Twitter, Youtube, Sun, Moon, ChevronDown, ArrowRight, Mail } from "lucide-react";
+import { TikTokIcon } from "@/components/icons/TikTokIcon";
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/context/ThemeContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
@@ -476,6 +477,7 @@ export function WebsiteLayout() {
                 { Icon: Facebook, url: branding.social_facebook },
                 { Icon: Twitter, url: branding.social_twitter },
                 { Icon: Youtube, url: branding.social_youtube },
+                { Icon: TikTokIcon, url: branding.social_tiktok },
               ].filter(s => s.url).map(({ Icon, url }, i) => (
                 <a
                   key={i}

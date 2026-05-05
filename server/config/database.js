@@ -1031,6 +1031,7 @@ export async function seedDefaultAppSettings() {
         ['social_facebook', '', 'text', 'branding', 'Facebook URL'],
         ['social_twitter', '', 'text', 'branding', 'Twitter / X URL'],
         ['social_youtube', '', 'text', 'branding', 'YouTube URL'],
+        ['social_tiktok', '', 'text', 'branding', 'TikTok URL'],
         ['primary_color', '#7C6EFA', 'color', 'branding', 'Primary Color (Main)'],
         ['secondary_color', '#FF7A6E', 'color', 'branding', 'Secondary Color'],
         ['bg_primary', '#0F0F14', 'color', 'branding', 'Background Primary'],

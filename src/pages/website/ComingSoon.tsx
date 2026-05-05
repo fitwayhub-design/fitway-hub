@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Facebook, Instagram } from "lucide-react";
+import { TikTokIcon } from "@/components/icons/TikTokIcon";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useI18n } from "@/context/I18nContext";
@@ -56,6 +57,7 @@ export default function ComingSoon() {
   const socials = [
     { Icon: Facebook, url: branding.social_facebook, label: "Facebook" },
     { Icon: Instagram, url: branding.social_instagram, label: "Instagram" },
+    { Icon: TikTokIcon, url: branding.social_tiktok, label: "TikTok" },
   ].filter((s) => s.url && s.url.trim());
 
   return (

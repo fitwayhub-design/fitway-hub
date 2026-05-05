@@ -220,7 +220,7 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
         "primary_color", "secondary_color", "bg_primary", "bg_card",
         "btn_hover_type", "btn_hover_color",
         "font_en", "font_ar", "font_heading",
-        "social_instagram", "social_facebook", "social_twitter", "social_youtube",
+        "social_instagram", "social_facebook", "social_twitter", "social_youtube", "social_tiktok",
         "coming_soon_enabled", "coming_soon_bg_image", "coming_soon_text", "coming_soon_text_ar",
       ];
 
@@ -1307,6 +1307,7 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
               <div><label style={labelS}>{t("cms_facebook")}</label><input style={iS} value={brandingForm.social_facebook || ""} onChange={e => setBrandingForm(v => ({ ...v, social_facebook: e.target.value }))} /></div>
               <div><label style={labelS}>{t("cms_twitter")}</label><input style={iS} value={brandingForm.social_twitter || ""} onChange={e => setBrandingForm(v => ({ ...v, social_twitter: e.target.value }))} /></div>
               <div><label style={labelS}>{t("cms_youtube")}</label><input style={iS} value={brandingForm.social_youtube || ""} onChange={e => setBrandingForm(v => ({ ...v, social_youtube: e.target.value }))} /></div>
+              <div><label style={labelS}>TikTok</label><input style={iS} value={brandingForm.social_tiktok || ""} onChange={e => setBrandingForm(v => ({ ...v, social_tiktok: e.target.value }))} placeholder="https://tiktok.com/@yourhandle" /></div>
             </div>
 
             {/* Coming Soon Mode — toggles a public-site holding page with admin-uploaded background */}
