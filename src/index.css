@@ -898,6 +898,47 @@ html.light .app-bottom-nav-inner {
   box-shadow: 0 0 8px var(--main);
 }
 
+/* Center FAB — large accent circle that pops above the pill, like the
+   reference. Replaces what would otherwise be a regular nav item slot. */
+.app-nav-center {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  text-decoration: none;
+  padding: 0;
+  position: relative;
+  /* Reserve the same height as siblings so the pill keeps its shape. */
+  min-height: 56px;
+}
+
+.app-nav-center .app-nav-center-bubble {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--main);
+  color: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 12px 30px color-mix(in srgb, var(--main) 55%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--bg-primary) 65%, transparent);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.22s;
+}
+
+.app-nav-center.active .app-nav-center-bubble,
+.app-nav-center:hover .app-nav-center-bubble {
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow:
+    0 16px 36px color-mix(in srgb, var(--main) 60%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--bg-primary) 65%, transparent);
+}
+
 /* ─── Top bar (modernised glass) ─────────────────────────────────────── */
 .app-top-bar {
   position: fixed;

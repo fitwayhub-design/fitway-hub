@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Home, Dumbbell, Activity, Users, Bell,
   MessageCircle, Wrench, CreditCard, BarChart2,
-  UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut,
+  UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut, UserSearch,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
@@ -14,21 +14,22 @@ import { getApiBase } from "@/lib/api";
 import LocationPermissionModal, { shouldAskForLocation } from "@/components/app/LocationPermissionModal";
 import NotificationDropdown from "@/components/app/NotificationDropdown";
 
-// ── Primary bottom nav (5 items) ─────────────────────────────────────────────
-const NAV = [
+// ── Primary bottom nav (5 items, middle is the center FAB) ──────────────────
+type BottomNavItem = { path: string; icon: typeof Home; label: string; center?: boolean };
+const NAV: BottomNavItem[] = [
   { path: "/app/dashboard",     icon: Home,          label: "Home" },
-  { path: "/app/workouts",      icon: Dumbbell,      label: "Train" },
+  { path: "/app/workouts",      icon: Dumbbell,      label: "Workout" },
+  { path: "/app/coaching",      icon: UserSearch,    label: "Find Coach", center: true },
   { path: "/app/workout-plan",  icon: ClipboardList, label: "Workout Plan" },
   { path: "/app/nutrition-plan",icon: Utensils,      label: "Nutrition Plan" },
-  { path: "/app/steps",         icon: Activity,      label: "Activity" },
 ];
 
 // ── Top horizontal scroll menu (all other pages) ─────────────────────────────
 const TOP_NAV = [
+  { path: "/app/steps",      icon: Activity,      label: "Activity" },
   { path: "/app/community",  icon: Users,         label: "Community" },
   { path: "/app/profile",    icon: User,          label: "Profile" },
   { path: "/app/chat",       icon: MessageCircle, label: "Chat" },
-  { path: "/app/coaching",   icon: UserCheck,     label: "Find a Coach" },
   { path: "/app/tools",      icon: Wrench,        label: "Tools" },
   { path: "/app/analytics",  icon: BarChart2,     label: "Analytics" },
   { path: "/app/plans",          icon: CreditCard,    label: "Plans" },
@@ -89,13 +90,13 @@ export function AppLayout() {
   const labelForPath = useCallback((path: string, label: string) => {
     if (path === "/app/dashboard") return t("nav_home");
     if (path === "/app/workouts") return t("nav_workouts");
+    if (path === "/app/coaching") return t("find_a_coach");
     if (path === "/app/workout-plan") return t("workout_plan");
     if (path === "/app/nutrition-plan") return t("nutrition_plan");
     if (path === "/app/steps") return t("activity");
     if (path === "/app/community") return t("nav_community");
     if (path === "/app/profile") return t("nav_profile");
     if (path === "/app/chat") return t("nav_chat");
-    if (path === "/app/coaching") return t("find_a_coach");
     if (path === "/app/tools") return t("nav_tools");
     if (path === "/app/analytics") return t("nav_analytics");
     if (path === "/app/plans") return t("plans");
@@ -407,22 +408,39 @@ export function AppLayout() {
       {!isDesktop && (
         <nav className="app-bottom-nav" aria-label="Main navigation">
           <div className="app-bottom-nav-inner">
-            {bottomNav.map(({ path, icon: Icon, label }) => (
-              <NavLink
-                key={path}
-                to={path}
-                className={({ isActive }) => `app-nav-item${isActive ? " active" : ""}`}
-              >
-                {({ isActive }) => (
-                  <>
-                    <div className="app-nav-icon-wrap">
-                      <Icon size={20} color={isActive ? "#fff" : "var(--text-muted)"} strokeWidth={isActive ? 2.5 : 1.8} />
-                    </div>
-                    <span className="app-nav-label">{labelForPath(path, label)}</span>
-                  </>
-                )}
-              </NavLink>
-            ))}
+            {bottomNav.map((item) => {
+              const Icon = item.icon;
+              if ((item as BottomNavItem).center) {
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={({ isActive }) => `app-nav-center${isActive ? " active" : ""}`}
+                    aria-label={labelForPath(item.path, item.label)}
+                  >
+                    <span className="app-nav-center-bubble">
+                      <Icon size={24} strokeWidth={2.4} />
+                    </span>
+                  </NavLink>
+                );
+              }
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) => `app-nav-item${isActive ? " active" : ""}`}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <div className="app-nav-icon-wrap">
+                        <Icon size={20} color={isActive ? "#fff" : "var(--text-muted)"} strokeWidth={isActive ? 2.5 : 1.8} />
+                      </div>
+                      <span className="app-nav-label">{labelForPath(item.path, item.label)}</span>
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
           </div>
         </nav>
       )}
