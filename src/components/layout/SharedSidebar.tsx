@@ -271,10 +271,13 @@ export function SharedSidebar({
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 90,
       height: "calc(56px + env(safe-area-inset-top))",
       paddingTop: "env(safe-area-inset-top)",
-      backgroundColor: "color-mix(in srgb, var(--bg-primary) 60%, transparent)",
-      borderBottom: "1px solid color-mix(in srgb, var(--border) 65%, transparent)",
+      backgroundColor: "rgba(15, 15, 15, 0.55)",
+      borderBottom: "1px solid rgba(255,255,255,0.06)",
       backdropFilter: "blur(36px) saturate(180%)",
       WebkitBackdropFilter: "blur(36px) saturate(180%)",
+      isolation: "isolate",
+      transform: "translateZ(0)",
+      WebkitTransform: "translateZ(0)",
       display: "flex", alignItems: "flex-end",
     }}>
       <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 56 }}>
@@ -360,20 +363,25 @@ export function SharedSidebar({
       <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100, padding: `0 12px calc(12px + env(safe-area-inset-bottom))`, pointerEvents: "none" }} aria-label="Main navigation">
         <div style={{
           margin: "0 auto", maxWidth: 560,
-          background: "color-mix(in srgb, var(--bg-card) 65%, transparent)",
-          border: "1px solid var(--border-light)",
+          // rgba (not color-mix) so the translucency holds in older WebViews.
+          background: "rgba(15, 15, 15, 0.55)",
+          border: "1px solid rgba(255,255,255,0.08)",
           borderRadius: 999,
           display: "flex", alignItems: "stretch", padding: 6,
           pointerEvents: "all",
           backdropFilter: "blur(40px) saturate(180%)",
           WebkitBackdropFilter: "blur(40px) saturate(180%)",
+          isolation: "isolate",
+          transform: "translateZ(0)",
+          WebkitTransform: "translateZ(0)",
           boxShadow: "0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04) inset",
         }}>
           {bottomItems.map(({ path, icon: Icon, label }) => {
             const active = isActive(path);
             return (
               <Link key={path} to={path} style={{
-                flex: 1, display: "flex", flexDirection: "column",
+                flex: "1 1 0", minWidth: 0,
+                display: "flex", flexDirection: "column",
                 alignItems: "center", justifyContent: "center", gap: 3,
                 padding: "8px 4px", textDecoration: "none",
                 borderRadius: 999,
@@ -390,13 +398,15 @@ export function SharedSidebar({
                 }}>
                   <Icon size={20} strokeWidth={active ? 2.4 : 1.8} />
                 </div>
-                <span style={{
-                  fontSize: 9, fontWeight: active ? 600 : 500,
-                  color: active ? accentColor : "var(--text-muted)",
-                  letterSpacing: "0.16em", textTransform: "uppercase",
-                  fontFamily: "var(--fwh-mono, 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace)",
-                  transition: "color 0.2s", whiteSpace: "nowrap",
-                }}>{label}</span>
+                {active && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 600,
+                    color: accentColor,
+                    letterSpacing: "0.16em", textTransform: "uppercase",
+                    fontFamily: "var(--fwh-mono, 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace)",
+                    transition: "color 0.2s", whiteSpace: "nowrap",
+                  }}>{label}</span>
+                )}
                 {active && (
                   <span style={{
                     position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)",
@@ -410,7 +420,7 @@ export function SharedSidebar({
 
           {hasMoreItems && (
             <button onClick={() => setMoreOpen(o => !o)} style={{
-              flex: 1, display: "flex", flexDirection: "column",
+              flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column",
               alignItems: "center", justifyContent: "center", gap: 3,
               padding: "8px 4px", background: (moreActive || moreOpen) ? `${accentColor}1f` : "none",
               border: "none", cursor: "pointer", borderRadius: 999,
@@ -426,13 +436,15 @@ export function SharedSidebar({
               }}>
                 <Grid size={20} strokeWidth={(moreActive || moreOpen) ? 2.4 : 1.8} />
               </div>
-              <span style={{
-                fontSize: 9, fontWeight: (moreActive || moreOpen) ? 600 : 500,
-                color: (moreActive || moreOpen) ? accentColor : "var(--text-muted)",
-                letterSpacing: "0.16em", textTransform: "uppercase",
-                fontFamily: "var(--fwh-mono, 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace)",
-                transition: "color 0.2s",
-              }}>More</span>
+              {(moreActive || moreOpen) && (
+                <span style={{
+                  fontSize: 9, fontWeight: 600,
+                  color: accentColor,
+                  letterSpacing: "0.16em", textTransform: "uppercase",
+                  fontFamily: "var(--fwh-mono, 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace)",
+                  transition: "color 0.2s",
+                }}>More</span>
+              )}
               {(moreActive || moreOpen) && (
                 <span style={{
                   position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)",

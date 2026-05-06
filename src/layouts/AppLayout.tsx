@@ -3,8 +3,9 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Home, Dumbbell, Activity, Users, Bell,
   MessageCircle, Wrench, CreditCard, BarChart2,
-  UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut, UserSearch,
+  UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut,
 } from "lucide-react";
+import { CoachSearchIcon } from "@/components/icons/CoachSearchIcon";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
@@ -19,7 +20,7 @@ type BottomNavItem = { path: string; icon: typeof Home; label: string; center?: 
 const NAV: BottomNavItem[] = [
   { path: "/app/dashboard",     icon: Home,          label: "Home" },
   { path: "/app/workouts",      icon: Dumbbell,      label: "Workout" },
-  { path: "/app/coaching",      icon: UserSearch,    label: "Find Coach", center: true },
+  { path: "/app/coaching",      icon: CoachSearchIcon, label: "Find Coach", center: true },
   { path: "/app/workout-plan",  icon: ClipboardList, label: "Workout Plan" },
   { path: "/app/nutrition-plan",icon: Utensils,      label: "Nutrition Plan" },
 ];

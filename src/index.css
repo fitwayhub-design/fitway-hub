@@ -810,29 +810,39 @@ a:active { transform: scale(0.98); }
 .app-bottom-nav-inner {
   margin: 0 auto;
   max-width: 560px;
-  background: color-mix(in srgb, var(--bg-card) 65%, transparent);
-  border: 1px solid var(--border-light);
+  /* Hardcoded rgba (not color-mix) so the translucency is honoured even
+     in browsers/WebViews that don't support color-mix() — without that,
+     the bar falls through to fully opaque and the blur looks "broken". */
+  background: rgba(15, 15, 15, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   display: flex;
   align-items: stretch;
+  justify-content: space-between;
   padding: 6px;
   pointer-events: all;
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
+  /* Force compositing so backdrop-filter actually engages. */
+  isolation: isolate;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.35),
     0 0 0 1px rgba(255, 255, 255, 0.04) inset;
 }
 
 html.light .app-bottom-nav-inner {
-  background: color-mix(in srgb, #ffffff 70%, transparent);
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(0, 0, 0, 0.06);
   box-shadow:
     0 10px 30px rgba(0, 0, 0, 0.10),
     0 0 0 1px rgba(0, 0, 0, 0.04) inset;
 }
 
 .app-nav-item {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -868,10 +878,13 @@ html.light .app-bottom-nav-inner {
 }
 
 .app-nav-item .app-nav-label {
+  /* Labels are only revealed on the active item. The empty bar otherwise
+     stays icon-only, matching the screenshot. */
+  display: none;
   font-size: 9px;
   font-family: var(--fwh-mono, 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace);
-  font-weight: 500;
-  color: var(--text-muted);
+  font-weight: 600;
+  color: var(--main);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   transition: color 0.2s;
@@ -880,8 +893,7 @@ html.light .app-bottom-nav-inner {
 }
 
 .app-nav-item.active .app-nav-label {
-  color: var(--main);
-  font-weight: 600;
+  display: block;
 }
 
 /* Active indicator dot under the icon — replaces the old top-edge bar */
@@ -901,7 +913,8 @@ html.light .app-bottom-nav-inner {
 /* Center FAB — large accent circle that pops above the pill, like the
    reference. Replaces what would otherwise be a regular nav item slot. */
 .app-nav-center {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -947,12 +960,20 @@ html.light .app-bottom-nav-inner {
   right: 0;
   z-index: 90;
   padding-top: env(safe-area-inset-top);
-  background: color-mix(in srgb, var(--bg-primary) 60%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  background: rgba(15, 15, 15, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
   backdrop-filter: blur(36px) saturate(180%);
   -webkit-backdrop-filter: blur(36px) saturate(180%);
+  isolation: isolate;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+html.light .app-top-bar {
+  background: rgba(255, 255, 255, 0.55);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
 }
 
 .app-top-bar-inner {
