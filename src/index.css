@@ -967,13 +967,8 @@ html.light .app-bottom-nav-inner {
 }
 
 .app-nav-center .app-nav-center-bubble::before {
-  /* Inner highlight ring for a polished bezel look. */
-  content: "";
-  position: absolute;
-  inset: 4px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.18);
-  pointer-events: none;
+  /* No inner ring — the larger icon owns the lens. */
+  content: none;
 }
 
 .app-nav-center.active .app-nav-center-bubble,

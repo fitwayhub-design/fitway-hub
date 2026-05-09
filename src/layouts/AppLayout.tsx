@@ -417,7 +417,7 @@ export function AppLayout() {
                     aria-label={labelForPath(item.path, item.label)}
                   >
                     <span className="app-nav-center-bubble">
-                      <Icon size={24} strokeWidth={2.4} />
+                      <Icon size={42} strokeWidth={1.9} />
                     </span>
                   </NavLink>
                 );
