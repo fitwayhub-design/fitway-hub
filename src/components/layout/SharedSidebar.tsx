@@ -273,11 +273,9 @@ export function SharedSidebar({
       paddingTop: "env(safe-area-inset-top)",
       backgroundColor: "rgba(15, 15, 15, 0.55)",
       borderBottom: "1px solid rgba(255,255,255,0.06)",
-      backdropFilter: "blur(36px) saturate(180%)",
-      WebkitBackdropFilter: "blur(36px) saturate(180%)",
-      isolation: "isolate",
-      transform: "translateZ(0)",
-      WebkitTransform: "translateZ(0)",
+      // Single backdrop-filter function for max WebView compatibility.
+      backdropFilter: "blur(24px)",
+      WebkitBackdropFilter: "blur(24px)",
       display: "flex", alignItems: "flex-end",
     }}>
       <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 56 }}>
@@ -363,17 +361,14 @@ export function SharedSidebar({
       <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100, padding: `0 12px calc(12px + env(safe-area-inset-bottom))`, pointerEvents: "none" }} aria-label="Main navigation">
         <div style={{
           margin: "0 auto", maxWidth: 560,
-          // rgba (not color-mix) so the translucency holds in older WebViews.
-          background: "rgba(15, 15, 15, 0.55)",
-          border: "1px solid rgba(255,255,255,0.08)",
+          background: "rgba(20, 20, 20, 0.55)",
+          border: "1px solid rgba(255,255,255,0.10)",
           borderRadius: 999,
           display: "flex", alignItems: "stretch", padding: 6,
           pointerEvents: "all",
-          backdropFilter: "blur(40px) saturate(180%)",
-          WebkitBackdropFilter: "blur(40px) saturate(180%)",
-          isolation: "isolate",
-          transform: "translateZ(0)",
-          WebkitTransform: "translateZ(0)",
+          // Single function for WebView compatibility.
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
           boxShadow: "0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04) inset",
         }}>
           {bottomItems.map(({ path, icon: Icon, label }) => {

@@ -810,10 +810,9 @@ a:active { transform: scale(0.98); }
 .app-bottom-nav-inner {
   margin: 0 auto;
   max-width: 560px;
-  /* Lower opacity + stronger blur + slight brightness drop so the bar is
-     obviously frosted: content under it stays visibly tinted, the blur
-     itself reads as a real texture, and the bar is still readable. */
-  background: rgba(20, 20, 20, 0.38);
+  /* Plain rgba so older WebViews accept the value. The bar sits over the
+     scrolling page; the lower opacity + the blur do the work. */
+  background: rgba(20, 20, 20, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 999px;
   display: flex;
@@ -821,23 +820,19 @@ a:active { transform: scale(0.98); }
   justify-content: space-between;
   padding: 6px;
   pointer-events: all;
-  backdrop-filter: blur(28px) saturate(180%) brightness(0.78);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(0.78);
-  /* Compositing layer so backdrop-filter actually engages on Android WebView. */
-  isolation: isolate;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  will-change: backdrop-filter;
+  /* Single backdrop-filter function — multi-function chains were being
+     rejected with "invalid property value" in some WebViews, which made
+     the bar look fully opaque. */
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   box-shadow:
     0 14px 42px rgba(0, 0, 0, 0.45),
     0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 }
 
 html.light .app-bottom-nav-inner {
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.55);
   border-color: rgba(0, 0, 0, 0.06);
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.05);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.05);
   box-shadow:
     0 12px 30px rgba(0, 0, 0, 0.10),
     0 0 0 1px rgba(0, 0, 0, 0.04) inset;
@@ -996,11 +991,9 @@ html.light .app-nav-center .app-nav-center-bubble {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
-  backdrop-filter: blur(36px) saturate(180%);
-  -webkit-backdrop-filter: blur(36px) saturate(180%);
-  isolation: isolate;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  /* Single backdrop-filter function for max WebView compatibility. */
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 html.light .app-top-bar {

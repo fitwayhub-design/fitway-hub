@@ -8,9 +8,10 @@ interface CoachSearchIconProps {
 }
 
 /**
- * Magnifier with a tiny dumbbell inside the lens — the coach metaphor sits
- * inside the search glass instead of beside it. Kept as a single SVG so it
- * scales cleanly inside the FAB.
+ * Magnifier (stroked) with a small filled coach silhouette inside the lens
+ * — a head + shoulders, suggesting "find your coach". Filled body reads
+ * cleanly even when the FAB is small; stroked magnifier matches the rest
+ * of the navigation icon set.
  */
 export function CoachSearchIcon({ size = 24, color = "currentColor", strokeWidth = 2, style }: CoachSearchIconProps) {
   return (
@@ -27,16 +28,17 @@ export function CoachSearchIcon({ size = 24, color = "currentColor", strokeWidth
       style={style}
       aria-hidden="true"
     >
-      {/* Magnifier lens */}
+      {/* Magnifier lens + handle */}
       <circle cx="10" cy="10" r="7.5" />
-
-      {/* Magnifier handle */}
       <path d="M15.5 15.5l5.5 5.5" />
 
-      {/* Dumbbell inside the lens — coach metaphor */}
-      <path d="M7.5 10h5" />
-      <path d="M6.5 8.5v3" />
-      <path d="M13.5 8.5v3" />
+      {/* Coach silhouette inside the lens — head + shoulders, filled. */}
+      <circle cx="10" cy="8.4" r="1.9" fill={color} stroke="none" />
+      <path
+        d="M5.7 13.6c0 -2.6 8.6 -2.6 8.6 0"
+        fill={color}
+        stroke="none"
+      />
     </svg>
   );
 }
