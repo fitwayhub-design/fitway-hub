@@ -822,9 +822,9 @@ a:active { transform: scale(0.98); }
   pointer-events: all;
   /* Single backdrop-filter function — multi-function chains were being
      rejected with "invalid property value" in some WebViews, which made
-     the bar look fully opaque. */
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+     the bar look fully opaque. !important so global resets can't wipe it. */
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
   box-shadow:
     0 14px 42px rgba(0, 0, 0, 0.45),
     0 0 0 1px rgba(255, 255, 255, 0.06) inset;
@@ -991,9 +991,10 @@ html.light .app-nav-center .app-nav-center-bubble {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
-  /* Single backdrop-filter function for max WebView compatibility. */
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  /* Single backdrop-filter function for max WebView compatibility.
+     !important so global resets can't wipe it. */
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
 }
 
 html.light .app-top-bar {
