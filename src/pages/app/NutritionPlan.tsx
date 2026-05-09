@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/lib/api";
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Circle, Utensils, Flame, RefreshCw, Droplets, UserCheck, User as UserIcon,
+  Lock, Pencil,
 } from "lucide-react";
 
 interface Meal {
@@ -102,16 +104,31 @@ const DEFAULT_PLAN: NutritionDay[] = [
 
 export default function NutritionPlan() {
   const { token } = useAuth();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<"self" | "coach">("self");
   const [plan, setPlan] = useState<NutritionDay[]>(DEFAULT_PLAN);
-  const [planSource, setPlanSource] = useState<"self" | "coach">("self");
+  const [coachPlanData, setCoachPlanData] = useState<NutritionDay[] | null>(null);
   const [coachName, setCoachName] = useState<string>("");
+  const [hasSubscription, setHasSubscription] = useState(false);
+  const [hasMyPlan, setHasMyPlan] = useState(false);
+  const [editingMyPlan, setEditingMyPlan] = useState(false);
   const [addingMeal, setAddingMeal] = useState<number | null>(null);
   const [newMeal, setNewMeal] = useState({ name: "", amount: "", calories: "", protein: "" });
   const [flash, setFlash] = useState("");
 
-  // Try to load coach-assigned nutrition plan
+  useEffect(() => {
+    setHasMyPlan(JSON.stringify(plan) !== JSON.stringify(DEFAULT_PLAN));
+  }, [plan]);
+
+  // Coach plan + subscription status load in parallel; the self plan is no
+  // longer auto-replaced by the coach plan — the user picks a tab.
   useEffect(() => {
     if (!token) return;
+    fetch(`${getApiBase()}/api/payments/my-subscriptions`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : { subscriptions: [] })
+      .then(d => setHasSubscription((d?.subscriptions || []).length > 0))
+      .catch(() => setHasSubscription(false));
+
     fetch(`${getApiBase()}/api/plans/coach-nutrition-plan`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
@@ -129,11 +146,10 @@ export default function NutritionPlan() {
                 id: i + 1, day, goal: dayMap.has(day) ? "Maintain" : "Rest",
                 meals: dayMap.get(day) || [], expanded: false,
               }));
-              setPlan(coachPlan);
-              setPlanSource("coach");
+              setCoachPlanData(coachPlan);
               setCoachName(d.plan.coach_name || "Your Coach");
             }
-          } catch { /* use default plan */ }
+          } catch { /* leave coachPlanData null */ }
         }
       }).catch(() => {});
   }, [token]);
@@ -147,8 +163,7 @@ export default function NutritionPlan() {
             if (Array.isArray(meals) && meals.length > 0) {
               const dayMap = new Map<string, Meal[]>();
               meals.forEach((m: any, idx: number) => { const day = m.day || DAYS[idx % 7]; if (!dayMap.has(day)) dayMap.set(day, []); dayMap.get(day)!.push({ id: idx + 1, name: m.name || m.meal_name, amount: m.amount || "1 serving", calories: m.calories || 0, protein: m.protein || "0g" }); });
-              setPlan(DAYS.map((day, i) => ({ id: i + 1, day, goal: dayMap.has(day) ? "Maintain" : "Rest", meals: dayMap.get(day) || [], expanded: false })));
-              setPlanSource("coach");
+              setCoachPlanData(DAYS.map((day, i) => ({ id: i + 1, day, goal: dayMap.has(day) ? "Maintain" : "Rest", meals: dayMap.get(day) || [], expanded: false })));
             }
           } catch {}
         }
@@ -210,9 +225,11 @@ export default function NutritionPlan() {
     showFlash("🔄 Day reset");
   };
 
-  const totalMeals = plan.reduce((s, d) => s + d.meals.length, 0);
-  const eatenMeals = plan.reduce((s, d) => s + d.meals.filter(m => m.eaten).length, 0);
-  const totalCalories = plan.reduce((s, d) => s + d.meals.reduce((ms, m) => ms + m.calories, 0), 0);
+  // Plan currently rendered — My Plan is editable, Coach Plan is read-only.
+  const displayedPlan = tab === "coach" && coachPlanData ? coachPlanData : plan;
+  const totalMeals = displayedPlan.reduce((s, d) => s + d.meals.length, 0);
+  const eatenMeals = displayedPlan.reduce((s, d) => s + d.meals.filter(m => m.eaten).length, 0);
+  const totalCalories = displayedPlan.reduce((s, d) => s + d.meals.reduce((ms, m) => ms + m.calories, 0), 0);
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 32 }}>
@@ -232,23 +249,50 @@ export default function NutritionPlan() {
 
       {/* Header */}
       <div style={{ padding: "16px 16px 8px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <h1 style={{ fontFamily: "var(--font-heading)", fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em" }}>
-            Nutrition Plan
-          </h1>
-          {planSource === "coach" ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: "rgba(59,130,246,0.1)", color: "#3B82F6", border: "1px solid rgba(59,130,246,0.25)" }}>
-              <UserCheck size={12} /> From {coachName}
-            </span>
-          ) : (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: "rgba(255,214,0,0.08)", color: "var(--accent)", border: "1px solid rgba(255,214,0,0.2)" }}>
-              <UserIcon size={12} /> My Plan
-            </span>
-          )}
-        </div>
+        <h1 style={{ fontFamily: "var(--font-heading)", fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 4 }}>
+          Nutrition Plan
+        </h1>
         <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-          {planSource === "coach" ? `Assigned by ${coachName}` : "Your weekly meal schedule"}
+          {tab === "coach"
+            ? (hasSubscription && coachPlanData
+                ? `Assigned by ${coachName}`
+                : "Subscribe to a coach to receive a personalised plan")
+            : "Your weekly meal schedule"}
         </p>
+      </div>
+
+      {/* Tabs: My Plan / Coach Plan (Coach tab is locked without an active subscription) */}
+      <div style={{ display: "flex", gap: 8, padding: "8px 16px 12px" }}>
+        <button
+          onClick={() => setTab("self")}
+          style={{
+            flex: 1, padding: "10px 14px", borderRadius: 12,
+            border: `1px solid ${tab === "self" ? "var(--main)" : "var(--border)"}`,
+            background: tab === "self" ? "var(--main-dim)" : "var(--bg-card)",
+            color: tab === "self" ? "var(--main)" : "var(--text-secondary)",
+            fontWeight: tab === "self" ? 700 : 500, fontSize: 13, cursor: "pointer",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+          }}
+        >
+          <UserIcon size={14} /> My Plan
+        </button>
+        <button
+          onClick={() => setTab("coach")}
+          disabled={!hasSubscription}
+          aria-disabled={!hasSubscription}
+          style={{
+            flex: 1, padding: "10px 14px", borderRadius: 12,
+            border: `1px solid ${tab === "coach" ? "#3B82F6" : "var(--border)"}`,
+            background: tab === "coach" ? "rgba(59,130,246,0.12)" : "var(--bg-card)",
+            color: !hasSubscription ? "var(--text-muted)" : tab === "coach" ? "#3B82F6" : "var(--text-secondary)",
+            fontWeight: tab === "coach" ? 700 : 500, fontSize: 13,
+            cursor: hasSubscription ? "pointer" : "not-allowed",
+            opacity: hasSubscription ? 1 : 0.6,
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+          }}
+        >
+          {hasSubscription ? <UserCheck size={14} /> : <Lock size={14} />} Coach Plan
+        </button>
       </div>
 
       {/* Stats row */}
@@ -271,9 +315,59 @@ export default function NutritionPlan() {
         ))}
       </div>
 
+      {/* Coach tab: locked card when no active subscription */}
+      {tab === "coach" && !hasSubscription && (
+        <div style={{ margin: "0 16px 24px", padding: "28px 22px", borderRadius: 18, border: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "center" }}>
+          <div style={{ width: 56, height: 56, borderRadius: 18, background: "rgba(59,130,246,0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+            <Lock size={22} color="#3B82F6" />
+          </div>
+          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Subscribe to a coach to unlock</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.55, marginBottom: 16 }}>
+            Once you subscribe, your coach can publish a custom nutrition plan that appears here.
+          </p>
+          <button
+            onClick={() => navigate("/app/coaching")}
+            style={{ padding: "11px 22px", borderRadius: 12, border: "none", background: "#3B82F6", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+          >
+            Find a coach
+          </button>
+        </div>
+      )}
+
+      {/* Coach tab: subscribed but coach hasn't pushed a plan yet */}
+      {tab === "coach" && hasSubscription && !coachPlanData && (
+        <div style={{ margin: "0 16px 24px", padding: "28px 22px", borderRadius: 18, border: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "center" }}>
+          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>No plan from your coach yet</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.55 }}>
+            Your coach will push a nutrition plan here as soon as it's ready.
+          </p>
+        </div>
+      )}
+
+      {/* My Plan: Add / Edit toggle */}
+      {tab === "self" && (
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 16px 12px" }}>
+          <button
+            onClick={() => setEditingMyPlan(v => !v)}
+            style={{
+              padding: "8px 14px", borderRadius: 10,
+              border: editingMyPlan ? "1px solid var(--main)" : "1px solid var(--border)",
+              background: editingMyPlan ? "var(--main-dim)" : "var(--bg-card)",
+              color: editingMyPlan ? "var(--main)" : "var(--text-secondary)",
+              fontWeight: 600, fontSize: 12, cursor: "pointer",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}
+          >
+            {editingMyPlan ? <CheckCircle2 size={14} /> : (hasMyPlan ? <Pencil size={14} /> : <Plus size={14} />)}
+            {editingMyPlan ? "Done" : (hasMyPlan ? "Edit" : "Add")}
+          </button>
+        </div>
+      )}
+
       {/* Day cards */}
+      {(tab === "self" || (tab === "coach" && coachPlanData)) && (
       <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 16px" }}>
-        {plan.map(day => {
+        {displayedPlan.map(day => {
           const color = GOAL_COLORS[day.goal] || "var(--main)";
           const isToday = day.day === todayDayName;
           const eatenCount = day.meals.filter(m => m.eaten).length;
@@ -362,7 +456,8 @@ export default function NutritionPlan() {
               {day.expanded && (
                 <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px 16px" }}>
 
-                  {/* Goal selector */}
+                  {/* Goal selector — only when editing my own plan */}
+                  {tab === "self" && editingMyPlan && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
                     {GOAL_OPTIONS.map(g => (
                       <button
@@ -380,6 +475,7 @@ export default function NutritionPlan() {
                       </button>
                     ))}
                   </div>
+                  )}
 
                   {/* Meals */}
                   {day.meals.length === 0 ? (
@@ -422,19 +518,21 @@ export default function NutritionPlan() {
                             </div>
                           </div>
 
-                          <button
-                            onClick={() => removeMeal(day.id, meal.id)}
-                            style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", flexShrink: 0 }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {tab === "self" && editingMyPlan && (
+                            <button
+                              onClick={() => removeMeal(day.id, meal.id)}
+                              style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", flexShrink: 0 }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
                   )}
 
                   {/* Add meal form */}
-                  {addingMeal === day.id ? (
+                  {tab === "self" && editingMyPlan && addingMeal === day.id ? (
                     <div style={{ background: "var(--bg-surface)", borderRadius: 12, padding: 12, border: "1px solid var(--border)", marginBottom: 10 }}>
                       <input
                         className="input-base"
@@ -489,9 +587,9 @@ export default function NutritionPlan() {
                     </div>
                   ) : null}
 
-                  {/* Actions row */}
+                  {/* Actions row — Add Meal only while editing My Plan */}
                   <div style={{ display: "flex", gap: 8 }}>
-                    {addingMeal !== day.id && (
+                    {tab === "self" && editingMyPlan && addingMeal !== day.id && (
                       <button
                         onClick={() => setAddingMeal(day.id)}
                         style={{
@@ -524,6 +622,7 @@ export default function NutritionPlan() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

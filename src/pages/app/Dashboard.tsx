@@ -165,7 +165,7 @@ export default function Dashboard() {
             { icon: Users, label: "Community", path: "/app/community", color: "var(--main)", bg: "var(--main-dim)" },
             { icon: TrendingUp, label: "Analytics", path: "/app/analytics", color: "var(--main)", bg: "var(--main-dim)" },
             { icon: Star, label: "Coaching", path: "/app/coaching", color: "var(--main)", bg: "var(--main-dim)" },
-            { icon: Zap, label: "Streak", path: "/app/steps", color: "var(--main)", bg: "var(--main-dim)" },
+            { icon: Zap, label: "Streak", path: "/app/profile", color: "var(--main)", bg: "var(--main-dim)" },
           ].map(({ icon: Icon, label, path, color, bg }) => (
             <Link key={path + label} to={path} className="dash-action-pill">
               <div style={{ width: 36, height: 36, borderRadius: 12, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

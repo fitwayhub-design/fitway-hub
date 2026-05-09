@@ -120,7 +120,6 @@ export default function Analytics() {
                 { label: t("total_steps") || "Total Steps", val: metrics?.totalSteps?.toLocaleString() || 0 },
                 { label: t("total_distance") || "Total Distance", val: `${(metrics?.totalDistance || 0).toFixed(2)} km` },
                 { label: t("total_calories") || "Total Calories", val: metrics?.totalCalories || 0 },
-                { label: t("premium_sessions") || "Sessions", val: metrics?.sessionsCount || 0 },
               ].map((item) => (
                 <div key={item.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
                   <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{item.label}</span>

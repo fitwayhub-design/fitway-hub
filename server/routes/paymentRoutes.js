@@ -26,8 +26,10 @@ async function getSetting(key) {
     return row ? row.setting_value : null;
 }
 function normalizeCoachSubscriptionStatus(status) {
+    // Empty when there's no record at all so the UI doesn't render a status
+    // banner for athletes who never subscribed.
     if (!status)
-        return 'pending_admin';
+        return '';
     if (status === 'pending')
         return 'pending_admin';
     return status;

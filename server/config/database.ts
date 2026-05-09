@@ -1443,6 +1443,10 @@ export async function initDatabase() {
   try { await run("ALTER TABLE workout_videos ADD COLUMN equipment VARCHAR(40) DEFAULT NULL"); } catch {}
   try { await run("ALTER TABLE workout_videos ADD COLUMN level VARCHAR(40) DEFAULT NULL"); } catch {}
 
+  // Avatars are stored inline as base64 data URLs (same approach as branding
+  // images), so widen users.avatar from TEXT (64KB) to LONGTEXT.
+  try { await run("ALTER TABLE users MODIFY COLUMN avatar LONGTEXT"); } catch {}
+
   // Force monthly cycle + monthly label for existing coach fee rows
   try {
     await run("UPDATE app_settings SET setting_value = 'monthly' WHERE setting_key = 'coach_membership_cycle'");

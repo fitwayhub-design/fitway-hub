@@ -197,15 +197,18 @@ const DB: MealItem[] = [
 /* ═══════════════════════════════════════════════════════════════
    CATEGORY META
    ═══════════════════════════════════════════════════════════════ */
-const CATEGORIES: { key: MealCategory; label: string; icon: any; color: string }[] = [
-  { key: "meals",      label: "Meals",      icon: Utensils,  color: "var(--accent)" },
-  { key: "protein",    label: "Protein",    icon: Drumstick, color: "#f44" },
-  { key: "grains",     label: "Grains",     icon: Wheat,     color: "#f0a020" },
-  { key: "vegetables", label: "Veggies",    icon: Leaf,      color: "#4ade80" },
-  { key: "fruits",     label: "Fruits",     icon: Apple,     color: "#f472b6" },
-  { key: "dairy",      label: "Dairy",      icon: Egg,       color: "#fbbf24" },
-  { key: "legumes",    label: "Legumes",    icon: Fish,      color: "#a78bfa" },
-  { key: "snacks",     label: "Snacks",     icon: Search,    color: "#fb923c" },
+/* Real meal thumbnails for the category pills (replaces the Lucide
+   icons). Unsplash's CDN is used because the photos need no local
+   storage and load fast through their image proxy. */
+const CATEGORIES: { key: MealCategory; label: string; img: string; color: string }[] = [
+  { key: "meals",      label: "Meals",   color: "var(--accent)", img: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&w=80&h=80&fit=crop" },
+  { key: "protein",    label: "Protein", color: "#f44",          img: "https://images.unsplash.com/photo-1607013251379-e6eecfffe234?auto=format&w=80&h=80&fit=crop" },
+  { key: "grains",     label: "Grains",  color: "#f0a020",       img: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&w=80&h=80&fit=crop" },
+  { key: "vegetables", label: "Veggies", color: "#4ade80",       img: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&w=80&h=80&fit=crop" },
+  { key: "fruits",     label: "Fruits",  color: "#f472b6",       img: "https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&w=80&h=80&fit=crop" },
+  { key: "dairy",      label: "Dairy",   color: "#fbbf24",       img: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&w=80&h=80&fit=crop" },
+  { key: "legumes",    label: "Legumes", color: "#a78bfa",       img: "https://images.unsplash.com/photo-1515543237350-b3eea1ec8082?auto=format&w=80&h=80&fit=crop" },
+  { key: "snacks",     label: "Snacks",  color: "#fb923c",       img: "https://images.unsplash.com/photo-1599490659213-e2b9527bd087?auto=format&w=80&h=80&fit=crop" },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -322,7 +325,12 @@ export function MacroCalculator() {
         <button onClick={() => { setActiveCategory("all"); setShowList(true); setSelected(null); }} style={pill(activeCategory === "all")}>All</button>
         {CATEGORIES.map(c => (
           <button key={c.key} onClick={() => { setActiveCategory(c.key); setShowList(true); setSelected(null); }} style={pill(activeCategory === c.key, c.color)}>
-            <c.icon size={11} style={{ marginInlineEnd: 4, verticalAlign: "middle" }} />
+            <img
+              src={c.img}
+              alt=""
+              loading="lazy"
+              style={{ width: 18, height: 18, borderRadius: "50%", marginInlineEnd: 6, objectFit: "cover", verticalAlign: "middle" }}
+            />
             {c.label}
           </button>
         ))}

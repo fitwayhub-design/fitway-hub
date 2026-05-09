@@ -133,14 +133,35 @@ export default function Profile() {
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
 
   const handleAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { flash("❌ Pick an image file"); return; }
+    if (file.size > 4 * 1024 * 1024) { flash("❌ Image must be under 4 MB"); return; }
     setUploading(true);
-    const fd = new FormData(); fd.append("avatar", file);
     try {
-      const r = await fetch(`${getApiBase()}/api/user/profile`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` }, body: fd });
-      const d = await r.json(); if (d.user) updateUser(d.user); flash("✅ Photo updated");
-    } catch { flash("❌ Upload failed"); }
-    setUploading(false);
+      // Read as data URL so we can store it inline on the user row — same
+      // approach as branding images (no R2 / no ephemeral disk).
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(String(fr.result || ""));
+        fr.onerror = () => reject(new Error("read failed"));
+        fr.readAsDataURL(file);
+      });
+      const r = await fetch(`${getApiBase()}/api/user/profile`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ avatar: dataUrl }),
+      });
+      const d = await r.json().catch(() => ({} as any));
+      if (!r.ok) throw new Error(d?.message || "upload failed");
+      if (d.user) updateUser(d.user);
+      flash("✅ Photo updated");
+    } catch (err: any) {
+      flash(`❌ ${err?.message || "Upload failed"}`);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const saveName = async () => {

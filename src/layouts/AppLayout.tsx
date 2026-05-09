@@ -33,7 +33,6 @@ const TOP_NAV = [
   { path: "/app/chat",       icon: MessageCircle, label: "Chat" },
   { path: "/app/tools",      icon: Wrench,        label: "Tools" },
   { path: "/app/analytics",  icon: BarChart2,     label: "Analytics" },
-  { path: "/app/plans",          icon: CreditCard,    label: "Plans" },
   { path: "/app/blogs",          icon: BookOpen,       label: "Our Blog" },
   { path: "/app/notifications",  icon: Bell,           label: "Notifications" },
 ];
@@ -48,7 +47,6 @@ const FEATURE_BY_PATH: Record<string, string> = {
   "/app/coaching": "feature_user_coaching",
   "/app/tools": "feature_user_tools",
   "/app/analytics": "feature_user_analytics",
-  "/app/plans": "feature_user_plans",
   "/app/blogs": "feature_user_blogs",
   "/app/notifications": "feature_user_notifications",
 };
@@ -100,7 +98,6 @@ export function AppLayout() {
     if (path === "/app/chat") return t("nav_chat");
     if (path === "/app/tools") return t("nav_tools");
     if (path === "/app/analytics") return t("nav_analytics");
-    if (path === "/app/plans") return t("plans");
     if (path === "/app/blogs") return t("blog_title");
     if (path === "/app/notifications") return t("notifications");
     return label;

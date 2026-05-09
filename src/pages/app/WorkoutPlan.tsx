@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/lib/api";
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Circle, Dumbbell, Calendar, Flame, Trophy, RefreshCw, UserCheck, User as UserIcon,
+  Lock, Pencil,
 } from "lucide-react";
 
 interface Exercise {
@@ -92,17 +94,34 @@ const FOCUS_OPTIONS = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Ca
 
 export default function WorkoutPlan() {
   const { token } = useAuth();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<"self" | "coach">("self");
   const [plan, setPlan] = useState<WorkoutDay[]>(DEFAULT_PLAN);
-  const [planSource, setPlanSource] = useState<"self" | "coach">("self");
+  const [coachPlanData, setCoachPlanData] = useState<WorkoutDay[] | null>(null);
   const [coachName, setCoachName] = useState<string>("");
+  const [hasSubscription, setHasSubscription] = useState(false);
+  const [hasMyPlan, setHasMyPlan] = useState(false); // derived: any non-default edit
+  const [editingMyPlan, setEditingMyPlan] = useState(false);
   const [addingExercise, setAddingExercise] = useState<number | null>(null);
   const [newEx, setNewEx] = useState({ name: "", sets: "3", reps: "10", rest: "60s" });
   const [flash, setFlash] = useState("");
   const [activeDay, setActiveDay] = useState<number | null>(null);
 
-  // Try to load coach-assigned plan
+  // Detect "has plan" purely from local edits — anything that diverges from
+  // the default seed counts as a custom plan.
+  useEffect(() => {
+    setHasMyPlan(JSON.stringify(plan) !== JSON.stringify(DEFAULT_PLAN));
+  }, [plan]);
+
+  // Coach plan + subscription status load in parallel; we don't overwrite the
+  // self plan any more — the user picks which to view via tabs.
   useEffect(() => {
     if (!token) return;
+    fetch(`${getApiBase()}/api/payments/my-subscriptions`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : { subscriptions: [] })
+      .then(d => setHasSubscription((d?.subscriptions || []).length > 0))
+      .catch(() => setHasSubscription(false));
+
     fetch(`${getApiBase()}/api/plans/coach-workout-plan`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
@@ -110,7 +129,6 @@ export default function WorkoutPlan() {
           try {
             const exercises = typeof d.plan.exercises === "string" ? JSON.parse(d.plan.exercises) : d.plan.exercises;
             if (Array.isArray(exercises) && exercises.length > 0) {
-              // Map coach plan exercises into our WorkoutDay format
               const dayMap = new Map<string, Exercise[]>();
               exercises.forEach((ex: any, idx: number) => {
                 const day = ex.day || DAYS[idx % 7];
@@ -121,14 +139,18 @@ export default function WorkoutPlan() {
                 id: i + 1, day, focus: dayMap.has(day) ? "Full" : "Rest",
                 exercises: dayMap.get(day) || [], expanded: false,
               }));
-              setPlan(coachPlan);
-              setPlanSource("coach");
+              setCoachPlanData(coachPlan);
               setCoachName(d.plan.coach_name || "Your Coach");
             }
-          } catch { /* use default plan */ }
+          } catch { /* leave coachPlanData null */ }
         }
       }).catch(() => {});
   }, [token]);
+
+  // Plan currently rendered in the day-cards section. My-plan tab is editable;
+  // coach-plan tab renders read-only (handled inline below).
+  const displayedPlan = tab === "coach" && coachPlanData ? coachPlanData : plan;
+  const planSource: "self" | "coach" = tab;
 
   const todayIndex = new Date().getDay(); // 0=Sun, 1=Mon...
   const todayDayName = DAYS[(todayIndex + 6) % 7]; // Mon=0 in our list
@@ -183,10 +205,10 @@ export default function WorkoutPlan() {
     showFlash("🔄 Day reset");
   };
 
-  // Stats
-  const totalExercises = plan.reduce((s, d) => s + d.exercises.length, 0);
-  const doneExercises = plan.reduce((s, d) => s + d.exercises.filter(e => e.done).length, 0);
-  const trainingDays = plan.filter(d => d.focus !== "Rest").length;
+  // Stats — based on the plan currently displayed (self vs coach)
+  const totalExercises = displayedPlan.reduce((s, d) => s + d.exercises.length, 0);
+  const doneExercises = displayedPlan.reduce((s, d) => s + d.exercises.filter(e => e.done).length, 0);
+  const trainingDays = displayedPlan.filter(d => d.focus !== "Rest").length;
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 32 }}>
@@ -206,23 +228,50 @@ export default function WorkoutPlan() {
 
       {/* Header */}
       <div style={{ padding: "16px 16px 8px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <h1 style={{ fontFamily: "var(--font-heading)", fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em" }}>
-            Workout Plan
-          </h1>
-          {planSource === "coach" ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: "rgba(59,130,246,0.1)", color: "#3B82F6", border: "1px solid rgba(59,130,246,0.25)" }}>
-              <UserCheck size={12} /> From {coachName}
-            </span>
-          ) : (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: "rgba(255,214,0,0.08)", color: "var(--accent)", border: "1px solid rgba(255,214,0,0.2)" }}>
-              <UserIcon size={12} /> My Plan
-            </span>
-          )}
-        </div>
+        <h1 style={{ fontFamily: "var(--font-heading)", fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 4 }}>
+          Workout Plan
+        </h1>
         <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-          {planSource === "coach" ? `Assigned by ${coachName}` : "Your weekly training schedule"}
+          {tab === "coach"
+            ? (hasSubscription && coachPlanData
+                ? `Assigned by ${coachName}`
+                : "Subscribe to a coach to receive a personalised plan")
+            : "Your weekly training schedule"}
         </p>
+      </div>
+
+      {/* Tabs: My Plan / Coach Plan (Coach tab is locked without an active subscription) */}
+      <div style={{ display: "flex", gap: 8, padding: "8px 16px 12px" }}>
+        <button
+          onClick={() => setTab("self")}
+          style={{
+            flex: 1, padding: "10px 14px", borderRadius: 12,
+            border: `1px solid ${tab === "self" ? "var(--main)" : "var(--border)"}`,
+            background: tab === "self" ? "var(--main-dim)" : "var(--bg-card)",
+            color: tab === "self" ? "var(--main)" : "var(--text-secondary)",
+            fontWeight: tab === "self" ? 700 : 500, fontSize: 13, cursor: "pointer",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+          }}
+        >
+          <UserIcon size={14} /> My Plan
+        </button>
+        <button
+          onClick={() => setTab("coach")}
+          disabled={!hasSubscription}
+          aria-disabled={!hasSubscription}
+          style={{
+            flex: 1, padding: "10px 14px", borderRadius: 12,
+            border: `1px solid ${tab === "coach" ? "#3B82F6" : "var(--border)"}`,
+            background: tab === "coach" ? "rgba(59,130,246,0.12)" : "var(--bg-card)",
+            color: !hasSubscription ? "var(--text-muted)" : tab === "coach" ? "#3B82F6" : "var(--text-secondary)",
+            fontWeight: tab === "coach" ? 700 : 500, fontSize: 13,
+            cursor: hasSubscription ? "pointer" : "not-allowed",
+            opacity: hasSubscription ? 1 : 0.6,
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+          }}
+        >
+          {hasSubscription ? <UserCheck size={14} /> : <Lock size={14} />} Coach Plan
+        </button>
       </div>
 
       {/* Stats row */}
@@ -245,9 +294,59 @@ export default function WorkoutPlan() {
         ))}
       </div>
 
+      {/* Coach tab: locked card when no active subscription */}
+      {tab === "coach" && !hasSubscription && (
+        <div style={{ margin: "0 16px 24px", padding: "28px 22px", borderRadius: 18, border: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "center" }}>
+          <div style={{ width: 56, height: 56, borderRadius: 18, background: "rgba(59,130,246,0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+            <Lock size={22} color="#3B82F6" />
+          </div>
+          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Subscribe to a coach to unlock</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.55, marginBottom: 16 }}>
+            Once you subscribe, your coach can publish a custom workout plan that appears here.
+          </p>
+          <button
+            onClick={() => navigate("/app/coaching")}
+            style={{ padding: "11px 22px", borderRadius: 12, border: "none", background: "#3B82F6", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+          >
+            Find a coach
+          </button>
+        </div>
+      )}
+
+      {/* Coach tab: subscribed but coach hasn't pushed a plan yet */}
+      {tab === "coach" && hasSubscription && !coachPlanData && (
+        <div style={{ margin: "0 16px 24px", padding: "28px 22px", borderRadius: 18, border: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "center" }}>
+          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>No plan from your coach yet</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.55 }}>
+            Your coach will push a workout plan here as soon as it's ready.
+          </p>
+        </div>
+      )}
+
+      {/* My Plan: Add / Edit toggle */}
+      {tab === "self" && (
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 16px 12px" }}>
+          <button
+            onClick={() => setEditingMyPlan(v => !v)}
+            style={{
+              padding: "8px 14px", borderRadius: 10,
+              border: editingMyPlan ? "1px solid var(--main)" : "1px solid var(--border)",
+              background: editingMyPlan ? "var(--main-dim)" : "var(--bg-card)",
+              color: editingMyPlan ? "var(--main)" : "var(--text-secondary)",
+              fontWeight: 600, fontSize: 12, cursor: "pointer",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}
+          >
+            {editingMyPlan ? <CheckCircle2 size={14} /> : (hasMyPlan ? <Pencil size={14} /> : <Plus size={14} />)}
+            {editingMyPlan ? "Done" : (hasMyPlan ? "Edit" : "Add")}
+          </button>
+        </div>
+      )}
+
       {/* Day cards */}
+      {(tab === "self" || (tab === "coach" && coachPlanData)) && (
       <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 16px" }}>
-        {plan.map(day => {
+        {displayedPlan.map(day => {
           const color = FOCUS_COLORS[day.focus] || "#FFD600";
           const isToday = day.day === todayDayName;
           const doneCount = day.exercises.filter(e => e.done).length;
@@ -336,7 +435,8 @@ export default function WorkoutPlan() {
               {day.expanded && (
                 <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px 16px" }}>
 
-                  {/* Focus selector */}
+                  {/* Focus selector — only when editing my own plan */}
+                  {tab === "self" && editingMyPlan && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
                     {FOCUS_OPTIONS.map(f => (
                       <button
@@ -354,6 +454,7 @@ export default function WorkoutPlan() {
                       </button>
                     ))}
                   </div>
+                  )}
 
                   {/* Exercises */}
                   {day.exercises.length === 0 && day.focus === "Rest" ? (
@@ -400,19 +501,21 @@ export default function WorkoutPlan() {
                             </div>
                           </div>
 
-                          <button
-                            onClick={() => removeExercise(day.id, ex.id)}
-                            style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", flexShrink: 0 }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {tab === "self" && editingMyPlan && (
+                            <button
+                              onClick={() => removeExercise(day.id, ex.id)}
+                              style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", flexShrink: 0 }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
                   )}
 
                   {/* Add exercise form */}
-                  {addingExercise === day.id ? (
+                  {tab === "self" && editingMyPlan && addingExercise === day.id ? (
                     <div style={{ background: "var(--bg-surface)", borderRadius: 12, padding: 12, border: "1px solid var(--border)", marginBottom: 10 }}>
                       <input
                         className="input-base"
@@ -467,9 +570,9 @@ export default function WorkoutPlan() {
                     </div>
                   ) : null}
 
-                  {/* Actions row */}
+                  {/* Actions row — Add Exercise only while editing My Plan; Reset is always available so users can reset coach-plan check-offs too. */}
                   <div style={{ display: "flex", gap: 8 }}>
-                    {addingExercise !== day.id && (
+                    {tab === "self" && editingMyPlan && addingExercise !== day.id && (
                       <button
                         onClick={() => setAddingExercise(day.id)}
                         style={{
@@ -502,6 +605,7 @@ export default function WorkoutPlan() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

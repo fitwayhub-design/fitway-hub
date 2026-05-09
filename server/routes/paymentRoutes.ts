@@ -30,7 +30,11 @@ async function getSetting(key: string): Promise<string | null> {
 }
 
 function normalizeCoachSubscriptionStatus(status: string | null | undefined): string {
-  if (!status) return 'pending_admin';
+  // No record at all → empty status. The athlete UI hides the banner when
+  // latestStatus is falsy, so an athlete who never subscribed never sees a
+  // pending state. Bug previously: this returned 'pending_admin' for missing
+  // records, which surfaced "⏳ Confirming your payment" on every coach card.
+  if (!status) return '';
   if (status === 'pending') return 'pending_admin';
   return status;
 }

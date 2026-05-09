@@ -40,7 +40,7 @@ export function resolveNotificationLink(n: NotificationLike): string | null {
 
     // Nutrition / meal planning
     case 'meal_plan_updated':
-      return '/app/plans';
+      return '/app/nutrition-plan';
 
     // Direct messaging
     case 'new_message':
