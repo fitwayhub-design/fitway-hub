@@ -4,10 +4,28 @@ dist
 .env.local
 .env.*.local
 
-# Capacitor native projects — created on first `npx cap add android` / `cap add ios`
-android
-ios
+# Capacitor native projects are committed so external CI scripts that
+# expect android/ and ios/ to exist (e.g. zip-upload builders) work
+# without first running 'npx cap add'. Build artefacts inside them are
+# still ignored below.
 
-# Build artefacts
+# Android Gradle artefacts
+android/.gradle/
+android/.idea/
+android/app/build/
+android/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/.gradle/
+android/capacitor-cordova-android-plugins/build/
+
+# iOS / Xcode artefacts
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Misc
 *.log
 .DS_Store
