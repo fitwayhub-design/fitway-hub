@@ -153,7 +153,7 @@ export function AppLayout() {
             display: "flex", flexDirection: "column", overflow: "hidden",
           }}
         >
-          {/* Brand header + notification bell */}
+          {/* Brand header */}
           <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
           <Link to="/app/dashboard" className="user-panel-brand" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", padding: "22px 18px 16px", flex: 1, minWidth: 0 }}>
             {brandLogo ? (
@@ -169,11 +169,6 @@ export function AppLayout() {
               </span>
             )}
           </Link>
-          {isFeatureEnabled("/app/notifications") && (
-            <div style={{ marginRight: isRtl ? 0 : 14, marginLeft: isRtl ? 14 : 0 }}>
-              <NotificationDropdown token={token} size={16} align={isRtl ? "left" : "right"} buttonStyle={{ background: "var(--bg-surface)", color: "var(--text-secondary)" }} />
-            </div>
-          )}
           </div>
 
           {/* Nav items */}
