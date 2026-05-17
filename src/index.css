@@ -157,10 +157,12 @@ html, body {
 body {
   position: relative;
   min-height: 100vh;
-  background-image:
-    radial-gradient(700px circle at 12% -12%, rgba(255,214,0,0.08), transparent 60%),
-    radial-gradient(620px circle at 88% -20%, rgba(255,214,0,0.04), transparent 62%);
+  background-image: linear-gradient(160deg, #000000 0%, #000000 65%, rgba(255, 214, 0, 0.22) 100%);
   background-attachment: fixed;
+}
+
+html.light body {
+  background-image: none;
 }
 
 h1, h2, h3, h4, h5, h6, .font-display {
