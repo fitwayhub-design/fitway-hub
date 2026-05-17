@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LogOut, Sun, Moon, Menu, X, ChevronLeft, ChevronRight, Grid, Bell } from "lucide-react";
+import { LogOut, Sun, Moon, Menu, X, Grid, Bell, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useI18n } from "@/context/I18nContext";
+import { useBranding } from "@/context/BrandingContext";
 import { getApiBase } from "@/lib/api";
 
 export interface NavItem {
@@ -35,7 +36,7 @@ const COLLAPSED = 62;
 
 export function SharedSidebar({
   navItems, bottomNavItems, accentColor, accentBg,
-  logoIcon: LogoIcon, logoIconColor, logoLabel, logoUrl,
+  logoLabel, logoUrl,
   roleLabel, roleLabelColor, extraFooter, moreDrawerItems, notificationPath, homePath,
 }: SharedSidebarProps) {
   const location = useLocation();
@@ -43,6 +44,8 @@ export function SharedSidebar({
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { t, lang, setLang } = useI18n();
+  const { branding } = useBranding();
+  const favicon = branding.favicon_url || "/favicon.svg";
   const isRtl = lang === "ar";
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -195,22 +198,16 @@ export function SharedSidebar({
             <img src={logoUrl || "/logo.svg"} alt={logoLabel} style={{ height: 30, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
           )}
           {sidebarCollapsed && (
-            <div style={{ width: 32, height: 32, borderRadius: 12, background: `${accentColor}22`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <LogoIcon size={16} color={accentColor} />
-            </div>
+            <img src={favicon} alt={logoLabel} style={{ width: 32, height: 32, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          {notificationPath && (
-            <Link to={notificationPath} title="Notifications" style={{ position: "relative", width: 28, height: 28, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-muted)", textDecoration: "none" }}>
-              <Bell size={14} />
-              {unreadNotifs > 0 && (
-                <span style={{ position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 9999, background: "#EF4444", color: "#fff", fontSize: 8, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", border: "2px solid var(--bg-surface)" }}>{unreadNotifs > 9 ? "9+" : unreadNotifs}</span>
-              )}
-            </Link>
-          )}
-          <button onClick={() => setSidebarCollapsed(c => !c)} style={{ width: 28, height: 28, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text-muted)", flexShrink: 0 }}>
-            {sidebarCollapsed ? (isRtl ? <ChevronLeft size={14} /> : <ChevronRight size={14} />) : (isRtl ? <ChevronRight size={14} /> : <ChevronLeft size={14} />)}
+          <button
+            onClick={() => setSidebarCollapsed(c => !c)}
+            title={sidebarCollapsed ? "Expand" : "Collapse"}
+            style={{ width: 28, height: 28, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text-muted)", flexShrink: 0 }}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
           </button>
         </div>
       </div>
