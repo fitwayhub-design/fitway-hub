@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+.env.local
+.env.*.local
+
+# Capacitor native projects — created on first `npx cap add android` / `cap add ios`
+android
+ios
+
+# Build artefacts
+*.log
+.DS_Store

@@ -1,0 +1,293 @@
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
+import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
+import { useTheme } from "@/context/ThemeContext";
+import { getApiBase } from "@/lib/api";
+import { Eye, EyeOff, Mail, Lock, Activity, ArrowLeft } from "lucide-react";
+
+export default function Login() {
+  const { t, lang } = useI18n();
+  const { branding } = useBranding();
+  const { isDark } = useTheme();
+  const brandLogo = getBrandLogoForLang(branding, lang, isDark);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { login, user, loading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const coachMembershipRequired = searchParams.get("coach_membership") === "required";
+  const navigate = useNavigate();
+
+  const [liveStats, setLiveStats] = useState({ members: 0, programs: 0, rating: "5.0" });
+  useEffect(() => {
+    fetch(`${getApiBase()}/api/public/stats`)
+      .then(r => r.json())
+      .then(d => setLiveStats({ members: d.members || 0, programs: d.programs || 0, rating: d.rating || "5.0" }))
+      .catch(() => {});
+  }, []);
+
+  const appRoute = user?.role === "admin"
+    ? "/admin/dashboard"
+    : user?.role === "coach"
+      ? "/coach/dashboard"
+      : "/app/dashboard";
+
+  useEffect(() => {
+    const oauthError = searchParams.get("error");
+    if (oauthError) setError(oauthError);
+  }, [searchParams]);
+
+  const startSocialLogin = (provider: "google") => {
+    const base = getApiBase();
+    const cap = (window as any).Capacitor;
+    const isNative = typeof cap?.isNativePlatform === 'function' && cap.isNativePlatform();
+    const qs = isNative ? '?platform=mobile' : '';
+    window.location.href = `${base}/api/auth/oauth/${provider}${qs}`;
+  };
+
+  const handleLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+    try {
+      const data = await login(email, password, rememberMe);
+      if (data?.rememberToken) localStorage.setItem("remember_token", data.rememberToken);
+      // Redirect based on role
+      const role = data?.user?.role || "user";
+      if (role === "admin") navigate("/admin/dashboard");
+      else if (role === "coach") navigate("/coach/dashboard");
+      else navigate("/app/dashboard");
+    } catch (err: any) {
+      if (err.message?.includes('COACH_MEMBERSHIP_REQUIRED') || err.message?.includes('membership required') || err.message?.includes('membership')) {
+        setError(t("coach_membership_msg"));
+      } else {
+        setError(err.message || t("failed_login"));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!loading && user) {
+    return (
+      <div style={{ minHeight: "100vh", backgroundColor: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ width: "100%", maxWidth: 460, backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 28 }}>
+          <h1 style={{ fontFamily: "var(--font-en)", fontSize: 24, fontWeight: 700, marginBottom: 10 }}>{t("already_logged_in")}</h1>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 22 }}>
+            {t("signed_in_as")} <strong>{user.email}</strong>. {t("continue_to_account")}
+          </p>
+          <button
+            type="button"
+            className="btn-accent"
+            style={{ width: "100%", padding: "12px 14px", fontSize: 14 }}
+            onClick={() => navigate(appRoute)}
+          >
+            {t("open_my_account")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", backgroundColor: "var(--bg-primary)", display: "flex" }}>
+      {/* Left decorative panel */}
+      <div
+        className="hidden lg:flex"
+        style={{
+          width: "45%",
+          backgroundColor: "var(--bg-surface)",
+          borderInlineEnd: "1px solid var(--border)",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          padding: "48px",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {/* Glow blob */}
+        <div style={{
+          position: "absolute",
+          bottom: "15%",
+          insetInlineStart: "10%",
+          width: 320,
+          height: 320,
+          borderRadius: "50%",
+          backgroundColor: "var(--accent)",
+          opacity: 0.08,
+          filter: "blur(80px)",
+          pointerEvents: "none",
+        }} />
+
+        {/* Logo */}
+        {brandLogo ? (
+          <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} style={{ height: 38, borderRadius: 8, objectFit: "contain", alignSelf: "flex-start" }} />
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ backgroundColor: "var(--accent)", width: 32, height: 32, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Activity size={18} color="#000000" />
+            </div>
+            <span style={{ fontFamily: "var(--font-en)", fontSize: 20, fontWeight: 700, letterSpacing: "0.04em" }}>{branding.app_name || t("fitway_hub")}</span>
+          </div>
+        )}
+
+        {/* Quote block */}
+        <div>
+          <p style={{ fontFamily: "var(--font-en)", fontSize: 36, fontWeight: 700, lineHeight: 1.2, color: "var(--text-primary)", marginBottom: 20 }}>
+            {t("transform_body")}<br />
+            <span style={{ color: "var(--accent)" }}>{t("empower_mind")}</span>
+          </p>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 340 }}>
+            {t("egypt_fitness")}
+          </p>
+        </div>
+
+        {/* Stats row */}
+        <div style={{ display: "flex", gap: 32 }}>
+          {[{ v: liveStats.members > 0 ? `${liveStats.members.toLocaleString()}+` : "—", l: t("members") }, { v: liveStats.programs > 0 ? `${liveStats.programs}+` : "—", l: t("programs") }, { v: `${liveStats.rating}★`, l: t("rating") }].map((s) => (
+            <div key={s.l}>
+              <p style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700, color: "var(--accent)" }}>{s.v}</p>
+              <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>{s.l}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Right: form */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 24px" }}>
+        <div className="fade-up" style={{ width: "100%", maxWidth: 400 }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 16, background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 13, padding: 0 }}
+          >
+            <ArrowLeft size={14} /> {t("back")}
+          </button>
+
+          {/* Mobile logo */}
+          <div className="lg:hidden" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
+            {brandLogo ? (
+              <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} style={{ height: 32, borderRadius: 8, objectFit: "contain" }} />
+            ) : (
+              <>
+                <div style={{ backgroundColor: "var(--accent)", width: 28, height: 28, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Activity size={15} color="#000000" />
+                </div>
+                <span style={{ fontFamily: "var(--font-en)", fontSize: 18, fontWeight: 700 }}>{branding.app_name || t("fitway_hub")}</span>
+              </>
+            )}
+          </div>
+
+          <h1 style={{ fontFamily: "var(--font-en)", fontSize: 28, fontWeight: 700, marginBottom: 6 }}>{t("welcome_back")}</h1>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 32 }}>{t("sign_in_continue")}</p>
+
+          {coachMembershipRequired && (
+            <div style={{ padding: "14px 16px", backgroundColor: "rgba(255,179,64,0.1)", border: "1px solid rgba(255,179,64,0.3)", borderRadius: "var(--radius-full)", marginBottom: 16 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "var(--amber)", marginBottom: 4 }}>{t("coach_membership_required")}</p>
+              <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("coach_membership_msg")}</p>
+            </div>
+          )}
+          {error && (
+            <div style={{ padding: "12px 16px", backgroundColor: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.25)", borderRadius: "var(--radius-full)", color: "var(--red)", fontSize: 13, marginBottom: 20 }}>
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Email */}
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("email_label")}</label>
+              <div style={{ position: "relative" }}>
+                <Mail size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input-base"
+                  style={{ paddingInlineStart: 40 }}
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("password_label")}</label>
+              <div style={{ position: "relative" }}>
+                <Lock size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-base"
+                  style={{ paddingInlineStart: 40, paddingInlineEnd: 44 }}
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{ position: "absolute", insetInlineEnd: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Remember + Forgot */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{ accentColor: "var(--accent)", width: 15, height: 15 }}
+                />
+                {t("remember_me")}
+              </label>
+              <Link to="/auth/forgot-password" style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none", fontWeight: 500 }}>{t("forgot_password")}</Link>
+            </div>
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="btn-accent"
+              style={{ marginTop: 4, padding: "13px", fontSize: 14 }}
+            >
+              {isLoading ? t("signing_in") : t("sign_in")}
+            </button>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+              <div style={{ flex: 1, height: 1, backgroundColor: "var(--border)" }} />
+              <span style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("or")}</span>
+              <div style={{ flex: 1, height: 1, backgroundColor: "var(--border)" }} />
+            </div>
+
+            <button
+              type="button"
+              className="input-base"
+              onClick={() => startSocialLogin("google")}
+              style={{ padding: "12px", fontSize: 14, fontWeight: 600, cursor: "pointer", backgroundColor: "var(--bg-card)" }}
+            >
+              {t("continue_google")}
+            </button>
+          </form>
+
+          <p style={{ marginTop: 28, textAlign: "center", fontSize: 14, color: "var(--text-secondary)" }}>
+            {t("no_account")}{" "}
+            <Link to="/auth/register" style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}>
+              {t("sign_up_free")}
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

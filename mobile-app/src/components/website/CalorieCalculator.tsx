@@ -1,0 +1,105 @@
+import React, { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Calculator, ArrowRight } from "lucide-react";
+import { useI18n } from "@/context/I18nContext";
+
+const schema = z.object({
+  weight: z.number().min(20, "Weight must be at least 20kg").max(300, "Weight must be less than 300kg"),
+  height: z.number().min(100, "Height must be at least 100cm").max(250, "Height must be less than 250cm"),
+  age: z.number().min(10, "Age must be at least 10").max(100, "Age must be less than 100"),
+  gender: z.enum(["male", "female"]),
+  activity: z.enum(["sedentary", "light", "moderate", "active", "very_active"]),
+});
+
+type FormData = z.infer<typeof schema>;
+
+export function CalorieCalculator() {
+  const [result, setResult] = useState<number | null>(null);
+  const { t, lang } = useI18n();
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  });
+
+  const activityOptions = [
+    { value: "sedentary", label: lang === "ar" ? "قليل الحركة" : "Sedentary" },
+    { value: "light", label: lang === "ar" ? "خفيف (1-3 مرات/أسبوع)" : "Light (1-3x/week)" },
+    { value: "moderate", label: lang === "ar" ? "متوسط (4-5 مرات/أسبوع)" : "Moderate (4-5x/week)" },
+    { value: "active", label: lang === "ar" ? "نشيط يوميًا" : "Active (daily)" },
+    { value: "very_active", label: lang === "ar" ? "نشيط جدًا" : "Very Active" },
+  ];
+
+  const onSubmit = (data: FormData) => {
+    // Mifflin-St Jeor Equation
+    let bmr = 10 * data.weight + 6.25 * data.height - 5 * data.age;
+    if (data.gender === "male") {
+      bmr += 5;
+    } else {
+      bmr -= 161;
+    }
+
+    const multipliers = {
+      sedentary: 1.2,
+      light: 1.375,
+      moderate: 1.55,
+      active: 1.725,
+      very_active: 1.9,
+    };
+
+    const tdee = bmr * multipliers[data.activity];
+    setResult(Math.round(tdee));
+  };
+
+  const iS: React.CSSProperties = { backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "9px 12px", width: "100%", fontSize: 13, color: "var(--text-primary)", fontFamily: "var(--font-en)", outline: "none" };
+  const lS: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" as "uppercase", display: "block", marginBottom: 5 };
+
+  return (
+    <div style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "18px" }}>
+      <form onSubmit={handleSubmit(onSubmit)} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div>
+            <label style={lS}>{t("gender")}</label>
+            <select {...register("gender")} style={{ ...iS, cursor: "pointer" }}>
+              <option value="male">{lang === "ar" ? "ذكر" : "Male"}</option><option value="female">{lang === "ar" ? "أنثى" : "Female"}</option>
+            </select>
+          </div>
+          <div>
+            <label style={lS}>{lang === "ar" ? "العمر" : "Age"}</label>
+            <input type="number" {...register("age", { valueAsNumber: true })} style={iS} placeholder="25" />
+            {errors.age && <p style={{ fontSize: 11, color: "var(--red)", marginTop: 3 }}>{errors.age.message}</p>}
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div>
+            <label style={lS}>{t("weight_kg")}</label>
+            <input type="number" {...register("weight", { valueAsNumber: true })} style={iS} placeholder="70" />
+            {errors.weight && <p style={{ fontSize: 11, color: "var(--red)", marginTop: 3 }}>{errors.weight.message}</p>}
+          </div>
+          <div>
+            <label style={lS}>{t("height_cm")}</label>
+            <input type="number" {...register("height", { valueAsNumber: true })} style={iS} placeholder="175" />
+            {errors.height && <p style={{ fontSize: 11, color: "var(--red)", marginTop: 3 }}>{errors.height.message}</p>}
+          </div>
+        </div>
+        <div>
+          <label style={lS}>{t("activity_level")}</label>
+          <select {...register("activity")} style={{ ...iS, cursor: "pointer" }}>
+            {activityOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent)", color: "#000000", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}>
+          {lang === "ar" ? "احسب" : "Calculate"} <ArrowRight size={14} />
+        </button>
+      </form>
+      {result && (
+        <div style={{ marginTop: 14, padding: "14px", backgroundColor: "var(--accent-dim)", border: "1px solid rgba(255,214,0,0.25)", borderRadius: "var(--radius-full)", textAlign: "center" }}>
+          <p style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>{t("estimated_daily_needs")}</p>
+          <p style={{ fontFamily: "var(--font-en)", fontSize: 32, fontWeight: 700, color: "var(--accent)", lineHeight: 1 }}>{result} <span style={{ fontSize: 14, fontWeight: 400 }}>kcal/day</span></p>
+        </div>
+      )}
+    </div>
+  );
+}
