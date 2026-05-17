@@ -825,8 +825,7 @@ a:active { transform: scale(0.98); }
   justify-content: space-between;
   padding: 6px;
   pointer-events: all;
-  backdrop-filter: var(--nav-blur) !important;
-  -webkit-backdrop-filter: var(--nav-blur) !important;
+  backdrop-filter: blur(8px);
   box-shadow:
     0 14px 42px rgba(0, 0, 0, 0.45),
     0 0 0 1px rgba(255, 255, 255, 0.06) inset;
@@ -996,8 +995,7 @@ html.light .app-nav-center .app-nav-center-bubble::after {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
-  backdrop-filter: var(--nav-blur) !important;
-  -webkit-backdrop-filter: var(--nav-blur) !important;
+  backdrop-filter: blur(8px);
 }
 
 html.light .app-top-bar {
