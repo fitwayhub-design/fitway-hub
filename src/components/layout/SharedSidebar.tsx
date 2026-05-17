@@ -192,24 +192,31 @@ export function SharedSidebar({
       overflow: "hidden",
     }}>
       {/* Header */}
-      <div style={{ height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", borderBottom: "1px solid var(--border)", flexShrink: 0, gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", flex: 1 }}>
-          {!sidebarCollapsed && (
+      <div style={{
+        display: "flex",
+        flexDirection: sidebarCollapsed ? "column" : "row",
+        alignItems: "center",
+        justifyContent: sidebarCollapsed ? "center" : "space-between",
+        gap: sidebarCollapsed ? 8 : 8,
+        padding: sidebarCollapsed ? "12px 0" : "0 12px",
+        height: sidebarCollapsed ? "auto" : 64,
+        borderBottom: "1px solid var(--border)",
+        flexShrink: 0,
+      }}>
+        {sidebarCollapsed ? (
+          <img src={favicon} alt={logoLabel} style={{ width: 36, height: 36, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", flex: 1 }}>
             <img src={logoUrl || "/logo.svg"} alt={logoLabel} style={{ height: 30, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
-          )}
-          {sidebarCollapsed && (
-            <img src={favicon} alt={logoLabel} style={{ width: 32, height: 32, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          <button
-            onClick={() => setSidebarCollapsed(c => !c)}
-            title={sidebarCollapsed ? "Expand" : "Collapse"}
-            style={{ width: 28, height: 28, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text-muted)", flexShrink: 0 }}
-          >
-            {sidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-          </button>
-        </div>
+          </div>
+        )}
+        <button
+          onClick={() => setSidebarCollapsed(c => !c)}
+          title={sidebarCollapsed ? "Expand" : "Collapse"}
+          style={{ width: 28, height: 28, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text-muted)", flexShrink: 0 }}
+        >
+          {sidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+        </button>
       </div>
 
       {!sidebarCollapsed && <UserPill />}

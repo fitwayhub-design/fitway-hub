@@ -4,6 +4,7 @@ import {
   Home, Dumbbell, Activity, Users,
   MessageCircle, Wrench, CreditCard, BarChart2,
   UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut,
+  PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { CoachSearchIcon } from "@/components/icons/CoachSearchIcon";
 import { useAuth } from "@/context/AuthContext";
@@ -51,6 +52,7 @@ const FEATURE_BY_PATH: Record<string, string> = {
 };
 
 const SIDEBAR_W = 252;
+const SIDEBAR_W_COLLAPSED = 72;
 
 function useIsDesktop() {
   const [desktop, setDesktop] = useState(() => typeof window !== "undefined" && window.innerWidth >= 860);
@@ -75,8 +77,11 @@ export function AppLayout() {
   const handleSignOut = useCallback(() => { logout(); navigate("/auth/login", { replace: true }); }, [logout, navigate]);
   const [showLocation, setShowLocation] = useState(false);
   const [features, setFeatures] = useState<Record<string, boolean>>({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const brandLogo = getBrandLogoForLang(branding, lang, isDark);
+  const favicon = branding.favicon_url || "/favicon.svg";
   const isDesktop = useIsDesktop();
+  const currentSidebarW = sidebarCollapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W;
   const isFeatureEnabled = useCallback((path: string) => {
     const key = FEATURE_BY_PATH[path];
     if (!key) return true;
@@ -147,50 +152,73 @@ export function AppLayout() {
           className="user-panel-sidebar fade-up"
           style={{
             position: "fixed", top: 0, [isRtl ? "right" : "left"]: 0,
-            width: SIDEBAR_W, height: "100dvh", zIndex: 100,
+            width: currentSidebarW, height: "100dvh", zIndex: 100,
             background: "var(--bg-card)", borderRight: isRtl ? "none" : "1px solid var(--border)",
             borderLeft: isRtl ? "1px solid var(--border)" : "none",
             display: "flex", flexDirection: "column", overflow: "hidden",
+            transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
           }}
         >
-          {/* Brand header */}
-          <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
-          <Link to="/app/dashboard" className="user-panel-brand" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", padding: "22px 18px 16px", flex: 1, minWidth: 0 }}>
-            {brandLogo ? (
-              <img src={brandLogo} alt={branding.app_name || "FitWay Hub"} style={{ height: 28, borderRadius: 12, objectFit: "contain" }} />
-            ) : (
-              <span style={{
-                fontFamily: "var(--fwh-display, var(--font-heading))",
-                fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em",
-                color: "var(--text-primary)",
-                textTransform: "uppercase",
-              }}>
-                {branding.app_name || "FitWay Hub"}
-              </span>
-            )}
-          </Link>
+          {/* Brand header + collapse toggle */}
+          <div style={{
+            display: "flex",
+            flexDirection: sidebarCollapsed ? "column" : "row",
+            alignItems: "center",
+            justifyContent: sidebarCollapsed ? "center" : "space-between",
+            gap: 10,
+            padding: sidebarCollapsed ? "16px 0" : "16px 14px",
+            borderBottom: "1px solid var(--border)",
+          }}>
+            <Link to="/app/dashboard" className="user-panel-brand" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", minWidth: 0, flex: sidebarCollapsed ? "0 0 auto" : 1 }}>
+              {sidebarCollapsed ? (
+                <img src={favicon} alt={branding.app_name || "FitWay Hub"} style={{ width: 36, height: 36, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
+              ) : brandLogo ? (
+                <img src={brandLogo} alt={branding.app_name || "FitWay Hub"} style={{ height: 28, borderRadius: 12, objectFit: "contain" }} />
+              ) : (
+                <span style={{
+                  fontFamily: "var(--fwh-display, var(--font-heading))",
+                  fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em",
+                  color: "var(--text-primary)",
+                  textTransform: "uppercase",
+                }}>
+                  {branding.app_name || "FitWay Hub"}
+                </span>
+              )}
+            </Link>
+            <button
+              onClick={() => setSidebarCollapsed(c => !c)}
+              title={sidebarCollapsed ? "Expand" : "Collapse"}
+              style={{ width: 28, height: 28, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-surface)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text-muted)", flexShrink: 0 }}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+            </button>
           </div>
 
           {/* Nav items */}
-          <nav style={{ flex: 1, overflowY: "auto", padding: "12px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
+          <nav style={{ flex: 1, overflowY: "auto", padding: sidebarCollapsed ? "12px 8px" : "12px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
             {allNav.map(({ path, icon: Icon, label }) => {
               const active = location.pathname === path || location.pathname.startsWith(path + "/");
               return (
                 <NavLink
                   key={path}
                   to={path}
+                  title={sidebarCollapsed ? labelForPath(path, label) : undefined}
                   className={`user-panel-nav-link${active ? " active" : ""}`}
                   style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "10px 12px", borderRadius: 12, textDecoration: "none",
+                    display: "flex", alignItems: "center",
+                    gap: sidebarCollapsed ? 0 : 10,
+                    justifyContent: sidebarCollapsed ? "center" : "flex-start",
+                    padding: sidebarCollapsed ? "10px 0" : "10px 12px",
+                    borderRadius: 12, textDecoration: "none",
                     fontSize: 13, fontWeight: active ? 700 : 500,
                     color: active ? "var(--main)" : "var(--text-secondary)",
                     background: active ? "var(--main-dim)" : "transparent",
                     transition: "all 0.18s",
+                    whiteSpace: "nowrap", overflow: "hidden",
                   }}
                 >
                   <Icon size={18} strokeWidth={active ? 2.4 : 1.8} />
-                  {labelForPath(path, label)}
+                  {!sidebarCollapsed && labelForPath(path, label)}
                 </NavLink>
               );
             })}
@@ -199,28 +227,46 @@ export function AppLayout() {
           {/* User avatar at bottom */}
           {user && (
             <div style={{ borderTop: "1px solid var(--border)" }}>
-              <NavLink to="/app/profile" className="user-panel-profile-link" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", padding: "16px 18px" }}>
+              <NavLink
+                to="/app/profile"
+                className="user-panel-profile-link"
+                title={sidebarCollapsed ? (user.name || user.email) : undefined}
+                style={{
+                  display: "flex", alignItems: "center",
+                  gap: sidebarCollapsed ? 0 : 10,
+                  justifyContent: sidebarCollapsed ? "center" : "flex-start",
+                  textDecoration: "none",
+                  padding: sidebarCollapsed ? "14px 0" : "16px 18px",
+                }}
+              >
                 <img src={user.avatar || getAvatar(user.email, null, (user as any).gender, user.name)} alt="" style={{ width: 32, height: 32, borderRadius: 12, objectFit: "cover", border: "1px solid var(--main)" }} />
-                <div style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name || user.email}</span>
-                  <span style={{
-                    display: "block", fontSize: 9, color: "var(--text-muted)",
-                    textTransform: "uppercase", letterSpacing: "0.18em",
-                    fontFamily: "var(--fwh-mono, ui-monospace, monospace)", marginTop: 2,
-                  }}>{user.role}</span>
-                </div>
+                {!sidebarCollapsed && (
+                  <div style={{ minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name || user.email}</span>
+                    <span style={{
+                      display: "block", fontSize: 9, color: "var(--text-muted)",
+                      textTransform: "uppercase", letterSpacing: "0.18em",
+                      fontFamily: "var(--fwh-mono, ui-monospace, monospace)", marginTop: 2,
+                    }}>{user.role}</span>
+                  </div>
+                )}
               </NavLink>
               <button
                 onClick={handleSignOut}
+                title={sidebarCollapsed ? t("sign_out") : undefined}
                 style={{
-                  display: "flex", alignItems: "center", gap: 10, width: "100%",
-                  padding: "12px 18px", border: "none", background: "transparent",
+                  display: "flex", alignItems: "center",
+                  gap: sidebarCollapsed ? 0 : 10,
+                  justifyContent: sidebarCollapsed ? "center" : "flex-start",
+                  width: "100%",
+                  padding: sidebarCollapsed ? "12px 0" : "12px 18px",
+                  border: "none", background: "transparent",
                   color: "var(--red)", fontSize: 13, fontWeight: 600, cursor: "pointer",
                   borderTop: "1px solid var(--border)",
                 }}
               >
                 <LogOut size={16} />
-                {t("sign_out")}
+                {!sidebarCollapsed && t("sign_out")}
               </button>
             </div>
           )}
@@ -324,7 +370,7 @@ export function AppLayout() {
       {/* ── Page content ── */}
       <main style={{
         minHeight: "100dvh",
-        ...(isDesktop ? { [isRtl ? "marginRight" : "marginLeft"]: SIDEBAR_W } : {}),
+        ...(isDesktop ? { [isRtl ? "marginRight" : "marginLeft"]: currentSidebarW, transition: "margin 0.25s cubic-bezier(0.4,0,0.2,1)" } : {}),
       }}>
         {isDesktop && (
           <header className="user-panel-header panel-topbar fade-up" style={{
