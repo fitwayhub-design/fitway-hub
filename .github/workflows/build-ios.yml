@@ -1,0 +1,97 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile-app/**'
+      - '.github/workflows/build-ios.yml'
+  workflow_dispatch:
+
+# iOS builds require a macOS runner. This workflow produces an unsigned .app
+# bundle suitable for simulator/dev verification. Producing a signed .ipa for
+# TestFlight or the App Store needs an Apple Developer signing identity and
+# provisioning profile — wire those into the "Import certs" step when ready
+# (commented out below) or hand the synced project to Xcode locally.
+
+jobs:
+  build:
+    name: Build iOS IPA
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: mobile-app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web bundle (Capacitor)
+        run: npm run build
+        env:
+          CAPACITOR_BUILD: 'true'
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+
+      - name: Add iOS platform if missing
+        run: |
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Install CocoaPods
+        working-directory: mobile-app/ios/App
+        run: pod install --repo-update
+
+      # ── Signing (commented out — fill in when you have certs) ──
+      # - name: Import code-signing certs
+      #   uses: apple-actions/import-codesign-certs@v3
+      #   with:
+      #     p12-file-base64: ${{ secrets.IOS_P12_BASE64 }}
+      #     p12-password: ${{ secrets.IOS_P12_PASSWORD }}
+      # - name: Install provisioning profile
+      #   uses: apple-actions/download-provisioning-profiles@v3
+      #   with:
+      #     bundle-id: com.peetrix.fitwayhub
+      #     issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+      #     api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+      #     api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+
+      - name: Build unsigned app (simulator)
+        working-directory: mobile-app/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package .app bundle
+        working-directory: mobile-app/ios/App
+        run: |
+          mkdir -p build/output
+          cp -R build/Build/Products/Release-iphonesimulator/App.app build/output/
+          cd build/output && zip -r App.app.zip App.app
+
+      - name: Upload .app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ios-simulator
+          path: mobile-app/ios/App/build/output/App.app.zip
+          if-no-files-found: error
