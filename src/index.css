@@ -61,6 +61,11 @@
   --btn-hover-type:    glow;
   --btn-hover-color:   rgba(255,214,0,0.30);
 
+  /* Shared frosted-glass blur for top/bottom nav. Single value, single
+     function — multi-function backdrop-filter chains break in some
+     WebViews ("invalid property value"). */
+  --nav-blur: blur(24px);
+
   /* Fonts — these are overridden at runtime by BrandingContext from the admin
      panel. Defaults are intentionally generic so nothing is hardcoded to a
      specific brand face. */
@@ -820,11 +825,8 @@ a:active { transform: scale(0.98); }
   justify-content: space-between;
   padding: 6px;
   pointer-events: all;
-  /* Single backdrop-filter function — multi-function chains were being
-     rejected with "invalid property value" in some WebViews, which made
-     the bar look fully opaque. !important so global resets can't wipe it. */
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
+  backdrop-filter: var(--nav-blur) !important;
+  -webkit-backdrop-filter: var(--nav-blur) !important;
   box-shadow:
     0 14px 42px rgba(0, 0, 0, 0.45),
     0 0 0 1px rgba(255, 255, 255, 0.06) inset;
@@ -921,19 +923,12 @@ html.light .app-bottom-nav-inner {
   min-height: 56px;
 }
 
-@keyframes app-nav-center-glow {
-  0%, 100% {
-    box-shadow:
-      0 14px 32px rgba(255, 214, 0, 0.45),
-      0 0 0 6px rgba(0, 0, 0, 0.55),
-      0 0 0 7px rgba(255, 214, 0, 0.18);
-  }
-  50% {
-    box-shadow:
-      0 18px 40px rgba(255, 214, 0, 0.6),
-      0 0 0 6px rgba(0, 0, 0, 0.55),
-      0 0 0 8px rgba(255, 214, 0, 0.28);
-  }
+/* Pulsing halo — runs on opacity of an after-pseudo so the compositor
+   handles it without repainting the bubble every frame (much cheaper
+   than animating box-shadow). */
+@keyframes app-nav-center-pulse {
+  0%, 100% { opacity: 0.45; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 0.85; transform: translate(-50%, -50%) scale(1.08); }
 }
 
 .app-nav-center .app-nav-center-bubble {
@@ -951,19 +946,28 @@ html.light .app-bottom-nav-inner {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Halo ring matches the page background so the FAB looks like it's
-     punched out of the bar. The glow underneath pulses subtly. */
+  /* Static halo: tight inner ring matches the page so the FAB looks
+     punched-out, plus a wider soft drop-shadow. The pulsing glow lives
+     on the ::after below. */
   box-shadow:
-    0 14px 32px rgba(255, 214, 0, 0.45),
-    0 0 0 6px rgba(0, 0, 0, 0.55),
-    0 0 0 7px rgba(255, 214, 0, 0.18);
+    0 14px 32px rgba(255, 214, 0, 0.4),
+    0 0 0 6px rgba(0, 0, 0, 0.55);
   transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: app-nav-center-glow 3.6s ease-in-out infinite;
 }
 
-.app-nav-center .app-nav-center-bubble::before {
-  /* No inner ring — the larger icon owns the lens. */
-  content: none;
+.app-nav-center .app-nav-center-bubble::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 214, 0, 0.55) 0%, rgba(255, 214, 0, 0) 70%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: -1;
+  animation: app-nav-center-pulse 3.6s ease-in-out infinite;
 }
 
 .app-nav-center.active .app-nav-center-bubble,
@@ -973,10 +977,11 @@ html.light .app-bottom-nav-inner {
 
 html.light .app-nav-center .app-nav-center-bubble {
   box-shadow:
-    0 14px 32px rgba(200, 176, 0, 0.35),
-    0 0 0 6px #f5f5f0,
-    0 0 0 7px rgba(200, 176, 0, 0.22);
-  animation: none;
+    0 14px 32px rgba(200, 176, 0, 0.32),
+    0 0 0 6px #f5f5f0;
+}
+html.light .app-nav-center .app-nav-center-bubble::after {
+  background: radial-gradient(circle, rgba(200, 176, 0, 0.45) 0%, rgba(200, 176, 0, 0) 70%);
 }
 
 /* ─── Top bar (modernised glass) ─────────────────────────────────────── */
@@ -991,10 +996,8 @@ html.light .app-nav-center .app-nav-center-bubble {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
-  /* Single backdrop-filter function for max WebView compatibility.
-     !important so global resets can't wipe it. */
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
+  backdrop-filter: var(--nav-blur) !important;
+  -webkit-backdrop-filter: var(--nav-blur) !important;
 }
 
 html.light .app-top-bar {

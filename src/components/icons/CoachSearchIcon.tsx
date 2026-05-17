@@ -1,11 +1,9 @@
+import { memo } from "react";
 import type { CSSProperties } from "react";
 
 interface CoachSearchIconProps {
   size?: number;
   color?: string;
-  /** Stroke width is fixed inside the SVG (104 in the original 1977 viewBox)
-   * so this prop is accepted for API parity but not used. */
-  strokeWidth?: number;
   style?: CSSProperties;
 }
 
@@ -14,9 +12,10 @@ interface CoachSearchIconProps {
  * exported from Illustrator; we strip the generator comment and the
  * <style> block, swap the hardcoded #010101 paint for currentColor so it
  * inherits the FAB foreground, and inline the stroke attributes that came
- * from the .st0 class.
+ * from the .st0 class. Memoized because the bottom nav re-renders on every
+ * route change and these path strings are large.
  */
-export function CoachSearchIcon({ size = 24, color = "currentColor", style }: CoachSearchIconProps) {
+function CoachSearchIconImpl({ size = 24, color = "currentColor", style }: CoachSearchIconProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -94,4 +93,5 @@ export function CoachSearchIcon({ size = 24, color = "currentColor", style }: Co
   );
 }
 
+export const CoachSearchIcon = memo(CoachSearchIconImpl);
 export default CoachSearchIcon;

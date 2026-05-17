@@ -273,9 +273,8 @@ export function SharedSidebar({
       paddingTop: "env(safe-area-inset-top)",
       backgroundColor: "rgba(15, 15, 15, 0.55)",
       borderBottom: "1px solid rgba(255,255,255,0.06)",
-      // Single backdrop-filter function for max WebView compatibility.
-      backdropFilter: "blur(24px)",
-      WebkitBackdropFilter: "blur(24px)",
+      backdropFilter: "var(--nav-blur)",
+      WebkitBackdropFilter: "var(--nav-blur)",
       display: "flex", alignItems: "flex-end",
     }}>
       <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 56 }}>
@@ -366,9 +365,8 @@ export function SharedSidebar({
           borderRadius: 999,
           display: "flex", alignItems: "stretch", padding: 6,
           pointerEvents: "all",
-          // Single function for WebView compatibility.
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
+          backdropFilter: "var(--nav-blur)",
+          WebkitBackdropFilter: "var(--nav-blur)",
           boxShadow: "0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04) inset",
         }}>
           {bottomItems.map(({ path, icon: Icon, label }) => {
