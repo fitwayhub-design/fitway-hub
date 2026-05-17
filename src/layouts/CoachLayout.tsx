@@ -27,7 +27,6 @@ const navItems: NavItem[] = [
   { path: "/coach/blogs",          icon: FileText,        label: "Our Blog" },
   { path: "/coach/community",      icon: Globe,           label: "Community" },
   { path: "/coach/workouts",       icon: Dumbbell,        label: "Workouts" },
-  { path: "/coach/notifications",  icon: Bell,            label: "Notifications" },
   { path: "/coach/profile",        icon: Activity,        label: "Profile" },
 ];
 

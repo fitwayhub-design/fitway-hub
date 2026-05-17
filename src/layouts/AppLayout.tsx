@@ -1,7 +1,7 @@
 import { Outlet, NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  Home, Dumbbell, Activity, Users, Bell,
+  Home, Dumbbell, Activity, Users,
   MessageCircle, Wrench, CreditCard, BarChart2,
   UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut,
 } from "lucide-react";
@@ -34,7 +34,6 @@ const TOP_NAV = [
   { path: "/app/tools",      icon: Wrench,        label: "Tools" },
   { path: "/app/analytics",  icon: BarChart2,     label: "Analytics" },
   { path: "/app/blogs",          icon: BookOpen,       label: "Our Blog" },
-  { path: "/app/notifications",  icon: Bell,           label: "Notifications" },
 ];
 
 const FEATURE_BY_PATH: Record<string, string> = {

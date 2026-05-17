@@ -26,7 +26,6 @@ const navItems: NavItem[] = [
   { path: "/admin/app-images",     icon: ImageIcon,       label: "App Images" },
   { path: "/admin/subscriptions",  icon: ClipboardList,   label: "Subscriptions" },
   { path: "/admin/withdrawals",    icon: Wallet,          label: "Withdrawals" },
-  { path: "/admin/notifications",  icon: Bell,            label: "Notifications" },
   { path: "/admin/settings",       icon: Settings,        label: "Settings" },
 ];
 
@@ -46,7 +45,6 @@ const moreItems: NavItem[] = [
   { path: "/admin/website",        icon: Globe,         label: "Website" },
   { path: "/admin/subscriptions",  icon: ClipboardList, label: "Subscriptions" },
   { path: "/admin/withdrawals",    icon: Wallet,        label: "Withdrawals" },
-  { path: "/admin/notifications",  icon: Bell,          label: "Notifications" },
 ];
 
 export function AdminLayout() {
@@ -72,7 +70,6 @@ export function AdminLayout() {
     { path: "/admin/app-images",     icon: ImageIcon,       label: t("app_images") || "App Images" },
     { path: "/admin/subscriptions",  icon: ClipboardList,   label: t("subscriptions") || "Subscriptions" },
     { path: "/admin/withdrawals",    icon: Wallet,          label: t("withdrawals") || "Withdrawals" },
-    { path: "/admin/notifications",  icon: Bell,            label: t("notifications") },
     { path: "/admin/settings",       icon: Settings,        label: t("settings") },
   ];
 
@@ -95,7 +92,6 @@ export function AdminLayout() {
     { path: "/admin/app-images",     icon: ImageIcon,      label: t("app_images") || "App Images" },
     { path: "/admin/subscriptions",  icon: ClipboardList,  label: t("subscriptions") || "Subscriptions" },
     { path: "/admin/withdrawals",    icon: Wallet,         label: t("withdrawals") || "Withdrawals" },
-    { path: "/admin/notifications",  icon: Bell,           label: t("notifications") },
   ];
   const currentPageLabel = translatedNavItems.find((item) => item.path === location.pathname)?.label || t("dashboard");
   const { isMobile, sidebarW, DesktopSidebar, OverlayDrawer, MobileTopBar, MobileBottomBar } = SharedSidebar({
