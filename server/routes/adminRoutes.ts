@@ -771,9 +771,23 @@ router.post('/generate-coach-profiles', authenticateToken, adminOnly, async (_re
     const count = 5;
     const firstNames = ['Karim', 'Omar', 'Hassan', 'Mina', 'Yousef', 'Nadine', 'Rania', 'Mariam', 'Salma', 'Lina'];
     const lastNames = ['Mostafa', 'Hamed', 'Samir', 'Nabil', 'Farouk', 'Ibrahim', 'Mahmoud', 'Adel', 'Tarek', 'Kamel'];
+    const CITIES = ['Cairo','Giza','Alexandria','Hurghada','Sharm El Sheikh','Luxor','Aswan','Mansoura','Tanta'];
+    const SPECIALTIES = ['Strength Training','HIIT','Yoga','Pilates','CrossFit','Bodybuilding','Functional Fitness','Nutrition Coaching','Cardio & Endurance'];
+    const BIOS = [
+      'Certified personal trainer with 6+ years of experience helping clients reach their goals.',
+      'Passionate about strength, mobility, and sustainable habits. Let\'s build the version of you that you actually like.',
+      'Online & in-person coaching. Customised plans, real accountability, no gimmicks.',
+      'Fitness should feel good. I design programs that fit your life, not the other way around.',
+      'Athlete turned coach. I\'ll meet you where you are and push you where you need it.',
+    ];
     const created: string[] = [];
     const hashed = await bcrypt.hash('CoachPass123!', 10);
     const baseTs = Date.now();
+    const rand = (min: number, max: number) => Math.floor(Math.random()*(max-min+1))+min;
+    const dobFromAge = (age: number) => {
+      const d = new Date(); d.setFullYear(d.getFullYear() - age);
+      return d.toISOString().split('T')[0];
+    };
 
     for (let i = 0; i < count; i++) {
       const fn = firstNames[Math.floor(Math.random() * firstNames.length)];
@@ -781,16 +795,40 @@ router.post('/generate-coach-profiles', authenticateToken, adminOnly, async (_re
       const suffix = `${baseTs}${i}`;
       const name = `${fn} ${ln}`;
       const email = `${fn.toLowerCase()}.${ln.toLowerCase()}.${suffix}@fitwayhub.coach`;
-      const avatar = null;
+      const femaleFirsts = ['Mina','Nadine','Rania','Mariam','Salma','Lina'];
+      const gender = femaleFirsts.includes(fn) ? 'female' : 'male';
+      const height = gender === 'male' ? rand(170, 190) : rand(158, 175);
+      const weight = gender === 'male' ? rand(70, 95) : rand(52, 72);
+      const dob = dobFromAge(rand(25, 42));
+      const city = CITIES[i % CITIES.length];
       const steps = 9000 + Math.floor(Math.random() * 7000);
       const points = 800 + Math.floor(Math.random() * 2200);
+      const monthlyPrice = [149, 199, 249, 299][i % 4];
+      const yearlyPrice = monthlyPrice * 10;
+      const specialty = SPECIALTIES[i % SPECIALTIES.length];
+      const bio = BIOS[i % BIOS.length];
+      const credit = 1000;
 
       try {
-        await run(
-          `INSERT INTO users (email, password, name, role, avatar, is_premium, membership_paid, coach_membership_active, points, steps, step_goal)
-           VALUES (?, ?, ?, 'coach', ?, 0, 1, 1, ?, ?, 12000)`,
-          [email, hashed, name, avatar, points, steps]
+        const { insertId } = await run(
+          `INSERT INTO users (email, password, name, role, avatar,
+            gender, height, weight, date_of_birth, city,
+            is_premium, membership_paid, coach_membership_active,
+            email_verified, onboarding_done, credit,
+            points, steps, step_goal)
+           VALUES (?, ?, ?, 'coach', ?, ?, ?, ?, ?, ?, 0, 1, 1, 1, 1, ?, ?, ?, 12000)`,
+          [email, hashed, name, null, gender, height, weight, dob, city, credit, points, steps]
         );
+
+        // Stub coach_profiles row so the coach is visible in the directory.
+        try {
+          await run(
+            `INSERT INTO coach_profiles (user_id, bio, specialty, location, price, available, plan_types, monthly_price, yearly_price)
+             VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+            [insertId, bio, specialty, city, monthlyPrice, 'monthly,yearly', monthlyPrice, yearlyPrice]
+          );
+        } catch { /* table may not exist on legacy installs — skip */ }
+
         created.push(name);
       } catch {
         // Skip duplicates and continue.
