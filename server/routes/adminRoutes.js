@@ -762,14 +762,246 @@ router.put('/server-url', authenticateToken, adminOnly, async (req, res) => {
 router.get('/ping', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+// ── Activity seeder for newly created fake users and fake coaches ────────────
+// Populates posts, comments, likes, follows, subscriptions, messages, steps,
+// payments, and challenge participation so fake accounts look like real users
+// from day one (mirrors what server/seed.ts does on a fresh DB).
+async function seedActivitiesForFakeAccounts(newIds, role) {
+    if (!newIds.length)
+        return;
+    const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const daysAgo = (n) => new Date(Date.now() - n * 86400000);
+    const daysAgoStr = (n) => daysAgo(n).toISOString().split('T')[0];
+    const USER_POSTS = [
+        'Just crushed a new personal record today 💪 Hard work pays off!',
+        'Morning workout done before sunrise. This is the lifestyle 🌅',
+        'Week 3 of my program and I can already see the changes!',
+        'Rest day vibes 🧘 Recovery is just as important as training.',
+        'Anyone else addicted to the post-workout feeling? Best natural high.',
+        'Meal prepped for the whole week 🍱 Preparation is key.',
+        'Hit 10,000 steps before noon! New record 🏃',
+        'Finally did my first pull-up! Months of work for that one moment 🙌',
+        'Consistency > intensity. Show up even when you don\'t feel like it.',
+        'My coach changed my life. Down 12kg in 3 months!',
+        'Down 5kg in 6 weeks. Slow and steady wins the race 🐢',
+        'First time doing HIIT — I thought I was going to die but I survived 😂',
+    ];
+    const COACH_POSTS = [
+        '💡 Coaching tip: You don\'t need to train 2 hours a day. 45 focused minutes beats 2 hours of distracted training.',
+        '🥗 Nutrition myth busted: You don\'t need to eat clean 100% of the time. 80/20 rule wins.',
+        '🏋️ Progressive overload is the #1 driver of muscle growth. Add weight, reps, or sets every week.',
+        '💤 If your progress has stalled, check your sleep first. Everything else comes second.',
+        '🔥 New spots open for online coaching this month! DM me to claim yours.',
+        '⚡ Reminder: rest days are not lazy days. They\'re growth days.',
+        '🎯 Your body is a long-term project, not a 30-day challenge.',
+    ];
+    const COMMENTS = [
+        'Keep it up! 🔥', 'This is so inspiring!', 'Amazing progress!',
+        'You\'re crushing it 💪', 'Goals! 🎯', 'Let\'s go! 🚀',
+        'I felt that 😂', 'Proud of you!', 'Keep grinding!',
+        'How long did it take you?', 'What program are you on?',
+    ];
+    const newIdSet = new Set(newIds);
+    const coaches = await query('SELECT id FROM users WHERE role = ? ORDER BY RAND() LIMIT 30', ['coach']).catch(() => []);
+    const existingUsers = await query('SELECT id FROM users WHERE role = ? ORDER BY id DESC LIMIT 80', ['user']).catch(() => []);
+    const recentPosts = await query('SELECT id, user_id FROM posts ORDER BY created_at DESC LIMIT 80').catch(() => []);
+    const activeChallenges = await query('SELECT id FROM challenges WHERE end_date >= CURDATE() LIMIT 5').catch(() => []);
+    const coachIds = coaches.map(c => Number(c.id)).filter(id => !newIdSet.has(id));
+    const peerUserIds = existingUsers.map(u => Number(u.id)).filter(id => !newIdSet.has(id));
+    const recentPostsFiltered = recentPosts.filter(p => !newIdSet.has(Number(p.user_id)));
+    for (let i = 0; i < newIds.length; i++) {
+        const id = newIds[i];
+        // 1) 14 days of step entries
+        const baseSteps = rand(4000, 12000);
+        for (let d = 0; d < 14; d++) {
+            const steps = Math.max(500, baseSteps + rand(-2000, 3000));
+            const cal = Math.round(steps * 0.05);
+            const km = parseFloat((steps * 0.00075).toFixed(2));
+            try {
+                await run('INSERT INTO steps_entries (user_id,date,steps,calories_burned,distance_km) VALUES (?,?,?,?,?)', [id, daysAgoStr(d), steps, cal, km]);
+            }
+            catch { }
+        }
+        // 2) Community posts (more for coaches)
+        const numPosts = role === 'coach' ? rand(2, 4) : rand(1, 3);
+        const pool = role === 'coach' ? COACH_POSTS : USER_POSTS;
+        const tag = role === 'coach' ? '#coaching #fitness #fitwayhub' : '#fitness #fitwayhub #health';
+        const myPostIds = [];
+        for (let p = 0; p < numPosts; p++) {
+            const body = pool[(i * numPosts + p) % pool.length];
+            const seedLikes = role === 'coach' ? rand(15, 120) : rand(2, 60);
+            try {
+                const { insertId } = await run('INSERT INTO posts (user_id,content,hashtags,likes,created_at) VALUES (?,?,?,?,?)', [id, body, tag, seedLikes, daysAgo(rand(0, 21))]);
+                myPostIds.push(insertId);
+            }
+            catch { }
+        }
+        // 3) New account leaves comments on existing recent posts
+        const targetsForCommenting = [...recentPostsFiltered].sort(() => Math.random() - 0.5).slice(0, rand(2, 4));
+        for (const post of targetsForCommenting) {
+            try {
+                await run('INSERT INTO post_comments (post_id,user_id,content,created_at) VALUES (?,?,?,?)', [post.id, id, pick(COMMENTS), daysAgo(rand(0, 10))]);
+            }
+            catch { }
+        }
+        // 4) New account likes existing recent posts
+        const likeTargets = [...recentPostsFiltered].sort(() => Math.random() - 0.5).slice(0, Math.min(8, recentPostsFiltered.length));
+        for (const post of likeTargets) {
+            try {
+                await run('INSERT IGNORE INTO post_likes (post_id,user_id) VALUES (?,?)', [post.id, id]);
+            }
+            catch { }
+        }
+        // 5) Existing users and coaches engage with the new account's posts
+        const engagementPool = [...peerUserIds, ...coachIds];
+        for (const pid of myPostIds) {
+            const numComments = rand(1, 4);
+            for (let k = 0; k < numComments && engagementPool.length; k++) {
+                try {
+                    await run('INSERT INTO post_comments (post_id,user_id,content,created_at) VALUES (?,?,?,?)', [pid, pick(engagementPool), pick(COMMENTS), daysAgo(rand(0, 5))]);
+                }
+                catch { }
+            }
+            const likers = [...engagementPool].sort(() => Math.random() - 0.5).slice(0, rand(3, Math.min(12, engagementPool.length || 1)));
+            for (const liker of likers) {
+                try {
+                    await run('INSERT IGNORE INTO post_likes (post_id,user_id) VALUES (?,?)', [pid, liker]);
+                }
+                catch { }
+            }
+        }
+        if (role === 'user') {
+            // 6) Follow a few existing coaches
+            const followCoaches = [...coachIds].sort(() => Math.random() - 0.5).slice(0, Math.min(3, coachIds.length));
+            for (const cid of followCoaches) {
+                try {
+                    await run('INSERT IGNORE INTO coach_follows (follower_id,coach_id) VALUES (?,?)', [id, cid]);
+                }
+                catch { }
+            }
+            // 7) Follow a few existing users
+            const followUsers = [...peerUserIds].sort(() => Math.random() - 0.5).slice(0, rand(2, 6));
+            for (const uid of followUsers) {
+                try {
+                    await run('INSERT IGNORE INTO user_follows (follower_id,following_id) VALUES (?,?)', [id, uid]);
+                }
+                catch { }
+            }
+            // 8) Premium payment for ~1/3 of new users
+            if (i % 3 === 0) {
+                try {
+                    await run('INSERT INTO payments (user_id,type,plan,amount,payment_method,status,created_at) VALUES (?,?,?,?,?,?,?)', [id, 'premium', 'monthly', 50, pick(['vodafone_cash', 'orange_cash', 'paypal', 'paymob_card']), 'completed', daysAgo(rand(1, 60))]);
+                }
+                catch { }
+            }
+            // 9) Coach subscription for ~half of new users + chat exchange
+            if (i % 2 === 0 && coachIds.length > 0) {
+                const cid = coachIds[i % coachIds.length];
+                const amount = pick([99, 149, 199, 249]);
+                const status = pick(['active', 'active', 'pending']);
+                try {
+                    await run(`INSERT INTO coach_subscriptions (user_id,coach_id,plan_cycle,plan_type,amount,status,admin_approval_status,coach_decision_status,payment_method,started_at,expires_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [id, cid, pick(['monthly', 'yearly']), pick(['complete', 'workout']), amount, status,
+                        status === 'active' ? 'approved' : 'pending',
+                        status === 'active' ? 'accepted' : 'pending',
+                        pick(['vodafone_cash', 'ewallet', 'paymob_card']),
+                        daysAgo(rand(1, 30)), daysAgo(-rand(7, 30))]);
+                    if (status === 'active') {
+                        const credit = Math.round(amount * 0.85 * 100) / 100;
+                        try {
+                            await run('UPDATE users SET credit = credit + ? WHERE id = ?', [credit, cid]);
+                        }
+                        catch { }
+                        try {
+                            await run('INSERT INTO credit_transactions (user_id,amount,type,description) VALUES (?,?,?,?)', [cid, credit, 'subscription_earning', `Subscription from user #${id}`]);
+                        }
+                        catch { }
+                    }
+                }
+                catch { }
+                const convo = [
+                    ['Hi Coach! I just subscribed. When do we start?', false],
+                    ['Welcome! Let\'s begin with an assessment. What are your main goals?', true],
+                    ['Mainly lose weight and build some muscle.', false],
+                    ['Perfect! I\'ll send your Week 1 plan tonight.', true],
+                ];
+                for (let m = 0; m < convo.length; m++) {
+                    const [msg, fromCoach] = convo[m];
+                    try {
+                        await run('INSERT INTO messages (sender_id,receiver_id,content,created_at) VALUES (?,?,?,?)', [fromCoach ? cid : id, fromCoach ? id : cid, msg, daysAgo(7 - m * 0.5)]);
+                    }
+                    catch { }
+                }
+            }
+            // 10) Join active challenges
+            for (const ch of activeChallenges.slice(0, 2)) {
+                try {
+                    await run('INSERT IGNORE INTO challenge_participants (challenge_id,user_id) VALUES (?,?)', [ch.id, id]);
+                }
+                catch { }
+            }
+        }
+        else {
+            // role === 'coach': get followers + a few paying subscribers from existing users
+            const followers = [...peerUserIds].sort(() => Math.random() - 0.5).slice(0, rand(5, 15));
+            for (const f of followers) {
+                try {
+                    await run('INSERT IGNORE INTO coach_follows (follower_id,coach_id) VALUES (?,?)', [f, id]);
+                }
+                catch { }
+            }
+            const subscribers = [...peerUserIds].sort(() => Math.random() - 0.5).slice(0, rand(2, 5));
+            for (const subUserId of subscribers) {
+                const amount = pick([99, 149, 199, 249]);
+                try {
+                    await run(`INSERT INTO coach_subscriptions (user_id,coach_id,plan_cycle,plan_type,amount,status,admin_approval_status,coach_decision_status,payment_method,started_at,expires_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [subUserId, id, pick(['monthly', 'yearly']), pick(['complete', 'workout']), amount, 'active', 'approved', 'accepted',
+                        pick(['vodafone_cash', 'ewallet', 'paymob_card']),
+                        daysAgo(rand(1, 30)), daysAgo(-rand(7, 30))]);
+                    const credit = Math.round(amount * 0.85 * 100) / 100;
+                    try {
+                        await run('UPDATE users SET credit = credit + ? WHERE id = ?', [credit, id]);
+                    }
+                    catch { }
+                    try {
+                        await run('INSERT INTO credit_transactions (user_id,amount,type,description) VALUES (?,?,?,?)', [id, credit, 'subscription_earning', `Subscription from user #${subUserId}`]);
+                    }
+                    catch { }
+                    // Short chat exchange with each subscriber
+                    const convo = [
+                        ['Hi! Excited to start with you 💪', false],
+                        ['Welcome aboard! I\'ll send your assessment shortly.', true],
+                        ['Thanks Coach!', false],
+                    ];
+                    for (let m = 0; m < convo.length; m++) {
+                        const [msg, fromCoach] = convo[m];
+                        try {
+                            await run('INSERT INTO messages (sender_id,receiver_id,content,created_at) VALUES (?,?,?,?)', [fromCoach ? id : subUserId, fromCoach ? subUserId : id, msg, daysAgo(5 - m * 0.5)]);
+                        }
+                        catch { }
+                    }
+                }
+                catch { }
+            }
+            // Coach joins (or appears in) recent challenges as a participant too
+            for (const ch of activeChallenges.slice(0, 1)) {
+                try {
+                    await run('INSERT IGNORE INTO challenge_participants (challenge_id,user_id) VALUES (?,?)', [ch.id, id]);
+                }
+                catch { }
+            }
+        }
+    }
+}
 // ── Coach Profiles Generator ────────────────────────────────────────────────
 router.post('/generate-coach-profiles', authenticateToken, adminOnly, async (_req, res) => {
     try {
         const count = 5;
         const firstNames = ['Karim', 'Omar', 'Hassan', 'Mina', 'Yousef', 'Nadine', 'Rania', 'Mariam', 'Salma', 'Lina'];
         const lastNames = ['Mostafa', 'Hamed', 'Samir', 'Nabil', 'Farouk', 'Ibrahim', 'Mahmoud', 'Adel', 'Tarek', 'Kamel'];
-        const CITIES = ['Cairo','Giza','Alexandria','Hurghada','Sharm El Sheikh','Luxor','Aswan','Mansoura','Tanta'];
-        const SPECIALTIES = ['Strength Training','HIIT','Yoga','Pilates','CrossFit','Bodybuilding','Functional Fitness','Nutrition Coaching','Cardio & Endurance'];
+        const CITIES = ['Cairo', 'Giza', 'Alexandria', 'Hurghada', 'Sharm El Sheikh', 'Luxor', 'Aswan', 'Mansoura', 'Tanta'];
+        const SPECIALTIES = ['Strength Training', 'HIIT', 'Yoga', 'Pilates', 'CrossFit', 'Bodybuilding', 'Functional Fitness', 'Nutrition Coaching', 'Cardio & Endurance'];
         const BIOS = [
             'Certified personal trainer with 6+ years of experience helping clients reach their goals.',
             'Passionate about strength, mobility, and sustainable habits. Let\'s build the version of you that you actually like.',
@@ -778,11 +1010,13 @@ router.post('/generate-coach-profiles', authenticateToken, adminOnly, async (_re
             'Athlete turned coach. I\'ll meet you where you are and push you where you need it.',
         ];
         const created = [];
+        const newCoachIds = [];
         const hashed = await bcrypt.hash('CoachPass123!', 10);
         const baseTs = Date.now();
-        const rand = (min, max) => Math.floor(Math.random()*(max-min+1))+min;
+        const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
         const dobFromAge = (age) => {
-            const d = new Date(); d.setFullYear(d.getFullYear() - age);
+            const d = new Date();
+            d.setFullYear(d.getFullYear() - age);
             return d.toISOString().split('T')[0];
         };
         for (let i = 0; i < count; i++) {
@@ -791,7 +1025,7 @@ router.post('/generate-coach-profiles', authenticateToken, adminOnly, async (_re
             const suffix = `${baseTs}${i}`;
             const name = `${fn} ${ln}`;
             const email = `${fn.toLowerCase()}.${ln.toLowerCase()}.${suffix}@fitwayhub.coach`;
-            const femaleFirsts = ['Mina','Nadine','Rania','Mariam','Salma','Lina'];
+            const femaleFirsts = ['Mina', 'Nadine', 'Rania', 'Mariam', 'Salma', 'Lina'];
             const gender = femaleFirsts.includes(fn) ? 'female' : 'male';
             const height = gender === 'male' ? rand(170, 190) : rand(158, 175);
             const weight = gender === 'male' ? rand(70, 95) : rand(52, 72);
@@ -810,18 +1044,27 @@ router.post('/generate-coach-profiles', authenticateToken, adminOnly, async (_re
             is_premium, membership_paid, coach_membership_active,
             email_verified, onboarding_done, credit,
             points, steps, step_goal)
-           VALUES (?, ?, ?, 'coach', ?, ?, ?, ?, ?, ?, 0, 1, 1, 1, 1, ?, ?, ?, 12000)`,
-                    [email, hashed, name, null, gender, height, weight, dob, city, credit, points, steps]);
+           VALUES (?, ?, ?, 'coach', ?, ?, ?, ?, ?, ?, 0, 1, 1, 1, 1, ?, ?, ?, 12000)`, [email, hashed, name, null, gender, height, weight, dob, city, credit, points, steps]);
+                // Stub coach_profiles row so the coach is visible in the directory.
                 try {
                     await run(`INSERT INTO coach_profiles (user_id, bio, specialty, location, price, available, plan_types, monthly_price, yearly_price)
-             VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)`,
-                        [insertId, bio, specialty, city, monthlyPrice, 'monthly,yearly', monthlyPrice, yearlyPrice]);
-                } catch { /* table may not exist on legacy installs — skip */ }
+             VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)`, [insertId, bio, specialty, city, monthlyPrice, 'monthly,yearly', monthlyPrice, yearlyPrice]);
+                }
+                catch { /* table may not exist on legacy installs — skip */ }
                 created.push(name);
+                newCoachIds.push(Number(insertId));
             }
             catch {
                 // Skip duplicates and continue.
             }
+        }
+        // Make the new coaches participate in the app like real coaches:
+        // posts, comments, likes, follows from users, subscriptions, etc.
+        try {
+            await seedActivitiesForFakeAccounts(newCoachIds, 'coach');
+        }
+        catch (e) {
+            console.warn('[generate-coach-profiles] activity seeding failed:', e?.message);
         }
         res.json({ message: `Created ${created.length} coach profiles`, coaches: created });
     }
@@ -1249,9 +1492,15 @@ router.get('/dashboard-config', async (_req, res) => {
     }
 });
 // ── Branding image upload (logo / favicon) ───────────────────────────────────
-// Branding assets are stored inline as base64 data URLs in app_settings.
-// See adminRoutes.ts for rationale.
-const INLINE_LIMIT = 1.5 * 1024 * 1024;
+// Branding assets are stored inline as base64 data URLs in app_settings rather
+// than written to disk or R2. Reasons:
+//   • The local-disk fallback is wiped on every redeploy on Railway/Render-style
+//     hosts, which makes the logo "disappear" once you push a new build.
+//   • Branding images are small (logos, favicons, the Coming Soon background)
+//     and rarely change, so inlining them avoids an extra HTTP round-trip.
+// Falls back to R2 if a file would exceed INLINE_LIMIT after optimisation —
+// for the typical logo/favicon/SVG path that branch never triggers.
+const INLINE_LIMIT = 1.5 * 1024 * 1024; // 1.5 MB
 router.post('/upload-branding-image', authenticateToken, adminOnly, multerToJson(uploadBranding.single('image')), sanitiseSvgIfPresent, optimizeImage(), async (req, res) => {
     try {
         if (!req.file)
@@ -1416,6 +1665,7 @@ router.post('/generate-fake-users', authenticateToken, adminOnly, async (req, re
             return d.toISOString().split('T')[0];
         };
         let created = 0;
+        const newUserIds = [];
         const allNames = [...MALE_NAMES.map(n => ({ name: n, gender: 'male' })), ...FEMALE_NAMES.map(n => ({ name: n, gender: 'female' }))];
         for (let i = 0; i < count; i++) {
             const { name, gender } = allNames[i % allNames.length];
@@ -1430,16 +1680,26 @@ router.post('/generate-fake-users', authenticateToken, adminOnly, async (req, re
             const w = gender === 'male' ? rand(65, 98) : rand(48, 75);
             const tgtW = goal === 'lose_weight' ? w - rand(5, 20) : goal === 'gain_weight' ? w + rand(3, 12) : w;
             try {
-                await dbRun(`INSERT INTO users (name,email,password,role,is_premium,gender,height,weight,
+                const result = await dbRun(`INSERT INTO users (name,email,password,role,is_premium,gender,height,weight,
             date_of_birth,target_weight,weekly_goal,fitness_goal,activity_level,
             onboarding_done,avg_daily_steps,streak_days,step_goal,email_verified,city)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [name, email, fakeH, 'user', i % 3 === 0 ? 1 : 0, gender, h, w,
                     dobFromAge(age), tgtW, ['0.25', '0.5', '0.75'][i % 3],
                     goal, level, 1, rand(4000, 13000), rand(0, 30),
                     [8000, 10000, 12000, 15000][i % 4], 1, city]);
+                if (result?.insertId)
+                    newUserIds.push(Number(result.insertId));
                 created++;
             }
             catch { }
+        }
+        // Make the new fake users participate in the app like real users:
+        // posts, comments, likes, follows, coach subscriptions, payments, etc.
+        try {
+            await seedActivitiesForFakeAccounts(newUserIds, 'user');
+        }
+        catch (e) {
+            console.warn('[generate-fake-users] activity seeding failed:', e?.message);
         }
         res.json({ created, message: `Created ${created} fake users` });
     }
