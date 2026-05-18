@@ -994,6 +994,204 @@ async function seedActivitiesForFakeAccounts(newIds: number[], role: 'user' | 'c
       for (const ch of activeChallenges.slice(0, 1)) {
         try { await run('INSERT IGNORE INTO challenge_participants (challenge_id,user_id) VALUES (?,?)', [ch.id, id]); } catch {}
       }
+
+      // Ad campaigns, ad sets, ads, creatives + audit logs for the new coach.
+      // Mirrors server/seed.ts: schemas vary across installs, so we discover
+      // available columns at runtime and only insert what the DB supports.
+      try { await seedAdsForCoach(id); } catch (e) {
+        console.warn('[seedActivitiesForFakeAccounts] ads seeding failed for coach', id, (e as any)?.message);
+      }
+    }
+  }
+}
+
+// Build a small set of ad campaigns/sets/ads/creatives for a single coach.
+// Defensive against legacy schemas — uses SHOW COLUMNS to pick valid fields.
+async function seedAdsForCoach(coachId: number) {
+  const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+  const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+  const daysAgo = (n: number) => new Date(Date.now() - n * 86400000);
+
+  const objectives = ['coaching', 'awareness', 'traffic', 'engagement', 'bookings', 'announcements'];
+  const placements = ['feed', 'home_banner', 'community', 'search', 'profile_boost', 'notification', 'discovery'];
+  const creativeTypes = ['image', 'video', 'carousel'];
+  const adStatuses = ['active', 'paused', 'archived'];
+
+  const campCols: string[] = await query<any>('SHOW COLUMNS FROM ad_campaigns').then((r: any) => Array.isArray(r) ? r.map((x: any) => x.Field) : []).catch(() => []);
+  if (!campCols.length) return; // no ads tables on this install
+
+  const adSetColsRaw: any[] = await query<any>('SHOW COLUMNS FROM ad_sets').catch(() => []);
+  const adSetCols: string[] = Array.isArray(adSetColsRaw) ? adSetColsRaw.map((x: any) => x.Field) : [];
+  const adSetColTypes: Record<string, string> = Array.isArray(adSetColsRaw)
+    ? adSetColsRaw.reduce((acc: any, r: any) => { acc[r.Field] = r.Type; return acc; }, {})
+    : {};
+  const acCols: string[] = await query<any>('SHOW COLUMNS FROM ad_creatives').then((r: any) => Array.isArray(r) ? r.map((x: any) => x.Field) : []).catch(() => []);
+  const adCols: string[] = await query<any>('SHOW COLUMNS FROM ads').then((r: any) => Array.isArray(r) ? r.map((x: any) => x.Field) : []).catch(() => []);
+
+  const numCampaigns = rand(1, 2);
+  for (let i = 0; i < numCampaigns; i++) {
+    const campName = `${pick(['Summer', 'Ramadan', 'Power', 'Yoga', 'Transformation', 'Challenge'])} ${pick(['Body', 'Strength', 'Wellness', 'Fat Loss', 'Coaching'])} ${2024 + rand(0, 2)}`;
+    const objective = pick(objectives);
+    const status = pick(['pending_review', 'active', 'paused']);
+    const budget = rand(500, 4000);
+    const start = daysAgo(rand(10, 60));
+    const end = daysAgo(-rand(1, 60));
+
+    const cCols: string[] = ['coach_id', 'name', 'status'];
+    const cVals: any[] = [coachId, campName, status];
+    if (campCols.includes('objective')) { cCols.push('objective'); cVals.push(objective); }
+    if (campCols.includes('daily_budget')) { cCols.push('daily_budget'); cVals.push(budget); }
+    else if (campCols.includes('lifetime_budget')) { cCols.push('lifetime_budget'); cVals.push(budget); }
+    if (campCols.includes('schedule_start')) { cCols.push('schedule_start'); cVals.push(start); }
+    if (campCols.includes('schedule_end')) { cCols.push('schedule_end'); cVals.push(end); }
+    if (campCols.includes('created_at')) { cCols.push('created_at'); cVals.push(start); }
+    if (campCols.includes('updated_at')) { cCols.push('updated_at'); cVals.push(end); }
+
+    let campaignId: number;
+    try {
+      const res: any = await run(
+        `INSERT INTO ad_campaigns (${cCols.join(',')}) VALUES (${cCols.map(_ => '?').join(',')})`,
+        cVals
+      );
+      campaignId = res.insertId;
+    } catch {
+      // Fallback: drop objective (enum mismatches on older schemas)
+      const idx = cCols.indexOf('objective');
+      if (idx !== -1) { cCols.splice(idx, 1); cVals.splice(idx, 1); }
+      try {
+        const res: any = await run(
+          `INSERT INTO ad_campaigns (${cCols.join(',')}) VALUES (${cCols.map(_ => '?').join(',')})`,
+          cVals
+        );
+        campaignId = res.insertId;
+      } catch {
+        // Last-resort minimal insert
+        try {
+          const res: any = await run(
+            'INSERT INTO ad_campaigns (coach_id,name) VALUES (?,?)',
+            [coachId, campName]
+          );
+          campaignId = res.insertId;
+        } catch { continue; }
+      }
+    }
+
+    try {
+      await run(
+        `INSERT INTO ad_audit_logs (actor_id, actor_role, action, entity_type, entity_id, new_state, created_at)
+         VALUES (?,?,?,?,?,?,?)`,
+        [coachId, 'coach', 'create', 'campaign', campaignId, JSON.stringify({ name: campName, status }), start]
+      );
+    } catch {}
+
+    if (!adSetCols.length) continue;
+
+    const adSetName = `${campName} Set 1`;
+    const adSetStatus = pick(adStatuses);
+    const targeting = { gender: pick(['all', 'male', 'female']), ageMin: rand(18, 30), ageMax: rand(35, 55), interests: pick([['fitness', 'weight_loss'], ['yoga', 'wellness'], ['running', 'cardio']]) };
+
+    const asCols: string[] = ['campaign_id', 'name', 'status'];
+    const asVals: any[] = [campaignId, adSetName, adSetStatus];
+    if (adSetCols.includes('placement')) {
+      const placementVal = adSetColTypes['placement']?.toLowerCase().includes('json') ? JSON.stringify(pick(placements)) : pick(placements);
+      asCols.push('placement'); asVals.push(placementVal);
+    }
+    if (adSetCols.includes('target_gender')) { asCols.push('target_gender'); asVals.push(targeting.gender); }
+    if (adSetCols.includes('target_age_min')) { asCols.push('target_age_min'); asVals.push(targeting.ageMin); }
+    if (adSetCols.includes('target_age_max')) { asCols.push('target_age_max'); asVals.push(targeting.ageMax); }
+    if (adSetCols.includes('target_interests')) { asCols.push('target_interests'); asVals.push(JSON.stringify(targeting.interests)); }
+    if (adSetCols.includes('daily_budget')) { asCols.push('daily_budget'); asVals.push(budget); }
+    if (adSetCols.includes('created_at')) { asCols.push('created_at'); asVals.push(start); }
+    if (adSetCols.includes('updated_at')) { asCols.push('updated_at'); asVals.push(end); }
+
+    let adSetId: number;
+    try {
+      const res: any = await run(
+        `INSERT INTO ad_sets (${asCols.join(',')}) VALUES (${asCols.map(_ => '?').join(',')})`,
+        asVals
+      );
+      adSetId = res.insertId;
+    } catch { continue; }
+
+    try {
+      await run(
+        `INSERT INTO ad_audit_logs (actor_id, actor_role, action, entity_type, entity_id, new_state, created_at)
+         VALUES (?,?,?,?,?,?,?)`,
+        [coachId, 'coach', 'create', 'ad_set', adSetId, JSON.stringify({ name: adSetName, status: adSetStatus }), start]
+      );
+    } catch {}
+
+    // Creative
+    let creativeId: number | null = null;
+    if (acCols.length) {
+      const creativeType = pick(creativeTypes);
+      const creativeUrl = creativeType === 'image'
+        ? `https://fitwayhub.com/assets/ads/creative${rand(1, 10)}.jpg`
+        : `https://fitwayhub.com/assets/ads/creative${rand(1, 5)}.mp4`;
+      const crCols: string[] = [];
+      const crVals: any[] = [];
+      if (acCols.includes('coach_id')) { crCols.push('coach_id'); crVals.push(coachId); }
+      else if (acCols.includes('owner_id')) { crCols.push('owner_id'); crVals.push(coachId); }
+      else if (acCols.includes('created_by')) { crCols.push('created_by'); crVals.push(coachId); }
+      if (acCols.includes('name')) { crCols.push('name'); crVals.push(`${campName} creative`); }
+      if (acCols.includes('format')) { crCols.push('format'); crVals.push(creativeType); }
+      if (acCols.includes('media_url')) { crCols.push('media_url'); crVals.push(creativeUrl); }
+      else if (acCols.includes('url')) { crCols.push('url'); crVals.push(creativeUrl); }
+      if (acCols.includes('thumbnail_url')) { crCols.push('thumbnail_url'); crVals.push(null); }
+      if (acCols.includes('carousel_items')) { crCols.push('carousel_items'); crVals.push('[]'); }
+      if (acCols.includes('created_at')) { crCols.push('created_at'); crVals.push(start); }
+      if (acCols.includes('updated_at')) { crCols.push('updated_at'); crVals.push(end); }
+      if (crCols.length) {
+        try {
+          const res: any = await run(
+            `INSERT INTO ad_creatives (${crCols.join(',')}) VALUES (${crCols.map(_ => '?').join(',')})`,
+            crVals
+          );
+          creativeId = res.insertId;
+        } catch {}
+      }
+    }
+
+    // Ad
+    if (adCols.length) {
+      const adName = `${adSetName} Ad 1`;
+      const adStatus = pick(adStatuses);
+      const impressions = rand(1000, 20000);
+      const clicks = Math.floor(impressions * (0.01 + Math.random() * 0.04));
+      const conversions = rand(0, Math.max(1, Math.floor(clicks * 0.2)));
+      const spent = parseFloat((budget * (0.1 + Math.random() * 0.6)).toFixed(2));
+
+      const aCols: string[] = [];
+      const aVals: any[] = [];
+      if (adCols.includes('ad_set_id')) { aCols.push('ad_set_id'); aVals.push(adSetId); }
+      if (adCols.includes('campaign_id')) { aCols.push('campaign_id'); aVals.push(campaignId); }
+      if (adCols.includes('name')) { aCols.push('name'); aVals.push(adName); }
+      if (adCols.includes('status')) { aCols.push('status'); aVals.push(adStatus); }
+      if (adCols.includes('creative_id')) { aCols.push('creative_id'); aVals.push(creativeId); }
+      if (adCols.includes('placement')) { aCols.push('placement'); aVals.push(pick(placements)); }
+      if (adCols.includes('impressions')) { aCols.push('impressions'); aVals.push(impressions); }
+      if (adCols.includes('clicks')) { aCols.push('clicks'); aVals.push(clicks); }
+      if (adCols.includes('conversions')) { aCols.push('conversions'); aVals.push(conversions); }
+      if (adCols.includes('amount_spent')) { aCols.push('amount_spent'); aVals.push(spent); }
+      if (adCols.includes('created_at')) { aCols.push('created_at'); aVals.push(start); }
+      if (adCols.includes('updated_at')) { aCols.push('updated_at'); aVals.push(end); }
+
+      if (aCols.length) {
+        try {
+          const res: any = await run(
+            `INSERT INTO ads (${aCols.join(',')}) VALUES (${aCols.map(_ => '?').join(',')})`,
+            aVals
+          );
+          const adId = res.insertId;
+          try {
+            await run(
+              `INSERT INTO ad_audit_logs (actor_id, actor_role, action, entity_type, entity_id, new_state, created_at)
+               VALUES (?,?,?,?,?,?,?)`,
+              [coachId, 'coach', 'create', 'ad', adId, JSON.stringify({ name: adName, status: adStatus }), start]
+            );
+          } catch {}
+        } catch {}
+      }
     }
   }
 }
