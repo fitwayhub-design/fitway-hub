@@ -1011,22 +1011,100 @@ async function seedAdsForCoach(coachId) {
     const daysAgo = (n) => new Date(Date.now() - n * 86400000);
     const objectives = ['coaching', 'awareness', 'traffic', 'engagement', 'bookings', 'announcements'];
     const placements = ['feed', 'home_banner', 'community', 'all'];
-    const creativeTypes = ['image', 'video', 'carousel'];
-    const HEADLINES = [
-        'Transform Your Body in 12 Weeks',
-        'Personalized Coaching That Works',
-        'Strength, Mobility, Results',
-        'Drop the Fat. Keep the Muscle.',
-        '1-on-1 Online Coaching Available',
-        'Train Smarter, Not Longer',
+    // Curated Unsplash photos (stable CDN URLs, no API key needed). Each ad
+    // template below is paired with one of these so the creative image
+    // visually supports the headline.
+    // u(): build a sensibly sized Unsplash URL — capped at 800px and q=70 so
+    // mobile bandwidth and on-screen layout stay reasonable.
+    const u = (id) => `https://images.unsplash.com/${id}?w=800&auto=format&fit=crop&q=70`;
+    const IMG = {
+        transformation: u('photo-1599058917212-d750089bc07e'), // gym workout
+        coaching: u('photo-1571902943202-507ec2618e8f'), // personal trainer / barbell
+        strength: u('photo-1581009146145-b5ef050c2e1e'), // strength training
+        fatLoss: u('photo-1517836357463-d25dfeac3438'), // running / cardio
+        online: u('photo-1518611012118-696072aa579a'), // home workout
+        smart: u('photo-1534438327276-14e5300c3a48'), // kettlebells
+        yoga: u('photo-1545205597-3d9d02c29597'), // yoga
+        running: u('photo-1571019613454-1cb2f99b2d8b'), // running outdoors
+        nutrition: u('photo-1490645935967-10de6ba17061'), // healthy meal
+        mobility: u('photo-1540206395-68808572332f'), // stretching
+    };
+    // Ad templates: headline + body + cta + image + interest keywords that this
+    // ad actually targets. Interests use values that match the viewer-interest
+    // vocab in coachRoutes2.ts (fitness_goal enum, workout types, common
+    // post keywords) so users writing/searching about those topics see the ad.
+    const AD_TEMPLATES = [
+        {
+            headline: 'Transform Your Body in 12 Weeks',
+            body: '4 weeks to feel it. 8 weeks to see it. 12 weeks for others to notice. Let\'s go.',
+            cta: 'Subscribe now',
+            image: IMG.transformation,
+            interests: ['lose_weight', 'build_muscle', 'weight_loss', 'strength'],
+        },
+        {
+            headline: 'Personalized 1-on-1 Coaching',
+            body: 'Customized plans, weekly check-ins, real accountability. DM me for a free consult.',
+            cta: 'Book a session',
+            image: IMG.coaching,
+            interests: ['all'],
+        },
+        {
+            headline: 'Build Strength, Build Confidence',
+            body: 'Progressive overload programs designed around your schedule. Train 3–4x a week.',
+            cta: 'Start today',
+            image: IMG.strength,
+            interests: ['build_muscle', 'strength', 'hypertrophy', 'gain_weight', 'muscle'],
+        },
+        {
+            headline: 'Drop the Fat. Keep the Muscle.',
+            body: 'Sustainable nutrition + smart training. Lose fat without losing energy.',
+            cta: 'Learn more',
+            image: IMG.fatLoss,
+            interests: ['lose_weight', 'weight_loss', 'fat_loss', 'cut', 'cardio', 'hiit'],
+        },
+        {
+            headline: 'Online Coaching, Anywhere',
+            body: 'Train from home, the gym, or on the road. Same program quality.',
+            cta: 'Subscribe now',
+            image: IMG.online,
+            interests: ['maintain_weight', 'wellness', 'all'],
+        },
+        {
+            headline: 'Train Smarter, Not Longer',
+            body: '45 focused minutes beats 2 hours of distracted training. Every time.',
+            cta: 'Start today',
+            image: IMG.smart,
+            interests: ['build_muscle', 'strength', 'hiit', 'crossfit', 'functional'],
+        },
+        {
+            headline: 'Find Calm. Build Mobility.',
+            body: 'Yoga and mobility programs for athletes and desk-workers alike.',
+            cta: 'Subscribe now',
+            image: IMG.yoga,
+            interests: ['yoga', 'mobility', 'flexibility', 'wellness', 'recovery'],
+        },
+        {
+            headline: 'Run Your First 5K in 8 Weeks',
+            body: 'Couch-to-5K plans, run/walk intervals, and weekly progress check-ins.',
+            cta: 'Learn more',
+            image: IMG.running,
+            interests: ['running', 'cardio', 'endurance', 'lose_weight'],
+        },
+        {
+            headline: 'Eat for Your Goals',
+            body: 'Macro-based nutrition coaching. Real food, no extreme diets.',
+            cta: 'Book a session',
+            image: IMG.nutrition,
+            interests: ['nutrition', 'diet', 'meal', 'protein', 'macros', 'lose_weight', 'gain_weight'],
+        },
+        {
+            headline: 'Move Better, Feel Better',
+            body: 'Mobility + stretching routines to undo a day at the desk.',
+            cta: 'Start today',
+            image: IMG.mobility,
+            interests: ['mobility', 'flexibility', 'stretching', 'yoga', 'recovery'],
+        },
     ];
-    const BODIES = [
-        'Customized plans, weekly check-ins, real accountability. DM me for a free consult.',
-        'Evidence-based programs designed around your lifestyle and goals. Start today.',
-        'Join 200+ clients who finally got results that lasted. Limited spots available.',
-        '4 weeks to feel it. 8 weeks to see it. 12 weeks for others to notice. Let\'s go.',
-    ];
-    const CTAS = ['Book a session', 'Subscribe now', 'Learn more', 'Start today'];
     const campCols = await query('SHOW COLUMNS FROM ad_campaigns').then((r) => Array.isArray(r) ? r.map((x) => x.Field) : []).catch(() => []);
     if (!campCols.length)
         return; // no ads tables on this install
@@ -1039,7 +1117,11 @@ async function seedAdsForCoach(coachId) {
     const adCols = await query('SHOW COLUMNS FROM ads').then((r) => Array.isArray(r) ? r.map((x) => x.Field) : []).catch(() => []);
     const numCampaigns = rand(1, 2);
     for (let i = 0; i < numCampaigns; i++) {
-        const campName = `${pick(['Summer', 'Ramadan', 'Power', 'Yoga', 'Transformation', 'Challenge'])} ${pick(['Body', 'Strength', 'Wellness', 'Fat Loss', 'Coaching'])} ${2024 + rand(0, 2)}`;
+        // Pick one ad template and derive everything (campaign name, copy,
+        // creative image, target_interests) from it so the visuals match the
+        // headline and the targeting matches the topic of the headline.
+        const template = pick(AD_TEMPLATES);
+        const campName = template.headline;
         const objective = pick(objectives);
         // Must be 'active' (not 'pending_review' or 'paused') so the ad serving
         // endpoints in coachRoutes2.ts actually return these rows.
@@ -1114,22 +1196,16 @@ async function seedAdsForCoach(coachId) {
         const adSetName = `${campName} Set 1`;
         // Must be 'active' so the serving query returns the row.
         const adSetStatus = 'active';
-        // target_interests is matched against user.fitness_goal in the serving query
-        // (see getTargetedCampaignAdsForUser). Values must come from the user
-        // fitness_goal enum so the JSON_CONTAINS check actually fires.
+        // target_interests is matched against the viewer's interest signal in the
+        // serving query (see getViewerInterestSignal + getTargetedCampaignAdsForUser
+        // in coachRoutes2.ts). Pulling the keywords straight from the chosen
+        // template guarantees the targeting matches the topic of the ad's
+        // headline/copy/image.
         const targeting = {
             gender: pick(['all', 'male', 'female']),
             ageMin: rand(18, 30),
             ageMax: rand(45, 65),
-            interests: pick([
-                ['lose_weight'],
-                ['build_muscle'],
-                ['maintain_weight'],
-                ['gain_weight'],
-                ['lose_weight', 'maintain_weight'],
-                ['build_muscle', 'gain_weight'],
-                ['lose_weight', 'build_muscle', 'maintain_weight', 'gain_weight'],
-            ]),
+            interests: template.interests,
         };
         const asCols = ['campaign_id', 'name', 'status'];
         const asVals = [campaignId, adSetName, adSetStatus];
@@ -1179,13 +1255,12 @@ async function seedAdsForCoach(coachId) {
          VALUES (?,?,?,?,?,?,?)`, [coachId, 'coach', 'create', 'ad_set', adSetId, JSON.stringify({ name: adSetName, status: adSetStatus }), start]);
         }
         catch { }
-        // Creative
+        // Creative — uses the template's Unsplash image so the visual supports
+        // the headline/body. Always 'image' format (no fake video URLs).
         let creativeId = null;
         if (acCols.length) {
-            const creativeType = pick(creativeTypes);
-            const creativeUrl = creativeType === 'image'
-                ? `https://fitwayhub.com/assets/ads/creative${rand(1, 10)}.jpg`
-                : `https://fitwayhub.com/assets/ads/creative${rand(1, 5)}.mp4`;
+            const creativeType = 'image';
+            const creativeUrl = template.image;
             const crCols = [];
             const crVals = [];
             if (acCols.includes('coach_id')) {
@@ -1245,9 +1320,12 @@ async function seedAdsForCoach(coachId) {
             const adName = `${adSetName} Ad 1`;
             // Must be 'active' so the serving query returns the row.
             const adStatus = 'active';
-            const headline = pick(HEADLINES);
-            const body = pick(BODIES);
-            const cta = pick(CTAS);
+            // Copy comes from the same template as the creative image and the
+            // targeting, so all three are aligned ("Run Your First 5K" headline →
+            // running photo → interests:['running','cardio','endurance']).
+            const headline = template.headline;
+            const body = template.body;
+            const cta = template.cta;
             const impressions = rand(1000, 20000);
             const clicks = Math.floor(impressions * (0.01 + Math.random() * 0.04));
             const conversions = rand(0, Math.max(1, Math.floor(clicks * 0.2)));

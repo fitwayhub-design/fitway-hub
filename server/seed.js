@@ -492,8 +492,21 @@ async function seed() {
                     const adStatus = pick(adStatuses);
                     const adStart = start;
                     const adEnd = end;
-                    const creativeType = pick(creativeTypes);
-                    const creativeUrl = creativeType === 'image' ? `https://fitwayhub.com/assets/ads/creative${randInt(1, 10)}.jpg` : `https://fitwayhub.com/assets/ads/creative${randInt(1, 5)}.mp4`;
+                    // Use real Unsplash photos so the seeded ads actually render an image.
+                    const SEED_AD_IMAGES = [
+                        'https://images.unsplash.com/photo-1599058917212-d750089bc07e?w=800&auto=format&fit=crop&q=70',
+                        'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=800&auto=format&fit=crop&q=70',
+                        'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=800&auto=format&fit=crop&q=70',
+                        'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&auto=format&fit=crop&q=70',
+                        'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&auto=format&fit=crop&q=70',
+                        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&auto=format&fit=crop&q=70',
+                        'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=800&auto=format&fit=crop&q=70',
+                        'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&auto=format&fit=crop&q=70',
+                        'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&auto=format&fit=crop&q=70',
+                        'https://images.unsplash.com/photo-1540206395-68808572332f?w=800&auto=format&fit=crop&q=70',
+                    ];
+                    const creativeType = 'image';
+                    const creativeUrl = pick(SEED_AD_IMAGES);
                     // Insert creative using columns available in this DB schema
                     try {
                         const acColsRes = await query(`SHOW COLUMNS FROM ad_creatives`);

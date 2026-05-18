@@ -136,10 +136,90 @@ async function getTargetedAdsForUser(userId: number, placementFilter?: string, l
   return query(sql, params);
 }
 
+// Vocabulary used to extract interest keywords from a user's free-text
+// activity (community posts, workout plan notes). Keep these stable — they are
+// what seeded ads match against in ad_sets.target_interests.
+const INTEREST_VOCAB = [
+  'lose_weight', 'weight_loss', 'fat_loss', 'cut', 'cutting',
+  'build_muscle', 'muscle', 'strength', 'hypertrophy', 'bulk', 'bulking',
+  'maintain_weight', 'maintenance',
+  'gain_weight',
+  'cardio', 'running', 'cycling', 'endurance', 'walking',
+  'yoga', 'pilates', 'mobility', 'flexibility', 'stretching',
+  'hiit', 'crossfit', 'functional',
+  'nutrition', 'diet', 'meal', 'protein', 'macros',
+  'wellness', 'recovery', 'sleep',
+];
+
+function extractInterestKeywords(text: string): string[] {
+  if (!text) return [];
+  const lower = String(text).toLowerCase();
+  const hits: string[] = [];
+  for (const k of INTEREST_VOCAB) {
+    const needle = k.replace(/_/g, ' ');
+    if (lower.includes(k) || lower.includes(needle)) hits.push(k);
+  }
+  return hits;
+}
+
+/**
+ * Derives the viewer's interest signal from explicit profile fields plus
+ * their community activity and current workout plan, so ads can be shown
+ * to users who are actively engaging with that topic — not just users
+ * whose `fitness_goal` happens to match.
+ */
+async function getViewerInterestSignal(userId: number): Promise<string[]> {
+  const keywords = new Set<string>();
+
+  // 1. Explicit fitness_goal — primary signal.
+  const user = await get<any>('SELECT fitness_goal FROM users WHERE id = ?', [userId]).catch(() => null);
+  if (user?.fitness_goal) keywords.add(String(user.fitness_goal).toLowerCase());
+
+  // 2. Recent community posts: hashtags + content keywords.
+  const posts = await query<any>(
+    `SELECT content, hashtags FROM posts
+     WHERE user_id = ? AND (is_hidden IS NULL OR is_hidden = 0)
+     ORDER BY created_at DESC LIMIT 20`,
+    [userId]
+  ).catch(() => [] as any[]);
+  for (const p of (posts as any[])) {
+    if (p?.hashtags) {
+      String(p.hashtags).split(/[\s,]+/).forEach((h: string) => {
+        const clean = h.replace(/^#/, '').toLowerCase().trim();
+        if (clean) keywords.add(clean);
+      });
+    }
+    if (p?.content) extractInterestKeywords(String(p.content)).forEach(k => keywords.add(k));
+  }
+
+  // 3. Current workout plan entries (the workout_type the user picked is a strong signal).
+  const plan = await query<any>(
+    `SELECT workout_type, notes FROM user_workout_plans WHERE user_id = ? LIMIT 20`,
+    [userId]
+  ).catch(() => [] as any[]);
+  for (const w of (plan as any[])) {
+    if (w?.workout_type) keywords.add(String(w.workout_type).toLowerCase().trim());
+    if (w?.notes) extractInterestKeywords(String(w.notes)).forEach(k => keywords.add(k));
+  }
+
+  // 4. Nutrition plan meal types (catches users who're tracking macros / dieting).
+  const nutrition = await query<any>(
+    `SELECT meal_type FROM user_nutrition_plans WHERE user_id = ? LIMIT 20`,
+    [userId]
+  ).catch(() => [] as any[]);
+  for (const n of (nutrition as any[])) {
+    if (n?.meal_type) extractInterestKeywords(String(n.meal_type)).forEach(k => keywords.add(k));
+  }
+
+  // Cap to a sensible number so the OR-chain in SQL doesn't explode.
+  return Array.from(keywords).slice(0, 25);
+}
+
 /**
  * Targeted serving for the campaign-based ads system (ad_campaigns → ad_sets →
  * ads → ad_creatives). Matches against ad_sets.target_gender / target_age_*
- * / target_interests (JSON, contains the user's fitness_goal) /
+ * / target_interests (JSON — intersected with the viewer's interest signal:
+ * fitness_goal + recent posts + workout/nutrition plans) /
  * target_activity_levels (JSON). Orders randomly so a page refresh shows a
  * different ad.
  */
@@ -161,8 +241,8 @@ async function getTargetedCampaignAdsForUser(
   }
 
   const viewerGender        = viewer?.gender || null;
-  const viewerGoal          = viewer?.fitness_goal || null;
   const viewerActivityLevel = viewer?.computed_activity_level || viewer?.activity_level || null;
+  const viewerInterests     = await getViewerInterestSignal(userId);
 
   const params: any[] = [];
   let sql = `
@@ -202,16 +282,21 @@ async function getTargetedCampaignAdsForUser(
     params.push(viewerAge);
   }
 
-  // Match viewer.fitness_goal against the ad_set's target_interests JSON array.
-  // Ads that don't constrain interests (NULL / empty / contains 'all') match everyone.
-  if (viewerGoal) {
+  // Interest match: ad shows if target_interests is NULL/empty/'all', OR if
+  // the JSON array contains ANY keyword from the viewer's derived signal
+  // (their fitness_goal, community post hashtags/keywords, workout plan
+  // workout_type, nutrition plan meal_type).
+  if (viewerInterests.length > 0) {
+    const orClauses = viewerInterests
+      .map(() => "JSON_CONTAINS(s.target_interests, JSON_QUOTE(?), '$')")
+      .join(' OR ');
     sql += ` AND (
       s.target_interests IS NULL
       OR JSON_LENGTH(s.target_interests) = 0
-      OR JSON_CONTAINS(s.target_interests, JSON_QUOTE(?), '$')
       OR JSON_CONTAINS(s.target_interests, JSON_QUOTE('all'), '$')
+      OR ${orClauses}
     )`;
-    params.push(viewerGoal);
+    for (const k of viewerInterests) params.push(k);
   }
 
   if (viewerActivityLevel) {
