@@ -136,6 +136,100 @@ async function getTargetedAdsForUser(userId: number, placementFilter?: string, l
   return query(sql, params);
 }
 
+/**
+ * Targeted serving for the campaign-based ads system (ad_campaigns → ad_sets →
+ * ads → ad_creatives). Matches against ad_sets.target_gender / target_age_*
+ * / target_interests (JSON, contains the user's fitness_goal) /
+ * target_activity_levels (JSON). Orders randomly so a page refresh shows a
+ * different ad.
+ */
+async function getTargetedCampaignAdsForUser(
+  userId: number,
+  placement: 'home_banner' | 'community',
+  limit = 1
+): Promise<any[]> {
+  const viewer = await get<any>(
+    `SELECT gender, date_of_birth, fitness_goal, activity_level, computed_activity_level
+     FROM users WHERE id = ?`,
+    [userId]
+  );
+
+  let viewerAge: number | null = null;
+  if (viewer?.date_of_birth) {
+    const dob = new Date(viewer.date_of_birth);
+    viewerAge = Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 3600 * 1000));
+  }
+
+  const viewerGender        = viewer?.gender || null;
+  const viewerGoal          = viewer?.fitness_goal || null;
+  const viewerActivityLevel = viewer?.computed_activity_level || viewer?.activity_level || null;
+
+  const params: any[] = [];
+  let sql = `
+    SELECT a.id, a.headline AS title, a.body AS description,
+           c.media_url AS image_url, c.thumbnail_url,
+           a.cta, a.destination_type, a.destination_ref,
+           camp.objective, camp.coach_id,
+           u.name AS coach_name, u.avatar AS coach_avatar
+    FROM ads a
+    JOIN ad_sets s ON a.ad_set_id = s.id
+    JOIN ad_campaigns camp ON a.campaign_id = camp.id
+    LEFT JOIN ad_creatives c ON a.creative_id = c.id
+    INNER JOIN users u ON camp.coach_id = u.id AND u.role = 'coach'
+    WHERE a.status = 'active'
+      AND camp.status = 'active'
+      AND s.status = 'active'
+      AND camp.coach_id IS NOT NULL
+      AND (camp.schedule_start IS NULL OR camp.schedule_start <= CURDATE())
+      AND (camp.schedule_end IS NULL OR camp.schedule_end >= CURDATE())
+  `;
+
+  if (placement === 'home_banner') {
+    sql += ` AND (s.placement = 'all' OR s.placement = 'home_banner' OR s.placement = 'feed')`;
+  } else {
+    sql += ` AND (s.placement = 'all' OR s.placement = 'community' OR s.placement = 'feed')`;
+  }
+
+  if (viewerGender) {
+    sql += ` AND (s.target_gender IS NULL OR s.target_gender = 'all' OR s.target_gender = ?)`;
+    params.push(viewerGender);
+  }
+
+  if (viewerAge !== null) {
+    sql += ` AND (s.target_age_min IS NULL OR s.target_age_min <= ?)`;
+    params.push(viewerAge);
+    sql += ` AND (s.target_age_max IS NULL OR s.target_age_max >= ?)`;
+    params.push(viewerAge);
+  }
+
+  // Match viewer.fitness_goal against the ad_set's target_interests JSON array.
+  // Ads that don't constrain interests (NULL / empty / contains 'all') match everyone.
+  if (viewerGoal) {
+    sql += ` AND (
+      s.target_interests IS NULL
+      OR JSON_LENGTH(s.target_interests) = 0
+      OR JSON_CONTAINS(s.target_interests, JSON_QUOTE(?), '$')
+      OR JSON_CONTAINS(s.target_interests, JSON_QUOTE('all'), '$')
+    )`;
+    params.push(viewerGoal);
+  }
+
+  if (viewerActivityLevel) {
+    sql += ` AND (
+      s.target_activity_levels IS NULL
+      OR JSON_LENGTH(s.target_activity_levels) = 0
+      OR JSON_CONTAINS(s.target_activity_levels, JSON_QUOTE(?), '$')
+    )`;
+    params.push(viewerActivityLevel);
+  }
+
+  // Random order so a refresh rotates the ad.
+  sql += ` ORDER BY RAND() LIMIT ?`;
+  params.push(limit);
+
+  return query(sql, params);
+}
+
 router.get('/ads/public', authenticateToken, async (req: any, res) => {
   try {
     await expireAds();
@@ -147,43 +241,23 @@ router.get('/ads/public', authenticateToken, async (req: any, res) => {
 router.get('/ads/public/home', authenticateToken, async (req: any, res) => {
   try {
     await expireAds();
-    // Fetch from legacy coach_ads table
+    // Legacy coach_ads source — fully targeted (gender/age/goal/activity/location).
     const coachAds = await getTargetedAdsForUser(req.user.id, 'home_banner', 5);
 
-    // Also fetch from campaign-based ads system (ad_campaigns → ad_sets → ads → ad_creatives)
+    // Campaign-based ads — targeted via ad_sets (gender/age/interests=goal/activity).
     let campaignAds: any[] = [];
     try {
-      campaignAds = await query(
-        `SELECT a.id, a.headline AS title, a.body AS description, 
-                c.media_url AS image_url, c.thumbnail_url,
-                a.cta, a.destination_type, a.destination_ref,
-                camp.objective, camp.coach_id,
-                u.name AS coach_name, u.avatar AS coach_avatar
-         FROM ads a
-         JOIN ad_sets s ON a.ad_set_id = s.id
-         JOIN ad_campaigns camp ON a.campaign_id = camp.id
-         LEFT JOIN ad_creatives c ON a.creative_id = c.id
-         INNER JOIN users u ON camp.coach_id = u.id AND u.role = 'coach'
-         WHERE a.status = 'active'
-           AND camp.status = 'active'
-           AND s.status = 'active'
-           AND camp.coach_id IS NOT NULL
-           AND (s.placement = 'all' OR s.placement = 'home_banner' OR s.placement = 'feed')
-           AND (camp.schedule_start IS NULL OR camp.schedule_start <= CURDATE())
-           AND (camp.schedule_end IS NULL OR camp.schedule_end >= CURDATE())
-         ORDER BY camp.amount_spent DESC, camp.created_at DESC
-         LIMIT 5`,
-        []
-      );
+      campaignAds = await getTargetedCampaignAdsForUser(req.user.id, 'home_banner', 5);
     } catch { /* campaign tables may not exist yet */ }
 
-    // Merge both sources, coach_ads first, deduplicate by id prefix
+    // Single random pick from the union so refresh rotates the ad.
     const merged = [
       ...coachAds.map((a: any) => ({ ...a, _src: 'coach' })),
       ...campaignAds.map((a: any) => ({ ...a, _src: 'campaign' })),
-    ].slice(0, 5);
+    ];
+    const pick = merged.length ? [merged[Math.floor(Math.random() * merged.length)]] : [];
 
-    res.json({ ads: merged });
+    res.json({ ads: pick });
   } catch { res.status(500).json({ message: 'Failed to fetch home ads' }); }
 });
 
@@ -192,39 +266,18 @@ router.get('/ads/public/community', authenticateToken, async (req: any, res) => 
     await expireAds();
     const coachAds = await getTargetedAdsForUser(req.user.id, 'community', 5);
 
-    // Also fetch from campaign-based ads system
     let campaignAds: any[] = [];
     try {
-      campaignAds = await query(
-        `SELECT a.id, a.headline AS title, a.body AS description, 
-                c.media_url AS image_url, c.thumbnail_url,
-                a.cta, a.destination_type, a.destination_ref,
-                camp.objective, camp.coach_id,
-                u.name AS coach_name, u.avatar AS coach_avatar
-         FROM ads a
-         JOIN ad_sets s ON a.ad_set_id = s.id
-         JOIN ad_campaigns camp ON a.campaign_id = camp.id
-         LEFT JOIN ad_creatives c ON a.creative_id = c.id
-         INNER JOIN users u ON camp.coach_id = u.id AND u.role = 'coach'
-         WHERE a.status = 'active'
-           AND camp.status = 'active'
-           AND s.status = 'active'
-           AND camp.coach_id IS NOT NULL
-           AND (s.placement = 'all' OR s.placement = 'community' OR s.placement = 'feed')
-           AND (camp.schedule_start IS NULL OR camp.schedule_start <= CURDATE())
-           AND (camp.schedule_end IS NULL OR camp.schedule_end >= CURDATE())
-         ORDER BY camp.amount_spent DESC, camp.created_at DESC
-         LIMIT 5`,
-        []
-      );
+      campaignAds = await getTargetedCampaignAdsForUser(req.user.id, 'community', 5);
     } catch { /* campaign tables may not exist yet */ }
 
     const merged = [
       ...coachAds.map((a: any) => ({ ...a, _src: 'coach' })),
       ...campaignAds.map((a: any) => ({ ...a, _src: 'campaign' })),
-    ].slice(0, 5);
+    ];
+    const pick = merged.length ? [merged[Math.floor(Math.random() * merged.length)]] : [];
 
-    res.json({ ads: merged });
+    res.json({ ads: pick });
   } catch { res.status(500).json({ message: 'Failed to fetch community ads' }); }
 });
 

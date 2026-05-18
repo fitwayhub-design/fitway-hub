@@ -242,15 +242,13 @@ export default function Community() {
     else { setActiveTag(clean); setActiveTab("feed"); }
   };
 
-  /* ───── Feed building ───── */
+  /* ───── Feed building ─────
+     Only ONE sponsored ad is shown, at the top of the feed. The server returns
+     a single random pick per request, so a refresh rotates the ad. */
   const feedItems: { type: "post" | "ad"; data: any }[] = [];
-  let adIdx = 0;
-  if (sponsoredAds.length > 0) feedItems.push({ type: "ad", data: sponsoredAds[adIdx++] });
-  posts.forEach((p, i) => {
+  if (sponsoredAds.length > 0) feedItems.push({ type: "ad", data: sponsoredAds[0] });
+  posts.forEach((p) => {
     feedItems.push({ type: "post", data: p });
-    if (adIdx < sponsoredAds.length && (i + 1) % 4 === 0) {
-      feedItems.push({ type: "ad", data: sponsoredAds[adIdx++] });
-    }
   });
 
   /* ───── Styles ───── */
@@ -746,64 +744,104 @@ export default function Community() {
    ════════════════════════════════════════════════════════════ */
 
 function SponsoredAdCard({ ad, token }: { ad: SponsoredAd; token: string | null }) {
-  return (
-    <div style={{
-      backgroundColor: "var(--bg-card)", border: "1px solid rgba(59,139,255,0.25)", borderRadius: "var(--radius-full)",
-      overflow: "hidden", position: "relative",
-    }}>
-      <div style={{
-        position: "absolute", top: 10, insetInlineEnd: 10, zIndex: 2, backgroundColor: "rgba(59,139,255,0.85)",
-        borderRadius: "var(--radius-full)", padding: "3px 10px", fontSize: 10, fontWeight: 700, color: "#fff",
-        fontFamily: "var(--font-en)", letterSpacing: "0.06em",
-      }}>
+  const isCall = ad.objective === "direct_call" && !!ad.contact_phone;
+  const target = isCall
+    ? `tel:${(ad.contact_phone || "").replace(/\s/g, "")}`
+    : ad.coach_id
+    ? `/app/coaching?coach=${ad.coach_id}`
+    : null;
+
+  const trackClick = () => {
+    if (!ad.id) return;
+    fetch(getApiBase() + `/api/coach/ads/${ad.id}/click`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+  };
+
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: "var(--bg-card)",
+    border: "1px solid rgba(59,139,255,0.25)",
+    borderRadius: "var(--radius-full)",
+    overflow: "hidden",
+    position: "relative",
+    color: "inherit",
+    textDecoration: "none",
+    display: "block",
+    cursor: target ? "pointer" : "default",
+  };
+
+  // Capped media height so big creatives don't dominate the feed.
+  const mediaMaxH = 180;
+
+  const inner = (
+    <>
+      <div
+        style={{
+          position: "absolute", top: 10, insetInlineEnd: 10, zIndex: 2,
+          backgroundColor: "rgba(59,139,255,0.85)", borderRadius: "var(--radius-full)",
+          padding: "3px 10px", fontSize: 10, fontWeight: 700, color: "#fff",
+          fontFamily: "var(--font-en)", letterSpacing: "0.06em",
+        }}
+      >
         SPONSORED
       </div>
       {(ad.media_type === "video" || ad.media_type === "youtube") && ad.video_url ? (
         <VideoPlayer
           url={ad.video_url}
           mediaType={ad.media_type}
-          height={280}
+          height={mediaMaxH}
           style={{ marginBottom: 0 }}
         />
       ) : ad.image_url ? (
-        <img src={ad.image_url} alt={ad.title} style={{ width: "100%", maxHeight: 280, objectFit: "cover", display: "block" }} />
+        <img
+          src={ad.image_url}
+          alt={ad.title}
+          style={{ width: "100%", maxHeight: mediaMaxH, objectFit: "cover", display: "block" }}
+        />
       ) : null}
       <div style={{ padding: "14px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <img src={ad.coach_avatar || getAvatar(ad.coach_name, null, null, ad.coach_name)} alt={ad.coach_name} style={{ width: 36, height: 36, borderRadius: "50%", backgroundColor: "var(--bg-surface)", border: "2px solid rgba(59,139,255,0.2)" }} />
+          <img
+            src={ad.coach_avatar || getAvatar(ad.coach_name, null, null, ad.coach_name)}
+            alt={ad.coach_name}
+            style={{ width: 36, height: 36, borderRadius: "50%", backgroundColor: "var(--bg-surface)", border: "2px solid rgba(59,139,255,0.2)" }}
+          />
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-en)" }}>{ad.title}</p>
             <p style={{ fontSize: 12, color: "var(--blue)" }}>{ad.coach_name} · {ad.specialty}</p>
           </div>
         </div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, marginBottom: 12 }}>{ad.description}</p>
-        {ad.objective === "direct_call" && ad.contact_phone ? (
-          <a
-            href={`tel:${ad.contact_phone.replace(/\s/g,'')}`}
-            onClick={() => fetch(getApiBase() + `/api/coach/ads/${ad.id}/click`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(() => {})}
+        {ad.description && (
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, marginBottom: 12 }}>
+            {ad.description}
+          </p>
+        )}
+        {target && (
+          <span
             style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 16px",
-              borderRadius: "var(--radius-full)", backgroundColor: "#10B981", color: "#fff", fontSize: 13, fontWeight: 700,
-              fontFamily: "var(--font-en)", textDecoration: "none",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "11px 16px", borderRadius: "var(--radius-full)",
+              backgroundColor: isCall ? "#10B981" : "var(--blue)", color: "#fff",
+              fontSize: 13, fontWeight: 700, fontFamily: "var(--font-en)",
             }}
           >
-            <Phone size={14} /> Call Now
-          </a>
-        ) : ad.coach_id ? (
-          <Link
-            to={`/app/coaching?coach=${ad.coach_id}`}
-            onClick={() => fetch(getApiBase() + `/api/coach/ads/${ad.id}/click`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(() => {})}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 16px",
-              borderRadius: "var(--radius-full)", backgroundColor: "var(--blue)", color: "#fff", fontSize: 13, fontWeight: 700,
-              fontFamily: "var(--font-en)", textDecoration: "none",
-            }}
-          >
-            {ad.cta || "Learn More"} <ExternalLink size={13} />
-          </Link>
-        ) : null}
+            {isCall ? <Phone size={14} /> : null}
+            {isCall ? "Call Now" : ad.cta || "Subscribe"}
+            {!isCall && <ExternalLink size={13} />}
+          </span>
+        )}
       </div>
-    </div>
+    </>
+  );
+
+  if (!target) {
+    return <div style={cardStyle}>{inner}</div>;
+  }
+  return isCall ? (
+    <a href={target} onClick={trackClick} style={cardStyle}>{inner}</a>
+  ) : (
+    <Link to={target} onClick={trackClick} style={cardStyle}>{inner}</Link>
   );
 }
 

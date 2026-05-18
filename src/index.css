@@ -1340,10 +1340,19 @@ html.light .dash-featured-overlay {
   display: flex;
   flex-direction: column;
 }
+.dash-ad-card--linked {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.dash-ad-card--linked:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
 .dash-ad-hero {
   position: relative;
   width: 100%;
+  /* Cap the visible hero so big creative assets don't dominate the dashboard. */
   aspect-ratio: 16 / 9;
+  max-height: 180px;
   background: var(--bg-surface);
   overflow: hidden;
 }

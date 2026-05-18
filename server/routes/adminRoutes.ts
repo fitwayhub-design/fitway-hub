@@ -1106,7 +1106,23 @@ async function seedAdsForCoach(coachId: number) {
     const adSetName = `${campName} Set 1`;
     // Must be 'active' so the serving query returns the row.
     const adSetStatus = 'active';
-    const targeting = { gender: pick(['all', 'male', 'female']), ageMin: rand(18, 30), ageMax: rand(35, 55), interests: pick([['fitness', 'weight_loss'], ['yoga', 'wellness'], ['running', 'cardio']]) };
+    // target_interests is matched against user.fitness_goal in the serving query
+    // (see getTargetedCampaignAdsForUser). Values must come from the user
+    // fitness_goal enum so the JSON_CONTAINS check actually fires.
+    const targeting = {
+      gender: pick(['all', 'male', 'female']),
+      ageMin: rand(18, 30),
+      ageMax: rand(45, 65),
+      interests: pick([
+        ['lose_weight'],
+        ['build_muscle'],
+        ['maintain_weight'],
+        ['gain_weight'],
+        ['lose_weight', 'maintain_weight'],
+        ['build_muscle', 'gain_weight'],
+        ['lose_weight', 'build_muscle', 'maintain_weight', 'gain_weight'],
+      ]),
+    };
 
     const asCols: string[] = ['campaign_id', 'name', 'status'];
     const asVals: any[] = [campaignId, adSetName, adSetStatus];

@@ -62,13 +62,13 @@ export default function Dashboard() {
     ]).then(([stepsR, adsR, vidsR, coachR, cfgR]) => {
       if (stepsR.status === "fulfilled") { const s = stepsR.value?.entry?.steps || 0; setSteps(s); if (s) updateUser({ steps: s }); }
       if (adsR.status === "fulfilled") {
-        const homeAds = (adsR.value?.ads || []).slice(0, 3);
+        const homeAds = (adsR.value?.ads || []).slice(0, 1);
         if (homeAds.length > 0) {
           setAds(homeAds);
         } else {
           fetch(`${getApiBase()}/api/coach/ads/public`, { headers: { Authorization: `Bearer ${token}` } })
             .then(r => r.ok ? r.json() : { ads: [] })
-            .then(d => setAds((d?.ads || []).slice(0, 3)))
+            .then(d => setAds((d?.ads || []).slice(0, 1)))
             .catch(() => setAds([]));
         }
       }
@@ -103,6 +103,7 @@ export default function Dashboard() {
       fetch(`${getApiBase()}/api/admin/dashboard-config`).then(r => r.json()),
     ]).then(([stepsR, adsR, vidsR, coachR, cfgR]) => {
       if (stepsR.status === "fulfilled") { const s = stepsR.value?.entry?.steps || 0; setSteps(s); }
+      if (adsR.status === "fulfilled") setAds((adsR.value?.ads || []).slice(0, 1));
       if (vidsR.status === "fulfilled") setVideos((vidsR.value?.videos || []).slice(0, 6));
       if (coachR.status === "fulfilled") {
         const raw = (coachR.value?.coaches || []);
@@ -216,36 +217,75 @@ export default function Dashboard() {
         </Link>
       )}
 
-      {/* ═══════ SPONSORED ADS ═════════════════════════ */}
+      {/* ═══════ SPONSORED AD (single, randomized per refresh) ══════════ */}
       {vis("dash_ads_visible") && ads.length > 0 && (
         <div className="dash-ads-section">
-          {ads.map((ad: any) => (
-            <div key={ad.id} className="dash-ad-card">
-              {ad.image_url && (
-                <div className="dash-ad-hero">
-                  <img src={ad.image_url} alt="" />
-                  <span className="dash-ad-badge dash-ad-badge--overlay">Sponsored</span>
+          {ads.map((ad: any) => {
+            const isCall = ad.objective === "direct_call" && ad.contact_phone;
+            const target = isCall
+              ? `tel:${(ad.contact_phone || "").replace(/\s/g, "")}`
+              : ad.coach_id
+              ? `/app/coaching?coach=${ad.coach_id}`
+              : null;
+            const trackClick = () => {
+              if (!ad.id) return;
+              fetch(getApiBase() + `/api/coach/ads/${ad.id}/click`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+              }).catch(() => {});
+            };
+            const cardInner = (
+              <>
+                {ad.image_url && (
+                  <div className="dash-ad-hero">
+                    <img src={ad.image_url} alt="" />
+                    <span className="dash-ad-badge dash-ad-badge--overlay">Sponsored</span>
+                  </div>
+                )}
+                <div className="dash-ad-body">
+                  <div className="dash-ad-text">
+                    <p className="dash-ad-title">{ad.title}</p>
+                    {ad.description && <p className="dash-ad-desc">{ad.description}</p>}
+                  </div>
+                  {target ? (
+                    <span className="dash-ad-cta" aria-hidden="true">
+                      {isCall ? <Phone size={14} /> : null}
+                      {isCall ? "Call" : ad.cta || "Subscribe"}
+                      {!isCall && <ArrowRight size={14} />}
+                    </span>
+                  ) : (
+                    !ad.image_url && <span className="dash-ad-badge">Sponsored</span>
+                  )}
                 </div>
-              )}
-              <div className="dash-ad-body">
-                <div className="dash-ad-text">
-                  <p className="dash-ad-title">{ad.title}</p>
-                  {ad.description && <p className="dash-ad-desc">{ad.description}</p>}
+              </>
+            );
+            if (!target) {
+              return (
+                <div key={ad.id} className="dash-ad-card">
+                  {cardInner}
                 </div>
-                {ad.objective === "direct_call" && ad.contact_phone ? (
-                  <a
-                    href={`tel:${(ad.contact_phone || '').replace(/\s/g, '')}`}
-                    onClick={() => fetch(getApiBase() + `/api/coach/ads/${ad.id}/click`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(() => {})}
-                    className="dash-ad-cta"
-                  >
-                    <Phone size={14} /> Call
-                  </a>
-                ) : !ad.image_url ? (
-                  <span className="dash-ad-badge">Sponsored</span>
-                ) : null}
-              </div>
-            </div>
-          ))}
+              );
+            }
+            return isCall ? (
+              <a
+                key={ad.id}
+                href={target}
+                onClick={trackClick}
+                className="dash-ad-card dash-ad-card--linked"
+              >
+                {cardInner}
+              </a>
+            ) : (
+              <Link
+                key={ad.id}
+                to={target}
+                onClick={trackClick}
+                className="dash-ad-card dash-ad-card--linked"
+              >
+                {cardInner}
+              </Link>
+            );
+          })}
         </div>
       )}
 
