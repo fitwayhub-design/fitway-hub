@@ -1010,9 +1010,23 @@ async function seedAdsForCoach(coachId) {
     const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const daysAgo = (n) => new Date(Date.now() - n * 86400000);
     const objectives = ['coaching', 'awareness', 'traffic', 'engagement', 'bookings', 'announcements'];
-    const placements = ['feed', 'home_banner', 'community', 'search', 'profile_boost', 'notification', 'discovery'];
+    const placements = ['feed', 'home_banner', 'community', 'all'];
     const creativeTypes = ['image', 'video', 'carousel'];
-    const adStatuses = ['active', 'paused', 'archived'];
+    const HEADLINES = [
+        'Transform Your Body in 12 Weeks',
+        'Personalized Coaching That Works',
+        'Strength, Mobility, Results',
+        'Drop the Fat. Keep the Muscle.',
+        '1-on-1 Online Coaching Available',
+        'Train Smarter, Not Longer',
+    ];
+    const BODIES = [
+        'Customized plans, weekly check-ins, real accountability. DM me for a free consult.',
+        'Evidence-based programs designed around your lifestyle and goals. Start today.',
+        'Join 200+ clients who finally got results that lasted. Limited spots available.',
+        '4 weeks to feel it. 8 weeks to see it. 12 weeks for others to notice. Let\'s go.',
+    ];
+    const CTAS = ['Book a session', 'Subscribe now', 'Learn more', 'Start today'];
     const campCols = await query('SHOW COLUMNS FROM ad_campaigns').then((r) => Array.isArray(r) ? r.map((x) => x.Field) : []).catch(() => []);
     if (!campCols.length)
         return; // no ads tables on this install
@@ -1027,7 +1041,9 @@ async function seedAdsForCoach(coachId) {
     for (let i = 0; i < numCampaigns; i++) {
         const campName = `${pick(['Summer', 'Ramadan', 'Power', 'Yoga', 'Transformation', 'Challenge'])} ${pick(['Body', 'Strength', 'Wellness', 'Fat Loss', 'Coaching'])} ${2024 + rand(0, 2)}`;
         const objective = pick(objectives);
-        const status = pick(['pending_review', 'active', 'paused']);
+        // Must be 'active' (not 'pending_review' or 'paused') so the ad serving
+        // endpoints in coachRoutes2.ts actually return these rows.
+        const status = 'active';
         const budget = rand(500, 4000);
         const start = daysAgo(rand(10, 60));
         const end = daysAgo(-rand(1, 60));
@@ -1096,7 +1112,8 @@ async function seedAdsForCoach(coachId) {
         if (!adSetCols.length)
             continue;
         const adSetName = `${campName} Set 1`;
-        const adSetStatus = pick(adStatuses);
+        // Must be 'active' so the serving query returns the row.
+        const adSetStatus = 'active';
         const targeting = { gender: pick(['all', 'male', 'female']), ageMin: rand(18, 30), ageMax: rand(35, 55), interests: pick([['fitness', 'weight_loss'], ['yoga', 'wellness'], ['running', 'cardio']]) };
         const asCols = ['campaign_id', 'name', 'status'];
         const asVals = [campaignId, adSetName, adSetStatus];
@@ -1210,7 +1227,11 @@ async function seedAdsForCoach(coachId) {
         // Ad
         if (adCols.length) {
             const adName = `${adSetName} Ad 1`;
-            const adStatus = pick(adStatuses);
+            // Must be 'active' so the serving query returns the row.
+            const adStatus = 'active';
+            const headline = pick(HEADLINES);
+            const body = pick(BODIES);
+            const cta = pick(CTAS);
             const impressions = rand(1000, 20000);
             const clicks = Math.floor(impressions * (0.01 + Math.random() * 0.04));
             const conversions = rand(0, Math.max(1, Math.floor(clicks * 0.2)));
@@ -1236,6 +1257,26 @@ async function seedAdsForCoach(coachId) {
             if (adCols.includes('creative_id')) {
                 aCols.push('creative_id');
                 aVals.push(creativeId);
+            }
+            if (adCols.includes('headline')) {
+                aCols.push('headline');
+                aVals.push(headline);
+            }
+            if (adCols.includes('body')) {
+                aCols.push('body');
+                aVals.push(body);
+            }
+            if (adCols.includes('cta')) {
+                aCols.push('cta');
+                aVals.push(cta);
+            }
+            if (adCols.includes('destination_type')) {
+                aCols.push('destination_type');
+                aVals.push('profile');
+            }
+            if (adCols.includes('destination_ref')) {
+                aCols.push('destination_ref');
+                aVals.push(String(coachId));
             }
             if (adCols.includes('placement')) {
                 aCols.push('placement');
