@@ -85,14 +85,25 @@ export default function CoachAdsWallet() {
         </Row>
       </Card>
 
-      <Card title={t("transaction_history") || "Transaction History"}>
-        <Table dataSource={ledger} rowKey="id" loading={loading} pagination={{ pageSize: 15 }} locale={{ emptyText: t("no_transactions") || "No transactions yet" }} columns={[
-          { title: t("date") || "Date", dataIndex: "created_at", render: (v: any) => v ? new Date(v).toLocaleString() : "-" },
-          { title: t("type") || "Type", dataIndex: "type", render: (v: any) => <Tag color={TXN_COLORS[v] || "default"}>{v}</Tag> },
-          { title: t("amount") || "Amount", dataIndex: "amount", render: (v: any) => `${parseFloat(v || 0).toFixed(2)} EGP` },
-          { title: t("description") || "Description", dataIndex: "description", ellipsis: true },
-          { title: t("balance_after") || "Balance After", dataIndex: "balance_after", render: (v: any) => v != null ? `${parseFloat(v).toFixed(2)} EGP` : "-" },
-        ]} />
+      <Card title={t("transaction_history") || "Transaction History"} styles={{ body: { padding: 0 } }}>
+        {/* scroll.x lets the Table render its own horizontal scrollbar
+            inside the Card instead of pushing the whole page sideways on
+            phones. 720 is a comfortable minimum for the 5-column layout. */}
+        <Table
+          dataSource={ledger}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 15 }}
+          locale={{ emptyText: t("no_transactions") || "No transactions yet" }}
+          scroll={{ x: 720 }}
+          columns={[
+            { title: t("date") || "Date", dataIndex: "created_at", width: 160, render: (v: any) => v ? new Date(v).toLocaleString() : "-" },
+            { title: t("type") || "Type", dataIndex: "type", width: 120, render: (v: any) => <Tag color={TXN_COLORS[v] || "default"}>{v}</Tag> },
+            { title: t("amount") || "Amount", dataIndex: "amount", width: 130, render: (v: any) => `${parseFloat(v || 0).toFixed(2)} EGP` },
+            { title: t("description") || "Description", dataIndex: "description", ellipsis: true },
+            { title: t("balance_after") || "Balance After", dataIndex: "balance_after", width: 150, render: (v: any) => v != null ? `${parseFloat(v).toFixed(2)} EGP` : "-" },
+          ]}
+        />
       </Card>
     </div>
   );

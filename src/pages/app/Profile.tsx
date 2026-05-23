@@ -646,8 +646,9 @@ export default function Profile() {
       {/* ═══════════ TAB: SETTINGS ═══════════ */}
       {activeTab === "settings" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16, margin: "0 16px 20px" }}>
-          {/* Settings sub-nav */}
-          <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)", overflowX: "auto" }}>
+          {/* Settings sub-nav — 3 equal columns so all three tabs fit on the
+              narrowest phones without horizontal scroll. */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 4, padding: 4, borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
             {([
               { key: "preferences", label: lang === "ar" ? "التفضيلات" : "Preferences", icon: SlidersHorizontal },
               { key: "privacy", label: lang === "ar" ? "الخصوصية" : "Privacy", icon: Shield },
@@ -658,16 +659,17 @@ export default function Profile() {
               return (
                 <button key={s.key} onClick={() => setSettingsSection(s.key)}
                   style={{
-                    flex: 1, minWidth: 80,
+                    minWidth: 0,
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "8px 10px", borderRadius: 9,
+                    padding: "8px 6px", borderRadius: 9,
                     border: "none", cursor: "pointer",
                     background: active ? "var(--accent)" : "transparent",
                     color: active ? "#0A0A0B" : "var(--text-secondary)",
                     fontSize: 12, fontWeight: 700,
                     whiteSpace: "nowrap",
+                    overflow: "hidden", textOverflow: "ellipsis",
                   }}>
-                  <Icon size={13} /> {s.label}
+                  <Icon size={13} style={{ flexShrink: 0 }} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{s.label}</span>
                 </button>
               );
             })}

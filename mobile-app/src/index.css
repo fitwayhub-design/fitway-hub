@@ -1096,10 +1096,26 @@ html.light .app-top-bar {
   text-transform: uppercase;
 }
 
-/* App page content offset — top bar 56px logo + 48px scroll chips */
+/* App page content offset — top bar 56px logo + 48px scroll chips.
+   padding-bottom needs to clear the floating bottom-nav pill, which is
+   ~80-90px tall (icon + label + paddings + safe-area). 96px was too tight
+   on phones with a tall safe area and caused the page's last button
+   (e.g. Sign Out on /app/profile?tab=settings) to render under the nav. */
 .app-view main {
   padding-top: calc(108px + env(safe-area-inset-top)) !important;
-  padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+  padding-bottom: calc(140px + env(safe-area-inset-bottom)) !important;
+}
+
+/* Antd Table mobile overflow — without scroll={{ x }} the table overflows
+   its parent and pushes the whole page sideways. Force the table body to
+   scroll internally instead so the rest of the page stays put. Apply on
+   touch / narrow viewports only; desktop keeps Antd's native behavior. */
+@media (max-width: 900px) {
+  .ant-table-wrapper { max-width: 100%; }
+  .ant-table-wrapper .ant-table { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .ant-table-wrapper .ant-table-content { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .ant-table-wrapper .ant-table-body { overflow-x: auto !important; }
+  .ant-table-wrapper .ant-table table { min-width: 560px; }
 }
 
 /* Desktop sidebar mode — no top/bottom chrome so reset padding */
