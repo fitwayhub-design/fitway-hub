@@ -1,43 +1,53 @@
-name: Build iOS IPA
+name: Build mobile apps
 
 on:
   push:
     branches: [main]
     paths:
       - 'mobile-app/**'
-      - '.github/workflows/build-ios.yml'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
-# Two-path workflow:
+# Combined Android + iOS Capacitor build for the project under mobile-app/.
 #
-# 1) SIGNED DEVICE BUILD — runs when all six of these repository secrets are
-#    present. Produces a real .ipa that can be installed on a device or
-#    uploaded to TestFlight / App Store Connect.
+# Android: always produces an unsigned debug APK.
 #
-#       IOS_P12_BASE64        base64 of your iOS Distribution .p12
-#       IOS_P12_PASSWORD      password for the .p12
-#       APPSTORE_ISSUER_ID    App Store Connect API issuer ID (UUID)
-#       APPSTORE_KEY_ID       App Store Connect API key ID
-#       APPSTORE_PRIVATE_KEY  full contents of the .p8 key file
-#       APPSTORE_TEAM_ID      your 10-character Apple Team ID
+# iOS: two paths chosen automatically by the "Detect signing configuration"
+# step.
 #
-# 2) UNSIGNED DEVICE IPA — runs when any of those secrets is missing.
-#    Produces FitWayHub-unsigned.ipa (the proper device .ipa container,
-#    a zip with Payload/App.app/ inside). Stock iOS will not launch it
-#    on its own, but it's the format expected by re-signing tools like
-#    AltStore, SideStore, Sideloadly, Apple Configurator 2, and Xcode's
-#    "Devices and Simulators → Install from .ipa". This is the standard
-#    way to ship an iOS build without holding Apple signing credentials
-#    in CI.
+#   1) SIGNED .ipa — runs when ALL SIX of these repo secrets are configured.
+#      Output artifact: ios-ipa-signed.
+#
+#        IOS_P12_BASE64        base64 of your iOS Distribution .p12
+#        IOS_P12_PASSWORD      password for the .p12
+#        APPSTORE_ISSUER_ID    App Store Connect API issuer ID (UUID)
+#        APPSTORE_KEY_ID       App Store Connect API key ID
+#        APPSTORE_PRIVATE_KEY  full contents of the .p8 key file
+#        APPSTORE_TEAM_ID      your 10-character Apple Team ID
+#
+#      Optional:
+#        APPSTORE_BUNDLE_ID    bundle id for provisioning profile download
+#                              (defaults to com.peetrix.fitwayhub)
+#
+#   2) UNSIGNED .ipa — runs when any of those is missing. Output artifact:
+#      ios-ipa-unsigned. Proper device .ipa container (zip with
+#      Payload/App.app/ inside). Stock iOS won't launch it on its own, but
+#      it IS the format expected by re-signers: AltStore / SideStore,
+#      Sideloadly, Apple Configurator 2, Xcode "Devices and Simulators →
+#      Install from .ipa", TrollStore on supported devices.
+#
+# Optional:
+#   VITE_API_BASE   Baked into the web bundle at build time. If missing, the
+#                   app falls back to https://www.fitwayhub.com (see
+#                   mobile-app/src/lib/api.ts).
 
 jobs:
-  build:
-    name: Build iOS
-    runs-on: macos-14
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: mobile-app
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,7 +57,65 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Select Xcode
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web bundle (Capacitor)
+        run: npm run build
+        env:
+          CAPACITOR_BUILD: 'true'
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+
+      - name: Add Android platform if missing
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
+        working-directory: mobile-app/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: mobile-app/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  ios:
+    name: Build iOS
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: mobile-app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Select Xcode 15.4
         run: sudo xcode-select -s /Applications/Xcode_15.4.app
 
       - name: Install dependencies
@@ -62,22 +130,32 @@ jobs:
       - name: Add iOS platform if missing
         run: |
           if [ ! -d "ios" ]; then
+            if ! npm ls @capacitor/ios --depth=0 >/dev/null 2>&1; then
+              npm install --no-audit --no-fund @capacitor/ios
+            fi
             npx cap add ios
           fi
 
       - name: Sync Capacitor
-        run: npx cap sync ios
+        run: |
+          set -e
+          # If scaffold is incomplete (Podfile missing AND no Package.swift), nuke and regenerate
+          if [ ! -f ios/App/Podfile ] && [ ! -f ios/Podfile ] && [ ! -f ios/App/Package.swift ]; then
+            rm -rf ios
+            if ! npm ls @capacitor/ios --depth=0 >/dev/null 2>&1; then
+              npm install --no-audit --no-fund @capacitor/ios
+            fi
+            npx cap add ios
+          fi
+          npx cap sync ios
 
       - name: Install CocoaPods
         working-directory: mobile-app/ios/App
         run: pod install --repo-update
 
-      # ── Decide which path to take based on which secrets exist ────────
-      # Each HAS_* env is the literal string "true" when the secret is set,
-      # otherwise "false". We default `signed` to false and only flip it on
-      # when all six are present. set +e here so a failed test in the
-      # compound expression can't take down the whole workflow (was the
-      # cause of the cryptic 0s exit-1 failures users saw historically).
+      # ── Decide signed vs unsigned path. Single-line `if` + set +e + explicit
+      #    exit 0 so this step can never tank the workflow regardless of which
+      #    secrets are or aren't present.
       - name: Detect signing configuration
         id: signing
         shell: bash
@@ -96,9 +174,9 @@ jobs:
           fi
           echo "signed=$SIGNED" >> "$GITHUB_OUTPUT"
           if [ "$SIGNED" = "true" ]; then
-            echo "All signing secrets present — building a signed .ipa for device/TestFlight"
+            echo "Signing secrets present — producing a signed .ipa"
           else
-            echo "Signing secrets missing — falling back to unsigned simulator build"
+            echo "Signing secrets missing — producing an unsigned .ipa for re-signing tools (AltStore/Sideloadly/Xcode)"
           fi
           exit 0
 
@@ -114,12 +192,12 @@ jobs:
         if: steps.signing.outputs.signed == 'true'
         uses: apple-actions/download-provisioning-profiles@v3
         with:
-          bundle-id: com.peetrix.fitwayhub
+          bundle-id: ${{ secrets.APPSTORE_BUNDLE_ID || 'com.peetrix.fitwayhub' }}
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
 
-      - name: Write ExportOptions.plist
+      - name: Write ExportOptions.plist (signed)
         if: steps.signing.outputs.signed == 'true'
         working-directory: mobile-app/ios/App
         env:
@@ -176,20 +254,12 @@ jobs:
         if: steps.signing.outputs.signed == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: app-ios-ipa
+          name: ios-ipa-signed
           path: mobile-app/ios/App/build/ipa/*.ipa
           if-no-files-found: error
 
-      # ─────────────── UNSIGNED DEVICE IPA (no secrets needed) ────────
-      # Builds the .app for the real iOS device SDK (iphoneos) with code
-      # signing fully disabled, then wraps it in a Payload/ folder and
-      # zips it as a .ipa. The resulting file is NOT App-Store-installable
-      # and won't launch on a stock device on its own — but it IS the
-      # correct format for re-signing tools like AltStore, Sideloadly,
-      # Xcode "Devices and Simulators", or TrollStore on supported devices.
-      # That's the standard workflow for distributing an iOS build without
-      # holding Apple signing credentials in CI.
-      - name: Build unsigned app (device)
+      # ───────────────────── UNSIGNED FALLBACK ARCHIVE ─────────────────
+      - name: Archive (unsigned)
         if: steps.signing.outputs.signed == 'false'
         working-directory: mobile-app/ios/App
         run: |
@@ -200,6 +270,7 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            -archivePath build/App.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -207,28 +278,28 @@ jobs:
             EXPANDED_CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            build
+            archive
 
       - name: Package unsigned IPA
         if: steps.signing.outputs.signed == 'false'
         working-directory: mobile-app/ios/App
         run: |
-          APP_PATH="build/Build/Products/Release-iphoneos/App.app"
-          if [ ! -d "$APP_PATH" ]; then
-            echo "::error::Expected $APP_PATH not found"
-            ls -R build/Build/Products || true
+          APP_PATH=$(ls -d build/App.xcarchive/Products/Applications/*.app 2>/dev/null | head -n1)
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "::error::No .app found inside the archive"
+            find build/App.xcarchive -maxdepth 4 -print 2>/dev/null || true
             exit 1
           fi
-          mkdir -p build/output/Payload
-          cp -R "$APP_PATH" build/output/Payload/
-          cd build/output
-          zip -qr FitWayHub-unsigned.ipa Payload
-          ls -lh FitWayHub-unsigned.ipa
+          mkdir -p build/ipa/Payload
+          cp -R "$APP_PATH" build/ipa/Payload/
+          cd build/ipa
+          zip -qr ../FitWayHub-unsigned.ipa Payload
+          ls -lh ../FitWayHub-unsigned.ipa
 
       - name: Upload unsigned IPA
         if: steps.signing.outputs.signed == 'false'
         uses: actions/upload-artifact@v4
         with:
-          name: app-ios-ipa-unsigned
-          path: mobile-app/ios/App/build/output/FitWayHub-unsigned.ipa
+          name: ios-ipa-unsigned
+          path: mobile-app/ios/App/build/FitWayHub-unsigned.ipa
           if-no-files-found: error
