@@ -10,6 +10,52 @@ const adminOnly = (req: any, res: Response, next: any) => {
   next();
 };
 
+// Sections that should always exist in the admin CMS for a given page. If a
+// row is missing (e.g. the page was seeded before this section type was
+// supported), we create it on demand so admins can edit it without re-seeding.
+const REQUIRED_SECTIONS: Record<string, { type: string; label: string; content: any }[]> = {
+  home: [
+    {
+      type: 'portal_select',
+      label: 'Portal Selector (Athlete / Coach)',
+      content: {
+        eyebrow: '— Choose Your Path',
+        eyebrow_ar: '— اختر مسارك',
+        heading: 'Athlete or Coach.',
+        heading_ar: 'رياضي أم مدرب.',
+        headingAccent: 'or',
+        headingAccent_ar: 'أم',
+        athleteLabel: "I'm an Athlete",
+        athleteLabel_ar: 'أنا رياضي',
+        athleteLink: '/auth/register?role=user',
+        coachLabel: "I'm a Coach",
+        coachLabel_ar: 'أنا مدرب',
+        coachLink: '/auth/register?role=coach',
+      },
+    },
+  ],
+};
+
+async function ensureRequiredSections(page: string) {
+  const required = REQUIRED_SECTIONS[page];
+  if (!required?.length) return;
+  for (const r of required) {
+    const existing: any = await get(
+      'SELECT id FROM website_sections WHERE page = ? AND type = ? LIMIT 1',
+      [page, r.type],
+    );
+    if (existing) continue;
+    const maxOrder: any = await get(
+      'SELECT MAX(sort_order) as max FROM website_sections WHERE page = ?',
+      [page],
+    );
+    await run(
+      'INSERT INTO website_sections (page, type, label, content, sort_order) VALUES (?,?,?,?,?)',
+      [page, r.type, r.label, JSON.stringify(r.content), (maxOrder?.max || 0) + 1],
+    );
+  }
+}
+
 // ── Public: get website translation overrides ────────────────────────────────
 router.get('/translations', async (_req: any, res: Response) => {
   try {
@@ -42,6 +88,7 @@ router.get('/sections/:page', async (req: any, res: Response) => {
 router.get('/admin/sections/:page', authenticateToken, adminOnly, async (req: any, res: Response) => {
   try {
     const { page } = req.params;
+    await ensureRequiredSections(page);
     const sections = await query(
       'SELECT * FROM website_sections WHERE page = ? ORDER BY sort_order ASC',
       [page]
