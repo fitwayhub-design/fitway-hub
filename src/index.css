@@ -2723,6 +2723,10 @@ html.light .web-fwh .fwh-gate-btn { border-color: rgba(0,0,0,0.18); background: 
 .web-fwh .fwh-con { max-width: 1400px; margin: 0 auto; }
 .web-fwh section.fwh-section { padding: 100px 24px; position: relative; }
 @media (max-width: 880px) { .web-fwh section.fwh-section { padding: 70px 20px; } }
+/* Keep section content above the CMS-driven background overlay. */
+.web-fwh section.fwh-section > .fwh-con,
+.web-fwh section.fwh-hero > .fwh-con,
+.web-fwh section.fwh-gate > .fwh-gate-content { position: relative; z-index: 1; }
 
 /* Footer wordmark */
 .web-fwh .fwh-foot-mark {

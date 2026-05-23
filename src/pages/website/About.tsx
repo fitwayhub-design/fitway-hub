@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding } from "@/context/BrandingContext";
+import { useTheme } from "@/context/ThemeContext";
 import { getApiBase } from "@/lib/api";
 import {
   Dumbbell, Brain, BarChart2, Users, Bell, Globe,
@@ -76,6 +77,7 @@ export default function AboutPage() {
   const navigate = useNavigate();
   const { lang } = useI18n();
   const { branding } = useBranding();
+  const { isDark } = useTheme();
   const isAr = lang === "ar";
   const accent = branding.primary_color || "#FFD600";
 
@@ -113,6 +115,29 @@ export default function AboutPage() {
     if (!sec) return fallback;
     const key = isAr ? `${field}_ar` : field;
     return sec[key] || sec[field] || fallback;
+  };
+
+  // Theme-aware background overlay for any CMS section. Mirrors Home.tsx —
+  // admin uploads backgroundImageDark / backgroundImageLight / backgroundImage
+  // in /admin/website. Returns null when nothing is set.
+  const sectionBg = (type: string) => {
+    const sec = cmsSections[type];
+    if (!sec) return null;
+    const bg = isDark
+      ? (sec.backgroundImageDark || sec.backgroundImage)
+      : (sec.backgroundImageLight || sec.backgroundImage);
+    if (!bg) return null;
+    const op = isDark
+      ? (sec.backgroundOpacityDark ?? sec.backgroundOpacity ?? 0.35)
+      : (sec.backgroundOpacityLight ?? sec.backgroundOpacity ?? 0.6);
+    return (
+      <div aria-hidden style={{
+        position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
+        backgroundImage: `url(${bg})`,
+        backgroundSize: "cover", backgroundPosition: "center",
+        opacity: Number(op),
+      }} />
+    );
   };
 
   /* ── Cursor-follow hover preview (Why Fitway / Features) ─────────────────
@@ -226,6 +251,7 @@ export default function AboutPage() {
           HERO
       ═══════════════════════════════════════════════════════════════════════ */}
       <section className="fwh-hero" style={{ overflow: "hidden", borderBottom: "1px solid var(--border)" }}>
+        {sectionBg("hero")}
         <div className="fwh-con" style={{ position: "relative", width: "100%" }}>
           <div className="fwh-section-meta">
             <span>{cms("hero", "metaLeft", isAr ? "من نحن · إصدار ٢٠٢٦" : "ABOUT · V.2026")}</span>
@@ -272,7 +298,8 @@ export default function AboutPage() {
       {/* ══════════════════════════════════════════════════════════════════════
           STATS
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section" style={{ borderBottom: "1px solid var(--border)" }}>
+      <section className="fwh-section" style={{ borderBottom: "1px solid var(--border)", overflow: "hidden" }}>
+        {sectionBg("stats")}
         <div className="fwh-con">
           <div className="fwh-section-meta">
             <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
@@ -312,7 +339,8 @@ export default function AboutPage() {
       {/* ══════════════════════════════════════════════════════════════════════
           MISSION
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section">
+      <section className="fwh-section" style={{ overflow: "hidden" }}>
+        {sectionBg("mission")}
         <div className="fwh-con">
           <div className="fwh-section-meta">
             <span>{cms("mission", "sectionLabel", "Mission — 03")}</span>
@@ -409,7 +437,8 @@ export default function AboutPage() {
       {/* ══════════════════════════════════════════════════════════════════════
           VALUES
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+      <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", overflow: "hidden" }}>
+        {sectionBg("values")}
         <div className="fwh-con">
           <div className="fwh-section-meta">
             <span>{cms("values", "sectionLabel", "Values — 04")}</span>
@@ -449,7 +478,8 @@ export default function AboutPage() {
       {/* ══════════════════════════════════════════════════════════════════════
           FEATURES
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section">
+      <section className="fwh-section" style={{ overflow: "hidden" }}>
+        {sectionBg("features")}
         <div className="fwh-con">
           <div className="fwh-section-meta">
             <span>{cms("features", "sectionLabel", "Features — 05")}</span>
@@ -507,7 +537,8 @@ export default function AboutPage() {
       {/* ══════════════════════════════════════════════════════════════════════
           TIMELINE
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+      <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", overflow: "hidden" }}>
+        {sectionBg("timeline")}
         <div className="fwh-con">
           <div className="fwh-section-meta">
             <span>{cms("timeline", "sectionLabel", "Journey — 06")}</span>
@@ -553,7 +584,8 @@ export default function AboutPage() {
       {/* ══════════════════════════════════════════════════════════════════════
           TEAM
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section">
+      <section className="fwh-section" style={{ overflow: "hidden" }}>
+        {sectionBg("team")}
         <div className="fwh-con">
           <div className="fwh-section-meta">
             <span>{cms("team", "sectionLabel", "Team — 07")}</span>
@@ -647,7 +679,8 @@ export default function AboutPage() {
       {/* ══════════════════════════════════════════════════════════════════════
           CTA
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", textAlign: "center", padding: "120px 24px" }}>
+      <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", textAlign: "center", padding: "120px 24px", overflow: "hidden" }}>
+        {sectionBg("cta")}
         <div className="fwh-con">
           <div className="fwh-kicker" style={{ marginBottom: 24, justifyContent: "center", display: "inline-flex" }}>
             {cms("cta", "sectionLabel", isAr ? "— ابدأ الآن" : "— Start Now")}

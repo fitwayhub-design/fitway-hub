@@ -470,6 +470,65 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
     setUploadingFor(null);
   };
 
+  // Section-background editor: appears for every section type, exposing a
+  // theme-aware background image (dark + light + legacy single-image
+  // fallback) plus per-theme opacity sliders. The website's `sectionBg(type)`
+  // helper reads these fields and renders an absolute-positioned overlay
+  // behind the section's content.
+  const renderSectionBackgroundFields = () => {
+    const c = editContent;
+    const set = (field: string, value: any) =>
+      setEditContent((prev: any) => ({ ...prev, [field]: value }));
+    const labelStyle: CSSProperties = { display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" };
+    const inputStyle: CSSProperties = { width: "100%", padding: "9px 12px", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 13, fontFamily: "var(--font-en)" };
+    const bgField = (field: string, label: string) => (
+      <div>
+        <label style={labelStyle}>{label}</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input style={{ ...inputStyle, flex: 1 }} value={c[field] || ""} onChange={e => set(field, e.target.value)} placeholder={t("cms_paste_image_url") + "..."} />
+          <button type="button" onClick={() => { setUploadingFor(field); fileInputRef.current?.click(); }}
+            style={{ padding: "9px 12px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent-dim)", border: "1px solid var(--accent)", color: "var(--accent)", cursor: "pointer", flexShrink: 0 }}>
+            <Upload size={14} />
+          </button>
+        </div>
+        {c[field] && <img src={c[field]} alt="" style={{ marginTop: 8, maxHeight: 80, maxWidth: "100%", borderRadius: "var(--radius-full)", objectFit: "contain", border: "1px solid var(--border)" }} />}
+      </div>
+    );
+    const opacityField = (field: string, label: string, fallback: number) => (
+      <div>
+        <label style={labelStyle}>{label}</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input type="range" min="0" max="1" step="0.05" value={c[field] ?? fallback}
+            onChange={e => set(field, parseFloat(e.target.value))}
+            style={{ flex: 1, accentColor: "var(--accent)" }} />
+          <span style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--text-muted)", width: 36, textAlign: "right" }}>
+            {Math.round((c[field] ?? fallback) * 100)}%
+          </span>
+        </div>
+      </div>
+    );
+    return (
+      <div style={{ marginTop: 16, padding: 14, background: "var(--bg-surface)", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          {l("Section Background", "خلفية القسم")}
+        </div>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
+          {l(
+            "Optional background image rendered behind this section's content. Upload separate images for dark and light theme, or a single fallback image used for both. Leave all empty for no background.",
+            "صورة خلفية اختيارية تظهر خلف محتوى هذا القسم. ارفع صوراً منفصلة للوضع الداكن والفاتح، أو صورة واحدة احتياطية للوضعين. اتركها فارغة بدون خلفية.",
+          )}
+        </p>
+        {bgField("backgroundImageDark", l("Background Image — Dark Mode", "صورة الخلفية — الوضع الداكن"))}
+        {bgField("backgroundImageLight", l("Background Image — Light Mode", "صورة الخلفية — الوضع الفاتح"))}
+        {bgField("backgroundImage", l("Background Image — Fallback (both themes)", "صورة الخلفية — احتياطية (للوضعين)"))}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {opacityField("backgroundOpacityDark", l("Overlay Opacity — Dark Mode", "شفافية الخلفية — الوضع الداكن"), 0.35)}
+          {opacityField("backgroundOpacityLight", l("Overlay Opacity — Light Mode", "شفافية الخلفية — الوضع الفاتح"), 0.6)}
+        </div>
+      </div>
+    );
+  };
+
   // ── Content field editors by section type ────────────────────────────────────
   const renderContentEditor = (type: string) => {
     const c = editContent;
@@ -543,15 +602,9 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
             <option value="full">{l("Full Width", "عرض كامل")}</option>
           </select>
         </div>
-        {/* Single image (legacy) — used as a fallback when the per-theme
-            images below are not set. Keep this field for backwards-compat. */}
-        {imageField("backgroundImage", "Background Image (fallback / both themes)")}
-        {/* SECURITY-AGNOSTIC UX: per-theme hero images. The website picks
-            backgroundImageDark when the user is in dark mode, otherwise
-            backgroundImageLight. Either may be empty — the page falls back
-            to `backgroundImage`, then to no image. */}
-        {imageField("backgroundImageDark", "Background Image — Dark Mode")}
-        {imageField("backgroundImageLight", "Background Image — Light Mode")}
+        {/* Background images (dark/light/fallback) and overlay opacity are
+            now rendered globally for every section by the shared
+            `renderSectionBackgroundFields()` editor below. */}
       </div>
     );
 
@@ -1549,6 +1602,7 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
                     <div style={{ marginBottom: 16 }}>
                       <label style={{ ...labelS, marginBottom: 10 }}>{t("content")}</label>
                       {renderContentEditor(s.type)}
+                      {renderSectionBackgroundFields()}
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
                       <button onClick={saveEdit} disabled={saving}

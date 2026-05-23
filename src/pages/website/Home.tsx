@@ -126,6 +126,31 @@ export default function HomePage() {
     return sec[key] || sec[field] || fallback;
   };
 
+  // Theme-aware background overlay for any CMS section. Admin uploads any of
+  // backgroundImageDark / backgroundImageLight / backgroundImage (legacy
+  // single-image) in /admin/website. Returns null when nothing is set.
+  // backgroundOpacity (0-1) is admin-tunable; defaults differ per theme so
+  // a light image isn't washed out on a white background.
+  const sectionBg = (type: string) => {
+    const sec = cmsSections[type];
+    if (!sec) return null;
+    const bg = isDark
+      ? (sec.backgroundImageDark || sec.backgroundImage)
+      : (sec.backgroundImageLight || sec.backgroundImage);
+    if (!bg) return null;
+    const op = isDark
+      ? (sec.backgroundOpacityDark ?? sec.backgroundOpacity ?? 0.35)
+      : (sec.backgroundOpacityLight ?? sec.backgroundOpacity ?? 0.6);
+    return (
+      <div aria-hidden style={{
+        position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
+        backgroundImage: `url(${bg})`,
+        backgroundSize: "cover", backgroundPosition: "center",
+        opacity: Number(op),
+      }} />
+    );
+  };
+
   // Hold first paint until CMS arrives — avoids flash of fallback text
   if (!cmsLoaded) {
     return (
@@ -272,26 +297,7 @@ export default function HomePage() {
           CMS: hero (heading, headingAccent, subheading, badge, btn texts/links, backgroundImage)
       ═══════════════════════════════════════════════════════════════════════ */}
       <section className="fwh-hero" style={{ overflow: "hidden", borderBottom: "1px solid var(--border)" }}>
-        {/* Theme-aware hero background:
-            - dark mode → backgroundImageDark (CMS), then backgroundImage (legacy fallback)
-            - light mode → backgroundImageLight (CMS), then backgroundImage (legacy fallback)
-            - if neither set, no background image renders. */}
-        {(() => {
-          const heroBg = isDark
-            ? (cmsSections.hero?.backgroundImageDark || cmsSections.hero?.backgroundImage)
-            : (cmsSections.hero?.backgroundImageLight || cmsSections.hero?.backgroundImage);
-          if (!heroBg) return null;
-          return (
-            <div aria-hidden style={{
-              position: "absolute", inset: 0, pointerEvents: "none",
-              backgroundImage: `url(${heroBg})`,
-              backgroundSize: "cover", backgroundPosition: "center",
-              // Slightly stronger overlay in light mode where bright images
-              // can wash out body text.
-              opacity: isDark ? 0.35 : 0.28,
-            }} />
-          );
-        })()}
+        {sectionBg("hero")}
         <div className="fwh-con" style={{ position: "relative", width: "100%" }}>
           {/* Top meta */}
           <div className="fwh-section-meta">
@@ -385,7 +391,8 @@ export default function HomePage() {
           PORTAL SELECTOR — Athlete or Coach
           CMS: portal_select (eyebrow, heading, headingAccent, athleteLabel, athleteLink, coachLabel, coachLink)
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-gate">
+      <section className="fwh-gate" style={{ position: "relative", overflow: "hidden" }}>
+        {sectionBg("portal_select")}
         <div className="fwh-gate-bg">
           <div className="fwh-photo" style={{ position: "absolute", inset: 0 }} />
         </div>
@@ -435,7 +442,8 @@ export default function HomePage() {
       {/* ══════════════════════════════════════════════════════════════════════
           STATS — 4-cell grid (live data)
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+      <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", overflow: "hidden" }}>
+        {sectionBg("stats")}
         <div className="fwh-con">
           <div className="fwh-section-meta">
             <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
@@ -476,7 +484,8 @@ export default function HomePage() {
           FEATURES — service-row style with hover slide
           CMS: features (sectionLabel, heading, intro, items[icon, title, desc])
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section">
+      <section className="fwh-section" style={{ overflow: "hidden" }}>
+        {sectionBg("features")}
         <div className="fwh-con">
           <div className="fwh-section-meta">
             <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
@@ -530,7 +539,8 @@ export default function HomePage() {
       {/* ══════════════════════════════════════════════════════════════════════
           HOW IT WORKS — 4 steps in editorial cards
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", background: "var(--bg-surface)" }}>
+      <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", background: "var(--bg-surface)", overflow: "hidden" }}>
+        {sectionBg("steps")}
         <div className="fwh-con">
           <div className="fwh-section-meta">
             <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
@@ -580,7 +590,8 @@ export default function HomePage() {
       {/* ══════════════════════════════════════════════════════════════════════
           TESTIMONIALS — quote cards
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section">
+      <section className="fwh-section" style={{ overflow: "hidden" }}>
+        {sectionBg("testimonials")}
         <div className="fwh-con">
           <div className="fwh-section-meta">
             <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
@@ -671,7 +682,8 @@ export default function HomePage() {
           CTA — circle CTA with huge italic display
           CMS: cta (heading, subheading, btnText, btnLink)
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section" style={{ padding: "140px 24px", textAlign: "center", borderTop: "1px solid var(--border)" }}>
+      <section className="fwh-section" style={{ padding: "140px 24px", textAlign: "center", borderTop: "1px solid var(--border)", overflow: "hidden" }}>
+        {sectionBg("cta")}
         <div className="fwh-con">
           <div style={{
             fontFamily: "var(--font-mono)",
