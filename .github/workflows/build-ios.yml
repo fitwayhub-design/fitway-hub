@@ -8,15 +8,27 @@ on:
       - '.github/workflows/build-ios.yml'
   workflow_dispatch:
 
-# iOS builds require a macOS runner. This workflow produces an unsigned .app
-# bundle suitable for simulator/dev verification. Producing a signed .ipa for
-# TestFlight or the App Store needs an Apple Developer signing identity and
-# provisioning profile — wire those into the "Import certs" step when ready
-# (commented out below) or hand the synced project to Xcode locally.
+# Two-path workflow:
+#
+# 1) SIGNED DEVICE BUILD — runs when all six of these repository secrets are
+#    present. Produces a real .ipa that can be installed on a device or
+#    uploaded to TestFlight / App Store Connect.
+#
+#       IOS_P12_BASE64        base64 of your iOS Distribution .p12
+#       IOS_P12_PASSWORD      password for the .p12
+#       APPSTORE_ISSUER_ID    App Store Connect API issuer ID (UUID)
+#       APPSTORE_KEY_ID       App Store Connect API key ID
+#       APPSTORE_PRIVATE_KEY  full contents of the .p8 key file
+#       APPSTORE_TEAM_ID      your 10-character Apple Team ID
+#
+# 2) UNSIGNED SIMULATOR FALLBACK — runs when any of those secrets is missing.
+#    Produces an unsigned App.app.zip for the iOS Simulator. Same artifact
+#    this workflow has produced historically; useful for local QA in
+#    Simulator.app without any signing setup.
 
 jobs:
   build:
-    name: Build iOS IPA
+    name: Build iOS
     runs-on: macos-14
     defaults:
       run:
@@ -56,21 +68,108 @@ jobs:
         working-directory: mobile-app/ios/App
         run: pod install --repo-update
 
-      # ── Signing (commented out — fill in when you have certs) ──
-      # - name: Import code-signing certs
-      #   uses: apple-actions/import-codesign-certs@v3
-      #   with:
-      #     p12-file-base64: ${{ secrets.IOS_P12_BASE64 }}
-      #     p12-password: ${{ secrets.IOS_P12_PASSWORD }}
-      # - name: Install provisioning profile
-      #   uses: apple-actions/download-provisioning-profiles@v3
-      #   with:
-      #     bundle-id: com.peetrix.fitwayhub
-      #     issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-      #     api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
-      #     api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+      # ── Decide which path to take based on which secrets exist ────────
+      - name: Detect signing configuration
+        id: signing
+        env:
+          HAS_P12: ${{ secrets.IOS_P12_BASE64 != '' }}
+          HAS_PASSWORD: ${{ secrets.IOS_P12_PASSWORD != '' }}
+          HAS_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID != '' }}
+          HAS_KEY_ID: ${{ secrets.APPSTORE_KEY_ID != '' }}
+          HAS_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY != '' }}
+          HAS_TEAM_ID: ${{ secrets.APPSTORE_TEAM_ID != '' }}
+        run: |
+          if [ "$HAS_P12" = "true" ] && [ "$HAS_PASSWORD" = "true" ] && \
+             [ "$HAS_ISSUER_ID" = "true" ] && [ "$HAS_KEY_ID" = "true" ] && \
+             [ "$HAS_PRIVATE_KEY" = "true" ] && [ "$HAS_TEAM_ID" = "true" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "All signing secrets present — building a signed .ipa for device/TestFlight"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "Signing secrets missing — falling back to unsigned simulator build"
+          fi
 
+      # ─────────────────────────── SIGNED DEVICE BUILD ─────────────────
+      - name: Import code-signing certs
+        if: steps.signing.outputs.signed == 'true'
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_P12_BASE64 }}
+          p12-password: ${{ secrets.IOS_P12_PASSWORD }}
+
+      - name: Download provisioning profile
+        if: steps.signing.outputs.signed == 'true'
+        uses: apple-actions/download-provisioning-profiles@v3
+        with:
+          bundle-id: com.peetrix.fitwayhub
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+
+      - name: Write ExportOptions.plist
+        if: steps.signing.outputs.signed == 'true'
+        working-directory: mobile-app/ios/App
+        env:
+          TEAM_ID: ${{ secrets.APPSTORE_TEAM_ID }}
+        run: |
+          cat > ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>teamID</key>
+              <string>${TEAM_ID}</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>uploadSymbols</key>
+              <true/>
+              <key>compileBitcode</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Archive (signed, iphoneos)
+        if: steps.signing.outputs.signed == 'true'
+        working-directory: mobile-app/ios/App
+        env:
+          TEAM_ID: ${{ secrets.APPSTORE_TEAM_ID }}
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            -archivePath build/App.xcarchive \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            archive
+
+      - name: Export signed IPA
+        if: steps.signing.outputs.signed == 'true'
+        working-directory: mobile-app/ios/App
+        run: |
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build/ipa
+
+      - name: Upload signed IPA
+        if: steps.signing.outputs.signed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ios-ipa
+          path: mobile-app/ios/App/build/ipa/*.ipa
+          if-no-files-found: error
+
+      # ─────────────────────── UNSIGNED SIMULATOR FALLBACK ────────────
       - name: Build unsigned app (simulator)
+        if: steps.signing.outputs.signed == 'false'
         working-directory: mobile-app/ios/App
         run: |
           xcodebuild \
@@ -83,13 +182,15 @@ jobs:
             build
 
       - name: Package .app bundle
+        if: steps.signing.outputs.signed == 'false'
         working-directory: mobile-app/ios/App
         run: |
           mkdir -p build/output
           cp -R build/Build/Products/Release-iphonesimulator/App.app build/output/
           cd build/output && zip -r App.app.zip App.app
 
-      - name: Upload .app artifact
+      - name: Upload .app artifact (unsigned)
+        if: steps.signing.outputs.signed == 'false'
         uses: actions/upload-artifact@v4
         with:
           name: app-ios-simulator
