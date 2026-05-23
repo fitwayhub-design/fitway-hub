@@ -270,6 +270,21 @@ async function seedCms() {
   };
   await upsert('home', 'portal_select', 'Portal Selector (Athlete / Coach)', portalSelectContent, 8);
 
+  // Final CTA banner at the bottom of the home page.
+  const homeCtaContent = {
+    badge: "",
+    badge_ar: "",
+    heading: "Start your transformation today.",
+    heading_ar: "ابدأ تحوّلك اليوم.",
+    subheading: "Join thousands who already started. Your account is free with no strings attached.",
+    subheading_ar: "انضم للآلاف اللي بدأوا رحلتهم. حسابك مجاني ومافيش قيود.",
+    btnText: "Let's Talk",
+    btnText_ar: "لنبدأ",
+    btnLink: "/auth/register",
+    widthMode: "boxed",
+  };
+  await upsert('home', 'cta', 'Final CTA Banner', homeCtaContent, 9);
+
   // ── ABOUT extras: values + timeline ─────────────────────────────────────
   const aboutValues = {
     sectionLabel: "Our Values",

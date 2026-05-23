@@ -33,6 +33,22 @@ const REQUIRED_SECTIONS: Record<string, { type: string; label: string; content: 
         coachLink: '/auth/register?role=coach',
       },
     },
+    {
+      type: 'cta',
+      label: 'Final CTA Banner',
+      content: {
+        badge: '',
+        badge_ar: '',
+        heading: 'Start your transformation today.',
+        heading_ar: 'ابدأ تحوّلك اليوم.',
+        subheading: 'Join thousands who already started. Your account is free with no strings attached.',
+        subheading_ar: 'انضم للآلاف اللي بدأوا رحلتهم. حسابك مجاني ومافيش قيود.',
+        btnText: "Let's Talk",
+        btnText_ar: 'لنبدأ',
+        btnLink: '/auth/register',
+        widthMode: 'boxed',
+      },
+    },
   ],
 };
 

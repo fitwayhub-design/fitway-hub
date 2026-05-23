@@ -47,12 +47,20 @@ export async function uploadToR2(file: Express.Multer.File, folder = 'uploads'):
     return `${process.env.R2_PUBLIC_URL}/${key}`;
   }
 
-  // Local disk fallback — saves to <project-root>/uploads/<folder>/
+  // Local disk fallback — saves to <project-root>/uploads/<folder>/.
+  // Returns a root-relative URL (`/uploads/...`) rather than an absolute one
+  // prefixed with APP_BASE_URL: when admins upload from one host (e.g. a
+  // staging machine) and visitors view from another (e.g. www.fitwayhub.com),
+  // an absolute URL pinned to APP_BASE_URL points the browser at the wrong
+  // server and the image 404s. A relative URL resolves against whichever
+  // origin the browser is currently on, which is always the right host for
+  // single-instance hosting. For multi-instance or ephemeral-disk hosting,
+  // configure R2 (see env.example) — local disk cannot survive a redeploy
+  // or be shared across instances.
   const uploadDir = path.join(__dirname, '..', '..', 'uploads', folder);
   fs.mkdirSync(uploadDir, { recursive: true });
   fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
-  const baseUrl = (process.env.APP_BASE_URL || '').replace(/\/$/, '');
-  return `${baseUrl}/uploads/${folder}/${filename}`;
+  return `/uploads/${folder}/${filename}`;
 }
 
 // ── All multer instances use memory storage ───────────────────────────────────
