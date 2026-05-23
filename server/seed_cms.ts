@@ -253,6 +253,23 @@ async function seedCms() {
   };
   await upsert('home', 'marquee', 'Marquee Words', marqueeContent, 7);
 
+  // Portal selector — Athlete vs Coach gate shown on the home page.
+  const portalSelectContent = {
+    eyebrow: "— Choose Your Path",
+    eyebrow_ar: "— اختر مسارك",
+    heading: "Athlete or Coach.",
+    heading_ar: "رياضي أم مدرب.",
+    headingAccent: "or",
+    headingAccent_ar: "أم",
+    athleteLabel: "I'm an Athlete",
+    athleteLabel_ar: "أنا رياضي",
+    athleteLink: "/auth/register?role=user",
+    coachLabel: "I'm a Coach",
+    coachLabel_ar: "أنا مدرب",
+    coachLink: "/auth/register?role=coach",
+  };
+  await upsert('home', 'portal_select', 'Portal Selector (Athlete / Coach)', portalSelectContent, 8);
+
   // ── ABOUT extras: values + timeline ─────────────────────────────────────
   const aboutValues = {
     sectionLabel: "Our Values",
