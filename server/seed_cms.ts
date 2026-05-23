@@ -43,6 +43,10 @@ async function seedCms() {
 
   // ── HOME ────────────────────────────────────────────────────────────────
   const heroContent = {
+    topMetaLeft: "ELITE FITNESS PLATFORM · V.2026",
+    topMetaLeft_ar: "منصة لياقة النخبة · إصدار ٢٠٢٦",
+    topMetaRight: "",
+    topMetaRight_ar: "",
     badge: "#1 fitness platform in egypt",
     badge_ar: "منصة لياقة #١ في مصر",
     heading: "Your fitness.",
@@ -65,10 +69,14 @@ async function seedCms() {
   await upsert('home', 'hero', 'Hero Section', heroContent, 1);
 
   const featuresContent = {
-    sectionLabel: "What We Offer",
-    sectionLabel_ar: "المميزات",
+    sectionLabel: "— What We Offer",
+    sectionLabel_ar: "— المميزات",
+    sectionMeta: "Complete Proficiency",
+    sectionMeta_ar: "كفاءة شاملة",
     heading: "Everything you need in one app.",
     heading_ar: "كل اللي محتاجه في تطبيق واحد.",
+    headingAccent: "",
+    headingAccent_ar: "",
     intro: "Workouts, certified coaches, smart analytics, community — all in one place.",
     intro_ar: "من التمارين للكوتشات للتحليلات والمجتمع — كل أدواتك في مكان واحد.",
     items: [
@@ -100,8 +108,12 @@ async function seedCms() {
   const testimonialsContent = {
     sectionLabel: "Real Results",
     sectionLabel_ar: "نتائج حقيقية",
+    sectionMeta: "Athlete Stories",
+    sectionMeta_ar: "آراء الأعضاء",
     heading: "Real people. Real transformations.",
     heading_ar: "أشخاص حقيقيون. تحوّلات مذهلة.",
+    headingAccent: "",
+    headingAccent_ar: "",
     items: [
       { name: "Ahmed M.", name_ar: "أحمد محمد",
         meta: "−15kg · 3 months", meta_ar: "−15 كجم · 3 شهور",
@@ -124,6 +136,14 @@ async function seedCms() {
 
   // ── ABOUT ───────────────────────────────────────────────────────────────
   const aboutHero = {
+    topMetaLeft: "ABOUT · V.2026",
+    topMetaLeft_ar: "من نحن · إصدار ٢٠٢٦",
+    topMetaRight: "Our Story",
+    topMetaRight_ar: "قصتنا",
+    metaLeft: "ABOUT · V.2026",
+    metaLeft_ar: "من نحن · إصدار ٢٠٢٦",
+    metaRight: "Our Story",
+    metaRight_ar: "قصتنا",
     badge: "— Who We Are",
     badge_ar: "— من نحن",
     heading: "Building Egypt's fittest generation.",
@@ -142,10 +162,16 @@ async function seedCms() {
   await upsert('about', 'hero', 'About Hero', aboutHero, 1);
 
   const aboutFeatures = {
-    sectionLabel: "Features",
-    sectionLabel_ar: "الميزات",
-    heading: "Everything in one place.",
-    heading_ar: "كل اللي محتاجه في مكان واحد.",
+    sectionLabel: "Features — 05",
+    sectionLabel_ar: "الميزات — ٠٥",
+    sectionMeta: "Everything you need",
+    sectionMeta_ar: "كل ما تحتاجه",
+    eyebrow: "— Features",
+    eyebrow_ar: "— الميزات",
+    heading: "Everything in",
+    heading_ar: "كل اللي محتاجه",
+    headingAccent: "one place.",
+    headingAccent_ar: "في مكان واحد.",
     intro: "",
     intro_ar: "",
     items: [
@@ -169,12 +195,18 @@ async function seedCms() {
   await upsert('about', 'features', 'About Features', aboutFeatures, 2);
 
   const aboutTeam = {
-    sectionLabel: "WHO WE ARE",
-    sectionLabel_ar: "من نحن",
-    heading: "Meet the Team",
-    heading_ar: "تعرف على الفريق",
-    subheading: "Built by fitness lovers.",
-    subheading_ar: "بُني بواسطة عشاق اللياقة.",
+    sectionLabel: "Team — 07",
+    sectionLabel_ar: "الفريق — ٠٧",
+    sectionMeta: "The team",
+    sectionMeta_ar: "الفريق",
+    eyebrow: "— Our Team",
+    eyebrow_ar: "— فريقنا",
+    heading: "Built by",
+    heading_ar: "بُني بواسطة",
+    headingAccent: "fitness lovers.",
+    headingAccent_ar: "عشاق اللياقة.",
+    subheading: "Our team of athletes, coaches, and engineers all believe in fitness's power to transform lives.",
+    subheading_ar: "فريقنا من الرياضيين والمدربين والمطورين كلهم بيؤمن بقوة اللياقة في تغيير الحياة.",
     members: [
       { name: "Ahmed Hassan", name_ar: "أحمد حسن",
         role: "CEO & Co-Founder", role_ar: "الرئيس التنفيذي والمؤسس",
@@ -203,6 +235,14 @@ async function seedCms() {
   // Stats descriptions (used as `label`/`label_ar` per item — numbers come
   // live from /api/public/stats so we don't seed `value`).
   const statsContent = {
+    sectionLabel: "— Perfect Activity",
+    sectionLabel_ar: "— نشاط مثالي",
+    sectionMeta: "Numbers tell the story",
+    sectionMeta_ar: "أرقام تحكي القصة",
+    heading: "Numbers that prove",
+    heading_ar: "أرقام تثبت",
+    headingAccent: "commitment.",
+    headingAccent_ar: "التزامنا.",
     items: [
       { value: "10K+",  label: "Active members training across the platform every week.", label_ar: "عضو نشط يتدرب على المنصة كل أسبوع." },
       { value: "50+",   label: "Vetted certified coaches with verified credentials.",      label_ar: "كوتش معتمد بشهادات موثقة." },
@@ -225,10 +265,14 @@ async function seedCms() {
 
   // How It Works steps.
   const stepsContent = {
-    sectionLabel: "How It Works",
-    sectionLabel_ar: "كيف يعمل",
-    heading: "Start in 4 simple steps.",
-    heading_ar: "ابدأ في ٤ خطوات بسيطة.",
+    sectionLabel: "— How It Works",
+    sectionLabel_ar: "— كيف يعمل",
+    sectionMeta: "Start in simple steps",
+    sectionMeta_ar: "ابدأ في خطوات بسيطة",
+    heading: "Start in",
+    heading_ar: "ابدأ في",
+    headingAccent: "4 simple steps.",
+    headingAccent_ar: "٤ خطوات.",
     items: [
       { step: "01", icon: "Smartphone", title: "Create Account",          title_ar: "سجّل حسابك",
         desc: "Sign up free in seconds and pick your goal.",
@@ -272,25 +316,38 @@ async function seedCms() {
 
   // Final CTA banner at the bottom of the home page.
   const homeCtaContent = {
+    sectionLabel: "Let's Begin Together",
+    sectionLabel_ar: "لنبدأ معاً",
     badge: "",
     badge_ar: "",
     heading: "Start your transformation today.",
     heading_ar: "ابدأ تحوّلك اليوم.",
+    headingAccent: "",
+    headingAccent_ar: "",
     subheading: "Join thousands who already started. Your account is free with no strings attached.",
     subheading_ar: "انضم للآلاف اللي بدأوا رحلتهم. حسابك مجاني ومافيش قيود.",
     btnText: "Let's Talk",
     btnText_ar: "لنبدأ",
     btnLink: "/auth/register",
+    secondaryBtnText: "",
+    secondaryBtnText_ar: "",
+    secondaryBtnLink: "",
     widthMode: "boxed",
   };
   await upsert('home', 'cta', 'Final CTA Banner', homeCtaContent, 9);
 
-  // ── ABOUT extras: values + timeline ─────────────────────────────────────
+  // ── ABOUT extras: values + timeline + mission + cta + stats ────────────
   const aboutValues = {
-    sectionLabel: "Our Values",
-    sectionLabel_ar: "قيمنا",
-    heading: "What we stand for.",
-    heading_ar: "ما يهمنا.",
+    sectionLabel: "Values — 04",
+    sectionLabel_ar: "القيم — ٠٤",
+    sectionMeta: "What we stand for",
+    sectionMeta_ar: "ما يهمنا",
+    eyebrow: "— Our Values",
+    eyebrow_ar: "— قيمنا",
+    heading: "What we",
+    heading_ar: "ما",
+    headingAccent: "stand for.",
+    headingAccent_ar: "يهمنا.",
     items: [
       { icon: "Heart",  title: "Human First",       title_ar: "الإنسان أولاً",
         desc: "Every feature is built around real people, not metrics. We listen to our community.",
@@ -309,10 +366,16 @@ async function seedCms() {
   await upsert('about', 'values', 'About Values', aboutValues, 4);
 
   const aboutTimeline = {
-    sectionLabel: "Our Journey",
-    sectionLabel_ar: "رحلتنا",
-    heading: "From idea to platform.",
-    heading_ar: "من فكرة إلى منصة.",
+    sectionLabel: "Journey — 06",
+    sectionLabel_ar: "الرحلة — ٠٦",
+    sectionMeta: "Our path",
+    sectionMeta_ar: "رحلتنا",
+    eyebrow: "— Our Journey",
+    eyebrow_ar: "— رحلتنا",
+    heading: "From idea",
+    heading_ar: "من فكرة",
+    headingAccent: "to platform.",
+    headingAccent_ar: "إلى منصة.",
     items: [
       { year: "2022", title: "The Idea",     title_ar: "الفكرة",
         desc: "Two friends frustrated with overpriced gyms and generic apps decided to build something better.",
@@ -329,6 +392,86 @@ async function seedCms() {
     ],
   };
   await upsert('about', 'timeline', 'About Timeline', aboutTimeline, 5);
+
+  // About-page Stats section (top of page, under hero).
+  const aboutStatsContent = {
+    sectionLabel: "— By the Numbers",
+    sectionLabel_ar: "— بالأرقام",
+    sectionMeta: "Continuous activity",
+    sectionMeta_ar: "نشاط مستمر",
+    heading: "Numbers that",
+    heading_ar: "الأرقام",
+    headingAccent: "tell the story.",
+    headingAccent_ar: "تحكي القصة.",
+    items: [
+      { value: "10K+",  label: "Active members on the platform.",      label_ar: "عضو نشط على المنصة." },
+      { value: "50+",   label: "Vetted certified coaches.",             label_ar: "كوتش معتمد بشهادات موثقة." },
+      { value: "500+",  label: "Ready-made training programs.",         label_ar: "برنامج تدريب جاهز." },
+      { value: "4.9★",  label: "App rating from athletes.",             label_ar: "تقييم التطبيق." },
+    ],
+  };
+  await upsert('about', 'stats', 'About Stats', aboutStatsContent, 2);
+
+  // About-page Mission section (text + bullets + sidebar snapshot card).
+  const aboutMission = {
+    sectionLabel: "Mission — 03",
+    sectionLabel_ar: "المهمة — ٠٣",
+    sectionMeta: "What we believe",
+    sectionMeta_ar: "ما نؤمن به",
+    eyebrow: "— Our Mission",
+    eyebrow_ar: "— مهمتنا",
+    heading: "Fitness for everyone,",
+    heading_ar: "اللياقة لكل الناس،",
+    headingAccent: "not just the privileged.",
+    headingAccent_ar: "مش بس الأثرياء.",
+    body1: "Fitway Hub was founded on one belief: everyone deserves access to expert fitness guidance. We bridge the gap between certified coaches and people who want to change their lives — regardless of budget, location, or experience level.",
+    body1_ar: "فيت واي هاب اتبنت على إيمان واحد: كل شخص يستحق وصول لتدريب احترافي. بنجسر الفجوة بين الكوتشات المعتمدين والناس اللي عايزين يغيروا حياتهم.",
+    body2: "From personalised plans built by certified coaches to live coaching sessions, every feature we build is designed to move you closer to your goal.",
+    body2_ar: "من خطط التمرين المخصصة من كوتشات معتمدين لجلسات الكوتشينج الحية، كل ميزة بنبنيها مصممة تقربك من هدفك.",
+    bullets: [
+      "Certified training by real experts",
+      "Affordable for every budget",
+      "Supportive community in Arabic & English",
+    ],
+    bullets_ar: [
+      "تدريب معتمد من خبراء حقيقيين",
+      "أسعار مناسبة لكل الميزانيات",
+      "مجتمع داعم بالعربي والإنجليزي",
+    ],
+    snapshotEyebrow: "At a glance / 03",
+    snapshotEyebrow_ar: "نظرة سريعة",
+    snapshotTitle: "Platform Snapshot",
+    snapshotTitle_ar: "ملخص المنصة",
+    snapshotRows: [
+      { emoji: "🏋️", title: "Certified Workouts", title_ar: "تمارين معتمدة", value: "500+", value_ar: "+٥٠٠" },
+      { emoji: "🧠", title: "Smart Insights",     title_ar: "رؤى ذكية",      value: "Daily", value_ar: "يومياً" },
+      { emoji: "👥", title: "Real Coaches",       title_ar: "كوتشات حقيقيين", value: "50+", value_ar: "+٥٠" },
+      { emoji: "📱", title: "Platforms",          title_ar: "أجهزة مدعومة",   value: "iOS & Android", value_ar: "iOS و Android" },
+    ],
+  };
+  await upsert('about', 'mission', 'About Mission', aboutMission, 6);
+
+  // About-page CTA banner at the bottom.
+  const aboutCtaContent = {
+    sectionLabel: "— Start Now",
+    sectionLabel_ar: "— ابدأ الآن",
+    badge: "",
+    badge_ar: "",
+    heading: "Ready to",
+    heading_ar: "مستعد",
+    headingAccent: "start your journey?",
+    headingAccent_ar: "تبدأ رحلتك؟",
+    subheading: "Join thousands of members already transforming their lives with Fitway Hub.",
+    subheading_ar: "انضم لآلاف من الأعضاء بيحولوا حياتهم مع فيت واي هاب.",
+    btnText: "Create Free Account",
+    btnText_ar: "أنشئ حساب مجاني",
+    btnLink: "/auth/register",
+    secondaryBtnText: "Contact Us",
+    secondaryBtnText_ar: "تواصل معنا",
+    secondaryBtnLink: "/contact",
+    widthMode: "boxed",
+  };
+  await upsert('about', 'cta', 'About CTA', aboutCtaContent, 8);
 
   console.log("CMS sections seeded successfully (home + about, EN + AR).");
   process.exit(0);

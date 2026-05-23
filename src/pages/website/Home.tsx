@@ -295,8 +295,8 @@ export default function HomePage() {
         <div className="fwh-con" style={{ position: "relative", width: "100%" }}>
           {/* Top meta */}
           <div className="fwh-section-meta">
-            <span>{isAr ? "منصة لياقة النخبة · إصدار ٢٠٢٦" : "ELITE FITNESS PLATFORM · V.2026"}</span>
-            <span>{isAr ? `يوم ${new Date().getDate()} · ${new Date().getFullYear()}` : `${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()} · ${new Date().getFullYear()}`}</span>
+            <span>{cms("hero", "topMetaLeft", isAr ? "منصة لياقة النخبة · إصدار ٢٠٢٦" : "ELITE FITNESS PLATFORM · V.2026")}</span>
+            <span>{cms("hero", "topMetaRight", isAr ? `يوم ${new Date().getDate()} · ${new Date().getFullYear()}` : `${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()} · ${new Date().getFullYear()}`)}</span>
           </div>
 
           {/* Eyebrow */}
@@ -441,14 +441,25 @@ export default function HomePage() {
             <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
               <span style={{ width: 32, height: 1, background: accent, display: "inline-block" }} />
               <span style={{ color: accent, textTransform: "none", letterSpacing: "0.02em", fontSize: 13, fontFamily: "var(--font-en)" }}>
-                {isAr ? "— نشاط مثالي" : "— Perfect Activity"}
+                {cms("stats", "sectionLabel", isAr ? "— نشاط مثالي" : "— Perfect Activity")}
               </span>
               <span>(04)</span>
             </span>
-            <span>{isAr ? "أرقام تحكي القصة" : "Numbers tell the story"}</span>
+            <span>{cms("stats", "sectionMeta", isAr ? "أرقام تحكي القصة" : "Numbers tell the story")}</span>
           </div>
           <h2 className="fwh-s-h" style={{ marginBottom: 56, maxWidth: 1100 }}>
-            {isAr ? <>أرقام تثبت <em className="fwh-italic">التزامنا</em>.</> : <>Numbers that prove <em className="fwh-italic">commitment</em>.</>}
+            {cmsSections.stats?.heading ? (
+              <>
+                {cms("stats", "heading", "")}
+                {cms("stats", "headingAccent", "") && (
+                  <> <em className="fwh-italic">{cms("stats", "headingAccent", "")}</em></>
+                )}
+              </>
+            ) : isAr ? (
+              <>أرقام تثبت <em className="fwh-italic">التزامنا</em>.</>
+            ) : (
+              <>Numbers that prove <em className="fwh-italic">commitment</em>.</>
+            )}
           </h2>
           <div className="fwh-stats-grid">
             {STATS.map((s, i) => (
@@ -475,7 +486,7 @@ export default function HomePage() {
               </span>
               <span>({featureItems.length.toString().padStart(2, "0")})</span>
             </span>
-            <span>{isAr ? "كفاءة شاملة" : "Complete Proficiency"}</span>
+            <span>{cms("features", "sectionMeta", isAr ? "كفاءة شاملة" : "Complete Proficiency")}</span>
           </div>
           <h2 className="fwh-s-h" style={{ marginBottom: 32, maxWidth: 1100 }}>
             {cms("features", "heading", isAr ? "كل اللي محتاجه في تطبيق واحد." : "Everything you need in one app.")}
@@ -525,14 +536,25 @@ export default function HomePage() {
             <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
               <span style={{ width: 32, height: 1, background: accent, display: "inline-block" }} />
               <span style={{ color: accent, textTransform: "none", letterSpacing: "0.02em", fontSize: 13, fontFamily: "var(--font-en)" }}>
-                {isAr ? "— كيف يعمل" : "— How It Works"}
+                {cms("steps", "sectionLabel", isAr ? "— كيف يعمل" : "— How It Works")}
               </span>
               <span>(04)</span>
             </span>
-            <span>{isAr ? "ابدأ في خطوات بسيطة" : "Start in simple steps"}</span>
+            <span>{cms("steps", "sectionMeta", isAr ? "ابدأ في خطوات بسيطة" : "Start in simple steps")}</span>
           </div>
           <h2 className="fwh-s-h" style={{ marginBottom: 56, maxWidth: 1000 }}>
-            {isAr ? <>ابدأ في <em className="fwh-italic">٤ خطوات</em>.</> : <>Start in <em className="fwh-italic">4 simple</em> steps.</>}
+            {cmsSections.steps?.heading ? (
+              <>
+                {cms("steps", "heading", "")}
+                {cms("steps", "headingAccent", "") && (
+                  <> <em className="fwh-italic">{cms("steps", "headingAccent", "")}</em></>
+                )}
+              </>
+            ) : isAr ? (
+              <>ابدأ في <em className="fwh-italic">٤ خطوات</em>.</>
+            ) : (
+              <>Start in <em className="fwh-italic">4 simple</em> steps.</>
+            )}
           </h2>
           <div style={{
             display: "grid",
@@ -568,7 +590,7 @@ export default function HomePage() {
               </span>
               <span>({TESTIMONIALS.length.toString().padStart(2, "0")})</span>
             </span>
-            <span>{isAr ? "آراء الأعضاء" : "Athlete Stories"}</span>
+            <span>{cms("testimonials", "sectionMeta", isAr ? "آراء الأعضاء" : "Athlete Stories")}</span>
           </div>
           <h2 className="fwh-s-h" style={{ marginBottom: 56, maxWidth: 1000 }}>
             {cmsSections.testimonials?.heading
@@ -659,7 +681,7 @@ export default function HomePage() {
             color: accent,
             marginBottom: 36,
           }}>
-            — {isAr ? "لنبدأ معاً" : "Let's Begin Together"}
+            — {cms("cta", "sectionLabel", isAr ? "لنبدأ معاً" : "Let's Begin Together")}
           </div>
           <h2 style={{
             fontFamily: "var(--font-heading)",

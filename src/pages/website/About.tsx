@@ -278,14 +278,25 @@ export default function AboutPage() {
             <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
               <span style={{ width: 32, height: 1, background: accent, display: "inline-block" }} />
               <span style={{ color: accent, textTransform: "none", letterSpacing: "0.02em", fontSize: 13, fontFamily: "var(--font-en)" }}>
-                {isAr ? "— بالأرقام" : "— By the Numbers"}
+                {cms("stats", "sectionLabel", isAr ? "— بالأرقام" : "— By the Numbers")}
               </span>
               <span>(02)</span>
             </span>
-            <span>{isAr ? "نشاط مستمر" : "Continuous activity"}</span>
+            <span>{cms("stats", "sectionMeta", isAr ? "نشاط مستمر" : "Continuous activity")}</span>
           </div>
           <h2 className="fwh-s-h" style={{ marginBottom: 56, maxWidth: 1000 }}>
-            {isAr ? <>الأرقام <em className="fwh-italic">تحكي</em> القصة.</> : <>Numbers that <em className="fwh-italic">tell</em> the story.</>}
+            {cmsSections.stats?.heading ? (
+              <>
+                {cms("stats", "heading", "")}
+                {cms("stats", "headingAccent", "") && (
+                  <> <em className="fwh-italic">{cms("stats", "headingAccent", "")}</em></>
+                )}
+              </>
+            ) : isAr ? (
+              <>الأرقام <em className="fwh-italic">تحكي</em> القصة.</>
+            ) : (
+              <>Numbers that <em className="fwh-italic">tell</em> the story.</>
+            )}
           </h2>
           <div className="fwh-stats-grid">
             {STATS.map((s, i) => (
@@ -304,64 +315,92 @@ export default function AboutPage() {
       <section className="fwh-section">
         <div className="fwh-con">
           <div className="fwh-section-meta">
-            <span>Mission — 03</span>
-            <span>{isAr ? "ما نؤمن به" : "What we believe"}</span>
+            <span>{cms("mission", "sectionLabel", "Mission — 03")}</span>
+            <span>{cms("mission", "sectionMeta", isAr ? "ما نؤمن به" : "What we believe")}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 1fr)", gap: 64, alignItems: "start" }} className="fwh-about-split">
             <div>
-              <div className="fwh-kicker" style={{ marginBottom: 24 }}>{isAr ? "— مهمتنا" : "— Our Mission"}</div>
+              <div className="fwh-kicker" style={{ marginBottom: 24 }}>{cms("mission", "eyebrow", isAr ? "— مهمتنا" : "— Our Mission")}</div>
               <h2 className="fwh-s-h">
-                {isAr ? <>اللياقة لكل الناس، <em className="fwh-italic">مش بس الأثرياء.</em></>
-                      : <>Fitness for everyone, <em className="fwh-italic">not just the privileged.</em></>}
+                {cmsSections.mission?.heading ? (
+                  <>
+                    {cms("mission", "heading", "")}
+                    {cms("mission", "headingAccent", "") && (
+                      <> <em className="fwh-italic">{cms("mission", "headingAccent", "")}</em></>
+                    )}
+                  </>
+                ) : isAr ? (
+                  <>اللياقة لكل الناس، <em className="fwh-italic">مش بس الأثرياء.</em></>
+                ) : (
+                  <>Fitness for everyone, <em className="fwh-italic">not just the privileged.</em></>
+                )}
               </h2>
               <p style={{ fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.7, marginTop: 28, fontWeight: 400 }}>
-                {isAr
+                {cms("mission", "body1", isAr
                   ? "فيت واي هاب اتبنت على إيمان واحد: كل شخص يستحق وصول لتدريب احترافي. بنجسر الفجوة بين الكوتشات المعتمدين والناس اللي عايزين يغيروا حياتهم."
-                  : "Fitway Hub was founded on one belief: everyone deserves access to expert fitness guidance. We bridge the gap between certified coaches and people who want to change their lives — regardless of budget, location, or experience level."}
+                  : "Fitway Hub was founded on one belief: everyone deserves access to expert fitness guidance. We bridge the gap between certified coaches and people who want to change their lives — regardless of budget, location, or experience level.")}
               </p>
               <p style={{ fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.7, marginTop: 16, fontWeight: 400 }}>
-                {isAr
+                {cms("mission", "body2", isAr
                   ? "من خطط التمرين المخصصة من كوتشات معتمدين لجلسات الكوتشينج الحية، كل ميزة بنبنيها مصممة تقربك من هدفك."
-                  : "From personalised plans built by certified coaches to live coaching sessions, every feature we build is designed to move you closer to your goal."}
+                  : "From personalised plans built by certified coaches to live coaching sessions, every feature we build is designed to move you closer to your goal.")}
               </p>
               <ul style={{ listStyle: "none", padding: 0, margin: "32px 0 0", display: "flex", flexDirection: "column", gap: 14, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
-                {[
-                  isAr ? "تدريب معتمد من خبراء حقيقيين" : "Certified training by real experts",
-                  isAr ? "أسعار مناسبة لكل الميزانيات" : "Affordable for every budget",
-                  isAr ? "مجتمع داعم بالعربي والإنجليزي" : "Supportive community in Arabic & English",
-                ].map((item, i) => (
-                  <li key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <CheckCircle size={18} strokeWidth={2.2} style={{ color: accent, flexShrink: 0 }} />
-                    <span style={{ fontSize: 15, color: "var(--text-primary)", fontWeight: 500 }}>{item}</span>
-                  </li>
-                ))}
+                {(() => {
+                  const cmsBullets = isAr
+                    ? (cmsSections.mission?.bullets_ar || cmsSections.mission?.bullets)
+                    : (cmsSections.mission?.bullets);
+                  const bullets: string[] = Array.isArray(cmsBullets) && cmsBullets.length
+                    ? cmsBullets
+                    : [
+                        isAr ? "تدريب معتمد من خبراء حقيقيين" : "Certified training by real experts",
+                        isAr ? "أسعار مناسبة لكل الميزانيات" : "Affordable for every budget",
+                        isAr ? "مجتمع داعم بالعربي والإنجليزي" : "Supportive community in Arabic & English",
+                      ];
+                  return bullets.map((item, i) => (
+                    <li key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <CheckCircle size={18} strokeWidth={2.2} style={{ color: accent, flexShrink: 0 }} />
+                      <span style={{ fontSize: 15, color: "var(--text-primary)", fontWeight: 500 }}>{item}</span>
+                    </li>
+                  ));
+                })()}
               </ul>
             </div>
             <div className="fwh-card" style={{ padding: 0 }}>
               <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
-                <div className="fwh-card-eyebrow">{isAr ? "نظرة سريعة" : "At a glance / 03"}</div>
+                <div className="fwh-card-eyebrow">{cms("mission", "snapshotEyebrow", isAr ? "نظرة سريعة" : "At a glance / 03")}</div>
                 <div className="fwh-card-title" style={{ fontSize: 22, marginTop: 6 }}>
-                  {isAr ? "ملخص المنصة" : "Platform Snapshot"}
+                  {cms("mission", "snapshotTitle", isAr ? "ملخص المنصة" : "Platform Snapshot")}
                 </div>
               </div>
-              {[
-                { emoji: "🏋️", title: isAr ? "تمارين معتمدة" : "Certified Workouts", v: liveStats.programs > 0 ? `${liveStats.programs}+` : "—" },
-                { emoji: "🧠", title: isAr ? "رؤى ذكية"      : "Smart Insights",     v: isAr ? "يومياً" : "Daily" },
-                { emoji: "👥", title: isAr ? "كوتشات حقيقيين" : "Real Coaches",       v: liveStats.coaches > 0 ? `${liveStats.coaches}+` : "—" },
-                { emoji: "📱", title: isAr ? "أجهزة مدعومة"   : "Platforms",          v: "iOS & Android" },
-              ].map((item, i, arr) => (
-                <div key={i} style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "18px 24px",
-                  borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <span style={{ fontSize: 22 }}>{item.emoji}</span>
-                    <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>{item.title}</span>
+              {(() => {
+                const cmsRows = cmsSections.mission?.snapshotRows;
+                const rows: { emoji: string; title: string; v: string }[] = Array.isArray(cmsRows) && cmsRows.length
+                  ? cmsRows.map((r: any) => ({
+                      emoji: r.emoji || "",
+                      title: isAr ? (r.title_ar || r.title || "") : (r.title || r.title_ar || ""),
+                      v:     isAr ? (r.value_ar || r.value || "") : (r.value || r.value_ar || ""),
+                    }))
+                  : [
+                      { emoji: "🏋️", title: isAr ? "تمارين معتمدة" : "Certified Workouts", v: liveStats.programs > 0 ? `${liveStats.programs}+` : "—" },
+                      { emoji: "🧠", title: isAr ? "رؤى ذكية"      : "Smart Insights",     v: isAr ? "يومياً" : "Daily" },
+                      { emoji: "👥", title: isAr ? "كوتشات حقيقيين" : "Real Coaches",       v: liveStats.coaches > 0 ? `${liveStats.coaches}+` : "—" },
+                      { emoji: "📱", title: isAr ? "أجهزة مدعومة"   : "Platforms",          v: "iOS & Android" },
+                    ];
+                return rows.map((item, i, arr) => (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "18px 24px",
+                    borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <span style={{ fontSize: 22 }}>{item.emoji}</span>
+                      <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>{item.title}</span>
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: accent, fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>{item.v}</span>
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: accent, fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>{item.v}</span>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           </div>
         </div>
@@ -373,12 +412,23 @@ export default function AboutPage() {
       <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
         <div className="fwh-con">
           <div className="fwh-section-meta">
-            <span>Values — 04</span>
-            <span>{isAr ? "ما يهمنا" : "What we stand for"}</span>
+            <span>{cms("values", "sectionLabel", "Values — 04")}</span>
+            <span>{cms("values", "sectionMeta", isAr ? "ما يهمنا" : "What we stand for")}</span>
           </div>
-          <div className="fwh-kicker" style={{ marginBottom: 24 }}>{isAr ? "— قيمنا" : "— Our Values"}</div>
+          <div className="fwh-kicker" style={{ marginBottom: 24 }}>{cms("values", "eyebrow", isAr ? "— قيمنا" : "— Our Values")}</div>
           <h2 className="fwh-s-h" style={{ marginBottom: 56, maxWidth: 1000 }}>
-            {isAr ? <>ما <em className="fwh-italic">يهمنا.</em></> : <>What we <em className="fwh-italic">stand for.</em></>}
+            {cmsSections.values?.heading ? (
+              <>
+                {cms("values", "heading", "")}
+                {cms("values", "headingAccent", "") && (
+                  <> <em className="fwh-italic">{cms("values", "headingAccent", "")}</em></>
+                )}
+              </>
+            ) : isAr ? (
+              <>ما <em className="fwh-italic">يهمنا.</em></>
+            ) : (
+              <>What we <em className="fwh-italic">stand for.</em></>
+            )}
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24 }}>
             {valueItems.map((v: any, i: number) => {
@@ -402,13 +452,23 @@ export default function AboutPage() {
       <section className="fwh-section">
         <div className="fwh-con">
           <div className="fwh-section-meta">
-            <span>Features — 05</span>
-            <span>{isAr ? "كل ما تحتاجه" : "Everything you need"}</span>
+            <span>{cms("features", "sectionLabel", "Features — 05")}</span>
+            <span>{cms("features", "sectionMeta", isAr ? "كل ما تحتاجه" : "Everything you need")}</span>
           </div>
-          <div className="fwh-kicker" style={{ marginBottom: 24 }}>{isAr ? "— الميزات" : "— Features"}</div>
+          <div className="fwh-kicker" style={{ marginBottom: 24 }}>{cms("features", "eyebrow", isAr ? "— الميزات" : "— Features")}</div>
           <h2 className="fwh-s-h" style={{ marginBottom: 40, maxWidth: 1000 }}>
-            {isAr ? <>كل اللي محتاجه <em className="fwh-italic">في مكان واحد.</em></>
-                  : <>Everything in <em className="fwh-italic">one place.</em></>}
+            {cmsSections.features?.heading ? (
+              <>
+                {cms("features", "heading", "")}
+                {cms("features", "headingAccent", "") && (
+                  <> <em className="fwh-italic">{cms("features", "headingAccent", "")}</em></>
+                )}
+              </>
+            ) : isAr ? (
+              <>كل اللي محتاجه <em className="fwh-italic">في مكان واحد.</em></>
+            ) : (
+              <>Everything in <em className="fwh-italic">one place.</em></>
+            )}
           </h2>
           <div>
             {featureItems.map((f: any, i: number) => {
@@ -450,13 +510,23 @@ export default function AboutPage() {
       <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
         <div className="fwh-con">
           <div className="fwh-section-meta">
-            <span>Journey — 06</span>
-            <span>{isAr ? "رحلتنا" : "Our path"}</span>
+            <span>{cms("timeline", "sectionLabel", "Journey — 06")}</span>
+            <span>{cms("timeline", "sectionMeta", isAr ? "رحلتنا" : "Our path")}</span>
           </div>
-          <div className="fwh-kicker" style={{ marginBottom: 24 }}>{isAr ? "— رحلتنا" : "— Our Journey"}</div>
+          <div className="fwh-kicker" style={{ marginBottom: 24 }}>{cms("timeline", "eyebrow", isAr ? "— رحلتنا" : "— Our Journey")}</div>
           <h2 className="fwh-s-h" style={{ marginBottom: 56, maxWidth: 1000 }}>
-            {isAr ? <>من فكرة <em className="fwh-italic">إلى منصة.</em></>
-                  : <>From idea <em className="fwh-italic">to platform.</em></>}
+            {cmsSections.timeline?.heading ? (
+              <>
+                {cms("timeline", "heading", "")}
+                {cms("timeline", "headingAccent", "") && (
+                  <> <em className="fwh-italic">{cms("timeline", "headingAccent", "")}</em></>
+                )}
+              </>
+            ) : isAr ? (
+              <>من فكرة <em className="fwh-italic">إلى منصة.</em></>
+            ) : (
+              <>From idea <em className="fwh-italic">to platform.</em></>
+            )}
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24 }}>
             {timelineItems.map((item: any, i: number) => (
@@ -486,17 +556,27 @@ export default function AboutPage() {
       <section className="fwh-section">
         <div className="fwh-con">
           <div className="fwh-section-meta">
-            <span>Team — 07</span>
-            <span>{isAr ? "الفريق" : "The team"}</span>
+            <span>{cms("team", "sectionLabel", "Team — 07")}</span>
+            <span>{cms("team", "sectionMeta", isAr ? "الفريق" : "The team")}</span>
           </div>
-          <div className="fwh-kicker" style={{ marginBottom: 24 }}>{isAr ? "— فريقنا" : "— Our Team"}</div>
+          <div className="fwh-kicker" style={{ marginBottom: 24 }}>{cms("team", "eyebrow", isAr ? "— فريقنا" : "— Our Team")}</div>
           <h2 className="fwh-s-h" style={{ maxWidth: 1000 }}>
-            {isAr ? <>بُني بواسطة <em className="fwh-italic">عشاق اللياقة.</em></>
-                  : <>Built by <em className="fwh-italic">fitness lovers.</em></>}
+            {cmsSections.team?.heading ? (
+              <>
+                {cms("team", "heading", "")}
+                {cms("team", "headingAccent", "") && (
+                  <> <em className="fwh-italic">{cms("team", "headingAccent", "")}</em></>
+                )}
+              </>
+            ) : isAr ? (
+              <>بُني بواسطة <em className="fwh-italic">عشاق اللياقة.</em></>
+            ) : (
+              <>Built by <em className="fwh-italic">fitness lovers.</em></>
+            )}
           </h2>
           <p style={{ fontSize: 17, color: "var(--text-secondary)", maxWidth: 640, lineHeight: 1.55, fontWeight: 400, marginTop: 16, marginBottom: 56 }}>
-            {isAr ? "فريقنا من الرياضيين والمدربين والمطورين كلهم بيؤمن بقوة اللياقة في تغيير الحياة."
-                  : "Our team of athletes, coaches, and engineers all believe in fitness's power to transform lives."}
+            {cms("team", "subheading", isAr ? "فريقنا من الرياضيين والمدربين والمطورين كلهم بيؤمن بقوة اللياقة في تغيير الحياة."
+                  : "Our team of athletes, coaches, and engineers all believe in fitness's power to transform lives.")}
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24 }}>
             {teamMembers.map((m: any, i: number) => (
@@ -570,24 +650,34 @@ export default function AboutPage() {
       <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", textAlign: "center", padding: "120px 24px" }}>
         <div className="fwh-con">
           <div className="fwh-kicker" style={{ marginBottom: 24, justifyContent: "center", display: "inline-flex" }}>
-            {isAr ? "— ابدأ الآن" : "— Start Now"}
+            {cms("cta", "sectionLabel", isAr ? "— ابدأ الآن" : "— Start Now")}
           </div>
           <h2 className="fwh-hero-h1" style={{ fontSize: "clamp(64px, 9vw, 140px)" }}>
-            {isAr ? <>مستعد <em className="fwh-italic">تبدأ رحلتك؟</em></>
-                  : <>Ready to <em className="fwh-italic">start your journey?</em></>}
+            {cmsSections.cta?.heading ? (
+              <>
+                {cms("cta", "heading", "")}
+                {cms("cta", "headingAccent", "") && (
+                  <> <em className="fwh-italic">{cms("cta", "headingAccent", "")}</em></>
+                )}
+              </>
+            ) : isAr ? (
+              <>مستعد <em className="fwh-italic">تبدأ رحلتك؟</em></>
+            ) : (
+              <>Ready to <em className="fwh-italic">start your journey?</em></>
+            )}
           </h2>
           <p className="fwh-hero-sub" style={{ margin: "20px auto 0", maxWidth: 580 }}>
-            {isAr
+            {cms("cta", "subheading", isAr
               ? `انضم لـ ${liveStats.members > 0 ? liveStats.members.toLocaleString() + "+" : "آلاف من الأعضاء"} بيحولوا حياتهم مع فيت واي هاب.`
-              : `Join ${liveStats.members > 0 ? liveStats.members.toLocaleString() + "+" : "thousands of"} members already transforming their lives with Fitway Hub.`}
+              : `Join ${liveStats.members > 0 ? liveStats.members.toLocaleString() + "+" : "thousands of"} members already transforming their lives with Fitway Hub.`)}
           </p>
           <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginTop: 40 }}>
-            <button className="fwh-btn" onClick={() => navigate("/auth/register")}>
-              {isAr ? "أنشئ حساب مجاني" : "Create Free Account"}
+            <button className="fwh-btn" onClick={() => navigate(cmsSections.cta?.btnLink || "/auth/register")}>
+              {cms("cta", "btnText", isAr ? "أنشئ حساب مجاني" : "Create Free Account")}
               <span className="fwh-btn-arr"><ArrowRight size={14} /></span>
             </button>
-            <button className="fwh-btn-outline" onClick={() => navigate("/contact")}>
-              <span>{isAr ? "تواصل معنا" : "Contact Us"}</span>
+            <button className="fwh-btn-outline" onClick={() => navigate(cmsSections.cta?.secondaryBtnLink || "/contact")}>
+              <span>{cms("cta", "secondaryBtnText", isAr ? "تواصل معنا" : "Contact Us")}</span>
               <span className="fwh-btn-outline-arr">↗</span>
             </button>
           </div>
