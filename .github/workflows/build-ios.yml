@@ -69,8 +69,14 @@ jobs:
         run: pod install --repo-update
 
       # ── Decide which path to take based on which secrets exist ────────
+      # Each HAS_* env is the literal string "true" when the secret is set,
+      # otherwise "false". We default `signed` to false and only flip it on
+      # when all six are present. set +e here so a failed test in the
+      # compound expression can't take down the whole workflow (was the
+      # cause of the cryptic 0s exit-1 failures users saw historically).
       - name: Detect signing configuration
         id: signing
+        shell: bash
         env:
           HAS_P12: ${{ secrets.IOS_P12_BASE64 != '' }}
           HAS_PASSWORD: ${{ secrets.IOS_P12_PASSWORD != '' }}
@@ -79,15 +85,18 @@ jobs:
           HAS_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY != '' }}
           HAS_TEAM_ID: ${{ secrets.APPSTORE_TEAM_ID != '' }}
         run: |
-          if [ "$HAS_P12" = "true" ] && [ "$HAS_PASSWORD" = "true" ] && \
-             [ "$HAS_ISSUER_ID" = "true" ] && [ "$HAS_KEY_ID" = "true" ] && \
-             [ "$HAS_PRIVATE_KEY" = "true" ] && [ "$HAS_TEAM_ID" = "true" ]; then
-            echo "signed=true" >> "$GITHUB_OUTPUT"
+          set +e
+          SIGNED=false
+          if [ "$HAS_P12" = "true" ] && [ "$HAS_PASSWORD" = "true" ] && [ "$HAS_ISSUER_ID" = "true" ] && [ "$HAS_KEY_ID" = "true" ] && [ "$HAS_PRIVATE_KEY" = "true" ] && [ "$HAS_TEAM_ID" = "true" ]; then
+            SIGNED=true
+          fi
+          echo "signed=$SIGNED" >> "$GITHUB_OUTPUT"
+          if [ "$SIGNED" = "true" ]; then
             echo "All signing secrets present — building a signed .ipa for device/TestFlight"
           else
-            echo "signed=false" >> "$GITHUB_OUTPUT"
             echo "Signing secrets missing — falling back to unsigned simulator build"
           fi
+          exit 0
 
       # ─────────────────────────── SIGNED DEVICE BUILD ─────────────────
       - name: Import code-signing certs
@@ -177,8 +186,11 @@ jobs:
             -scheme App \
             -configuration Release \
             -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             build
 
       - name: Package .app bundle
