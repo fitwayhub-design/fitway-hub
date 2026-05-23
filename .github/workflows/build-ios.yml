@@ -176,8 +176,16 @@ jobs:
           path: mobile-app/ios/App/build/ipa/*.ipa
           if-no-files-found: error
 
-      # ─────────────────────── UNSIGNED SIMULATOR FALLBACK ────────────
-      - name: Build unsigned app (simulator)
+      # ─────────────── UNSIGNED DEVICE IPA (no secrets needed) ────────
+      # Builds the .app for the real iOS device SDK (iphoneos) with code
+      # signing fully disabled, then wraps it in a Payload/ folder and
+      # zips it as a .ipa. The resulting file is NOT App-Store-installable
+      # and won't launch on a stock device on its own — but it IS the
+      # correct format for re-signing tools like AltStore, Sideloadly,
+      # Xcode "Devices and Simulators", or TrollStore on supported devices.
+      # That's the standard workflow for distributing an iOS build without
+      # holding Apple signing credentials in CI.
+      - name: Build unsigned app (device)
         if: steps.signing.outputs.signed == 'false'
         working-directory: mobile-app/ios/App
         run: |
@@ -185,26 +193,38 @@ jobs:
             -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            EXPANDED_CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             build
 
-      - name: Package .app bundle
+      - name: Package unsigned IPA
         if: steps.signing.outputs.signed == 'false'
         working-directory: mobile-app/ios/App
         run: |
-          mkdir -p build/output
-          cp -R build/Build/Products/Release-iphonesimulator/App.app build/output/
-          cd build/output && zip -r App.app.zip App.app
+          APP_PATH="build/Build/Products/Release-iphoneos/App.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "::error::Expected $APP_PATH not found"
+            ls -R build/Build/Products || true
+            exit 1
+          fi
+          mkdir -p build/output/Payload
+          cp -R "$APP_PATH" build/output/Payload/
+          cd build/output
+          zip -qr FitWayHub-unsigned.ipa Payload
+          ls -lh FitWayHub-unsigned.ipa
 
-      - name: Upload .app artifact (unsigned)
+      - name: Upload unsigned IPA
         if: steps.signing.outputs.signed == 'false'
         uses: actions/upload-artifact@v4
         with:
-          name: app-ios-simulator
-          path: mobile-app/ios/App/build/output/App.app.zip
+          name: app-ios-ipa-unsigned
+          path: mobile-app/ios/App/build/output/FitWayHub-unsigned.ipa
           if-no-files-found: error
