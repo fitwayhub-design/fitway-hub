@@ -21,10 +21,14 @@ on:
 #       APPSTORE_PRIVATE_KEY  full contents of the .p8 key file
 #       APPSTORE_TEAM_ID      your 10-character Apple Team ID
 #
-# 2) UNSIGNED SIMULATOR FALLBACK — runs when any of those secrets is missing.
-#    Produces an unsigned App.app.zip for the iOS Simulator. Same artifact
-#    this workflow has produced historically; useful for local QA in
-#    Simulator.app without any signing setup.
+# 2) UNSIGNED DEVICE IPA — runs when any of those secrets is missing.
+#    Produces FitWayHub-unsigned.ipa (the proper device .ipa container,
+#    a zip with Payload/App.app/ inside). Stock iOS will not launch it
+#    on its own, but it's the format expected by re-signing tools like
+#    AltStore, SideStore, Sideloadly, Apple Configurator 2, and Xcode's
+#    "Devices and Simulators → Install from .ipa". This is the standard
+#    way to ship an iOS build without holding Apple signing credentials
+#    in CI.
 
 jobs:
   build:
