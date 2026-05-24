@@ -204,10 +204,14 @@ export function SharedSidebar({
         flexShrink: 0,
       }}>
         {sidebarCollapsed ? (
-          <img src={favicon} alt={logoLabel} style={{ width: 36, height: 36, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
+          <Link to={homePath} aria-label="Home" style={{ display: "flex", flexShrink: 0 }}>
+            <img src={favicon} alt={logoLabel} style={{ width: 36, height: 36, borderRadius: 8, objectFit: "contain" }} />
+          </Link>
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", flex: 1 }}>
-            <img src={logoUrl || "/logo.svg"} alt={logoLabel} style={{ height: 30, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
+            <Link to={homePath} aria-label="Home" style={{ display: "flex", flexShrink: 0 }}>
+              <img src={logoUrl || "/logo.svg"} alt={logoLabel} style={{ height: 30, borderRadius: 8, objectFit: "contain" }} />
+            </Link>
           </div>
         )}
         <button
@@ -241,17 +245,24 @@ export function SharedSidebar({
         <div onClick={() => setDrawerOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 55, backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }} />
       )}
       <aside style={{
-        position: "fixed", top: 0, insetInlineStart: 0, bottom: 0,
+        position: "fixed", top: 0, insetInlineStart: 0,
+        // Stop above the floating bottom-nav pill so the two don't overlap.
+        // Pill height (~54px) + outer padding (12px) + the device's safe-area
+        // — keep this in sync with the nav's own padding below.
+        bottom: "calc(78px + env(safe-area-inset-bottom))",
         width: 270, zIndex: 60,
         backgroundColor: "var(--bg-surface)",
         borderInlineEnd: "1px solid var(--border)",
+        borderEndEndRadius: 16, borderEndStartRadius: 16,
         display: "flex", flexDirection: "column",
         transform: drawerOpen ? "translateX(0)" : (isRtl ? "translateX(100%)" : "translateX(-100%)"),
         transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
         boxShadow: drawerOpen ? "4px 0 40px rgba(0,0,0,0.4)" : "none",
       }}>
         <div style={{ height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-          <img src={logoUrl || "/logo.svg"} alt={logoLabel} style={{ height: 28, borderRadius: 8, objectFit: "contain" }} />
+          <Link to={homePath} onClick={() => setDrawerOpen(false)} aria-label="Home" style={{ display: "flex" }}>
+            <img src={logoUrl || "/logo.svg"} alt={logoLabel} style={{ height: 28, borderRadius: 8, objectFit: "contain" }} />
+          </Link>
           <button onClick={() => setDrawerOpen(false)} style={{ width: 34, height: 34, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text-secondary)" }}>
             <X size={16} />
           </button>
@@ -299,7 +310,9 @@ export function SharedSidebar({
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points={isRtl ? "9 18 15 12 9 6" : "15 18 9 12 15 6"}/></svg>
             </button>
           )}
-          <img src={logoUrl || "/logo.svg"} alt={logoLabel} style={{ height: 26, borderRadius: 8, objectFit: "contain" }} />
+          <Link to={homePath} aria-label="Home" style={{ display: "flex" }}>
+            <img src={logoUrl || "/logo.svg"} alt={logoLabel} style={{ height: 26, borderRadius: 8, objectFit: "contain" }} />
+          </Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {notificationPath && (

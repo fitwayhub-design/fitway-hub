@@ -124,17 +124,20 @@ export default function Login() {
           pointerEvents: "none",
         }} />
 
-        {/* Logo */}
-        {brandLogo ? (
-          <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} style={{ height: 38, borderRadius: 8, objectFit: "contain", alignSelf: "flex-start" }} />
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ backgroundColor: "var(--accent)", width: 32, height: 32, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Activity size={18} color="#000000" />
+        {/* Logo — links to the marketing site home so visitors who landed
+            on /auth/login can navigate back to the public site. */}
+        <Link to="/" aria-label="Home" style={{ alignSelf: "flex-start", display: "flex", textDecoration: "none", color: "inherit" }}>
+          {brandLogo ? (
+            <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} style={{ height: 38, borderRadius: 8, objectFit: "contain" }} />
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ backgroundColor: "var(--accent)", width: 32, height: 32, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Activity size={18} color="#000000" />
+              </div>
+              <span style={{ fontFamily: "var(--font-en)", fontSize: 20, fontWeight: 700, letterSpacing: "0.04em" }}>{branding.app_name || t("fitway_hub")}</span>
             </div>
-            <span style={{ fontFamily: "var(--font-en)", fontSize: 20, fontWeight: 700, letterSpacing: "0.04em" }}>{branding.app_name || t("fitway_hub")}</span>
-          </div>
-        )}
+          )}
+        </Link>
 
         {/* Quote block */}
         <div>
@@ -169,8 +172,8 @@ export default function Login() {
             <ArrowLeft size={14} /> {t("back")}
           </button>
 
-          {/* Mobile logo */}
-          <div className="lg:hidden" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
+          {/* Mobile logo — also links back to the public homepage. */}
+          <Link to="/" aria-label="Home" className="lg:hidden" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32, textDecoration: "none", color: "inherit" }}>
             {brandLogo ? (
               <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} style={{ height: 32, borderRadius: 8, objectFit: "contain" }} />
             ) : (
@@ -181,7 +184,7 @@ export default function Login() {
                 <span style={{ fontFamily: "var(--font-en)", fontSize: 18, fontWeight: 700 }}>{branding.app_name || t("fitway_hub")}</span>
               </>
             )}
-          </div>
+          </Link>
 
           <h1 style={{ fontFamily: "var(--font-en)", fontSize: 28, fontWeight: 700, marginBottom: 6 }}>{t("welcome_back")}</h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 32 }}>{t("sign_in_continue")}</p>
