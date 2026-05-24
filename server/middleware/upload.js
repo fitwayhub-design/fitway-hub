@@ -40,11 +40,14 @@ export async function uploadToR2(file, folder = 'uploads') {
         }));
         return `${process.env.R2_PUBLIC_URL}/${key}`;
     }
-    // Local disk fallback — saves to <project-root>/uploads/<folder>/
+    // Local disk fallback — saves to <project-root>/uploads/<folder>/.
+    // Returns an absolute URL pinned to APP_BASE_URL so the same URL works
+    // from any client (website on any device, native mobile app, cross-origin
+    // viewers). Falls back to a root-relative URL when APP_BASE_URL is unset.
     const uploadDir = path.join(__dirname, '..', '..', 'uploads', folder);
     fs.mkdirSync(uploadDir, { recursive: true });
     fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
-    const baseUrl = (process.env.APP_BASE_URL || '').replace(/\/$/, '');
+    const baseUrl = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
     return `${baseUrl}/uploads/${folder}/${filename}`;
 }
 // ── All multer instances use memory storage ───────────────────────────────────
