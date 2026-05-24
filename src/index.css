@@ -151,7 +151,14 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.45;
   transition: background-color var(--motion-base) var(--ease-out-soft), color var(--motion-base) var(--ease-out-soft);
-  overflow-x: hidden;
+  /* `clip` (not `hidden`) — hidden upgrades body's implicit overflow-y to
+     `auto`, which turns BODY into its own scroll container and steals the
+     viewport scroller. On macOS Chrome that silently breaks trackpad scroll
+     (no visible scrollbar by default), so long pages like /auth/register
+     can't be scrolled to reveal the Sign-in link at the bottom. `clip`
+     clips overflow without becoming a scroll container, keeping HTML as
+     the single root scroller. */
+  overflow-x: clip;
 }
 
 body {
@@ -543,7 +550,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 ═══════════════════════════════════════════════════════════ */
 main { overflow-x: clip !important; min-width: 0 !important; max-width: 100vw; }
 main > div { max-width: 100% !important; overflow-x: clip; }
-#root { overflow-x: hidden; }
+#root { overflow-x: clip; }
 
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
