@@ -66,6 +66,149 @@ router.get('/my-videos', authenticateToken, coachOrAdmin, async (req: any, res: 
   }
 });
 
+// ── Engagement ────────────────────────────────────────────────────────────────
+// Per-user state in one round-trip so the Workouts page can render the saved /
+// liked / progress badges on first paint without N follow-up requests.
+router.get('/me', authenticateToken, async (req: any, res: any) => {
+  try {
+    const [saves, likes, progress] = await Promise.all([
+      query('SELECT video_id FROM video_saves WHERE user_id = ?', [req.user.id]),
+      query('SELECT video_id FROM video_likes WHERE user_id = ?', [req.user.id]),
+      query(
+        `SELECT video_id, position_seconds, duration_seconds, completed, updated_at
+         FROM video_progress WHERE user_id = ?
+         ORDER BY updated_at DESC`,
+        [req.user.id]
+      ),
+    ]);
+    res.json({
+      saved_ids: (saves as any[]).map(r => r.video_id),
+      liked_ids: (likes as any[]).map(r => r.video_id),
+      progress: progress as any[],
+    });
+  } catch (err) {
+    console.error('GET /workouts/me failed:', err);
+    res.status(500).json({ message: 'Failed to fetch engagement state' });
+  }
+});
+
+// Record a view. Idempotent enough — clients should call once per "open" of
+// the player. We insert a timestamped row AND bump the denormalised counter
+// so `/shorties` can sort by all-time popularity in O(1).
+router.post('/videos/:id/view', authenticateToken, async (req: any, res: any) => {
+  const videoId = Number(req.params.id);
+  if (!videoId) return res.status(400).json({ message: 'Invalid video id' });
+  try {
+    await run(
+      'INSERT INTO video_views (video_id, user_id) VALUES (?, ?)',
+      [videoId, req.user.id]
+    );
+    await run('UPDATE workout_videos SET views_count = views_count + 1 WHERE id = ?', [videoId]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to record view' });
+  }
+});
+
+// Toggle a like. Returns the new state + denormalised count so the client
+// can update its UI without a second fetch.
+router.post('/videos/:id/like', authenticateToken, async (req: any, res: any) => {
+  const videoId = Number(req.params.id);
+  if (!videoId) return res.status(400).json({ message: 'Invalid video id' });
+  try {
+    const existing = await get<any>(
+      'SELECT 1 FROM video_likes WHERE user_id = ? AND video_id = ?',
+      [req.user.id, videoId]
+    );
+    if (existing) {
+      await run('DELETE FROM video_likes WHERE user_id = ? AND video_id = ?', [req.user.id, videoId]);
+      await run('UPDATE workout_videos SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = ?', [videoId]);
+    } else {
+      await run('INSERT INTO video_likes (user_id, video_id) VALUES (?, ?)', [req.user.id, videoId]);
+      await run('UPDATE workout_videos SET likes_count = likes_count + 1 WHERE id = ?', [videoId]);
+    }
+    const v = await get<any>('SELECT likes_count FROM workout_videos WHERE id = ?', [videoId]);
+    res.json({ liked: !existing, likes_count: v?.likes_count ?? 0 });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to toggle like' });
+  }
+});
+
+// Toggle a save (private bookmark). Server-backed so favorites sync across
+// devices, replacing the previous localStorage-only implementation.
+router.post('/videos/:id/save', authenticateToken, async (req: any, res: any) => {
+  const videoId = Number(req.params.id);
+  if (!videoId) return res.status(400).json({ message: 'Invalid video id' });
+  try {
+    const existing = await get<any>(
+      'SELECT 1 FROM video_saves WHERE user_id = ? AND video_id = ?',
+      [req.user.id, videoId]
+    );
+    if (existing) {
+      await run('DELETE FROM video_saves WHERE user_id = ? AND video_id = ?', [req.user.id, videoId]);
+    } else {
+      await run('INSERT INTO video_saves (user_id, video_id) VALUES (?, ?)', [req.user.id, videoId]);
+    }
+    res.json({ saved: !existing });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to toggle save' });
+  }
+});
+
+// Upsert playback progress. The client sends position/duration every ~5s.
+// Server flips `completed` once the user watches past 90% so we can hide
+// finished workouts from "Continue watching".
+router.post('/videos/:id/progress', authenticateToken, async (req: any, res: any) => {
+  const videoId = Number(req.params.id);
+  const position = Math.max(0, Math.floor(Number(req.body?.position_seconds) || 0));
+  const duration = Math.max(0, Math.floor(Number(req.body?.duration_seconds) || 0));
+  if (!videoId) return res.status(400).json({ message: 'Invalid video id' });
+  try {
+    const completed = duration > 0 && position / duration >= 0.9 ? 1 : 0;
+    await run(
+      `INSERT INTO video_progress (user_id, video_id, position_seconds, duration_seconds, completed)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         position_seconds = VALUES(position_seconds),
+         duration_seconds = GREATEST(duration_seconds, VALUES(duration_seconds)),
+         completed = GREATEST(completed, VALUES(completed))`,
+      [req.user.id, videoId, position, duration, completed]
+    );
+    res.json({ ok: true, completed: !!completed });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to save progress' });
+  }
+});
+
+// Trending shorts — last 7 days of views, falling back to all-time popularity
+// then recency for ties / cold-start. Returns the full short rows so the
+// client can render the featured hero without a second fetch.
+router.get('/shorties/trending', authenticateToken, async (req: any, res: any) => {
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 5, 1), 20);
+    const videos = await query(
+      `SELECT wv.*, u.name AS coach_name,
+              COALESCE(recent.recent_views, 0) AS recent_views
+       FROM workout_videos wv
+       LEFT JOIN users u ON u.id = wv.coach_id
+       LEFT JOIN (
+         SELECT video_id, COUNT(*) AS recent_views
+         FROM video_views
+         WHERE viewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+         GROUP BY video_id
+       ) recent ON recent.video_id = wv.id
+       WHERE wv.is_short = 1
+         AND COALESCE(wv.approval_status, 'approved') = 'approved'
+       ORDER BY recent.recent_views DESC, wv.views_count DESC, wv.created_at DESC
+       LIMIT ?`,
+      [limit]
+    );
+    res.json({ videos });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch trending shorts' });
+  }
+});
+
 router.post('/videos/submissions', authenticateToken, coachOrAdmin, requireActiveCoachMembershipForDeals, uploadVideo.fields([
   { name: 'video', maxCount: 1 },
   { name: 'thumbnail', maxCount: 1 }

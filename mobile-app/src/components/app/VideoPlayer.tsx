@@ -47,6 +47,18 @@ interface VideoPlayerProps {
   height?: number | string;
   style?: CSSProperties;
   autoPlay?: boolean;
+  /**
+   * Resume position in seconds. Set on the <video> element on mount so the
+   * native HTML5 player picks up where the user left off. YouTube iframes
+   * don't honour this without the IFrame API, which we don't load here.
+   */
+  startAt?: number;
+  /**
+   * Fired on `timeupdate` (~every 250ms on most browsers) with the current
+   * playback position and total duration. Only emitted for native <video>;
+   * YouTube iframes don't expose playback time without the IFrame API.
+   */
+  onProgress?: (positionSeconds: number, durationSeconds: number) => void;
 }
 
 export default function VideoPlayer({
@@ -55,6 +67,8 @@ export default function VideoPlayer({
   height = 280,
   style,
   autoPlay = false,
+  startAt,
+  onProgress,
 }: VideoPlayerProps) {
   if (!url) return null;
 
@@ -89,6 +103,18 @@ export default function VideoPlayer({
       src={url}
       controls
       autoPlay={autoPlay}
+      onLoadedMetadata={(e) => {
+        const el = e.currentTarget;
+        if (startAt && startAt > 0 && Number.isFinite(el.duration) && startAt < el.duration - 1) {
+          el.currentTime = startAt;
+        }
+      }}
+      onTimeUpdate={(e) => {
+        if (!onProgress) return;
+        const el = e.currentTarget;
+        const dur = Number.isFinite(el.duration) ? el.duration : 0;
+        onProgress(el.currentTime || 0, dur);
+      }}
       style={{ ...baseStyle, maxHeight: height }}
     />
   );

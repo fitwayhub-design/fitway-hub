@@ -1,11 +1,11 @@
 import { getApiBase, resolveAssetUrl } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import {
   Play, Search, Clock, ChevronRight, X, BookmarkCheck, Sparkles,
-  SlidersHorizontal, Flame, Zap, User, TrendingUp,
+  SlidersHorizontal, Flame, Zap, User, TrendingUp, Heart, Eye,
 } from "lucide-react";
 import VideoPlayer from "@/components/app/VideoPlayer";
 
@@ -21,8 +21,18 @@ interface Video {
   level?: string | null;
   coach_id?: number | null;
   coach_name?: string | null;
+  views_count?: number;
+  likes_count?: number;
   created_at?: string;
   completed?: boolean;
+}
+
+interface VideoProgress {
+  video_id: number;
+  position_seconds: number;
+  duration_seconds: number;
+  completed: number;
+  updated_at: string;
 }
 
 const CAT_COLORS: Record<string, string> = {
@@ -74,6 +84,22 @@ const WORKOUT_TYPES = [
 type SortMode = "newest" | "shortest" | "longest";
 type Mode = "long" | "short";
 
+/* Compact relative time for the "Continue watching" strip — "5m ago",
+   "2h ago", "yesterday". Drops back to a date once it's older than a week
+   so we don't grow a long "16 days ago" tail. */
+function formatRelative(d: Date): string {
+  const diffMs = Date.now() - d.getTime();
+  const m = Math.floor(diffMs / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const days = Math.floor(h / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString();
+}
+
 /* Tiny helper for a chip row. Single-select with an "All" reset chip. */
 function ChipRow<T extends { value: string; label: string }>({
   label, items, value, onChange,
@@ -117,8 +143,10 @@ export default function Workouts() {
   const { t } = useI18n();
   const [longs, setLongs] = useState<Video[]>([]);
   const [shorts, setShorts] = useState<Video[]>([]);
-  const [completedIds, setCompletedIds] = useState<Set<number>>(new Set());
+  const [trendingShorts, setTrendingShorts] = useState<Video[]>([]);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
+  const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
+  const [progressMap, setProgressMap] = useState<Map<number, VideoProgress>>(new Map());
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [searching, setSearching] = useState(false);
@@ -134,41 +162,163 @@ export default function Workouts() {
   const [fLevel, setFLevel] = useState("");
   const [fType, setFType] = useState("");
 
+  /* Last-known position for the currently-playing video, in seconds. Mirrored
+     in state so the player can resume on mount, and in a ref so the throttle
+     loop doesn't trigger re-renders 4x/second. */
+  const playingProgressRef = useRef<{ position: number; duration: number; lastSyncedAt: number }>({
+    position: 0, duration: 0, lastSyncedAt: 0,
+  });
+  /* Videos we've already counted a view for in this session, so opening the
+     same workout twice doesn't double-count. */
+  const viewedThisSessionRef = useRef<Set<number>>(new Set());
+
+  const apiCall = (path: string, init?: RequestInit) =>
+    fetch(`${getApiBase()}${path}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${token}`, ...(init?.headers || {}) },
+    });
+
   const loadWorkouts = () => {
     if (!token) return;
-    const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
-      fetch(`${getApiBase()}/api/workouts/videos`, { headers }).then(r => r.json()).catch(() => ({ videos: [] })),
-      fetch(`${getApiBase()}/api/workouts/shorties`, { headers }).then(r => r.json()).catch(() => ({ videos: [] })),
-    ]).then(([l, s]) => {
+      apiCall('/api/workouts/videos').then(r => r.json()).catch(() => ({ videos: [] })),
+      apiCall('/api/workouts/shorties').then(r => r.json()).catch(() => ({ videos: [] })),
+      apiCall('/api/workouts/shorties/trending?limit=5').then(r => r.ok ? r.json() : { videos: [] }).catch(() => ({ videos: [] })),
+      apiCall('/api/workouts/me').then(r => r.ok ? r.json() : { saved_ids: [], liked_ids: [], progress: [] }).catch(() => ({ saved_ids: [], liked_ids: [], progress: [] })),
+    ]).then(([l, s, t, me]) => {
       setLongs(l.videos || []);
       setShorts(s.videos || []);
+      setTrendingShorts(t.videos || []);
+      setSavedIds(new Set((me.saved_ids || []).map((id: any) => Number(id))));
+      setLikedIds(new Set((me.liked_ids || []).map((id: any) => Number(id))));
+      const pm = new Map<number, VideoProgress>();
+      for (const p of (me.progress || []) as VideoProgress[]) {
+        pm.set(Number(p.video_id), { ...p, video_id: Number(p.video_id) });
+      }
+      setProgressMap(pm);
       setLoading(false);
     });
-    // Best-effort fetch of completed video IDs (endpoint may not exist on every install).
-    fetch(`${getApiBase()}/api/workouts/completed`, { headers })
-      .then(r => r.ok ? r.json() : { ids: [] })
-      .then(d => setCompletedIds(new Set((d?.ids || d?.completed || []).map((x: any) => Number(x.id || x)))))
-      .catch(() => { /* silent */ });
-    // Restore client-side saved set. There is no server-side endpoint yet, so
-    // saved videos live in localStorage; this still gives users a way to come
-    // back to a workout without re-searching.
-    try {
-      const raw = localStorage.getItem("fitway_saved_videos");
-      if (raw) setSavedIds(new Set(JSON.parse(raw)));
-    } catch { /* ignore */ }
   };
 
   useEffect(() => { loadWorkouts(); }, [token]);
   useAutoRefresh(loadWorkouts);
 
-  const toggleSaved = (id: number) => {
+  /* Toggle a save on the server with optimistic UI. */
+  const toggleSaved = async (id: number) => {
+    const wasSaved = savedIds.has(id);
     setSavedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      try { localStorage.setItem("fitway_saved_videos", JSON.stringify([...next])); } catch { /* ignore */ }
+      if (wasSaved) next.delete(id); else next.add(id);
       return next;
     });
+    try {
+      const r = await apiCall(`/api/workouts/videos/${id}/save`, { method: 'POST' });
+      if (!r.ok) throw new Error('save failed');
+    } catch {
+      // Roll back on failure so the UI doesn't lie about server state.
+      setSavedIds(prev => {
+        const next = new Set(prev);
+        if (wasSaved) next.add(id); else next.delete(id);
+        return next;
+      });
+    }
+  };
+
+  const toggleLiked = async (id: number) => {
+    const wasLiked = likedIds.has(id);
+    setLikedIds(prev => {
+      const next = new Set(prev);
+      if (wasLiked) next.delete(id); else next.add(id);
+      return next;
+    });
+    // Optimistically bump the visible counter.
+    const bump = wasLiked ? -1 : 1;
+    setShorts(prev => prev.map(v => v.id === id ? { ...v, likes_count: Math.max(0, (v.likes_count || 0) + bump) } : v));
+    setLongs(prev => prev.map(v => v.id === id ? { ...v, likes_count: Math.max(0, (v.likes_count || 0) + bump) } : v));
+    try {
+      const r = await apiCall(`/api/workouts/videos/${id}/like`, { method: 'POST' });
+      if (!r.ok) throw new Error('like failed');
+      const data = await r.json();
+      // Reconcile with the server's authoritative count.
+      setShorts(prev => prev.map(v => v.id === id ? { ...v, likes_count: data.likes_count } : v));
+      setLongs(prev => prev.map(v => v.id === id ? { ...v, likes_count: data.likes_count } : v));
+    } catch {
+      setLikedIds(prev => {
+        const next = new Set(prev);
+        if (wasLiked) next.add(id); else next.delete(id);
+        return next;
+      });
+      setShorts(prev => prev.map(v => v.id === id ? { ...v, likes_count: Math.max(0, (v.likes_count || 0) - bump) } : v));
+      setLongs(prev => prev.map(v => v.id === id ? { ...v, likes_count: Math.max(0, (v.likes_count || 0) - bump) } : v));
+    }
+  };
+
+  /* Open a video — record a view (deduped per session) and seed the resume
+     position from server progress. The actual time-update sync happens inside
+     the player onProgress callback below. */
+  const openPlayer = (v: Video) => {
+    setPlaying(v);
+    const prior = progressMap.get(v.id);
+    playingProgressRef.current = {
+      position: prior?.position_seconds || 0,
+      duration: prior?.duration_seconds || Number(v.duration_seconds || 0),
+      lastSyncedAt: 0,
+    };
+    if (!viewedThisSessionRef.current.has(v.id)) {
+      viewedThisSessionRef.current.add(v.id);
+      // Optimistic local bump.
+      setShorts(prev => prev.map(x => x.id === v.id ? { ...x, views_count: (x.views_count || 0) + 1 } : x));
+      setLongs(prev => prev.map(x => x.id === v.id ? { ...x, views_count: (x.views_count || 0) + 1 } : x));
+      apiCall(`/api/workouts/videos/${v.id}/view`, { method: 'POST' }).catch(() => { /* silent */ });
+    }
+  };
+
+  /* Throttle progress sync to once every 5s. The HTML5 timeupdate event fires
+     roughly 4x/second — without throttling we'd hammer the server. */
+  const handleProgress = (position: number, duration: number) => {
+    if (!playing) return;
+    playingProgressRef.current.position = position;
+    if (duration > 0) playingProgressRef.current.duration = duration;
+    const now = Date.now();
+    if (now - playingProgressRef.current.lastSyncedAt < 5000) return;
+    playingProgressRef.current.lastSyncedAt = now;
+    syncProgress(playing.id, position, duration);
+  };
+
+  const syncProgress = async (videoId: number, position: number, duration: number) => {
+    const pos = Math.max(0, Math.floor(position));
+    const dur = Math.max(0, Math.floor(duration));
+    // Update local map immediately so "Continue watching" reflects reality on
+    // the next render without waiting for the round-trip.
+    setProgressMap(prev => {
+      const next = new Map(prev);
+      const existing = next.get(videoId);
+      next.set(videoId, {
+        video_id: videoId,
+        position_seconds: pos,
+        duration_seconds: Math.max(existing?.duration_seconds || 0, dur),
+        completed: (dur > 0 && pos / dur >= 0.9) ? 1 : (existing?.completed || 0),
+        updated_at: new Date().toISOString(),
+      });
+      return next;
+    });
+    try {
+      await apiCall(`/api/workouts/videos/${videoId}/progress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position_seconds: pos, duration_seconds: dur }),
+      });
+    } catch { /* silent */ }
+  };
+
+  /* On player close, flush whatever the last position was so we don't lose
+     the final few seconds the throttle skipped. */
+  const closePlayer = () => {
+    if (playing) {
+      const { position, duration } = playingProgressRef.current;
+      if (position > 0) syncProgress(playing.id, position, duration);
+    }
+    setPlaying(null);
   };
 
   const activeFilterCount =
@@ -206,25 +356,33 @@ export default function Workouts() {
     return arr;
   }, [filtered, sort]);
 
-  /* "Continue watching" — most recently watched long videos that the user has
-     interacted with. We don't track progress in seconds yet, so this surfaces
-     completed long videos so the user can re-do them. The Shorts feed picks
-     trending = newest. */
-  const continueList = useMemo(
-    () => longs.filter(v => completedIds.has(v.id)).slice(0, 6),
-    [longs, completedIds]
-  );
+  /* "Continue watching" — long videos the user has actual progress on but
+     hasn't finished. Sorted by last-watched so the most recent session is
+     surfaced first. Completed workouts drop off so the strip stays
+     genuinely useful instead of repeating finished items. */
+  const continueList = useMemo(() => {
+    return longs
+      .map(v => ({ v, p: progressMap.get(v.id) }))
+      .filter(({ p }) => p && !p.completed && p.position_seconds > 5)
+      .sort((a, b) => (b.p!.updated_at || "").localeCompare(a.p!.updated_at || ""))
+      .slice(0, 6)
+      .map(({ v }) => v);
+  }, [longs, progressMap]);
 
-  /* Featured pick: for long-form we recommend by goal/level match, for shorts
-     we surface the newest one as "trending this week". */
+  /* Helper used in a couple of places to pull progress out of the map. */
+  const progressFor = (id: number) => progressMap.get(id);
+
+  /* Featured pick: shorts use the server's trending-by-recent-views ordering,
+     long-form recommends an unstarted goal/level match (falling back to the
+     newest video on cold start). */
   const featured = useMemo<Video | null>(() => {
     if (mode === "short") {
-      return shorts[0] || null;
+      return trendingShorts[0] || shorts[0] || null;
     }
     const userGoal = (user as any)?.fitness_goal as string | undefined;
-    const matching = longs.find(v => (!userGoal || v.goal === userGoal) && !completedIds.has(v.id));
+    const matching = longs.find(v => (!userGoal || v.goal === userGoal) && !progressFor(v.id)?.completed);
     return matching || longs[0] || null;
-  }, [mode, longs, shorts, user, completedIds]);
+  }, [mode, longs, shorts, trendingShorts, user, progressMap]);
 
   /* Coach groupings — only meaningful for long-form. */
   const coachGroups = useMemo(() => {
@@ -268,11 +426,45 @@ export default function Workouts() {
     );
   };
 
+  const LikeBtn = ({ id, light, count }: { id: number; light?: boolean; count?: number }) => {
+    const liked = likedIds.has(id);
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); toggleLiked(id); }}
+        style={{
+          height: 30, padding: "0 10px", borderRadius: 99,
+          background: light ? "rgba(0,0,0,0.55)" : "var(--bg-surface)",
+          border: light ? "none" : "1px solid var(--border)",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+          cursor: "pointer", color: liked ? "#FB7185" : (light ? "#fff" : "var(--text-secondary)"),
+          fontSize: 11, fontWeight: 700,
+        }}
+        aria-label={liked ? "Unlike" : "Like"}
+      >
+        <Heart size={13} fill={liked ? "currentColor" : "none"} />
+        {typeof count === "number" && count > 0 && <span>{count}</span>}
+      </button>
+    );
+  };
+
+  const ProgressBar = ({ id }: { id: number }) => {
+    const p = progressMap.get(id);
+    if (!p || !p.duration_seconds) return null;
+    const pct = Math.min(100, Math.max(0, (p.position_seconds / p.duration_seconds) * 100));
+    if (pct < 1) return null;
+    return (
+      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, background: "rgba(0,0,0,0.4)" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)" }} />
+      </div>
+    );
+  };
+
   /* Long-form card: bigger thumbnail + stack of meta + Start/Continue CTA. */
   const renderLongCard = (v: Video) => {
-    const isContinue = completedIds.has(v.id);
+    const prog = progressFor(v.id);
+    const hasProgress = !!prog && prog.position_seconds > 5 && !prog.completed;
     return (
-      <div key={v.id} onClick={() => setPlaying(v)}
+      <div key={v.id} onClick={() => openPlayer(v)}
         style={{ display: "flex", flexDirection: "column", borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--border)", overflow: "hidden", cursor: "pointer" }}>
         <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", background: "var(--bg-surface)" }}>
           {v.thumbnail
@@ -286,6 +478,7 @@ export default function Workouts() {
           <div style={{ position: "absolute", top: 8, right: 8 }}>
             <SaveBtn id={v.id} light />
           </div>
+          <ProgressBar id={v.id} />
         </div>
         <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
           <p style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</p>
@@ -298,16 +491,23 @@ export default function Workouts() {
               </span>
             )}
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); setPlaying(v); }}
-            style={{
-              marginTop: 2, padding: "6px 10px", borderRadius: 8,
-              border: "none", background: "var(--accent)", color: "#000",
-              fontWeight: 700, fontSize: 12, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-            }}>
-            <Play size={11} fill="#000" /> {isContinue ? "Continue" : "Start"}
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--text-muted)", fontSize: 10 }}>
+            {(v.views_count || 0) > 0 && <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Eye size={11} /> {v.views_count}</span>}
+            {(v.likes_count || 0) > 0 && <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Heart size={11} /> {v.likes_count}</span>}
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); openPlayer(v); }}
+              style={{
+                flex: 1, padding: "6px 10px", borderRadius: 8,
+                border: "none", background: "var(--accent)", color: "#000",
+                fontWeight: 700, fontSize: 12, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+              }}>
+              <Play size={11} fill="#000" /> {hasProgress ? "Continue" : "Start"}
+            </button>
+            <LikeBtn id={v.id} />
+          </div>
         </div>
       </div>
     );
@@ -315,7 +515,7 @@ export default function Workouts() {
 
   /* Short card: tall portrait thumbnail, minimal meta, designed for fast scrolling. */
   const renderShortCard = (v: Video) => (
-    <div key={v.id} onClick={() => setPlaying(v)}
+    <div key={v.id} onClick={() => openPlayer(v)}
       style={{ display: "flex", flexDirection: "column", cursor: "pointer" }}>
       <div style={{ position: "relative", width: "100%", aspectRatio: "9 / 16", borderRadius: 14, overflow: "hidden", background: "var(--bg-card)", border: "1px solid var(--border)", marginBottom: 6 }}>
         {v.thumbnail
@@ -327,30 +527,37 @@ export default function Workouts() {
             {v.duration}
           </span>
         )}
-        <div style={{ position: "absolute", top: 6, right: 6 }}>
+        <div style={{ position: "absolute", top: 6, right: 6, display: "flex", flexDirection: "column", gap: 6 }}>
           <SaveBtn id={v.id} light />
+          <LikeBtn id={v.id} light count={v.likes_count} />
         </div>
         <div style={{ position: "absolute", left: 8, right: 8, bottom: 8, color: "#fff" }}>
           <p style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</p>
-          {v.coach_name && (
-            <p style={{ fontSize: 10, opacity: 0.85, margin: "3px 0 0", display: "flex", alignItems: "center", gap: 3 }}>
-              <User size={9} /> {v.coach_name}
-            </p>
-          )}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 3, opacity: 0.85, fontSize: 10 }}>
+            {v.coach_name && (
+              <span style={{ display: "flex", alignItems: "center", gap: 3 }}><User size={9} /> {v.coach_name}</span>
+            )}
+            {(v.views_count || 0) > 0 && (
+              <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Eye size={10} /> {v.views_count}</span>
+            )}
+          </div>
         </div>
+        <ProgressBar id={v.id} />
       </div>
     </div>
   );
 
   /* Featured / "hero" card — single highlighted item at top of each tab. */
   const renderFeatured = (v: Video) => {
+    const prog = progressFor(v.id);
+    const hasResume = !!prog && prog.position_seconds > 5 && !prog.completed;
     const labelIcon = mode === "short"
       ? <><TrendingUp size={13} /> Trending this week</>
-      : (completedIds.has(v.id)
+      : (hasResume
         ? <><Play size={13} /> Continue watching</>
         : <><Sparkles size={13} /> Recommended for you</>);
     return (
-      <div onClick={() => setPlaying(v)}
+      <div onClick={() => openPlayer(v)}
         style={{
           position: "relative", borderRadius: 18, overflow: "hidden", cursor: "pointer",
           aspectRatio: mode === "short" ? "4 / 5" : "16 / 9",
@@ -371,17 +578,24 @@ export default function Workouts() {
             {v.duration && <span style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4, opacity: 0.9 }}><Clock size={11} /> {v.duration}</span>}
             {v.level && <span style={{ fontSize: 11, opacity: 0.9, textTransform: "capitalize" }}>· {v.level}</span>}
             {v.coach_name && <span style={{ fontSize: 11, opacity: 0.9, display: "flex", alignItems: "center", gap: 4 }}><User size={11} /> {v.coach_name}</span>}
+            {(v.views_count || 0) > 0 && <span style={{ fontSize: 11, opacity: 0.9, display: "flex", alignItems: "center", gap: 4 }}><Eye size={11} /> {v.views_count}</span>}
+            {(v.likes_count || 0) > 0 && <span style={{ fontSize: 11, opacity: 0.9, display: "flex", alignItems: "center", gap: 4 }}><Heart size={11} /> {v.likes_count}</span>}
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); setPlaying(v); }}
-            style={{
-              padding: "9px 18px", borderRadius: 99, border: "none",
-              background: "#fff", color: "#000", fontWeight: 800, fontSize: 13,
-              cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
-            }}>
-            <Play size={13} fill="#000" /> {mode === "short" ? "Begin workout now" : (completedIds.has(v.id) ? "Resume" : "Start")}
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); openPlayer(v); }}
+              style={{
+                padding: "9px 18px", borderRadius: 99, border: "none",
+                background: "#fff", color: "#000", fontWeight: 800, fontSize: 13,
+                cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+              }}>
+              <Play size={13} fill="#000" /> {mode === "short" ? "Begin workout now" : (hasResume ? "Resume" : "Start")}
+            </button>
+            <LikeBtn id={v.id} light count={v.likes_count} />
+            <SaveBtn id={v.id} light />
+          </div>
         </div>
+        <ProgressBar id={v.id} />
       </div>
     );
   };
@@ -492,25 +706,37 @@ export default function Workouts() {
             </p>
           </div>
           <div style={{ display: "flex", gap: 12, overflowX: "auto", padding: "0 16px", scrollSnapType: "x mandatory", scrollbarWidth: "none" }}>
-            {continueList.map(v => (
-              <div key={v.id} onClick={() => setPlaying(v)}
-                style={{ flexShrink: 0, width: 220, scrollSnapAlign: "start", cursor: "pointer" }}>
-                <div style={{ position: "relative", height: 124, borderRadius: 14, overflow: "hidden", background: "var(--bg-card)", border: "1px solid var(--border)", marginBottom: 8 }}>
-                  {v.thumbnail
-                    ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
-                  {/* Faux progress bar — we don't store per-video progress yet,
-                      so this is a visual cue that the workout has been done. */}
-                  <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, background: "rgba(0,0,0,0.4)" }}>
-                    <div style={{ width: "100%", height: "100%", background: "var(--accent)" }} />
+            {continueList.map(v => {
+              const p = progressFor(v.id);
+              const lastWatched = p?.updated_at ? new Date(p.updated_at) : null;
+              const relTime = lastWatched ? formatRelative(lastWatched) : null;
+              return (
+                <div key={v.id} onClick={() => openPlayer(v)}
+                  style={{ flexShrink: 0, width: 220, scrollSnapAlign: "start", cursor: "pointer" }}>
+                  <div style={{ position: "relative", height: 124, borderRadius: 14, overflow: "hidden", background: "var(--bg-card)", border: "1px solid var(--border)", marginBottom: 8 }}>
+                    {v.thumbnail
+                      ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
+                    <ProgressBar id={v.id} />
                   </div>
+                  <p style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, marginBottom: 2 }}>{v.title}</p>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                    <Clock size={11} /> {v.duration || ""}{v.coach_name ? ` · ${v.coach_name}` : ""}
+                    {relTime ? ` · ${relTime}` : ""}
+                  </p>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openPlayer(v); }}
+                    style={{
+                      marginTop: 6, padding: "5px 10px", borderRadius: 8,
+                      border: "none", background: "var(--accent)", color: "#000",
+                      fontWeight: 700, fontSize: 11, cursor: "pointer",
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                    }}>
+                    <Play size={10} fill="#000" /> Resume
+                  </button>
                 </div>
-                <p style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, marginBottom: 2 }}>{v.title}</p>
-                <p style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
-                  <Clock size={11} /> {v.duration || ""}{v.coach_name ? ` · ${v.coach_name}` : ""}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
@@ -587,7 +813,7 @@ export default function Workouts() {
         </section>
       )}
 
-      {/* Recently watched (server-side completed) — separate from "Saved" */}
+      {/* Recently watched (server-side progress) — separate from "Saved" */}
       {mode === "long" && continueList.length > 0 && (activeFilterCount > 0 || q) && (
         <section style={{ padding: "0 16px", marginBottom: 24 }}>
           <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
@@ -595,10 +821,11 @@ export default function Workouts() {
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {continueList.slice(0, 5).map(v => (
-              <div key={v.id} onClick={() => setPlaying(v)}
+              <div key={v.id} onClick={() => openPlayer(v)}
                 style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer" }}>
-                <div style={{ width: 84, height: 64, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "var(--bg-surface)" }}>
+                <div style={{ position: "relative", width: 84, height: 64, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "var(--bg-surface)" }}>
                   {v.thumbnail ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
+                  <ProgressBar id={v.id} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4 }}>{v.title}</p>
@@ -614,10 +841,10 @@ export default function Workouts() {
       {/* Player modal */}
       {playing && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.95)", display: "flex", flexDirection: "column" }}
-          onClick={() => setPlaying(null)}>
+          onClick={closePlayer}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "56px 20px 16px" }} onClick={e => e.stopPropagation()}>
             <p style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{playing.title}</p>
-            <button onClick={() => setPlaying(null)} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 99, padding: "8px 16px", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>{t("done")}</button>
+            <button onClick={closePlayer} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 99, padding: "8px 16px", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>{t("done")}</button>
           </div>
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }} onClick={e => e.stopPropagation()}>
             <VideoPlayer
@@ -627,6 +854,8 @@ export default function Workouts() {
               mediaType={playing.source_type === "youtube" ? "youtube" : "video"}
               height="60vh"
               autoPlay
+              startAt={progressFor(playing.id)?.position_seconds || 0}
+              onProgress={handleProgress}
               style={{ borderRadius: 16 }}
             />
           </div>

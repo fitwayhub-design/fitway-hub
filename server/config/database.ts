@@ -1413,6 +1413,14 @@ export async function initDatabase() {
     console.warn('⚠️  App images migration skipped:', e.message);
   }
 
+  // Workout engagement migration (007) — view/like counters, saves, progress
+  try {
+    const { runWorkoutEngagementMigration } = await import('../migrations/007_workout_engagement.js');
+    await runWorkoutEngagementMigration();
+  } catch (e: any) {
+    console.warn('⚠️  Workout engagement migration skipped:', e.message);
+  }
+
   // Certified coach migration
   try {
     await run('ALTER TABLE coach_profiles ADD COLUMN certified TINYINT(1) DEFAULT 0');
