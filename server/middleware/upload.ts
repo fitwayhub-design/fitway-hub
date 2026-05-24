@@ -48,19 +48,20 @@ export async function uploadToR2(file: Express.Multer.File, folder = 'uploads'):
   }
 
   // Local disk fallback — saves to <project-root>/uploads/<folder>/.
-  // Returns a root-relative URL (`/uploads/...`) rather than an absolute one
-  // prefixed with APP_BASE_URL: when admins upload from one host (e.g. a
-  // staging machine) and visitors view from another (e.g. www.fitwayhub.com),
-  // an absolute URL pinned to APP_BASE_URL points the browser at the wrong
-  // server and the image 404s. A relative URL resolves against whichever
-  // origin the browser is currently on, which is always the right host for
-  // single-instance hosting. For multi-instance or ephemeral-disk hosting,
-  // configure R2 (see env.example) — local disk cannot survive a redeploy
-  // or be shared across instances.
+  // Returns an absolute URL pinned to APP_BASE_URL so the same URL works from
+  // any client: the website on any device, the native mobile (Capacitor) app
+  // (which loads from a local bundle and cannot resolve root-relative paths
+  // against the API server), and admins uploading from a different origin
+  // than visitors view from. When APP_BASE_URL is unset, falls back to a
+  // root-relative URL — fine for single-origin web access but breaks the
+  // mobile app and any cross-origin viewer. For multi-instance or
+  // ephemeral-disk hosting, configure R2 (see env.example) — local disk
+  // cannot survive a redeploy or be shared across instances.
   const uploadDir = path.join(__dirname, '..', '..', 'uploads', folder);
   fs.mkdirSync(uploadDir, { recursive: true });
   fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
-  return `/uploads/${folder}/${filename}`;
+  const baseUrl = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
+  return `${baseUrl}/uploads/${folder}/${filename}`;
 }
 
 // ── All multer instances use memory storage ───────────────────────────────────

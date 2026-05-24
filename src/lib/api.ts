@@ -59,3 +59,22 @@ export function setApiBase(url: string): void {
   }
 }
 
+/**
+ * Resolve an image / media URL stored in the database so it loads from any
+ * client. Absolute URLs (https://, http://, data:, blob:) are returned as-is.
+ * Root-relative URLs like `/uploads/foo.jpg` are prefixed with the API base
+ * when running on native Capacitor (where there is no API origin to resolve
+ * against), and left untouched on the web (same origin handles it).
+ */
+export function resolveAssetUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  const trimmed = String(url).trim();
+  if (!trimmed) return "";
+  if (/^(https?:|data:|blob:)/i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("/")) {
+    const base = getApiBase();
+    return base ? `${base}${trimmed}` : trimmed;
+  }
+  return trimmed;
+}
+
