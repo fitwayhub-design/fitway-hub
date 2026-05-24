@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { register, login, logout, forgotPasswordGetQuestion, forgotPasswordVerify, changePassword, changeEmail, loginWithRememberToken, addOfflineSteps, updateProfile, oauthGoogleStart, oauthGoogleCallback, } from '../controllers/authController.js';
+import { register, login, logout, forgotPasswordGetQuestion, forgotPasswordVerify, changePassword, changeEmail, loginWithRememberToken, addOfflineSteps, updateProfile, oauthGoogleStart, oauthGoogleCallback, requestRegisterOtp, requestForgotPasswordOtp, forgotPasswordOtpReset, requestChangePasswordOtp, } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { get } from '../config/database.js';
 const router = Router();
@@ -30,14 +30,27 @@ const loginLimiter = rateLimit({
     legacyHeaders: false,
     skipSuccessfulRequests: true,
 });
+// Tight limit on OTP-request endpoints — each one sends a real email, so we
+// don't want a single client (or bot) flooding the mail relay.
+const otpRequestLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { message: 'Too many code requests, please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 router.post('/register', authLimiter, register);
+router.post('/register/request-otp', otpRequestLimiter, requestRegisterOtp);
 router.post('/login', loginLimiter, login);
 router.post('/logout', authenticateToken, logout);
 router.get('/oauth/google', oauthGoogleStart);
 router.get('/oauth/google/callback', oauthGoogleCallback);
 router.post('/forgot-password/question', strictLimiter, forgotPasswordGetQuestion);
 router.post('/forgot-password/verify', strictLimiter, forgotPasswordVerify);
+router.post('/forgot-password/request-otp', otpRequestLimiter, requestForgotPasswordOtp);
+router.post('/forgot-password/otp-reset', strictLimiter, forgotPasswordOtpReset);
 router.post('/change-password', authenticateToken, changePassword);
+router.post('/change-password/request-otp', authenticateToken, otpRequestLimiter, requestChangePasswordOtp);
 router.post('/change-email', authenticateToken, changeEmail);
 router.post('/login-remember', authLimiter, loginWithRememberToken);
 router.post('/offline-steps', authenticateToken, addOfflineSteps);

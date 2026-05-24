@@ -942,6 +942,19 @@ async function initTables() {
         // ── Blog posts: add views + video_duration if missing ───────────────────
         `ALTER TABLE blog_posts ADD COLUMN views INT DEFAULT 0`,
         `ALTER TABLE blog_posts ADD COLUMN video_duration INT DEFAULT NULL`,
+        // ── Email OTP codes (registration / forgot-password / change-password) ──
+        `CREATE TABLE IF NOT EXISTS email_otps (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      email VARCHAR(255) NOT NULL,
+      code_hash VARCHAR(255) NOT NULL,
+      purpose VARCHAR(32) NOT NULL,
+      attempts INT NOT NULL DEFAULT 0,
+      used TINYINT(1) NOT NULL DEFAULT 0,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_email_otps_lookup (email, purpose, id),
+      INDEX idx_email_otps_expires (expires_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     ];
     for (const sql of migrations) {
         try {
@@ -1341,12 +1354,28 @@ export async function initDatabase() {
     }
     catch { }
     // Workout video metadata for athlete-side filtering. Existing rows default to NULL.
-    try { await run("ALTER TABLE workout_videos ADD COLUMN goal VARCHAR(40) DEFAULT NULL"); } catch { }
-    try { await run("ALTER TABLE workout_videos ADD COLUMN body_area VARCHAR(40) DEFAULT NULL"); } catch { }
-    try { await run("ALTER TABLE workout_videos ADD COLUMN equipment VARCHAR(40) DEFAULT NULL"); } catch { }
-    try { await run("ALTER TABLE workout_videos ADD COLUMN level VARCHAR(40) DEFAULT NULL"); } catch { }
-    // Avatars are stored inline as base64 data URLs (same approach as branding).
-    try { await run("ALTER TABLE users MODIFY COLUMN avatar LONGTEXT"); } catch { }
+    try {
+        await run("ALTER TABLE workout_videos ADD COLUMN goal VARCHAR(40) DEFAULT NULL");
+    }
+    catch { }
+    try {
+        await run("ALTER TABLE workout_videos ADD COLUMN body_area VARCHAR(40) DEFAULT NULL");
+    }
+    catch { }
+    try {
+        await run("ALTER TABLE workout_videos ADD COLUMN equipment VARCHAR(40) DEFAULT NULL");
+    }
+    catch { }
+    try {
+        await run("ALTER TABLE workout_videos ADD COLUMN level VARCHAR(40) DEFAULT NULL");
+    }
+    catch { }
+    // Avatars are stored inline as base64 data URLs (same approach as branding
+    // images), so widen users.avatar from TEXT (64KB) to LONGTEXT.
+    try {
+        await run("ALTER TABLE users MODIFY COLUMN avatar LONGTEXT");
+    }
+    catch { }
     // Force monthly cycle + monthly label for existing coach fee rows
     try {
         await run("UPDATE app_settings SET setting_value = 'monthly' WHERE setting_key = 'coach_membership_cycle'");
@@ -1356,12 +1385,9 @@ export async function initDatabase() {
     catch { }
     // Seed default welcome push messages so new athletes/coaches get a push on registration
     try {
-        await getPool().execute(
-            `INSERT IGNORE INTO welcome_messages (target, channel, subject, title, body, enabled) VALUES
+        await getPool().execute(`INSERT IGNORE INTO welcome_messages (target, channel, subject, title, body, enabled) VALUES
         ('user', 'push', '', 'Welcome to {{app_name}}, {{first_name}}! 💪', 'Your fitness journey starts now. Tap to set up your profile and crush your first workout.', 1),
-        ('coach', 'push', '', 'Welcome Coach {{first_name}}! 🏆', 'Athletes are waiting. Complete your profile and start coaching today.', 1)`,
-            []
-        );
+        ('coach', 'push', '', 'Welcome Coach {{first_name}}! 🏆', 'Athletes are waiting. Complete your profile and start coaching today.', 1)`, []);
     }
     catch { }
     console.log('🎉 Database fully initialised');

@@ -1027,6 +1027,19 @@ async function initTables() {
     // ── Blog posts: add views + video_duration if missing ───────────────────
     `ALTER TABLE blog_posts ADD COLUMN views INT DEFAULT 0`,
     `ALTER TABLE blog_posts ADD COLUMN video_duration INT DEFAULT NULL`,
+    // ── Email OTP codes (registration / forgot-password / change-password) ──
+    `CREATE TABLE IF NOT EXISTS email_otps (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      email VARCHAR(255) NOT NULL,
+      code_hash VARCHAR(255) NOT NULL,
+      purpose VARCHAR(32) NOT NULL,
+      attempts INT NOT NULL DEFAULT 0,
+      used TINYINT(1) NOT NULL DEFAULT 0,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_email_otps_lookup (email, purpose, id),
+      INDEX idx_email_otps_expires (expires_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   ];
   for (const sql of migrations) {
     try { await p.execute(sql); } catch { /* already applied */ }

@@ -5,6 +5,7 @@ import { resolve4, resolve6, resolveMx } from 'dns/promises';
 import { UserModel } from '../models/User.js';
 import { get, run } from '../config/database.js';
 import { sendWelcomeMessages } from '../notificationService.js';
+import { requestOtp, verifyOtp } from '../services/otpService.js';
 const DISPOSABLE_OR_FAKE_DOMAINS = new Set([
     'example.com',
     'example.org',
@@ -162,10 +163,12 @@ function validatePasswordComplexity(password) {
 }
 export const register = async (req, res) => {
     try {
-        const { password, name, role, securityQuestion, securityAnswer } = req.body;
+        const { password, name, role, securityQuestion, securityAnswer, otp } = req.body;
         const email = normalizeEmail(req.body?.email);
         if (!email || !password)
             return res.status(400).json({ message: 'Email and password are required' });
+        if (!otp)
+            return res.status(400).json({ message: 'Email verification code is required' });
         if (!securityQuestion || !securityAnswer)
             return res.status(400).json({ message: 'Security question and answer are required' });
         // Email format validation
@@ -181,6 +184,10 @@ export const register = async (req, res) => {
         const existing = await UserModel.findByEmail(email);
         if (existing)
             return res.status(409).json({ message: 'An account with this email already exists' });
+        // Verify the OTP that was sent to this email. Consumes the code on success.
+        const otpResult = await verifyOtp(email, String(otp), 'register');
+        if (!otpResult.ok)
+            return res.status(400).json({ message: otpResult.message });
         const hashedPassword = await bcrypt.hash(password, 12);
         const user = await UserModel.create(email, hashedPassword);
         // SECURITY: strict allowlist — only 'user' or 'coach' may be self-selected.
@@ -243,6 +250,105 @@ export const login = async (req, res) => {
     catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ message: 'Server error during login' });
+    }
+};
+// ─── OTP request endpoints ────────────────────────────────────────────────
+// These send a one-time 6-digit code to the supplied email address. Each flow
+// has its own purpose so codes can't be reused across registration / password
+// reset / password change.
+export const requestRegisterOtp = async (req, res) => {
+    try {
+        const email = normalizeEmail(req.body?.email);
+        if (!email)
+            return res.status(400).json({ message: 'Email is required' });
+        const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(email))
+            return res.status(400).json({ message: 'Please enter a valid email address' });
+        const hasValidDomain = await hasMailCapableDomain(email);
+        if (!hasValidDomain)
+            return res.status(400).json({ message: 'Email domain is not valid for receiving mail' });
+        const existing = await UserModel.findByEmail(email);
+        if (existing)
+            return res.status(409).json({ message: 'An account with this email already exists' });
+        const result = await requestOtp(email, 'register');
+        if (!result.ok)
+            return res.status(400).json({ message: result.message });
+        return res.json({ message: result.message });
+    }
+    catch (error) {
+        console.error('requestRegisterOtp error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+export const requestForgotPasswordOtp = async (req, res) => {
+    try {
+        const email = normalizeEmail(req.body?.email);
+        if (!email)
+            return res.status(400).json({ message: 'Email is required' });
+        const user = await UserModel.findByEmail(email) || await UserModel.findByUsername(email);
+        // Don't reveal whether the account exists. Always pretend to send so
+        // attackers can't enumerate registered emails. We only actually call
+        // requestOtp when a user exists, but the API response is identical.
+        if (user) {
+            const result = await requestOtp(user.email, 'forgot_password');
+            if (!result.ok && result.cooldown) {
+                // Cooldown is the one case where we surface a real error — otherwise
+                // a legitimate user spamming the button gets confusing silent failures.
+                return res.status(429).json({ message: result.message });
+            }
+        }
+        return res.json({ message: 'If an account exists for that email, a 6-digit code was sent. It expires in 2 minutes.' });
+    }
+    catch (error) {
+        console.error('requestForgotPasswordOtp error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+export const forgotPasswordOtpReset = async (req, res) => {
+    try {
+        const email = normalizeEmail(req.body?.email);
+        const { otp, newPassword } = req.body;
+        if (!email || !otp || !newPassword)
+            return res.status(400).json({ message: 'Email, code, and new password are required' });
+        const passwordError = validatePasswordComplexity(newPassword);
+        if (passwordError)
+            return res.status(400).json({ message: passwordError });
+        const user = await UserModel.findByEmail(email) || await UserModel.findByUsername(email);
+        // Generic response on missing user to prevent enumeration. We still
+        // attempt verifyOtp on a non-existent email so the timing is similar
+        // and so a bogus code can't pivot to "no such account" disclosure.
+        const otpResult = await verifyOtp(email, String(otp), 'forgot_password');
+        if (!user)
+            return res.status(400).json({ message: 'Invalid or expired code' });
+        if (!otpResult.ok)
+            return res.status(400).json({ message: otpResult.message });
+        const hashedPassword = await bcrypt.hash(newPassword, 12);
+        await UserModel.updatePassword(user.id, hashedPassword);
+        try {
+            await UserModel.setRememberToken(user.id, null);
+        }
+        catch { /* non-fatal */ }
+        return res.json({ message: 'Password reset successfully' });
+    }
+    catch (error) {
+        console.error('forgotPasswordOtpReset error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+export const requestChangePasswordOtp = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const user = await UserModel.findById(userId);
+        if (!user || !user.email)
+            return res.status(404).json({ message: 'User not found' });
+        const result = await requestOtp(user.email, 'change_password');
+        if (!result.ok)
+            return res.status(400).json({ message: result.message });
+        return res.json({ message: result.message });
+    }
+    catch (error) {
+        console.error('requestChangePasswordOtp error:', error);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 export const forgotPasswordGetQuestion = async (req, res) => {
@@ -320,9 +426,11 @@ export const logout = async (req, res) => {
 export const changePassword = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { currentPassword, newPassword } = req.body;
+        const { currentPassword, newPassword, otp } = req.body;
         if (!currentPassword || !newPassword)
             return res.status(400).json({ message: 'Current and new password are required' });
+        if (!otp)
+            return res.status(400).json({ message: 'Email verification code is required' });
         const passwordError = validatePasswordComplexity(newPassword);
         if (passwordError)
             return res.status(400).json({ message: passwordError });
@@ -332,6 +440,10 @@ export const changePassword = async (req, res) => {
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch)
             return res.status(401).json({ message: 'Current password is incorrect' });
+        // Verify OTP sent to the user's registered email.
+        const otpResult = await verifyOtp(user.email, String(otp), 'change_password');
+        if (!otpResult.ok)
+            return res.status(400).json({ message: otpResult.message });
         const hashedPassword = await bcrypt.hash(newPassword, 12);
         await UserModel.updatePassword(userId, hashedPassword);
         // Rotate any active remember-me token after a password change.

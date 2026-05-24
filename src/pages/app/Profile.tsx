@@ -61,7 +61,13 @@ export default function Profile() {
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
+    otp: "",
   });
+  // OTP flow state for password change: a code is sent to the user's
+  // registered email, valid for 2 minutes (5 attempts).
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [otpRequesting, setOtpRequesting] = useState(false);
+  const [otpResendCooldown, setOtpResendCooldown] = useState(0);
   const [emailForm, setEmailForm] = useState({
     currentPassword: "",
     newEmail: user?.email || "",
@@ -203,7 +209,13 @@ export default function Profile() {
     setPhotosLoading(false);
   };
 
-  const saveSecuritySettings = async () => {
+  useEffect(() => {
+    if (otpResendCooldown <= 0) return;
+    const id = setTimeout(() => setOtpResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [otpResendCooldown]);
+
+  const requestPasswordOtp = async () => {
     if (!securityForm.currentPassword || !securityForm.newPassword || !securityForm.confirmPassword) {
       flash(`❌ ${t("all_password_fields_required")}`);
       return;
@@ -216,6 +228,31 @@ export default function Profile() {
       flash(`❌ ${t("password_confirmation_mismatch")}`);
       return;
     }
+    setOtpRequesting(true);
+    try {
+      const r = await fetch(`${getApiBase()}/api/auth/change-password/request-otp`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        flash(`❌ ${d?.message || "Failed to send verification code"}`);
+      } else {
+        setOtpRequested(true);
+        setOtpResendCooldown(30);
+        flash(`✅ ${d.message || `Code sent to ${user?.email}`}`);
+      }
+    } catch {
+      flash(`❌ Failed to send verification code`);
+    }
+    setOtpRequesting(false);
+  };
+
+  const saveSecuritySettings = async () => {
+    if (!securityForm.otp || securityForm.otp.trim().length !== 6) {
+      flash(`❌ Enter the 6-digit code sent to your email`);
+      return;
+    }
     setSecuritySaving(true);
     try {
       const r = await fetch(`${getApiBase()}/api/auth/change-password`, {
@@ -224,13 +261,16 @@ export default function Profile() {
         body: JSON.stringify({
           currentPassword: securityForm.currentPassword,
           newPassword: securityForm.newPassword,
+          otp: securityForm.otp.trim(),
         }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
         flash(`❌ ${d?.message || t("failed_update_password")}`);
       } else {
-        setSecurityForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+        setSecurityForm({ currentPassword: "", newPassword: "", confirmPassword: "", otp: "" });
+        setOtpRequested(false);
+        setOtpResendCooldown(0);
         flash(`✅ ${t("password_updated_success")}`);
       }
     } catch {
@@ -782,10 +822,41 @@ export default function Profile() {
                       <input type="password" value={securityForm.confirmPassword} onChange={(e) => setSecurityForm((p) => ({ ...p, confirmPassword: e.target.value }))}
                         style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
                     </div>
-                    <button onClick={saveSecuritySettings} disabled={securitySaving}
-                      style={{ width: "100%", padding: "11px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#0A0A0B", fontWeight: 700, fontSize: 13, cursor: securitySaving ? "not-allowed" : "pointer", opacity: securitySaving ? 0.65 : 1 }}>
-                      {securitySaving ? t("updating_text") : t("update_password")}
-                    </button>
+                    {!otpRequested ? (
+                      <button onClick={requestPasswordOtp} disabled={otpRequesting}
+                        style={{ width: "100%", padding: "11px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#0A0A0B", fontWeight: 700, fontSize: 13, cursor: otpRequesting ? "not-allowed" : "pointer", opacity: otpRequesting ? 0.65 : 1 }}>
+                        {otpRequesting ? "Sending code..." : `Send code to ${user?.email}`}
+                      </button>
+                    ) : (
+                      <>
+                        <div style={{ padding: "10px 12px", backgroundColor: "rgba(255,214,0,0.08)", border: "1px solid rgba(255,214,0,0.25)", borderRadius: 10, fontSize: 12, color: "var(--text-secondary)" }}>
+                          We sent a 6-digit code to <strong style={{ color: "var(--text-primary)" }}>{user?.email}</strong>. It expires in 2 minutes.
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>Verification code</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={6}
+                            value={securityForm.otp}
+                            onChange={(e) => setSecurityForm((p) => ({ ...p, otp: e.target.value.replace(/\D/g, "") }))}
+                            placeholder="000000"
+                            style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 16, letterSpacing: "0.4em", fontFamily: "monospace", outline: "none", boxSizing: "border-box" }}
+                          />
+                        </div>
+                        <button onClick={saveSecuritySettings} disabled={securitySaving || securityForm.otp.length !== 6}
+                          style={{ width: "100%", padding: "11px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#0A0A0B", fontWeight: 700, fontSize: 13, cursor: securitySaving ? "not-allowed" : "pointer", opacity: (securitySaving || securityForm.otp.length !== 6) ? 0.65 : 1 }}>
+                          {securitySaving ? t("updating_text") : "Verify & update password"}
+                        </button>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                          <button type="button" onClick={() => { setOtpRequested(false); setSecurityForm((p) => ({ ...p, otp: "" })); setOtpResendCooldown(0); }} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 0 }}>← Cancel</button>
+                          <button type="button" onClick={requestPasswordOtp} disabled={otpResendCooldown > 0 || otpRequesting} style={{ background: "none", border: "none", color: otpResendCooldown > 0 ? "var(--text-muted)" : "var(--accent)", cursor: otpResendCooldown > 0 ? "default" : "pointer", padding: 0, fontWeight: 600 }}>
+                            {otpResendCooldown > 0 ? `Resend in ${otpResendCooldown}s` : "Resend code"}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 

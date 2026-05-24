@@ -56,6 +56,8 @@ router.get('/my-videos', authenticateToken, coachOrAdmin, async (req, res) => {
     }
 });
 // ── Engagement ────────────────────────────────────────────────────────────────
+// Per-user state in one round-trip so the Workouts page can render the saved /
+// liked / progress badges on first paint without N follow-up requests.
 router.get('/me', authenticateToken, async (req, res) => {
     try {
         const [saves, likes, progress] = await Promise.all([
@@ -68,7 +70,7 @@ router.get('/me', authenticateToken, async (req, res) => {
         res.json({
             saved_ids: saves.map(r => r.video_id),
             liked_ids: likes.map(r => r.video_id),
-            progress,
+            progress: progress,
         });
     }
     catch (err) {
@@ -76,9 +78,13 @@ router.get('/me', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch engagement state' });
     }
 });
+// Record a view. Idempotent enough — clients should call once per "open" of
+// the player. We insert a timestamped row AND bump the denormalised counter
+// so `/shorties` can sort by all-time popularity in O(1).
 router.post('/videos/:id/view', authenticateToken, async (req, res) => {
     const videoId = Number(req.params.id);
-    if (!videoId) return res.status(400).json({ message: 'Invalid video id' });
+    if (!videoId)
+        return res.status(400).json({ message: 'Invalid video id' });
     try {
         await run('INSERT INTO video_views (video_id, user_id) VALUES (?, ?)', [videoId, req.user.id]);
         await run('UPDATE workout_videos SET views_count = views_count + 1 WHERE id = ?', [videoId]);
@@ -88,9 +94,12 @@ router.post('/videos/:id/view', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to record view' });
     }
 });
+// Toggle a like. Returns the new state + denormalised count so the client
+// can update its UI without a second fetch.
 router.post('/videos/:id/like', authenticateToken, async (req, res) => {
     const videoId = Number(req.params.id);
-    if (!videoId) return res.status(400).json({ message: 'Invalid video id' });
+    if (!videoId)
+        return res.status(400).json({ message: 'Invalid video id' });
     try {
         const existing = await get('SELECT 1 FROM video_likes WHERE user_id = ? AND video_id = ?', [req.user.id, videoId]);
         if (existing) {
@@ -108,9 +117,12 @@ router.post('/videos/:id/like', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to toggle like' });
     }
 });
+// Toggle a save (private bookmark). Server-backed so favorites sync across
+// devices, replacing the previous localStorage-only implementation.
 router.post('/videos/:id/save', authenticateToken, async (req, res) => {
     const videoId = Number(req.params.id);
-    if (!videoId) return res.status(400).json({ message: 'Invalid video id' });
+    if (!videoId)
+        return res.status(400).json({ message: 'Invalid video id' });
     try {
         const existing = await get('SELECT 1 FROM video_saves WHERE user_id = ? AND video_id = ?', [req.user.id, videoId]);
         if (existing) {
@@ -125,11 +137,15 @@ router.post('/videos/:id/save', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to toggle save' });
     }
 });
+// Upsert playback progress. The client sends position/duration every ~5s.
+// Server flips `completed` once the user watches past 90% so we can hide
+// finished workouts from "Continue watching".
 router.post('/videos/:id/progress', authenticateToken, async (req, res) => {
     const videoId = Number(req.params.id);
     const position = Math.max(0, Math.floor(Number(req.body?.position_seconds) || 0));
     const duration = Math.max(0, Math.floor(Number(req.body?.duration_seconds) || 0));
-    if (!videoId) return res.status(400).json({ message: 'Invalid video id' });
+    if (!videoId)
+        return res.status(400).json({ message: 'Invalid video id' });
     try {
         const completed = duration > 0 && position / duration >= 0.9 ? 1 : 0;
         await run(`INSERT INTO video_progress (user_id, video_id, position_seconds, duration_seconds, completed)
@@ -144,6 +160,9 @@ router.post('/videos/:id/progress', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to save progress' });
     }
 });
+// Trending shorts — last 7 days of views, falling back to all-time popularity
+// then recency for ties / cold-start. Returns the full short rows so the
+// client can render the featured hero without a second fetch.
 router.get('/shorties/trending', authenticateToken, async (req, res) => {
     try {
         const limit = Math.min(Math.max(Number(req.query.limit) || 5, 1), 20);

@@ -41,10 +41,16 @@ export async function uploadToR2(file, folder = 'uploads') {
         }));
         return `${process.env.R2_PUBLIC_URL}/${key}`;
     }
-    // Local disk fallback — UPLOADS_DIR if set, otherwise <home>/fitway-uploads.
-    // The home-dir default sits outside the deployed app directory so uploads
-    // survive `git pull` / restarts without any admin setup. Matches the
-    // static handler in server.ts.
+    // Local disk fallback — uses UPLOADS_DIR (must be absolute) when set,
+    // otherwise defaults to <home>/fitway-uploads. The home-dir default
+    // lives OUTSIDE the deployed app directory on every shared host I know
+    // of (Hostinger, cPanel hosts, VPS), so uploads survive `git pull`
+    // and app restarts without any admin setup. Must match the static
+    // handler in server.ts — they both read the same env var with the
+    // same fallback.
+    // Returns an absolute URL only when APP_BASE_URL is a real public host;
+    // otherwise returns the root-relative path so the viewer's own origin
+    // resolves it correctly.
     const baseDir = process.env.UPLOADS_DIR && path.isAbsolute(process.env.UPLOADS_DIR)
         ? process.env.UPLOADS_DIR
         : path.join(os.homedir(), 'fitway-uploads');
@@ -74,22 +80,36 @@ function isUnsafeImage(file) {
 }
 function isSvg(file) {
     const ext = path.extname(file.originalname || '').toLowerCase();
-    if (ext === '.svg') return true;
+    if (ext === '.svg')
+        return true;
     const mt = String(file.mimetype || '').toLowerCase();
     return mt === 'image/svg+xml' || mt === 'image/svg';
 }
+/**
+ * Strip script-execution vectors out of an SVG before we serve it from our
+ * own origin. Removes <script>, <foreignObject>, on* event handlers, and
+ * `javascript:` URLs in href/xlink:href. Admin-only branding uploads are
+ * the only path that calls this — rejecting <script>/handlers is enough
+ * for that threat model.
+ */
 function sanitizeSvgBuffer(buf) {
     let svg = buf.toString('utf8');
+    // Drop the XML/DOCTYPE preamble — it's optional and a vector for entity
+    // expansion / external DTD pulls.
     svg = svg.replace(/<\?xml[\s\S]*?\?>/gi, '');
     svg = svg.replace(/<!DOCTYPE[\s\S]*?>/gi, '');
+    // Drop dangerous element trees outright.
     svg = svg.replace(/<script[\s\S]*?<\/script\s*>/gi, '');
     svg = svg.replace(/<script\b[^>]*\/>/gi, '');
     svg = svg.replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, '');
+    // Strip on* event-handler attributes (onload="...", onclick=..., etc).
     svg = svg.replace(/\s+on[a-z]+\s*=\s*"[^"]*"/gi, '');
     svg = svg.replace(/\s+on[a-z]+\s*=\s*'[^']*'/gi, '');
     svg = svg.replace(/\s+on[a-z]+\s*=\s*[^\s>]+/gi, '');
+    // Strip javascript: pseudo-URLs anywhere.
     svg = svg.replace(/(href|xlink:href)\s*=\s*"\s*javascript:[^"]*"/gi, '$1="#"');
     svg = svg.replace(/(href|xlink:href)\s*=\s*'\s*javascript:[^']*'/gi, "$1='#'");
+    // Sanity-check: must still parse as something resembling an SVG root.
     if (!/<svg[\s>]/i.test(svg)) {
         throw new Error('Invalid SVG: missing <svg> root after sanitisation');
     }
@@ -105,9 +125,11 @@ const imageFilter = (req, file, cb) => {
         cb(new Error('Only images are allowed'), false);
     }
 };
-// Branding-only filter: SVG is allowed; sanitiseSvgIfPresent runs after multer.
+// Branding-only filter: SVG is allowed because the branding upload is an
+// admin-only endpoint and the SVG is sanitised before storage.
 const brandingImageFilter = (req, file, cb) => {
-    if (isSvg(file)) return cb(null, true);
+    if (isSvg(file))
+        return cb(null, true);
     if (file.mimetype.startsWith('image/')) {
         cb(null, true);
     }
@@ -131,7 +153,7 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024 }
 });
 // Higher-limit upload for branding assets (logos can be transparent PNGs or
-// SVG; SVG goes through sanitiseSvgIfPresent before storage.)
+// SVG. SVG goes through sanitiseSvgIfPresent before storage.)
 const uploadBranding = multer({
     storage: storage,
     fileFilter: brandingImageFilter,
@@ -213,9 +235,9 @@ function optimizeImage(maxWidth = 1920, maxHeight = 1920, quality = 80) {
                 if (!file.buffer || file.buffer.length === 0)
                     continue;
                 const ext = path.extname(file.originalname).toLowerCase();
-                // SVG: sharp can't optimise vector files. For paths that reject
-                // SVG the fileFilter already blocked it; for branding the
-                // sanitiser runs separately. Skip here either way.
+                // SVG: sharp can't optimise vector files, and for paths that reject
+                // SVG the fileFilter already blocked it. For branding (where SVG is
+                // permitted) sanitiseSvgIfPresent runs separately. Just skip here.
                 if (ext === '.svg' || ext === '.svgz' || file.mimetype === 'image/svg+xml') {
                     continue;
                 }
@@ -285,12 +307,16 @@ function optimizeImage(maxWidth = 1920, maxHeight = 1920, quality = 80) {
 }
 export default upload;
 /**
- * Wraps a multer middleware so multer errors come back as JSON instead of HTML.
+ * Wraps a multer middleware so multer errors (file too large, wrong mime,
+ * disk failures) come back as JSON instead of HTML from Express's default
+ * error handler. The frontend's `await resp.json()` then sees a real message
+ * instead of "upload failed".
  */
 function multerToJson(mw) {
     return (req, res, next) => {
         mw(req, res, (err) => {
-            if (!err) return next();
+            if (!err)
+                return next();
             const code = err?.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
             const msg = err?.code === 'LIMIT_FILE_SIZE'
                 ? 'Image is too large. Please upload a smaller file.'
@@ -424,10 +450,12 @@ function verifyUploadBytes(kind) {
 function sanitiseSvgIfPresent(req, _res, next) {
     try {
         const file = req.file;
-        if (!file || !file.buffer || file.buffer.length === 0) return next();
+        if (!file || !file.buffer || file.buffer.length === 0)
+            return next();
         const ext = path.extname(file.originalname || '').toLowerCase();
         const looksSvg = ext === '.svg' || file.mimetype === 'image/svg+xml' || file.mimetype === 'image/svg';
-        if (!looksSvg) return next();
+        if (!looksSvg)
+            return next();
         file.buffer = sanitizeSvgBuffer(file.buffer);
         file.size = file.buffer.length;
         file.mimetype = 'image/svg+xml';
@@ -435,7 +463,10 @@ function sanitiseSvgIfPresent(req, _res, next) {
             file.originalname = file.originalname.replace(/\.[^.]+$/, '') + '.svg';
         }
         next();
-    } catch (err) { next(err); }
+    }
+    catch (err) {
+        next(err);
+    }
 }
 export { upload, uploadAny, uploadVideo, uploadFont, uploadAudio, uploadBranding, optimizeImage, validateVideoSize, verifyUploadBytes, multerToJson, sanitiseSvgIfPresent, };
 //# sourceMappingURL=upload.js.map

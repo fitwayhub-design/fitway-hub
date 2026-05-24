@@ -199,10 +199,10 @@ async function startServer() {
         legacyHeaders: false,
     }));
     // Serve uploads — restrict to known media file extensions only. The
-    // backing directory is `UPLOADS_DIR` if set (must be absolute);
-    // otherwise it defaults to <home>/fitway-uploads so files survive
-    // `git pull` and app redeploys without any admin setup. The directory
-    // is created on boot and the path is logged for verification.
+    // backing directory is `UPLOADS_DIR` if set (must be absolute); otherwise
+    // it defaults to <home>/fitway-uploads so files survive `git pull` and
+    // app redeploys without any admin setup. The directory is created on
+    // boot, and the resolved path is logged so it's easy to verify.
     const uploadsBaseDir = process.env.UPLOADS_DIR && path.isAbsolute(process.env.UPLOADS_DIR)
         ? process.env.UPLOADS_DIR
         : path.join(os.homedir(), 'fitway-uploads');
@@ -222,6 +222,9 @@ async function startServer() {
         setHeaders: (res, filePath) => {
             res.setHeader('X-Content-Type-Options', 'nosniff');
             res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            // SVG: force the correct MIME (so nosniff doesn't block it) and a
+            // strict CSP that disables script execution even if any sneaks past
+            // the upload-time sanitiser.
             if (/\.svg$/i.test(filePath)) {
                 res.setHeader('Content-Type', 'image/svg+xml');
                 res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src data:;");

@@ -26,8 +26,10 @@ async function getSetting(key) {
     return row ? row.setting_value : null;
 }
 function normalizeCoachSubscriptionStatus(status) {
-    // Empty when there's no record at all so the UI doesn't render a status
-    // banner for athletes who never subscribed.
+    // No record at all → empty status. The athlete UI hides the banner when
+    // latestStatus is falsy, so an athlete who never subscribed never sees a
+    // pending state. Bug previously: this returned 'pending_admin' for missing
+    // records, which surfaced "⏳ Confirming your payment" on every coach card.
     if (!status)
         return '';
     if (status === 'pending')
