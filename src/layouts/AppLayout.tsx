@@ -144,6 +144,11 @@ export function AppLayout() {
         color: "var(--text-primary)",
         minHeight: "100dvh",
         direction: isRtl ? "rtl" : "ltr",
+        // Height of the top bar that sits above page content. Children use this
+        // for sticky `top` offsets so their headers don't slide under it.
+        // Desktop: the sticky panel header (62px). Mobile: fixed top bar
+        // (56px) + iOS safe-area inset.
+        ["--app-top-offset" as any]: isDesktop ? "62px" : "calc(56px + env(safe-area-inset-top))",
       }}
     >
       {/* ── Desktop Sidebar ── */}

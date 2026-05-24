@@ -345,10 +345,15 @@ export default function Profile() {
 
   const progressPhotoCount = (beforePhoto ? 1 : 0) + (nowPhoto ? 1 : 0);
 
+  // Short labels — the full strings ("My Community Posts", "Onboarding Data",
+  // "Progress Photos") overflowed each tab button at the available width and
+  // bled into the next tab. The tab bar uses flex: 1 to distribute width
+  // evenly, so the labels themselves have to fit; clipping with ellipsis on
+  // the button below is the secondary safety net.
   const TABS: { key: ProfileTab; label: string; icon: any; count?: number }[] = [
-    { key: "posts",    label: t("my_community_posts") || "Posts", icon: Grid3x3, count: communityPosts.length },
-    { key: "progress", label: t("progress_photos") || "Progress", icon: ImageIcon, count: progressPhotoCount },
-    { key: "about",    label: t("onboarding_data") || "About",    icon: Info },
+    { key: "posts",    label: lang === "ar" ? "منشوراتي" : "Posts",    icon: Grid3x3,   count: communityPosts.length },
+    { key: "progress", label: lang === "ar" ? "صور التقدم" : "Photos", icon: ImageIcon, count: progressPhotoCount },
+    { key: "about",    label: lang === "ar" ? "بياناتي" : "About",     icon: Info },
     { key: "settings", label: lang === "ar" ? "الإعدادات" : "Settings", icon: Settings },
   ];
 
@@ -441,7 +446,7 @@ export default function Profile() {
       {msg && <div style={{ margin: "0 16px 12px", padding: "10px 14px", borderRadius: 12, background: msg.startsWith("✅") ? "rgba(74,222,128,0.1)" : "rgba(251,113,133,0.1)", border: `1px solid ${msg.startsWith("✅") ? "var(--green)" : "var(--red)"}`, fontSize: 13, fontWeight: 600, color: msg.startsWith("✅") ? "var(--green)" : "var(--red)" }}>{msg}</div>}
 
       {/* ═══════════ TAB NAV ═══════════ */}
-      <div style={{ margin: "0 16px 20px", position: "sticky", top: 0, zIndex: 5, background: "var(--bg-primary)", paddingTop: 4 }}>
+      <div style={{ margin: "0 16px 20px", position: "sticky", top: "var(--app-top-offset, 0px)", zIndex: 5, background: "var(--bg-primary)", paddingTop: 4 }}>
         <div role="tablist" style={{ display: "flex", gap: 0, padding: 0, borderRadius: 12, background: "transparent", borderBottom: "1px solid var(--border)", overflowX: "auto" }}>
           {TABS.map(tab => {
             const Icon = tab.icon;
@@ -452,21 +457,24 @@ export default function Profile() {
                 aria-selected={active}
                 onClick={() => setActiveTab(tab.key)}
                 style={{
-                  flex: 1, minWidth: 82,
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  padding: "12px 10px", borderRadius: 12,
+                  flex: 1, minWidth: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  padding: "12px 4px", borderRadius: 12,
                   border: "none",
                   borderBottom: active ? "2px solid var(--main)" : "2px solid transparent",
                   cursor: "pointer",
                   background: "transparent",
                   color: active ? "var(--main)" : "var(--text-muted)",
                   fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)",
-                  fontSize: 10, fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase",
+                  fontSize: 9.5, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase",
                   transition: "all 0.15s",
-                  whiteSpace: "nowrap",
+                  // Containment: each tab is a flex item allowed to shrink (minWidth 0),
+                  // and any label that's still too long is ellipsised instead of bleeding
+                  // into the next tab.
+                  overflow: "hidden",
                 }}>
-                <Icon size={13} />
-                <span>{tab.label}</span>
+                <Icon size={13} style={{ flexShrink: 0 }} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{tab.label}</span>
                 {typeof tab.count === "number" && tab.count > 0 && (
                   <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 12, border: "1px solid currentColor", color: active ? "var(--main)" : "var(--text-muted)" }}>
                     {tab.count}
