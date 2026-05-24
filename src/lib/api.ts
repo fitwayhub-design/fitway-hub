@@ -61,16 +61,31 @@ export function setApiBase(url: string): void {
 
 /**
  * Resolve an image / media URL stored in the database so it loads from any
- * client. Absolute URLs (https://, http://, data:, blob:) are returned as-is.
- * Root-relative URLs like `/uploads/foo.jpg` are prefixed with the API base
- * when running on native Capacitor (where there is no API origin to resolve
- * against), and left untouched on the web (same origin handles it).
+ * client. Handles three cases that all broke "image visible to admin but
+ * missing for other viewers":
+ *   1. Root-relative URLs (`/uploads/foo.jpg`) — on native Capacitor there is
+ *      no API origin to resolve against, so prefix the API base.
+ *   2. Stale absolute URLs pinned to localhost (saved when APP_BASE_URL was
+ *      left at the http://localhost:3000 default) — strip the host so the
+ *      remaining path can resolve against the current viewer's origin / API
+ *      base. Otherwise any device that isn't the dev machine 404s.
+ *   3. Real absolute URLs (https://, data:, blob:) — return as-is.
  */
 export function resolveAssetUrl(url: string | null | undefined): string {
   if (!url) return "";
   const trimmed = String(url).trim();
   if (!trimmed) return "";
-  if (/^(https?:|data:|blob:)/i.test(trimmed)) return trimmed;
+  if (/^(data:|blob:)/i.test(trimmed)) return trimmed;
+
+  // Strip a localhost/127.0.0.1 host prefix so the path can be re-resolved
+  // against the viewer's current origin (web) or API base (native).
+  const localhostMatch = trimmed.match(/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(\/.*)?$/i);
+  if (localhostMatch) {
+    return resolveAssetUrl(localhostMatch[1] || "/");
+  }
+
+  if (/^https?:/i.test(trimmed)) return trimmed;
+
   if (trimmed.startsWith("/")) {
     const base = getApiBase();
     return base ? `${base}${trimmed}` : trimmed;

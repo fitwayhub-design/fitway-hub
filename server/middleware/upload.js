@@ -40,15 +40,18 @@ export async function uploadToR2(file, folder = 'uploads') {
         }));
         return `${process.env.R2_PUBLIC_URL}/${key}`;
     }
-    // Local disk fallback — saves to <project-root>/uploads/<folder>/.
-    // Returns an absolute URL pinned to APP_BASE_URL so the same URL works
-    // from any client (website on any device, native mobile app, cross-origin
-    // viewers). Falls back to a root-relative URL when APP_BASE_URL is unset.
+    // Local disk fallback — root-relative URL by default (safe across devices
+    // because it resolves against the viewer's own origin). Only prefixed with
+    // APP_BASE_URL when that value points to a public host, never localhost.
     const uploadDir = path.join(__dirname, '..', '..', 'uploads', folder);
     fs.mkdirSync(uploadDir, { recursive: true });
     fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+    const relativeUrl = `/uploads/${folder}/${filename}`;
     const baseUrl = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
-    return `${baseUrl}/uploads/${folder}/${filename}`;
+    if (baseUrl && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(baseUrl)) {
+        return `${baseUrl}${relativeUrl}`;
+    }
+    return relativeUrl;
 }
 // ── All multer instances use memory storage ───────────────────────────────────
 const storage = multer.memoryStorage();

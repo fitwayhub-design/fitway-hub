@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { getApiBase, resolveAssetUrl } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -276,7 +276,7 @@ export default function Workouts() {
         style={{ display: "flex", flexDirection: "column", borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--border)", overflow: "hidden", cursor: "pointer" }}>
         <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", background: "var(--bg-surface)" }}>
           {v.thumbnail
-            ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20`, display: "flex", alignItems: "center", justifyContent: "center" }}><Play size={28} color={CAT_COLORS[v.category] || "var(--accent)"} /></div>}
           {v.duration && (
             <span style={{ position: "absolute", bottom: 8, right: 8, fontSize: 11, padding: "3px 8px", borderRadius: 6, background: "rgba(0,0,0,0.75)", color: "#fff", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
@@ -287,26 +287,26 @@ export default function Workouts() {
             <SaveBtn id={v.id} light />
           </div>
         </div>
-        <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-          <p style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3, margin: 0 }}>{v.title}</p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: `${CAT_COLORS[v.category] || "#FFD600"}15`, color: CAT_COLORS[v.category] || "var(--accent)", fontWeight: 600 }}>{v.category}</span>
-            {v.level && <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "capitalize" }}>· {v.level}</span>}
+        <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 99, background: `${CAT_COLORS[v.category] || "#FFD600"}15`, color: CAT_COLORS[v.category] || "var(--accent)", fontWeight: 600 }}>{v.category}</span>
+            {v.level && <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "capitalize" }}>· {v.level}</span>}
             {v.coach_name && (
-              <span style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 3 }}>
-                <User size={10} /> {v.coach_name}
+              <span style={{ fontSize: 10, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 3 }}>
+                <User size={9} /> {v.coach_name}
               </span>
             )}
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); setPlaying(v); }}
             style={{
-              marginTop: 4, padding: "8px 12px", borderRadius: 10,
+              marginTop: 2, padding: "6px 10px", borderRadius: 8,
               border: "none", background: "var(--accent)", color: "#000",
-              fontWeight: 700, fontSize: 13, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              fontWeight: 700, fontSize: 12, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
             }}>
-            <Play size={13} fill="#000" /> {isContinue ? "Continue" : "Start"}
+            <Play size={11} fill="#000" /> {isContinue ? "Continue" : "Start"}
           </button>
         </div>
       </div>
@@ -319,7 +319,7 @@ export default function Workouts() {
       style={{ display: "flex", flexDirection: "column", cursor: "pointer" }}>
       <div style={{ position: "relative", width: "100%", aspectRatio: "9 / 16", borderRadius: 14, overflow: "hidden", background: "var(--bg-card)", border: "1px solid var(--border)", marginBottom: 6 }}>
         {v.thumbnail
-          ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20`, display: "flex", alignItems: "center", justifyContent: "center" }}><Play size={24} color={CAT_COLORS[v.category] || "var(--accent)"} /></div>}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 45%)" }} />
         {v.duration && (
@@ -351,9 +351,14 @@ export default function Workouts() {
         : <><Sparkles size={13} /> Recommended for you</>);
     return (
       <div onClick={() => setPlaying(v)}
-        style={{ position: "relative", borderRadius: 18, overflow: "hidden", cursor: "pointer", aspectRatio: mode === "short" ? "4 / 5" : "16 / 9", background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        style={{
+          position: "relative", borderRadius: 18, overflow: "hidden", cursor: "pointer",
+          aspectRatio: mode === "short" ? "4 / 5" : "16 / 9",
+          maxHeight: mode === "short" ? 320 : 240,
+          background: "var(--bg-card)", border: "1px solid var(--border)",
+        }}>
         {v.thumbnail
-          ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}30` }} />}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.35) 100%)" }} />
         <span style={{ position: "absolute", top: 14, left: 14, fontSize: 11, padding: "5px 10px", borderRadius: 99, background: "var(--accent)", color: "#000", fontWeight: 800, display: "flex", alignItems: "center", gap: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
@@ -492,7 +497,7 @@ export default function Workouts() {
                 style={{ flexShrink: 0, width: 220, scrollSnapAlign: "start", cursor: "pointer" }}>
                 <div style={{ position: "relative", height: 124, borderRadius: 14, overflow: "hidden", background: "var(--bg-card)", border: "1px solid var(--border)", marginBottom: 8 }}>
                   {v.thumbnail
-                    ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
                   {/* Faux progress bar — we don't store per-video progress yet,
                       so this is a visual cue that the workout has been done. */}
@@ -546,11 +551,11 @@ export default function Workouts() {
         </div>
         {sorted.length > 0 ? (
           mode === "short" ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))", gap: 10 }}>
               {sorted.map(renderShortCard)}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
               {sorted.map(renderLongCard)}
             </div>
           )
@@ -571,11 +576,11 @@ export default function Workouts() {
             <BookmarkCheck size={14} color="var(--accent)" /> Saved
           </p>
           {mode === "short" ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))", gap: 10 }}>
               {savedList.slice(0, 6).map(renderShortCard)}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
               {savedList.slice(0, 4).map(renderLongCard)}
             </div>
           )}
@@ -593,7 +598,7 @@ export default function Workouts() {
               <div key={v.id} onClick={() => setPlaying(v)}
                 style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer" }}>
                 <div style={{ width: 84, height: 64, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "var(--bg-surface)" }}>
-                  {v.thumbnail ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
+                  {v.thumbnail ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4 }}>{v.title}</p>
@@ -616,7 +621,9 @@ export default function Workouts() {
           </div>
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }} onClick={e => e.stopPropagation()}>
             <VideoPlayer
-              url={playing.source_type === "youtube" ? (playing.youtube_url || playing.url) : playing.url}
+              url={playing.source_type === "youtube"
+                ? (playing.youtube_url || playing.url)
+                : resolveAssetUrl(playing.url)}
               mediaType={playing.source_type === "youtube" ? "youtube" : "video"}
               height="60vh"
               autoPlay

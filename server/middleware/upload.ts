@@ -48,20 +48,26 @@ export async function uploadToR2(file: Express.Multer.File, folder = 'uploads'):
   }
 
   // Local disk fallback — saves to <project-root>/uploads/<folder>/.
-  // Returns an absolute URL pinned to APP_BASE_URL so the same URL works from
-  // any client: the website on any device, the native mobile (Capacitor) app
-  // (which loads from a local bundle and cannot resolve root-relative paths
-  // against the API server), and admins uploading from a different origin
-  // than visitors view from. When APP_BASE_URL is unset, falls back to a
-  // root-relative URL — fine for single-origin web access but breaks the
-  // mobile app and any cross-origin viewer. For multi-instance or
-  // ephemeral-disk hosting, configure R2 (see env.example) — local disk
-  // cannot survive a redeploy or be shared across instances.
+  // Returns an absolute URL ONLY when APP_BASE_URL points to a public host
+  // (not localhost / 127.0.0.1). The previous approach of always prefixing
+  // APP_BASE_URL broke cross-device access because the default value is
+  // http://localhost:3000, and any device that isn't the dev machine can't
+  // resolve "localhost". A root-relative URL is always safe on the web
+  // (resolves against the viewer's own origin, which is correct for a
+  // single-origin deploy and for Vite's dev-server proxy), and the client
+  // helper `resolveAssetUrl` re-prefixes it with the API base when running
+  // on native Capacitor. For multi-instance or ephemeral-disk hosting,
+  // configure R2 (see env.example) — local disk cannot survive a redeploy
+  // or be shared across instances.
   const uploadDir = path.join(__dirname, '..', '..', 'uploads', folder);
   fs.mkdirSync(uploadDir, { recursive: true });
   fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+  const relativeUrl = `/uploads/${folder}/${filename}`;
   const baseUrl = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
-  return `${baseUrl}/uploads/${folder}/${filename}`;
+  if (baseUrl && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(baseUrl)) {
+    return `${baseUrl}${relativeUrl}`;
+  }
+  return relativeUrl;
 }
 
 // ── All multer instances use memory storage ───────────────────────────────────
