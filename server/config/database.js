@@ -1306,6 +1306,15 @@ export async function initDatabase() {
     catch (e) {
         console.warn('⚠️  Workout engagement migration skipped:', e.message);
     }
+    // URL cleanup migration (008) — strip stale http://localhost:PORT prefixes
+    // from uploaded-file URLs so they resolve on any device.
+    try {
+        const { runUrlCleanupMigration } = await import('../migrations/008_strip_localhost_urls.js');
+        await runUrlCleanupMigration();
+    }
+    catch (e) {
+        console.warn('⚠️  URL cleanup migration skipped:', e.message);
+    }
     // Certified coach migration
     try {
         await run('ALTER TABLE coach_profiles ADD COLUMN certified TINYINT(1) DEFAULT 0');
