@@ -40,10 +40,14 @@ export async function uploadToR2(file, folder = 'uploads') {
         }));
         return `${process.env.R2_PUBLIC_URL}/${key}`;
     }
-    // Local disk fallback — root-relative URL by default (safe across devices
-    // because it resolves against the viewer's own origin). Only prefixed with
-    // APP_BASE_URL when that value points to a public host, never localhost.
-    const uploadDir = path.join(__dirname, '..', '..', 'uploads', folder);
+    // Local disk fallback — defaults to <project>/uploads, overridable to
+    // any absolute path via UPLOADS_DIR. Point UPLOADS_DIR somewhere
+    // OUTSIDE the deployed app directory (e.g. /home/<user>/uploads on
+    // Hostinger) so the files survive git pulls / redeploys.
+    const baseDir = process.env.UPLOADS_DIR && path.isAbsolute(process.env.UPLOADS_DIR)
+        ? process.env.UPLOADS_DIR
+        : path.join(__dirname, '..', '..', 'uploads');
+    const uploadDir = path.join(baseDir, folder);
     fs.mkdirSync(uploadDir, { recursive: true });
     fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
     const relativeUrl = `/uploads/${folder}/${filename}`;

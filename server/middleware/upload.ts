@@ -47,19 +47,18 @@ export async function uploadToR2(file: Express.Multer.File, folder = 'uploads'):
     return `${process.env.R2_PUBLIC_URL}/${key}`;
   }
 
-  // Local disk fallback — saves to <project-root>/uploads/<folder>/.
-  // Returns an absolute URL ONLY when APP_BASE_URL points to a public host
-  // (not localhost / 127.0.0.1). The previous approach of always prefixing
-  // APP_BASE_URL broke cross-device access because the default value is
-  // http://localhost:3000, and any device that isn't the dev machine can't
-  // resolve "localhost". A root-relative URL is always safe on the web
-  // (resolves against the viewer's own origin, which is correct for a
-  // single-origin deploy and for Vite's dev-server proxy), and the client
-  // helper `resolveAssetUrl` re-prefixes it with the API base when running
-  // on native Capacitor. For multi-instance or ephemeral-disk hosting,
-  // configure R2 (see env.example) — local disk cannot survive a redeploy
-  // or be shared across instances.
-  const uploadDir = path.join(__dirname, '..', '..', 'uploads', folder);
+  // Local disk fallback — saves to <project-root>/uploads/<folder>/ by
+  // default, or to an absolute path supplied via the UPLOADS_DIR env var.
+  // Setting UPLOADS_DIR to a path OUTSIDE the deployed project directory
+  // (e.g. `/home/<user>/uploads` on Hostinger) is the supported way to
+  // make uploads survive `git pull` / app redeploys without using R2.
+  // Returns an absolute URL only when APP_BASE_URL is a real public host;
+  // otherwise returns the root-relative path so the viewer's own origin
+  // resolves it correctly.
+  const baseDir = process.env.UPLOADS_DIR && path.isAbsolute(process.env.UPLOADS_DIR)
+    ? process.env.UPLOADS_DIR
+    : path.join(__dirname, '..', '..', 'uploads');
+  const uploadDir = path.join(baseDir, folder);
   fs.mkdirSync(uploadDir, { recursive: true });
   fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
   const relativeUrl = `/uploads/${folder}/${filename}`;

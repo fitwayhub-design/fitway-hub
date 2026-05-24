@@ -196,13 +196,18 @@ async function startServer() {
         standardHeaders: true,
         legacyHeaders: false,
     }));
-    // Serve uploads — restrict to known media file extensions only
+    // Serve uploads — restrict to known media file extensions only. The
+    // backing directory is configurable via UPLOADS_DIR so files can live
+    // outside the deployed app folder and survive `git pull` / redeploys.
+    const uploadsBaseDir = process.env.UPLOADS_DIR && path.isAbsolute(process.env.UPLOADS_DIR)
+        ? process.env.UPLOADS_DIR
+        : path.join(__dirname, 'uploads');
     app.use('/uploads', (req, res, next) => {
         const allowed = /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|mov|mp3|webm|ogg|pdf)$/i;
         if (!allowed.test(req.path))
             return res.status(403).json({ message: 'Forbidden' });
         next();
-    }, express.static(path.join(__dirname, 'uploads'), {
+    }, express.static(uploadsBaseDir, {
         setHeaders: (res, filePath) => {
             res.setHeader('X-Content-Type-Options', 'nosniff');
             res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
