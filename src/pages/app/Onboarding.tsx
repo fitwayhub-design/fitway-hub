@@ -8,6 +8,8 @@ import { getApiBase } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useAppImage } from "@/context/AppImagesContext";
+import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
+import { useTheme } from "@/context/ThemeContext";
 
 const goalSchema = z.object({ goal: z.enum(["lose_weight", "maintain_weight", "gain_weight", "build_muscle"]) });
 const personalSchema = z.object({ gender: z.enum(["male", "female"]), dob: z.string().min(1), height: z.number().min(100).max(250), weight: z.number().min(30).max(300) });
@@ -33,7 +35,10 @@ const activityLevels = [
 export default function Onboarding() {
   const navigate = useNavigate();
   const { token, refreshUser } = useAuth();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const { branding } = useBranding();
+  const { isDark } = useTheme();
+  const brandLogo = getBrandLogoForLang(branding, lang, isDark);
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<Partial<OnboardingData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -150,10 +155,16 @@ export default function Onboarding() {
           {/* Logo + Step */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ backgroundColor: "var(--accent)", width: 26, height: 26, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Activity size={14} color="#000000" />
-              </div>
-              <span style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{t("fitway_hub")}</span>
+              {brandLogo ? (
+                <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} style={{ height: 26, borderRadius: 6, objectFit: "contain" }} />
+              ) : (
+                <>
+                  <div style={{ backgroundColor: "var(--accent)", width: 26, height: 26, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Activity size={14} color="#000000" />
+                  </div>
+                  <span style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{branding.app_name || t("fitway_hub")}</span>
+                </>
+              )}
             </div>
             <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", letterSpacing: "0.08em" }}>{t("step_n").replace("{n}", String(step)).replace("{total}", String(totalSteps))}</span>
           </div>
