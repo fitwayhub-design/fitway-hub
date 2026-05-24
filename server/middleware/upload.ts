@@ -1,6 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import { Request, Response, NextFunction } from 'express';
@@ -47,17 +48,19 @@ export async function uploadToR2(file: Express.Multer.File, folder = 'uploads'):
     return `${process.env.R2_PUBLIC_URL}/${key}`;
   }
 
-  // Local disk fallback — saves to <project-root>/uploads/<folder>/ by
-  // default, or to an absolute path supplied via the UPLOADS_DIR env var.
-  // Setting UPLOADS_DIR to a path OUTSIDE the deployed project directory
-  // (e.g. `/home/<user>/uploads` on Hostinger) is the supported way to
-  // make uploads survive `git pull` / app redeploys without using R2.
+  // Local disk fallback — uses UPLOADS_DIR (must be absolute) when set,
+  // otherwise defaults to <home>/fitway-uploads. The home-dir default
+  // lives OUTSIDE the deployed app directory on every shared host I know
+  // of (Hostinger, cPanel hosts, VPS), so uploads survive `git pull`
+  // and app restarts without any admin setup. Must match the static
+  // handler in server.ts — they both read the same env var with the
+  // same fallback.
   // Returns an absolute URL only when APP_BASE_URL is a real public host;
   // otherwise returns the root-relative path so the viewer's own origin
   // resolves it correctly.
   const baseDir = process.env.UPLOADS_DIR && path.isAbsolute(process.env.UPLOADS_DIR)
     ? process.env.UPLOADS_DIR
-    : path.join(__dirname, '..', '..', 'uploads');
+    : path.join(os.homedir(), 'fitway-uploads');
   const uploadDir = path.join(baseDir, folder);
   fs.mkdirSync(uploadDir, { recursive: true });
   fs.writeFileSync(path.join(uploadDir, filename), file.buffer);

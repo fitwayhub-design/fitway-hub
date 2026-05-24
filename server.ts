@@ -5,6 +5,8 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 
 const envResult = dotenv.config();
@@ -250,12 +252,19 @@ async function startServer() {
   }));
 
   // Serve uploads — restrict to known media file extensions only. The
-  // backing directory is configurable via UPLOADS_DIR so admins can keep
-  // uploads on a path that survives `git pull` / redeploys (e.g. somewhere
-  // outside the deployed app folder on shared hosts like Hostinger).
+  // backing directory is `UPLOADS_DIR` if set (must be absolute); otherwise
+  // it defaults to <home>/fitway-uploads so files survive `git pull` and
+  // app redeploys without any admin setup. The directory is created on
+  // boot, and the resolved path is logged so it's easy to verify.
   const uploadsBaseDir = process.env.UPLOADS_DIR && path.isAbsolute(process.env.UPLOADS_DIR)
     ? process.env.UPLOADS_DIR
-    : path.join(__dirname, 'uploads');
+    : path.join(os.homedir(), 'fitway-uploads');
+  try {
+    fs.mkdirSync(uploadsBaseDir, { recursive: true });
+    console.log(`📁 Uploads directory: ${uploadsBaseDir}`);
+  } catch (err: any) {
+    console.warn(`⚠️  Could not create uploads directory ${uploadsBaseDir}: ${err.message}`);
+  }
   app.use('/uploads', (req: any, res: any, next: any) => {
     const allowed = /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|mov|mp3|webm|ogg|pdf)$/i;
     if (!allowed.test(req.path)) return res.status(403).json({ message: 'Forbidden' });

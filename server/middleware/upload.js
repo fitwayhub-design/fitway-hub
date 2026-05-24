@@ -1,6 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import { query as dbQuery } from '../config/database.js';
@@ -40,13 +41,13 @@ export async function uploadToR2(file, folder = 'uploads') {
         }));
         return `${process.env.R2_PUBLIC_URL}/${key}`;
     }
-    // Local disk fallback — defaults to <project>/uploads, overridable to
-    // any absolute path via UPLOADS_DIR. Point UPLOADS_DIR somewhere
-    // OUTSIDE the deployed app directory (e.g. /home/<user>/uploads on
-    // Hostinger) so the files survive git pulls / redeploys.
+    // Local disk fallback — UPLOADS_DIR if set, otherwise <home>/fitway-uploads.
+    // The home-dir default sits outside the deployed app directory so uploads
+    // survive `git pull` / restarts without any admin setup. Matches the
+    // static handler in server.ts.
     const baseDir = process.env.UPLOADS_DIR && path.isAbsolute(process.env.UPLOADS_DIR)
         ? process.env.UPLOADS_DIR
-        : path.join(__dirname, '..', '..', 'uploads');
+        : path.join(os.homedir(), 'fitway-uploads');
     const uploadDir = path.join(baseDir, folder);
     fs.mkdirSync(uploadDir, { recursive: true });
     fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
