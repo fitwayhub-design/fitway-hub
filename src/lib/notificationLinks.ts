@@ -72,8 +72,9 @@ export function resolveNotificationLink(n: NotificationLike): string | null {
 
     // Onboarding / new-user nudges
     case 'user_register':
+      return '/app/profile';
     case 'profile_complete':
-      return '/app/onboarding';
+      return '/app/profile';
     case 'coach_register':
       return '/coach/profile';
 
@@ -136,7 +137,7 @@ export function resolveNotificationLink(n: NotificationLike): string | null {
     case 'coach_report':
       return '/app/coaching';
     case 'welcome':
-      return '/app/dashboard';
+      return '/app/profile';
 
     case 'info':
     case '':

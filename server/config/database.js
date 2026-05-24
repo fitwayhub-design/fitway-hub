@@ -942,6 +942,17 @@ async function initTables() {
         // ── Blog posts: add views + video_duration if missing ───────────────────
         `ALTER TABLE blog_posts ADD COLUMN views INT DEFAULT 0`,
         `ALTER TABLE blog_posts ADD COLUMN video_duration INT DEFAULT NULL`,
+        // ── Welcome message: drop the old "Welcome to <app_name>" wording and
+        //    redirect in-app welcome notifications to the profile instead of
+        //    the onboarding screen (which is post-registration only). Safe to
+        //    run repeatedly — the WHERE clauses make them no-ops once applied.
+        `UPDATE welcome_messages SET title = 'Welcome, {{first_name}}! 💪'
+       WHERE target = 'user' AND channel = 'push'
+         AND title = 'Welcome to {{app_name}}, {{first_name}}! 💪'`,
+        `UPDATE push_templates SET title = 'Welcome! 💪'
+       WHERE slug = 'user_register' AND title = 'Welcome to Fitway Hub! 💪'`,
+        `UPDATE notifications SET link = '/app/profile'
+       WHERE type = 'welcome' AND link = '/app/onboarding'`,
         // ── Email OTP codes (registration / forgot-password / change-password) ──
         `CREATE TABLE IF NOT EXISTS email_otps (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1129,7 +1140,7 @@ export async function seedDefaultAppSettings() {
 // ── Seed the 30 standard push notification templates ─────────────────────────
 async function seedStandardTemplates() {
     const templates = [
-        { slug: 'user_register', title: 'Welcome to Fitway Hub! 💪', body: 'Your fitness journey starts today. Set up your profile and build your first workout plan.', category: 'new_user', trigger_type: 'user_registers', purpose: 'onboarding' },
+        { slug: 'user_register', title: 'Welcome! 💪', body: 'Your fitness journey starts today. Set up your profile and build your first workout plan.', category: 'new_user', trigger_type: 'user_registers', purpose: 'onboarding' },
         { slug: 'coach_register', title: 'Welcome Coach! Athletes are waiting.', body: 'Complete your profile and start connecting with athletes who need your expertise.', category: 'new_coach', trigger_type: 'coach_registers', purpose: 'coach_onboarding' },
         { slug: 'profile_complete', title: 'Your profile is ready! 🎯', body: 'Great work! Now let\'s build your first workout plan and get started.', category: 'new_user', trigger_type: 'user_completes_profile', purpose: 'activation' },
         { slug: 'workout_plan_assigned', title: 'New workout plan assigned! 🏋️', body: 'Your coach assigned a new workout plan. Open the app to start training.', category: 'engagement', trigger_type: 'workout_plan_assigned', purpose: 'engagement' },
@@ -1386,7 +1397,7 @@ export async function initDatabase() {
     // Seed default welcome push messages so new athletes/coaches get a push on registration
     try {
         await getPool().execute(`INSERT IGNORE INTO welcome_messages (target, channel, subject, title, body, enabled) VALUES
-        ('user', 'push', '', 'Welcome to {{app_name}}, {{first_name}}! 💪', 'Your fitness journey starts now. Tap to set up your profile and crush your first workout.', 1),
+        ('user', 'push', '', 'Welcome, {{first_name}}! 💪', 'Your fitness journey starts now. Tap to set up your profile and crush your first workout.', 1),
         ('coach', 'push', '', 'Welcome Coach {{first_name}}! 🏆', 'Athletes are waiting. Complete your profile and start coaching today.', 1)`, []);
     }
     catch { }

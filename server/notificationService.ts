@@ -396,7 +396,7 @@ export async function sendWelcomeMessages(userId: number, role: 'user' | 'coach'
     if (msg.channel === 'push') {
       await sendPushToUser(userId, title, body);
     } else if (msg.channel === 'in_app') {
-      await createInAppNotification(userId, 'welcome', title, body, role === 'coach' ? '/coach/profile' : '/app/onboarding');
+      await createInAppNotification(userId, 'welcome', title, body, role === 'coach' ? '/coach/profile' : '/app/profile');
     } else if (msg.channel === 'email') {
       try {
         const smtpSettings = await getSmtpSettings();
