@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import { get, run } from '../config/database.js';
 import { sendSystemEmail } from '../emailServer.js';
 const OTP_TTL_SECONDS = 120; // 2 minutes
@@ -6,7 +7,7 @@ const OTP_MAX_ATTEMPTS = 5;
 const OTP_RESEND_COOLDOWN_SECONDS = 30;
 function generateCode() {
     // 6-digit numeric (zero-padded). Use crypto for unbiased numeric digits.
-    const buf = require('crypto').randomBytes(4).readUInt32BE(0);
+    const buf = randomBytes(4).readUInt32BE(0);
     return String(buf % 1_000_000).padStart(6, '0');
 }
 export async function requestOtp(email, purpose) {

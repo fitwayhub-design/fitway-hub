@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import { get, run } from '../config/database.js';
 import { sendSystemEmail } from '../emailServer.js';
 
@@ -21,7 +22,7 @@ interface OtpRow {
 
 function generateCode(): string {
   // 6-digit numeric (zero-padded). Use crypto for unbiased numeric digits.
-  const buf = require('crypto').randomBytes(4).readUInt32BE(0);
+  const buf = randomBytes(4).readUInt32BE(0);
   return String(buf % 1_000_000).padStart(6, '0');
 }
 
