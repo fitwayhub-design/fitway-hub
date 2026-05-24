@@ -2,7 +2,7 @@ import { Outlet, Link, NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Settings, Activity,
   Gift, DollarSign, Video, Megaphone, UserCheck, Globe, MessageCircle, FileText,
-  ClipboardList, Wallet, Bell, ShieldCheck, Flag, Image as ImageIcon,
+  ClipboardList, Wallet, Bell, ShieldCheck, Flag, Image as ImageIcon, Mail,
 } from "lucide-react";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useI18n } from "@/context/I18nContext";
@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
   { path: "/admin/app-images",     icon: ImageIcon,       label: "App Images" },
   { path: "/admin/subscriptions",  icon: ClipboardList,   label: "Subscriptions" },
   { path: "/admin/withdrawals",    icon: Wallet,          label: "Withdrawals" },
+  { path: "/admin/email-server",   icon: Mail,            label: "Email Server" },
   { path: "/admin/settings",       icon: Settings,        label: "Settings" },
 ];
 
@@ -70,6 +71,7 @@ export function AdminLayout() {
     { path: "/admin/app-images",     icon: ImageIcon,       label: t("app_images") || "App Images" },
     { path: "/admin/subscriptions",  icon: ClipboardList,   label: t("subscriptions") || "Subscriptions" },
     { path: "/admin/withdrawals",    icon: Wallet,          label: t("withdrawals") || "Withdrawals" },
+    { path: "/admin/email-server",   icon: Mail,            label: t("email_server") || "Email Server" },
     { path: "/admin/settings",       icon: Settings,        label: t("settings") },
   ];
 
@@ -92,6 +94,7 @@ export function AdminLayout() {
     { path: "/admin/app-images",     icon: ImageIcon,      label: t("app_images") || "App Images" },
     { path: "/admin/subscriptions",  icon: ClipboardList,  label: t("subscriptions") || "Subscriptions" },
     { path: "/admin/withdrawals",    icon: Wallet,         label: t("withdrawals") || "Withdrawals" },
+    { path: "/admin/email-server",   icon: Mail,           label: t("email_server") || "Email Server" },
   ];
   const currentPageLabel = translatedNavItems.find((item) => item.path === location.pathname)?.label || t("dashboard");
   const { isMobile, sidebarW, DesktopSidebar, OverlayDrawer, MobileTopBar, MobileBottomBar } = SharedSidebar({

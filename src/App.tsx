@@ -150,6 +150,7 @@ const AdsSettingsPanel = lazy(() => import("@/pages/admin/AdsSettings"));
 const AdminCertifications = lazy(() => import("@/pages/admin/Certifications"));
 const AdminCoachReports = lazy(() => import("@/pages/admin/CoachReports"));
 const AdminAppImages = lazy(() => import("@/pages/admin/AppImagesManager"));
+const AdminEmailServer = lazy(() => import("@/pages/admin/EmailServer"));
 
 // ── Page spinner (shown while lazy chunks download) ────────────────────────────
 function PageSpinner() {
@@ -392,6 +393,7 @@ export default function App() {
                 <Route path="/admin/certifications" element={<AdminCertifications />} />
                 <Route path="/admin/coach-reports" element={<AdminCoachReports />} />
                 <Route path="/admin/app-images" element={<AdminAppImages />} />
+                <Route path="/admin/email-server" element={<AdminEmailServer />} />
               </Route>
 
               {/* Payment Result Routes */}
