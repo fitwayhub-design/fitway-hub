@@ -19,7 +19,14 @@ function extractYouTubeVideoId(url: string): string | null {
 
 router.get('/videos', authenticateToken, async (req: any, res: any) => {
   try {
-    const videos = await query("SELECT * FROM workout_videos WHERE COALESCE(approval_status, 'approved') = 'approved' AND (is_short IS NULL OR is_short = 0) ORDER BY created_at DESC");
+    const videos = await query(
+      `SELECT wv.*, u.name AS coach_name
+       FROM workout_videos wv
+       LEFT JOIN users u ON u.id = wv.coach_id
+       WHERE COALESCE(wv.approval_status, 'approved') = 'approved'
+         AND (wv.is_short IS NULL OR wv.is_short = 0)
+       ORDER BY wv.created_at DESC`
+    );
     res.json({ videos });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch videos' });
@@ -29,7 +36,14 @@ router.get('/videos', authenticateToken, async (req: any, res: any) => {
 // ── Shorties: short videos only ────────────────────────────────────────────────
 router.get('/shorties', authenticateToken, async (req: any, res: any) => {
   try {
-    const videos = await query("SELECT * FROM workout_videos WHERE COALESCE(approval_status, 'approved') = 'approved' AND is_short = 1 ORDER BY created_at DESC");
+    const videos = await query(
+      `SELECT wv.*, u.name AS coach_name
+       FROM workout_videos wv
+       LEFT JOIN users u ON u.id = wv.coach_id
+       WHERE COALESCE(wv.approval_status, 'approved') = 'approved'
+         AND wv.is_short = 1
+       ORDER BY wv.created_at DESC`
+    );
     res.json({ videos });
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch shorties' });

@@ -3,7 +3,10 @@ import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import { Play, Search, Clock, ChevronRight, X, BookmarkCheck, Sparkles, SlidersHorizontal } from "lucide-react";
+import {
+  Play, Search, Clock, ChevronRight, X, BookmarkCheck, Sparkles,
+  SlidersHorizontal, Flame, Zap, User, TrendingUp,
+} from "lucide-react";
 import VideoPlayer from "@/components/app/VideoPlayer";
 
 interface Video {
@@ -16,6 +19,8 @@ interface Video {
   body_area?: string | null;
   equipment?: string | null;
   level?: string | null;
+  coach_id?: number | null;
+  coach_name?: string | null;
   created_at?: string;
   completed?: boolean;
 }
@@ -27,10 +32,10 @@ const CAT_COLORS: Record<string, string> = {
 
 /* Filter facets shown as chip rows. Values match what admin saves on a video. */
 const GOALS = [
-  { value: "fat_loss", label: "Fat loss" },
-  { value: "muscle_gain", label: "Muscle gain" },
-  { value: "mobility", label: "Mobility" },
-  { value: "endurance", label: "Endurance" },
+  { value: "fat_loss", label: "Burn" },
+  { value: "muscle_gain", label: "Build" },
+  { value: "mobility", label: "Recover" },
+  { value: "endurance", label: "Tone" },
 ];
 const BODY_AREAS = [
   { value: "full_body", label: "Full body" },
@@ -49,16 +54,25 @@ const LEVELS = [
   { value: "intermediate", label: "Intermediate" },
   { value: "advanced", label: "Advanced" },
 ];
-/* Duration buckets, in seconds. -1 means "more than 45 min" (no upper bound). */
+/* Duration buckets, in seconds. */
 const DURATIONS: Array<{ value: string; label: string; min: number; max: number }> = [
   { value: "5", label: "5 min", min: 0, max: 5 * 60 + 30 },
   { value: "10", label: "10 min", min: 5 * 60 + 30, max: 14 * 60 },
   { value: "20", label: "20 min", min: 14 * 60, max: 30 * 60 },
-  { value: "45", label: "45 min", min: 30 * 60, max: 45 * 60 + 60 },
-  { value: "more", label: "45+ min", min: 45 * 60 + 60, max: Number.POSITIVE_INFINITY },
+  { value: "45", label: "45 min+", min: 30 * 60, max: Number.POSITIVE_INFINITY },
+];
+
+/* Workout type chips — these map to the existing `category` column. */
+const WORKOUT_TYPES = [
+  { value: "Strength", label: "Strength" },
+  { value: "Cardio", label: "Cardio" },
+  { value: "Mobility", label: "Mobility" },
+  { value: "HIIT", label: "Fat Loss" },
+  { value: "Yoga", label: "Yoga" },
 ];
 
 type SortMode = "newest" | "shortest" | "longest";
+type Mode = "long" | "short";
 
 /* Tiny helper for a chip row. Single-select with an "All" reset chip. */
 function ChipRow<T extends { value: string; label: string }>({
@@ -101,42 +115,64 @@ function ChipRow<T extends { value: string; label: string }>({
 export default function Workouts() {
   const { user, token } = useAuth();
   const { t } = useI18n();
-  const [videos, setVideos] = useState<Video[]>([]);
+  const [longs, setLongs] = useState<Video[]>([]);
+  const [shorts, setShorts] = useState<Video[]>([]);
   const [completedIds, setCompletedIds] = useState<Set<number>>(new Set());
+  const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [searching, setSearching] = useState(false);
   const [playing, setPlaying] = useState<Video | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [sort, setSort] = useState<SortMode>("newest");
+  const [mode, setMode] = useState<Mode>("long");
 
   const [fGoal, setFGoal] = useState("");
   const [fBody, setFBody] = useState("");
   const [fDuration, setFDuration] = useState("");
   const [fEquipment, setFEquipment] = useState("");
   const [fLevel, setFLevel] = useState("");
-  const [fCategory, setFCategory] = useState("");
+  const [fType, setFType] = useState("");
 
   const loadWorkouts = () => {
     if (!token) return;
-    fetch(`${getApiBase()}/api/workouts/videos`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => { setVideos(d.videos || []); setLoading(false); })
-      .catch(() => setLoading(false));
+    const headers = { Authorization: `Bearer ${token}` };
+    Promise.all([
+      fetch(`${getApiBase()}/api/workouts/videos`, { headers }).then(r => r.json()).catch(() => ({ videos: [] })),
+      fetch(`${getApiBase()}/api/workouts/shorties`, { headers }).then(r => r.json()).catch(() => ({ videos: [] })),
+    ]).then(([l, s]) => {
+      setLongs(l.videos || []);
+      setShorts(s.videos || []);
+      setLoading(false);
+    });
     // Best-effort fetch of completed video IDs (endpoint may not exist on every install).
-    fetch(`${getApiBase()}/api/workouts/completed`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${getApiBase()}/api/workouts/completed`, { headers })
       .then(r => r.ok ? r.json() : { ids: [] })
       .then(d => setCompletedIds(new Set((d?.ids || d?.completed || []).map((x: any) => Number(x.id || x)))))
       .catch(() => { /* silent */ });
+    // Restore client-side saved set. There is no server-side endpoint yet, so
+    // saved videos live in localStorage; this still gives users a way to come
+    // back to a workout without re-searching.
+    try {
+      const raw = localStorage.getItem("fitway_saved_videos");
+      if (raw) setSavedIds(new Set(JSON.parse(raw)));
+    } catch { /* ignore */ }
   };
 
   useEffect(() => { loadWorkouts(); }, [token]);
   useAutoRefresh(loadWorkouts);
 
-  /* Active filters (excluding free-text search and category). Used for the
-     "active filter count" badge on the filter button. */
+  const toggleSaved = (id: number) => {
+    setSavedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem("fitway_saved_videos", JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
   const activeFilterCount =
-    [fGoal, fBody, fDuration, fEquipment, fLevel].filter(Boolean).length;
+    [fGoal, fBody, fDuration, fEquipment, fLevel, fType].filter(Boolean).length;
 
   const matchesDuration = (v: Video) => {
     if (!fDuration) return true;
@@ -147,18 +183,20 @@ export default function Workouts() {
     return secs >= bucket.min && secs < bucket.max;
   };
 
+  const sourceList = mode === "long" ? longs : shorts;
+
   const filtered = useMemo(() => {
     const q2 = q.trim().toLowerCase();
-    return videos.filter(v =>
-      (!fCategory || v.category === fCategory) &&
+    return sourceList.filter(v =>
+      (!fType || v.category === fType) &&
       (!fGoal || v.goal === fGoal) &&
       (!fBody || v.body_area === fBody) &&
       (!fEquipment || v.equipment === fEquipment) &&
       (!fLevel || v.level === fLevel) &&
-      matchesDuration(v) &&
+      (mode === "short" || matchesDuration(v)) &&
       (!q2 || v.title.toLowerCase().includes(q2) || (v.description || "").toLowerCase().includes(q2))
     );
-  }, [videos, fCategory, fGoal, fBody, fEquipment, fLevel, fDuration, q]);
+  }, [sourceList, mode, fType, fGoal, fBody, fEquipment, fLevel, fDuration, q]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -168,50 +206,186 @@ export default function Workouts() {
     return arr;
   }, [filtered, sort]);
 
-  const recommended = useMemo(() => {
-    // Prefer videos that match the athlete's saved goal/level if any.
-    const userGoal = (user as any)?.fitness_goal as string | undefined;
-    const matching = videos.filter(v =>
-      (!userGoal || v.goal === userGoal) && !completedIds.has(v.id)
-    );
-    return (matching.length ? matching : videos).slice(0, 6);
-  }, [videos, user, completedIds]);
-
-  const completedList = useMemo(
-    () => videos.filter(v => completedIds.has(v.id)),
-    [videos, completedIds]
+  /* "Continue watching" — most recently watched long videos that the user has
+     interacted with. We don't track progress in seconds yet, so this surfaces
+     completed long videos so the user can re-do them. The Shorts feed picks
+     trending = newest. */
+  const continueList = useMemo(
+    () => longs.filter(v => completedIds.has(v.id)).slice(0, 6),
+    [longs, completedIds]
   );
 
-  const featuredCategories = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const v of videos) counts[v.category] = (counts[v.category] || 0) + 1;
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  }, [videos]);
+  /* Featured pick: for long-form we recommend by goal/level match, for shorts
+     we surface the newest one as "trending this week". */
+  const featured = useMemo<Video | null>(() => {
+    if (mode === "short") {
+      return shorts[0] || null;
+    }
+    const userGoal = (user as any)?.fitness_goal as string | undefined;
+    const matching = longs.find(v => (!userGoal || v.goal === userGoal) && !completedIds.has(v.id));
+    return matching || longs[0] || null;
+  }, [mode, longs, shorts, user, completedIds]);
 
-  const renderRowCard = (v: Video) => (
+  /* Coach groupings — only meaningful for long-form. */
+  const coachGroups = useMemo(() => {
+    if (mode !== "long") return [];
+    const map = new Map<string, Video[]>();
+    for (const v of longs) {
+      if (!v.coach_name) continue;
+      const arr = map.get(v.coach_name) || [];
+      arr.push(v);
+      map.set(v.coach_name, arr);
+    }
+    return [...map.entries()]
+      .filter(([, arr]) => arr.length >= 2)
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, 4);
+  }, [mode, longs]);
+
+  const savedList = useMemo(
+    () => sourceList.filter(v => savedIds.has(v.id)),
+    [sourceList, savedIds]
+  );
+
+  /* ── Card renderers ────────────────────────────────────────────────────── */
+
+  const SaveBtn = ({ id, light }: { id: number; light?: boolean }) => {
+    const saved = savedIds.has(id);
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); toggleSaved(id); }}
+        style={{
+          width: 30, height: 30, borderRadius: 99,
+          background: light ? "rgba(0,0,0,0.55)" : "var(--bg-surface)",
+          border: light ? "none" : "1px solid var(--border)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "pointer", color: saved ? "var(--accent)" : (light ? "#fff" : "var(--text-secondary)"),
+        }}
+        aria-label={saved ? "Unsave" : "Save"}
+      >
+        <BookmarkCheck size={14} fill={saved ? "currentColor" : "none"} />
+      </button>
+    );
+  };
+
+  /* Long-form card: bigger thumbnail + stack of meta + Start/Continue CTA. */
+  const renderLongCard = (v: Video) => {
+    const isContinue = completedIds.has(v.id);
+    return (
+      <div key={v.id} onClick={() => setPlaying(v)}
+        style={{ display: "flex", flexDirection: "column", borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--border)", overflow: "hidden", cursor: "pointer" }}>
+        <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", background: "var(--bg-surface)" }}>
+          {v.thumbnail
+            ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20`, display: "flex", alignItems: "center", justifyContent: "center" }}><Play size={28} color={CAT_COLORS[v.category] || "var(--accent)"} /></div>}
+          {v.duration && (
+            <span style={{ position: "absolute", bottom: 8, right: 8, fontSize: 11, padding: "3px 8px", borderRadius: 6, background: "rgba(0,0,0,0.75)", color: "#fff", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+              <Clock size={10} /> {v.duration}
+            </span>
+          )}
+          <div style={{ position: "absolute", top: 8, right: 8 }}>
+            <SaveBtn id={v.id} light />
+          </div>
+        </div>
+        <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <p style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3, margin: 0 }}>{v.title}</p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: `${CAT_COLORS[v.category] || "#FFD600"}15`, color: CAT_COLORS[v.category] || "var(--accent)", fontWeight: 600 }}>{v.category}</span>
+            {v.level && <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "capitalize" }}>· {v.level}</span>}
+            {v.coach_name && (
+              <span style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 3 }}>
+                <User size={10} /> {v.coach_name}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); setPlaying(v); }}
+            style={{
+              marginTop: 4, padding: "8px 12px", borderRadius: 10,
+              border: "none", background: "var(--accent)", color: "#000",
+              fontWeight: 700, fontSize: 13, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}>
+            <Play size={13} fill="#000" /> {isContinue ? "Continue" : "Start"}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  /* Short card: tall portrait thumbnail, minimal meta, designed for fast scrolling. */
+  const renderShortCard = (v: Video) => (
     <div key={v.id} onClick={() => setPlaying(v)}
-      style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer" }}>
-      <div style={{ width: 84, height: 64, borderRadius: 10, overflow: "hidden", flexShrink: 0, position: "relative", background: "var(--bg-surface)" }}>
-        {v.thumbnail ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20`, display: "flex", alignItems: "center", justifyContent: "center" }}><Play size={20} color={CAT_COLORS[v.category] || "var(--accent)"} /></div>}
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.18)" }}>
-          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}><Play size={12} color="#fff" fill="#fff" /></div>
+      style={{ display: "flex", flexDirection: "column", cursor: "pointer" }}>
+      <div style={{ position: "relative", width: "100%", aspectRatio: "9 / 16", borderRadius: 14, overflow: "hidden", background: "var(--bg-card)", border: "1px solid var(--border)", marginBottom: 6 }}>
+        {v.thumbnail
+          ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20`, display: "flex", alignItems: "center", justifyContent: "center" }}><Play size={24} color={CAT_COLORS[v.category] || "var(--accent)"} /></div>}
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 45%)" }} />
+        {v.duration && (
+          <span style={{ position: "absolute", top: 6, left: 6, fontSize: 10, padding: "2px 6px", borderRadius: 6, background: "rgba(0,0,0,0.7)", color: "#fff", fontWeight: 700 }}>
+            {v.duration}
+          </span>
+        )}
+        <div style={{ position: "absolute", top: 6, right: 6 }}>
+          <SaveBtn id={v.id} light />
+        </div>
+        <div style={{ position: "absolute", left: 8, right: 8, bottom: 8, color: "#fff" }}>
+          <p style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</p>
+          {v.coach_name && (
+            <p style={{ fontSize: 10, opacity: 0.85, margin: "3px 0 0", display: "flex", alignItems: "center", gap: 3 }}>
+              <User size={9} /> {v.coach_name}
+            </p>
+          )}
         </div>
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4 }}>{v.title}</p>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 99, background: `${CAT_COLORS[v.category] || "#FFD600"}15`, color: CAT_COLORS[v.category] || "var(--accent)", fontWeight: 600 }}>{v.category}</span>
-          {v.duration && <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--text-muted)" }}><Clock size={11} />{v.duration}</span>}
-          {v.level && <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "capitalize" }}>· {v.level}</span>}
-        </div>
-      </div>
-      <ChevronRight size={16} color="var(--text-muted)" />
     </div>
   );
 
+  /* Featured / "hero" card — single highlighted item at top of each tab. */
+  const renderFeatured = (v: Video) => {
+    const labelIcon = mode === "short"
+      ? <><TrendingUp size={13} /> Trending this week</>
+      : (completedIds.has(v.id)
+        ? <><Play size={13} /> Continue watching</>
+        : <><Sparkles size={13} /> Recommended for you</>);
+    return (
+      <div onClick={() => setPlaying(v)}
+        style={{ position: "relative", borderRadius: 18, overflow: "hidden", cursor: "pointer", aspectRatio: mode === "short" ? "4 / 5" : "16 / 9", background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        {v.thumbnail
+          ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}30` }} />}
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.35) 100%)" }} />
+        <span style={{ position: "absolute", top: 14, left: 14, fontSize: 11, padding: "5px 10px", borderRadius: 99, background: "var(--accent)", color: "#000", fontWeight: 800, display: "flex", alignItems: "center", gap: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          {labelIcon}
+        </span>
+        <div style={{ position: "absolute", left: 16, right: 16, bottom: 16, color: "#fff" }}>
+          <p style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.2, margin: 0, marginBottom: 6, fontFamily: "var(--font-heading)" }}>{v.title}</p>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+            <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 99, background: "rgba(255,255,255,0.18)", fontWeight: 600 }}>{v.category}</span>
+            {v.duration && <span style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4, opacity: 0.9 }}><Clock size={11} /> {v.duration}</span>}
+            {v.level && <span style={{ fontSize: 11, opacity: 0.9, textTransform: "capitalize" }}>· {v.level}</span>}
+            {v.coach_name && <span style={{ fontSize: 11, opacity: 0.9, display: "flex", alignItems: "center", gap: 4 }}><User size={11} /> {v.coach_name}</span>}
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); setPlaying(v); }}
+            style={{
+              padding: "9px 18px", borderRadius: 99, border: "none",
+              background: "#fff", color: "#000", fontWeight: 800, fontSize: 13,
+              cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+            }}>
+            <Play size={13} fill="#000" /> {mode === "short" ? "Begin workout now" : (completedIds.has(v.id) ? "Resume" : "Start")}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 24 }}>
-      {/* Header + search */}
+      {/* Header + search (unchanged) */}
       <div style={{ padding: "16px", display: "flex", alignItems: "center", gap: 10 }}>
         {searching ? (
           <>
@@ -245,16 +419,49 @@ export default function Workouts() {
         )}
       </div>
 
-      {/* Quick filter chips (collapsible) */}
+      {/* Primary toggle: Shorts vs Long Videos */}
+      <div style={{ padding: "0 16px 12px" }}>
+        <div role="tablist" style={{ display: "flex", padding: 4, borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+          {([
+            { key: "long", label: "Long Videos", icon: <Play size={14} /> },
+            { key: "short", label: "Shorts", icon: <Zap size={14} /> },
+          ] as Array<{ key: Mode; label: string; icon: any }>).map(opt => {
+            const active = mode === opt.key;
+            return (
+              <button key={opt.key} role="tab" aria-selected={active} onClick={() => setMode(opt.key)}
+                style={{
+                  flex: 1, padding: "10px 12px", borderRadius: 10,
+                  border: "none",
+                  background: active ? "var(--accent)" : "transparent",
+                  color: active ? "#000" : "var(--text-secondary)",
+                  fontWeight: 700, fontSize: 13, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  transition: "background 0.15s ease",
+                }}>
+                {opt.icon} {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Smart category chips — workout type always visible, others under filter button */}
+      <div style={{ padding: "0 16px 4px" }}>
+        <ChipRow label="Workout type" items={WORKOUT_TYPES} value={fType} onChange={setFType} />
+      </div>
+
+      {/* Extended filter chips (collapsible) */}
       {showFilters && (
         <div style={{ padding: "0 16px 8px" }}>
           <ChipRow label="Goal" items={GOALS} value={fGoal} onChange={setFGoal} />
           <ChipRow label="Body area" items={BODY_AREAS} value={fBody} onChange={setFBody} />
-          <ChipRow label="Duration" items={DURATIONS.map(d => ({ value: d.value, label: d.label }))} value={fDuration} onChange={setFDuration} />
+          {mode === "long" && (
+            <ChipRow label="Duration" items={DURATIONS.map(d => ({ value: d.value, label: d.label }))} value={fDuration} onChange={setFDuration} />
+          )}
           <ChipRow label="Equipment" items={EQUIPMENTS} value={fEquipment} onChange={setFEquipment} />
           <ChipRow label="Level" items={LEVELS} value={fLevel} onChange={setFLevel} />
           {activeFilterCount > 0 && (
-            <button onClick={() => { setFGoal(""); setFBody(""); setFDuration(""); setFEquipment(""); setFLevel(""); }}
+            <button onClick={() => { setFGoal(""); setFBody(""); setFDuration(""); setFEquipment(""); setFLevel(""); setFType(""); }}
               style={{ marginTop: 4, fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}>
               Clear all filters
             </button>
@@ -264,70 +471,89 @@ export default function Workouts() {
 
       {loading && <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>{t("loading_ellipsis")}</div>}
 
-      {/* Continue / Recommended */}
-      {!loading && !activeFilterCount && !q && recommended.length > 0 && (
+      {/* Featured hero — only on the un-filtered, un-searched view */}
+      {!loading && !activeFilterCount && !q && featured && (
+        <section style={{ padding: "0 16px", marginBottom: 24 }}>
+          {renderFeatured(featured)}
+        </section>
+      )}
+
+      {/* Continue watching strip — long-form only, when the user has history */}
+      {!loading && mode === "long" && !activeFilterCount && !q && continueList.length > 0 && (
         <section style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 12px" }}>
             <p style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-              <Sparkles size={15} color="var(--accent)" /> Recommended for you
+              <Play size={14} color="var(--accent)" /> Continue watching
             </p>
           </div>
           <div style={{ display: "flex", gap: 12, overflowX: "auto", padding: "0 16px", scrollSnapType: "x mandatory", scrollbarWidth: "none" }}>
-            {recommended.map(v => (
+            {continueList.map(v => (
               <div key={v.id} onClick={() => setPlaying(v)}
-                style={{ flexShrink: 0, width: 200, scrollSnapAlign: "start", cursor: "pointer" }}>
-                <div style={{ height: 120, borderRadius: 14, overflow: "hidden", background: "var(--bg-card)", border: "1px solid var(--border)", marginBottom: 8, position: "relative" }}>
-                  {v.thumbnail ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
-                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)", display: "flex", alignItems: "flex-end", padding: 10 }}>
-                    <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 99, background: "rgba(0,0,0,0.55)", color: "#fff", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>{v.category}</span>
+                style={{ flexShrink: 0, width: 220, scrollSnapAlign: "start", cursor: "pointer" }}>
+                <div style={{ position: "relative", height: 124, borderRadius: 14, overflow: "hidden", background: "var(--bg-card)", border: "1px solid var(--border)", marginBottom: 8 }}>
+                  {v.thumbnail
+                    ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
+                  {/* Faux progress bar — we don't store per-video progress yet,
+                      so this is a visual cue that the workout has been done. */}
+                  <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, background: "rgba(0,0,0,0.4)" }}>
+                    <div style={{ width: "100%", height: "100%", background: "var(--accent)" }} />
                   </div>
                 </div>
                 <p style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, marginBottom: 2 }}>{v.title}</p>
-                {v.duration && <p style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}><Clock size={11} /> {v.duration}</p>}
+                <p style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                  <Clock size={11} /> {v.duration || ""}{v.coach_name ? ` · ${v.coach_name}` : ""}
+                </p>
               </div>
             ))}
           </div>
         </section>
       )}
 
-      {/* Featured categories */}
-      {!loading && !activeFilterCount && !q && featuredCategories.length > 0 && (
-        <section style={{ marginBottom: 24 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 12px" }}>
-            <p style={{ fontSize: 15, fontWeight: 700 }}>Featured categories</p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, padding: "0 16px" }}>
-            {featuredCategories.map(([name, count]) => (
-              <button key={name} onClick={() => setFCategory(fCategory === name ? "" : name)}
-                style={{
-                  padding: "16px 14px", borderRadius: 14,
-                  border: `1px solid ${fCategory === name ? (CAT_COLORS[name] || "var(--accent)") : "var(--border)"}`,
-                  background: fCategory === name ? `${CAT_COLORS[name] || "#FFD600"}18` : "var(--bg-card)",
-                  textAlign: "start", cursor: "pointer",
-                }}>
-                <p style={{ fontSize: 14, fontWeight: 700, color: CAT_COLORS[name] || "var(--text-primary)", marginBottom: 4 }}>{name}</p>
-                <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{count} workout{count !== 1 ? "s" : ""}</p>
+      {/* Coach groupings — long-form only */}
+      {!loading && mode === "long" && !activeFilterCount && !q && coachGroups.length > 0 && (
+        <section style={{ padding: "0 16px", marginBottom: 24 }}>
+          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            <User size={14} color="var(--accent)" /> Browse by coach
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+            {coachGroups.map(([name, list]) => (
+              <button key={name} onClick={() => { setQ(name); setSearching(true); }}
+                style={{ padding: "14px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "start", cursor: "pointer" }}>
+                <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{name}</p>
+                <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{list.length} workout{list.length !== 1 ? "s" : ""}</p>
               </button>
             ))}
           </div>
         </section>
       )}
 
-      {/* All workouts with sort */}
+      {/* Main list */}
       <section style={{ padding: "0 16px", marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <p style={{ fontSize: 15, fontWeight: 700 }}>{fCategory || "All workouts"} · {sorted.length}</p>
-          <select value={sort} onChange={e => setSort(e.target.value as SortMode)}
-            style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-secondary)", fontSize: 12 }}>
-            <option value="newest">Newest</option>
-            <option value="shortest">Shortest first</option>
-            <option value="longest">Longest first</option>
-          </select>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <p style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+            {mode === "short" ? <Flame size={14} color="var(--accent)" /> : <Play size={14} color="var(--accent)" />}
+            {fType || (mode === "short" ? "All shorts" : "All workouts")} · {sorted.length}
+          </p>
+          {mode === "long" && (
+            <select value={sort} onChange={e => setSort(e.target.value as SortMode)}
+              style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-secondary)", fontSize: 12 }}>
+              <option value="newest">Newest</option>
+              <option value="shortest">Shortest first</option>
+              <option value="longest">Longest first</option>
+            </select>
+          )}
         </div>
         {sorted.length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {sorted.map(renderRowCard)}
-          </div>
+          mode === "short" ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+              {sorted.map(renderShortCard)}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+              {sorted.map(renderLongCard)}
+            </div>
+          )
         ) : (
           !loading && (
             <div style={{ padding: "32px 0", textAlign: "center", color: "var(--text-muted)" }}>
@@ -338,14 +564,44 @@ export default function Workouts() {
         )}
       </section>
 
-      {/* Saved / completed */}
-      {completedList.length > 0 && (
+      {/* Saved (client-side) — lower section */}
+      {savedList.length > 0 && (
         <section style={{ padding: "0 16px", marginBottom: 24 }}>
           <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-            <BookmarkCheck size={15} color="var(--accent)" /> Completed by you
+            <BookmarkCheck size={14} color="var(--accent)" /> Saved
+          </p>
+          {mode === "short" ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+              {savedList.slice(0, 6).map(renderShortCard)}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+              {savedList.slice(0, 4).map(renderLongCard)}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Recently watched (server-side completed) — separate from "Saved" */}
+      {mode === "long" && continueList.length > 0 && (activeFilterCount > 0 || q) && (
+        <section style={{ padding: "0 16px", marginBottom: 24 }}>
+          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            <BookmarkCheck size={14} color="var(--accent)" /> Recently watched
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {completedList.slice(0, 5).map(renderRowCard)}
+            {continueList.slice(0, 5).map(v => (
+              <div key={v.id} onClick={() => setPlaying(v)}
+                style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer" }}>
+                <div style={{ width: 84, height: 64, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "var(--bg-surface)" }}>
+                  {v.thumbnail ? <img src={v.thumbnail} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4 }}>{v.title}</p>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{v.duration}{v.coach_name ? ` · ${v.coach_name}` : ""}</p>
+                </div>
+                <ChevronRight size={16} color="var(--text-muted)" />
+              </div>
+            ))}
           </div>
         </section>
       )}
