@@ -13,6 +13,15 @@
 
 const LS_KEY = "fitway_server_url";
 
+// Hard-coded fallback for native (Capacitor) builds when no per-device
+// override is set AND VITE_API_BASE wasn't baked in at build time. Without
+// this the app would fetch against capacitor://localhost on Android/iOS
+// (no server there) and surface "server is unreachable" the moment the
+// installed APK/IPA is opened. Users / admins can still override via the
+// in-app server URL setting (writes to localStorage under LS_KEY) or via
+// VITE_API_BASE at build time.
+const DEFAULT_BACKEND_URL = "https://www.fitwayhub.com";
+
 function isNativeCapacitorRuntime(): boolean {
   if (typeof window === "undefined") return false;
   const cap = (window as any).Capacitor;
@@ -38,11 +47,11 @@ export function getApiBase(): string {
   } catch {
     // localStorage may throw in some contexts
   }
-  // Default backend URL for native builds (no Vite proxy available).
-  // Falls back to the VITE_API_BASE build-time variable if set, otherwise
-  // use an empty string so requests go to the same origin (shouldn't happen
-  // in native, but is safe).
-  return (String(import.meta.env.VITE_API_BASE || '')).replace(/\/+$/, '');
+  // Native build with no in-app override: prefer the VITE_API_BASE build-time
+  // variable, otherwise fall back to the production backend URL so the app
+  // works out of the box even without a VITE_API_BASE secret.
+  const buildTime = String(import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '');
+  return buildTime || DEFAULT_BACKEND_URL;
 }
 
 /** Persist a new API base URL. Pass empty string to clear (use relative). */
