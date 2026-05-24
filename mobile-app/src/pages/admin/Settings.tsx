@@ -809,8 +809,8 @@ export default function AdminSettings() {
         </button>
       </div>
 
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-        <div style={{ ...card, width: 200, flexShrink: 0 }}>
+      <div className="admin-settings-grid" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        <div className="admin-settings-side" style={{ ...card, width: 200, flexShrink: 0 }}>
           {CATEGORIES.map(({ key, label, icon: Icon, desc }) => (
             <button key={key} onClick={() => setActiveTab(key)} style={{
               width: "100%", display: "flex", alignItems: "center", gap: 10,

@@ -1118,6 +1118,25 @@ html.light .app-top-bar {
   .ant-table-wrapper .ant-table table { min-width: 560px; }
 }
 
+/* Admin Settings sidebar layout — stack the 200px sidebar above the content
+   on phones / small tablets instead of trying to fit it side-by-side. */
+@media (max-width: 720px) {
+  .admin-settings-grid { flex-direction: column !important; }
+  .admin-settings-grid .admin-settings-side { width: 100% !important; }
+}
+
+/* Generic guardrails — anything that's larger than the viewport (oversized
+   images, fixed-width tables, ad creatives, etc.) should scroll inside
+   its container rather than blow out page width. */
+@media (max-width: 720px) {
+  .app-view main img,
+  .app-view main video,
+  .app-view main iframe,
+  .app-view main canvas { max-width: 100%; height: auto; }
+  .ant-modal { max-width: calc(100vw - 16px) !important; margin: 8px auto !important; }
+  .ant-modal-content { max-width: 100% !important; }
+}
+
 /* Desktop sidebar mode — no top/bottom chrome so reset padding */
 .app-view.app-desktop main {
   padding-top: 18px !important;

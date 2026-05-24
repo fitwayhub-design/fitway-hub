@@ -1,7 +1,7 @@
 import { getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect, useRef, type CSSProperties, type ChangeEvent } from "react";
-import { Plus, Trash2, Eye, EyeOff, ChevronUp, ChevronDown, Edit3, Save, X, Upload, Image, Globe, Layout, Type, AlignLeft, Grid, Layers, ExternalLink, Languages, Search, Users, HelpCircle } from "lucide-react";
+import { Plus, Trash2, Eye, EyeOff, ChevronUp, ChevronDown, Edit3, Save, X, Upload, Image, Globe, Layout, Type, AlignLeft, Grid, Layers, ExternalLink, Languages, Search, Users, HelpCircle, Target } from "lucide-react";
 import { useI18n } from "@/context/I18nContext";
 
 interface Section {
@@ -48,6 +48,61 @@ const SECTION_TYPES: { type: string; label: string; icon: any; defaultContent: a
     defaultContent: { sectionLabel: "", heading: "Section Heading", text: "Your text content goes here.", bullets: ["Point one", "Point two", "Point three"], imageSide: "right", imageUrl: "", linkText: "Learn more", linkUrl: "/" } },
   { type: "cards", label: "Cards Grid", icon: Layers,
     defaultContent: { sectionLabel: "", heading: "Cards Title", items: [{ icon: "Target", title: "Card 1", desc: "Description here", color: "accent" }, { icon: "Eye", title: "Card 2", desc: "Description here", color: "blue" }] } },
+  { type: "values", label: "Values Grid (About)", icon: Layers,
+    defaultContent: {
+      sectionLabel: "Values — 04",
+      sectionLabel_ar: "القيم — ٠٤",
+      sectionMeta: "What we stand for",
+      sectionMeta_ar: "ما يهمنا",
+      eyebrow: "— Our Values",
+      eyebrow_ar: "— قيمنا",
+      heading: "What we",
+      heading_ar: "ما",
+      headingAccent: "stand for.",
+      headingAccent_ar: "يهمنا.",
+      items: [
+        { icon: "Heart",  title: "Human First", title_ar: "الإنسان أولاً",
+          desc: "Every feature is built around real people, not metrics. We listen to our community.",
+          desc_ar: "كل ميزة بنبنيها مصممة حوالين الناس الحقيقيين، مش الأرقام. بنسمع لمجتمعنا." },
+      ],
+    } },
+  { type: "mission", label: "Mission (About)", icon: Target,
+    defaultContent: {
+      sectionLabel: "Mission — 03",
+      sectionLabel_ar: "المهمة — ٠٣",
+      sectionMeta: "What we believe",
+      sectionMeta_ar: "ما نؤمن به",
+      eyebrow: "— Our Mission",
+      eyebrow_ar: "— مهمتنا",
+      heading: "Fitness for everyone,",
+      heading_ar: "اللياقة لكل الناس،",
+      headingAccent: "not just the privileged.",
+      headingAccent_ar: "مش بس الأثرياء.",
+      body1: "Fitway Hub was founded on one belief: everyone deserves access to expert fitness guidance.",
+      body1_ar: "فيت واي هاب اتبنت على إيمان واحد: كل شخص يستحق وصول لتدريب احترافي.",
+      body2: "From personalised plans built by certified coaches to live coaching sessions, every feature we build is designed to move you closer to your goal.",
+      body2_ar: "من خطط التمرين المخصصة من كوتشات معتمدين لجلسات الكوتشينج الحية، كل ميزة بنبنيها مصممة تقربك من هدفك.",
+      bullets: [
+        "Certified training by real experts",
+        "Affordable for every budget",
+        "Supportive community in Arabic & English",
+      ],
+      bullets_ar: [
+        "تدريب معتمد من خبراء حقيقيين",
+        "أسعار مناسبة لكل الميزانيات",
+        "مجتمع داعم بالعربي والإنجليزي",
+      ],
+      snapshotEyebrow: "At a glance / 03",
+      snapshotEyebrow_ar: "نظرة سريعة",
+      snapshotTitle: "Platform Snapshot",
+      snapshotTitle_ar: "ملخص المنصة",
+      snapshotRows: [
+        { emoji: "🏋️", title: "Certified Workouts", title_ar: "تمارين معتمدة", value: "—", value_ar: "—" },
+        { emoji: "🧠", title: "Smart Insights",     title_ar: "رؤى ذكية",      value: "Daily", value_ar: "يومياً" },
+        { emoji: "👥", title: "Real Coaches",       title_ar: "كوتشات حقيقيين", value: "—", value_ar: "—" },
+        { emoji: "📱", title: "Platforms",          title_ar: "أجهزة مدعومة",   value: "iOS & Android", value_ar: "iOS و Android" },
+      ],
+    } },
   { type: "cta", label: "CTA Banner", icon: ExternalLink,
     defaultContent: { badge: "JOIN US", heading: "Your Call to Action", subheading: "Supporting text here.", btnText: "Get Started", btnLink: "/auth/register", widthMode: "boxed" } },
   { type: "contact_info", label: "Contact Info + FAQ", icon: Type,
@@ -415,6 +470,65 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
     setUploadingFor(null);
   };
 
+  // Section-background editor: appears for every section type, exposing a
+  // theme-aware background image (dark + light + legacy single-image
+  // fallback) plus per-theme opacity sliders. The website's `sectionBg(type)`
+  // helper reads these fields and renders an absolute-positioned overlay
+  // behind the section's content.
+  const renderSectionBackgroundFields = () => {
+    const c = editContent;
+    const set = (field: string, value: any) =>
+      setEditContent((prev: any) => ({ ...prev, [field]: value }));
+    const labelStyle: CSSProperties = { display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" };
+    const inputStyle: CSSProperties = { width: "100%", padding: "9px 12px", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 13, fontFamily: "var(--font-en)" };
+    const bgField = (field: string, label: string) => (
+      <div>
+        <label style={labelStyle}>{label}</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input style={{ ...inputStyle, flex: 1 }} value={c[field] || ""} onChange={e => set(field, e.target.value)} placeholder={t("cms_paste_image_url") + "..."} />
+          <button type="button" onClick={() => { setUploadingFor(field); fileInputRef.current?.click(); }}
+            style={{ padding: "9px 12px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent-dim)", border: "1px solid var(--accent)", color: "var(--accent)", cursor: "pointer", flexShrink: 0 }}>
+            <Upload size={14} />
+          </button>
+        </div>
+        {c[field] && <img src={c[field]} alt="" style={{ marginTop: 8, maxHeight: 80, maxWidth: "100%", borderRadius: "var(--radius-full)", objectFit: "contain", border: "1px solid var(--border)" }} />}
+      </div>
+    );
+    const opacityField = (field: string, label: string, fallback: number) => (
+      <div>
+        <label style={labelStyle}>{label}</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input type="range" min="0" max="1" step="0.05" value={c[field] ?? fallback}
+            onChange={e => set(field, parseFloat(e.target.value))}
+            style={{ flex: 1, accentColor: "var(--accent)" }} />
+          <span style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--text-muted)", width: 36, textAlign: "right" }}>
+            {Math.round((c[field] ?? fallback) * 100)}%
+          </span>
+        </div>
+      </div>
+    );
+    return (
+      <div style={{ marginTop: 16, padding: 14, background: "var(--bg-surface)", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          {l("Section Background", "خلفية القسم")}
+        </div>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
+          {l(
+            "Optional background image rendered behind this section's content. Upload separate images for dark and light theme, or a single fallback image used for both. Leave all empty for no background.",
+            "صورة خلفية اختيارية تظهر خلف محتوى هذا القسم. ارفع صوراً منفصلة للوضع الداكن والفاتح، أو صورة واحدة احتياطية للوضعين. اتركها فارغة بدون خلفية.",
+          )}
+        </p>
+        {bgField("backgroundImageDark", l("Background Image — Dark Mode", "صورة الخلفية — الوضع الداكن"))}
+        {bgField("backgroundImageLight", l("Background Image — Light Mode", "صورة الخلفية — الوضع الفاتح"))}
+        {bgField("backgroundImage", l("Background Image — Fallback (both themes)", "صورة الخلفية — احتياطية (للوضعين)"))}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {opacityField("backgroundOpacityDark", l("Overlay Opacity — Dark Mode", "شفافية الخلفية — الوضع الداكن"), 0.35)}
+          {opacityField("backgroundOpacityLight", l("Overlay Opacity — Light Mode", "شفافية الخلفية — الوضع الفاتح"), 0.6)}
+        </div>
+      </div>
+    );
+  };
+
   // ── Content field editors by section type ────────────────────────────────────
   const renderContentEditor = (type: string) => {
     const c = editContent;
@@ -463,6 +577,8 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
 
     if (type === "hero") return (
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {bilingualInput("topMetaLeft", "Top Meta — Left (e.g. \"ELITE FITNESS PLATFORM · V.2026\")")}
+        {bilingualInput("topMetaRight", "Top Meta — Right (e.g. date, leave blank for auto-date)")}
         {bilingualInput("badge", "Badge Text", "e.g. #1 FITNESS APP", "مثال: #١ تطبيق لياقة")}
         {bilingualInput("heading", "Heading")}
         {bilingualInput("headingAccent", "Heading Accent (colored)")}
@@ -486,20 +602,18 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
             <option value="full">{l("Full Width", "عرض كامل")}</option>
           </select>
         </div>
-        {/* Single image (legacy) — used as a fallback when the per-theme
-            images below are not set. Keep this field for backwards-compat. */}
-        {imageField("backgroundImage", "Background Image (fallback / both themes)")}
-        {/* SECURITY-AGNOSTIC UX: per-theme hero images. The website picks
-            backgroundImageDark when the user is in dark mode, otherwise
-            backgroundImageLight. Either may be empty — the page falls back
-            to `backgroundImage`, then to no image. */}
-        {imageField("backgroundImageDark", "Background Image — Dark Mode")}
-        {imageField("backgroundImageLight", "Background Image — Light Mode")}
+        {/* Background images (dark/light/fallback) and overlay opacity are
+            now rendered globally for every section by the shared
+            `renderSectionBackgroundFields()` editor below. */}
       </div>
     );
 
     if (type === "stats") return (
-      <div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {bilingualInput("sectionLabel", "Section Eyebrow (small text above heading)")}
+        {bilingualInput("sectionMeta", "Right-Side Meta (small text on the right)")}
+        {bilingualInput("heading", "Section Heading")}
+        {bilingualInput("headingAccent", "Heading Accent (italic word)")}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <label style={labelS}>{t("cms_stats_items")}</label>
           <button onClick={() => set("items", [...(c.items || []), { value: "0", label: "New Stat" }])}
@@ -519,10 +633,13 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
       </div>
     );
 
-    if (type === "features" || type === "cards") return (
+    if (type === "features" || type === "cards" || type === "values") return (
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {bilingualInput("sectionLabel", "Section Label")}
+        {bilingualInput("sectionLabel", "Section Eyebrow / Tag (small text above heading)")}
+        {bilingualInput("sectionMeta", "Right-Side Meta (small text on the right)")}
+        {bilingualInput("eyebrow", "Inline Kicker (e.g. \"— Our Values\")")}
         {bilingualInput("heading", "Section Heading")}
+        {bilingualInput("headingAccent", "Heading Accent (italic word)")}
         {type === "features" && bilingualTextarea("intro", "Intro Paragraph")}
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -650,13 +767,19 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
 
     if (type === "cta") return (
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {bilingualInput("sectionLabel", "Section Eyebrow (small text above heading)")}
         {bilingualInput("badge", "Badge Text", "e.g. JOIN OUR MEMBERS", "مثال: انضم الآن")}
         {bilingualInput("heading", "Heading")}
-        {bilingualInput("subheading", "Subheading")}
+        {bilingualInput("headingAccent", "Heading Accent (italic word)")}
+        {bilingualTextarea("subheading", "Subheading")}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div><label style={labelS}>{l("Button Text (EN)", "نص الزر (EN)")}</label><input style={iS} value={c.btnText || ""} onChange={e => set("btnText", e.target.value)} /></div>
-          <div><label style={labelS}>{l("Button Text (AR)", "نص الزر (AR)")}</label><input style={iS} value={c.btnText_ar || ""} onChange={e => set("btnText_ar", e.target.value)} dir="rtl" /></div>
-          <div><label style={labelS}>{l("Button Link", "رابط الزر")}</label><input style={iS} value={c.btnLink || ""} onChange={e => set("btnLink", e.target.value)} /></div>
+          <div><label style={labelS}>{l("Primary Button Text (EN)", "نص الزر الأساسي (EN)")}</label><input style={iS} value={c.btnText || ""} onChange={e => set("btnText", e.target.value)} /></div>
+          <div><label style={labelS}>{l("Primary Button Text (AR)", "نص الزر الأساسي (AR)")}</label><input style={iS} value={c.btnText_ar || ""} onChange={e => set("btnText_ar", e.target.value)} dir="rtl" /></div>
+          <div><label style={labelS}>{l("Primary Button Link", "رابط الزر الأساسي")}</label><input style={iS} value={c.btnLink || ""} onChange={e => set("btnLink", e.target.value)} /></div>
+          <div></div>
+          <div><label style={labelS}>{l("Secondary Button Text (EN)", "نص الزر الثانوي (EN)")}</label><input style={iS} value={c.secondaryBtnText || ""} onChange={e => set("secondaryBtnText", e.target.value)} placeholder="e.g. Contact Us" /></div>
+          <div><label style={labelS}>{l("Secondary Button Text (AR)", "نص الزر الثانوي (AR)")}</label><input style={iS} value={c.secondaryBtnText_ar || ""} onChange={e => set("secondaryBtnText_ar", e.target.value)} dir="rtl" /></div>
+          <div><label style={labelS}>{l("Secondary Button Link", "رابط الزر الثانوي")}</label><input style={iS} value={c.secondaryBtnLink || ""} onChange={e => set("secondaryBtnLink", e.target.value)} placeholder="/contact" /></div>
         </div>
         <div>
           <label style={labelS}>{l("Banner Width", "عرض البانر")}</label>
@@ -742,6 +865,49 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
       </div>
     );
 
+    if (type === "mission") return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {bilingualInput("sectionLabel", "Section Eyebrow / Tag (e.g. \"Mission — 03\")")}
+        {bilingualInput("sectionMeta", "Right-Side Meta (e.g. \"What we believe\")")}
+        {bilingualInput("eyebrow", "Inline Kicker (e.g. \"— Our Mission\")")}
+        {bilingualInput("heading", "Section Heading")}
+        {bilingualInput("headingAccent", "Heading Accent (italic word)")}
+        {bilingualTextarea("body1", "First Paragraph")}
+        {bilingualTextarea("body2", "Second Paragraph")}
+        <div>
+          <label style={labelS}>{l("Bullet Points (EN — one per line)", "النقاط (EN — كل نقطة في سطر)")}</label>
+          <textarea style={{ ...taS, minHeight: 80 }} value={(c.bullets || []).join("\n")} onChange={e => set("bullets", e.target.value.split("\n").map((v: string) => v.trim()).filter(Boolean))} />
+        </div>
+        <div>
+          <label style={labelS}>{l("Bullet Points (AR — one per line)", "النقاط (AR — كل نقطة في سطر)")}</label>
+          <textarea style={{ ...taS, minHeight: 80 }} dir="rtl" value={(c.bullets_ar || []).join("\n")} onChange={e => set("bullets_ar", e.target.value.split("\n").map((v: string) => v.trim()).filter(Boolean))} />
+        </div>
+        <div style={{ marginTop: 8, padding: 12, background: "var(--bg-surface)", borderRadius: "var(--radius-full)", border: "1px solid var(--border)" }}>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>{l("Sidebar snapshot card — title + small rows.", "بطاقة الملخص الجانبية — العنوان + الصفوف الصغيرة.")}</p>
+          {bilingualInput("snapshotEyebrow", "Snapshot Eyebrow")}
+          {bilingualInput("snapshotTitle", "Snapshot Title")}
+          <div style={{ marginTop: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <label style={labelS}>{l("Snapshot Rows", "صفوف الملخص")}</label>
+              <button onClick={() => set("snapshotRows", [...(c.snapshotRows || []), { emoji: "✨", title: "Item", title_ar: "", value: "—", value_ar: "—" }])}
+                style={{ padding: "4px 10px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent-dim)", border: "1px solid var(--accent)", color: "var(--accent)", cursor: "pointer", fontSize: 12 }}>+ {t("add")}</button>
+            </div>
+            {(c.snapshotRows || []).map((row: any, i: number) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "60px 1fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
+                <input style={iS} value={row.emoji || ""} onChange={e => { const rows = [...c.snapshotRows]; rows[i] = { ...row, emoji: e.target.value }; set("snapshotRows", rows); }} placeholder="🏋️" />
+                <input style={iS} value={row.title || ""} onChange={e => { const rows = [...c.snapshotRows]; rows[i] = { ...row, title: e.target.value }; set("snapshotRows", rows); }} placeholder="Title (EN)" />
+                <input style={iS} dir="rtl" value={row.title_ar || ""} onChange={e => { const rows = [...c.snapshotRows]; rows[i] = { ...row, title_ar: e.target.value }; set("snapshotRows", rows); }} placeholder="العنوان (AR)" />
+                <input style={iS} value={row.value || ""} onChange={e => { const rows = [...c.snapshotRows]; rows[i] = { ...row, value: e.target.value }; set("snapshotRows", rows); }} placeholder="Value (EN)" />
+                <input style={iS} dir="rtl" value={row.value_ar || ""} onChange={e => { const rows = [...c.snapshotRows]; rows[i] = { ...row, value_ar: e.target.value }; set("snapshotRows", rows); }} placeholder="القيمة (AR)" />
+                <button onClick={() => set("snapshotRows", c.snapshotRows.filter((_: any, j: number) => j !== i))}
+                  style={{ padding: "9px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.1)", border: "1px solid var(--red)", color: "var(--red)", cursor: "pointer" }}><Trash2 size={13} /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
     if (type === "latest_blogs") return (
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {bilingualInput("sectionLabel", "Section Label")}
@@ -753,8 +919,11 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
     // ── Timeline editor (year + bilingual title/desc) ─────────────────────
     if (type === "timeline") return (
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {bilingualInput("sectionLabel", "Section Label")}
-        {bilingualInput("heading", "Heading")}
+        {bilingualInput("sectionLabel", "Section Eyebrow / Tag (small text above heading)")}
+        {bilingualInput("sectionMeta", "Right-Side Meta (small text on the right)")}
+        {bilingualInput("eyebrow", "Inline Kicker (e.g. \"— Our Journey\")")}
+        {bilingualInput("heading", "Section Heading")}
+        {bilingualInput("headingAccent", "Heading Accent (italic word)")}
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <label style={labelS}>{l("Timeline Items", "عناصر الجدول الزمني")}</label>
@@ -815,8 +984,10 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
     // ── Steps editor (step + icon + bilingual title/desc) ─────────────────
     if (type === "steps") return (
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {bilingualInput("sectionLabel", "Section Label")}
-        {bilingualInput("heading", "Heading")}
+        {bilingualInput("sectionLabel", "Section Eyebrow (small text above heading)")}
+        {bilingualInput("sectionMeta", "Right-Side Meta (small text on the right)")}
+        {bilingualInput("heading", "Section Heading")}
+        {bilingualInput("headingAccent", "Heading Accent (italic word)")}
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <label style={labelS}>{l("Steps", "الخطوات")}</label>
@@ -883,8 +1054,10 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
     // Home page "Real Results" section.
     if (type === "testimonials") return (
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {bilingualInput("sectionLabel", "Section Label")}
+        {bilingualInput("sectionLabel", "Section Eyebrow (small text above heading)")}
+        {bilingualInput("sectionMeta", "Right-Side Meta (small text on the right)")}
         {bilingualInput("heading", "Section Heading")}
+        {bilingualInput("headingAccent", "Heading Accent (italic word)")}
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <label style={labelS}>{l("Testimonials", "آراء العملاء")}</label>
@@ -944,8 +1117,11 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
 
     if (type === "team") return (
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {bilingualInput("sectionLabel", "Section Label")}
-        {bilingualInput("heading", "Heading")}
+        {bilingualInput("sectionLabel", "Section Eyebrow / Tag (small text above heading)")}
+        {bilingualInput("sectionMeta", "Right-Side Meta (small text on the right)")}
+        {bilingualInput("eyebrow", "Inline Kicker (e.g. \"— Our Team\")")}
+        {bilingualInput("heading", "Section Heading")}
+        {bilingualInput("headingAccent", "Heading Accent (italic word)")}
         {bilingualTextarea("subheading", "Subheading")}
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -1426,6 +1602,7 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
                     <div style={{ marginBottom: 16 }}>
                       <label style={{ ...labelS, marginBottom: 10 }}>{t("content")}</label>
                       {renderContentEditor(s.type)}
+                      {renderSectionBackgroundFields()}
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
                       <button onClick={saveEdit} disabled={saving}
