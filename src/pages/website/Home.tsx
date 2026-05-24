@@ -131,6 +131,14 @@ export default function HomePage() {
   // single-image) in /admin/website. Returns null when nothing is set.
   // backgroundOpacity (0-1) is admin-tunable; defaults differ per theme so
   // a light image isn't washed out on a white background.
+  const hasSectionBg = (type: string): boolean => {
+    const sec = cmsSections[type];
+    if (!sec) return false;
+    return Boolean(isDark
+      ? (sec.backgroundImageDark || sec.backgroundImage)
+      : (sec.backgroundImageLight || sec.backgroundImage));
+  };
+
   const sectionBg = (type: string) => {
     const sec = cmsSections[type];
     if (!sec) return null;
@@ -393,8 +401,15 @@ export default function HomePage() {
       ═══════════════════════════════════════════════════════════════════════ */}
       <section className="fwh-gate" style={{ position: "relative", overflow: "hidden" }}>
         {sectionBg("portal_select")}
+        {/* The hardcoded photo background is the design fallback when no
+            admin background is configured. When admins have uploaded one,
+            skip the photo div (which is opaque and would cover it) and
+            keep only the wrapper so the .fwh-gate-bg::after vignette
+            overlay still helps the buttons stand out against the image. */}
         <div className="fwh-gate-bg">
-          <div className="fwh-photo" style={{ position: "absolute", inset: 0 }} />
+          {!hasSectionBg("portal_select") && (
+            <div className="fwh-photo" style={{ position: "absolute", inset: 0 }} />
+          )}
         </div>
         <div className="fwh-gate-content">
           <div className="fwh-gate-tag">
