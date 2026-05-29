@@ -28,14 +28,16 @@ const ICON_MAP: Record<string, any> = {
    ────────────────────────────────────────────────────────────────────────── */
 
 const VALUES = [
-  { icon: Heart,  en: { title: "Human First",       desc: "Every feature is built around real people, not metrics. We listen to our community." },
-                   ar: { title: "الإنسان أولاً",       desc: "كل ميزة بنبنيها مصممة حوالين الناس الحقيقيين، مش الأرقام. بنسمع لمجتمعنا." } },
-  { icon: Target, en: { title: "Science-Based",     desc: "Every workout, meal plan, and insight is backed by research and reviewed by certified professionals." },
-                   ar: { title: "مبني على العلم",      desc: "كل تمرين وخطة غذاء ورؤية مدعومة ببحث ومراجعة من متخصصين معتمدين." } },
-  { icon: Zap,    en: { title: "Accessible to All", desc: "Fitness shouldn't be a privilege. We built affordable plans for every budget and experience level." },
-                   ar: { title: "متاح للجميع",         desc: "اللياقة مش رفاهية. بنبني خطط مناسبة لكل ميزانية ومستوى خبرة." } },
-  { icon: Trophy, en: { title: "Results-Driven",    desc: "We obsess over your progress. Real coaches, real accountability, real transformations." },
-                   ar: { title: "يهتم بالنتائج",        desc: "بنركّز على تقدمك. كوتشات حقيقيين، التزام حقيقي، تحولات حقيقية." } },
+  { icon: Heart,  en: { title: "Authenticity",   desc: "No AI-generated training — real trainers, real support." },
+                   ar: { title: "أصالة",              desc: "مفيش تمارين مولّدة بالذكاء الاصطناعي — مدربين حقيقيين ودعم حقيقي." } },
+  { icon: Globe,  en: { title: "Accessibility",  desc: "Bilingual support and downloadable programs for all connectivity levels." },
+                   ar: { title: "إتاحة",              desc: "دعم ثنائي اللغة وبرامج قابلة للتنزيل لكل مستويات الاتصال بالإنترنت." } },
+  { icon: Users,  en: { title: "Community",      desc: "Group challenges, chat groups, and forums." },
+                   ar: { title: "مجتمع",              desc: "تحديات جماعية، جروبات شات، ومنتديات." } },
+  { icon: Brain,  en: { title: "Knowledge",      desc: "Courses to educate the public on fitness, nutrition, and wellness." },
+                   ar: { title: "معرفة",              desc: "كورسات لتثقيف الناس عن اللياقة والتغذية والصحة." } },
+  { icon: Target, en: { title: "Accountability", desc: "Follow-ups, milestones, and assessment features." },
+                   ar: { title: "التزام",             desc: "متابعات، علامات تقدم، وميزات تقييم." } },
 ];
 
 const FEATURES = [
@@ -240,7 +242,6 @@ export default function AboutPage() {
   const STATS = [
     { num: liveStats.members  > 0 ? `${liveStats.members.toLocaleString()}+` : "—", desc: isAr ? "عضو نشط على المنصة." : "Active members on the platform." },
     { num: liveStats.coaches  > 0 ? `${liveStats.coaches}+`                  : "—", desc: isAr ? "كوتش معتمد بشهادات موثقة." : "Vetted certified coaches." },
-    { num: liveStats.programs > 0 ? `${liveStats.programs}+`                 : "—", desc: isAr ? "برنامج تدريب جاهز." : "Ready-made training programs." },
     { num: `${liveStats.rating}★`,                                                  desc: isAr ? "تقييم التطبيق." : "App rating from athletes." },
   ];
 
@@ -358,20 +359,20 @@ export default function AboutPage() {
                     )}
                   </>
                 ) : isAr ? (
-                  <>اللياقة لكل الناس، <em className="fwh-italic">مش بس الأثرياء.</em></>
+                  <>تمكين الأفراد في مصر بـ<em className="fwh-italic">خدمات لياقة رقمية</em> معتمدة وإنسانية.</>
                 ) : (
-                  <>Fitness for everyone, <em className="fwh-italic">not just the privileged.</em></>
+                  <>Empowering Egypt with <em className="fwh-italic">human-driven digital fitness.</em></>
                 )}
               </h2>
               <p style={{ fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.7, marginTop: 28, fontWeight: 400 }}>
                 {cms("mission", "body1", isAr
-                  ? "فيت واي هاب اتبنت على إيمان واحد: كل شخص يستحق وصول لتدريب احترافي. بنجسر الفجوة بين الكوتشات المعتمدين والناس اللي عايزين يغيروا حياتهم."
-                  : "Fitway Hub was founded on one belief: everyone deserves access to expert fitness guidance. We bridge the gap between certified coaches and people who want to change their lives — regardless of budget, location, or experience level.")}
+                  ? "مهمتنا: تمكين الأفراد في مصر بخدمات لياقة رقمية متاحة ومعتمدة ومدفوعة بالإنسان، تعزز نمط حياة صحي ومجتمعات قوية."
+                  : "Our mission: to empower individuals in Egypt with accessible, certified, and human-driven digital fitness services that foster healthy lifestyles and strong communities.")}
               </p>
               <p style={{ fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.7, marginTop: 16, fontWeight: 400 }}>
                 {cms("mission", "body2", isAr
-                  ? "من خطط التمرين المخصصة من كوتشات معتمدين لجلسات الكوتشينج الحية، كل ميزة بنبنيها مصممة تقربك من هدفك."
-                  : "From personalised plans built by certified coaches to live coaching sessions, every feature we build is designed to move you closer to your goal.")}
+                  ? "رؤيتنا: أن نصبح المنظومة الرقمية الرائدة للياقة في مصر ودول الخليج — نجسر الفجوة بين العافية البدنية، والدعم الرقمي، وتمكين المجتمع."
+                  : "Our vision: to become Egypt & GCC's leading digital fitness ecosystem — bridging the gap between physical wellness, digital support, and community empowerment.")}
               </p>
               <ul style={{ listStyle: "none", padding: 0, margin: "32px 0 0", display: "flex", flexDirection: "column", gap: 14, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
                 {(() => {

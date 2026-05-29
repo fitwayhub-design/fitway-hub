@@ -135,28 +135,28 @@ export function WebsiteLayout() {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "0 32px",
-          height: 68,
+          height: 84,
         }}>
           {/* Logo */}
-          <Link to="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flexShrink: 0 }}>
+          <Link to="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", flexShrink: 0 }}>
             {brandLogo ? (
               <img
                 src={brandLogo}
                 alt={branding.app_name || t("fitway_hub")}
-                style={{ height: 32, borderRadius: 12, objectFit: "contain" }}
+                style={{ height: 56, borderRadius: 12, objectFit: "contain" }}
               />
             ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
                 <div style={{
-                  width: 34, height: 34, borderRadius: 12,
+                  width: 52, height: 52, borderRadius: 12,
                   background: "var(--main)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
-                  <Activity size={17} color="#0a0a0a" strokeWidth={2.5} />
+                  <Activity size={26} color="#0a0a0a" strokeWidth={2.5} />
                 </div>
                 <span style={{
                   fontFamily: "var(--font-heading)",
-                  fontSize: 22,
+                  fontSize: 26,
                   fontWeight: 700,
                   letterSpacing: "-0.02em",
                   color: "var(--text-primary)",
@@ -184,7 +184,7 @@ export function WebsiteLayout() {
                     to={link.path}
                     style={{
                       padding: "6px 0",
-                      fontSize: 12,
+                      fontSize: 14,
                       fontFamily: "var(--font-mono, ui-monospace, monospace)",
                       letterSpacing: "0.18em",
                       textTransform: "uppercase",
@@ -447,25 +447,25 @@ export function WebsiteLayout() {
             borderBottom: "1px solid var(--border)",
           }}>
             <div style={{ maxWidth: 380 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
                 {brandLogo ? (
-                  <img src={brandLogo} alt="" style={{ height: 30, borderRadius: 12, objectFit: "contain" }} />
+                  <img src={brandLogo} alt="" style={{ height: 56, borderRadius: 12, objectFit: "contain" }} />
                 ) : (
                   <>
                     <div style={{
-                      width: 34, height: 34, borderRadius: 12,
+                      width: 52, height: 52, borderRadius: 12,
                       background: "var(--main)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
-                      <Activity size={16} color="#0a0a0a" strokeWidth={2.5} />
+                      <Activity size={24} color="#0a0a0a" strokeWidth={2.5} />
                     </div>
-                    <span style={{ fontFamily: "var(--font-heading)", fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", textTransform: "uppercase" }}>
+                    <span style={{ fontFamily: "var(--font-heading)", fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", textTransform: "uppercase" }}>
                       {branding.app_name || "FitWay Hub"}
                     </span>
                   </>
                 )}
               </div>
-              <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7 }}>
+              <p style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7 }}>
                 {branding.footer_text || t("egypt_fitness")}
               </p>
             </div>

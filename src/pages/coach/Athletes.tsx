@@ -370,7 +370,7 @@ export default function CoachAthletes() {
                             if (data.creative?.media_url) updateEx(ex.id, "video_url", data.creative.media_url);
                           } catch {}
                         }} style={{ padding: "5px", fontSize: 11, flex: 1 }} />
-                        <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "2px 0 0" }}>MP4 or MOV — max 500 MB</p>
+                        <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "2px 0 0" }}>MP4 or MOV — max 50 MB</p>
                         </>
                       )}
                       {ex.video_url && <a href={ex.video_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "var(--blue)", whiteSpace: "nowrap" }}>🔗 {t("preview") || "Preview"}</a>}

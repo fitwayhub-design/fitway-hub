@@ -1073,7 +1073,7 @@ export async function seedDefaultAppSettings() {
         ['coming_soon_bg_image', '', 'image', 'branding', 'Coming Soon Background'],
         ['coming_soon_text', 'COMING SOON', 'text', 'branding', 'Coming Soon Headline (EN)'],
         ['coming_soon_text_ar', 'قريباً', 'text', 'branding', 'Coming Soon Headline (AR)'],
-        ['max_video_upload_size_mb', '40', 'number', 'access', 'Max Video Upload Size (MB)'],
+        ['max_video_upload_size_mb', '50', 'number', 'access', 'Max Video Upload Size (MB)'],
         ['free_user_max_videos', '3', 'number', 'access', 'Free Videos Limit'],
         ['coach_membership_fee_egp', '500', 'number', 'pricing', 'Coach Monthly Fee (EGP)'],
         ['coach_membership_fee_usd', '29.99', 'number', 'pricing', 'Coach Monthly Fee (USD, IAP)'],

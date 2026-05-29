@@ -33,9 +33,10 @@ export default function PrivacyPolicy() {
                   role (athlete, coach, admin), and a security question/answer used for password recovery.
                 </li>
                 <li style={legalText.li}>
-                  <strong style={legalText.strong}>Profile &amp; fitness data</strong>: gender, date of birth, height,
-                  weight, fitness goal, activity level, daily step goal, target weight, medical history (if you
-                  choose to share it), workout sessions, completed plans, and progress photos you upload.
+                  <strong style={legalText.strong}>Profile &amp; fitness data</strong>: gender, date of birth,
+                  workout sessions, completed plans, and progress photos you upload. (Detailed onboarding
+                  measurements — height, weight, body composition, medical history — stay on your private
+                  profile and are not used outside the coaching relationship.)
                 </li>
                 <li style={legalText.li}>
                   <strong style={legalText.strong}>Device &amp; usage data</strong>: device type, operating system,
@@ -53,8 +54,8 @@ export default function PrivacyPolicy() {
               <p style={legalText.p}>We use the data we collect to:</p>
               <ul style={legalText.ul}>
                 <li style={legalText.li}>Provide and personalise the service — workouts, nutrition plans, coaching matches, analytics, and notifications.</li>
-                <li style={legalText.li}>Process payments and subscriptions through trusted providers (PayPal, in-app purchases, manual e-wallet review).</li>
-                <li style={legalText.li}>Communicate with you — onboarding messages, plan updates, security alerts, and product announcements you've opted into.</li>
+                <li style={legalText.li}>Process payments and subscriptions through trusted providers (manual e-wallet review, InstaPay, in-app purchases).</li>
+                <li style={legalText.li}>Communicate with you — plan updates, security alerts, and product announcements you've opted into.</li>
                 <li style={legalText.li}>Keep the platform safe — detecting fraud, enforcing our Terms, and complying with legal obligations.</li>
                 <li style={legalText.li}>Improve the product — measuring engagement, fixing bugs, and prioritising new features.</li>
               </ul>

@@ -159,11 +159,11 @@ const uploadBranding = multer({
     fileFilter: brandingImageFilter,
     limits: { fileSize: 15 * 1024 * 1024 }
 });
-// Upload for videos (40MB limit)
+// Upload for videos (50MB limit)
 const uploadVideo = multer({
     storage: storage,
     fileFilter: videoFilter,
-    limits: { fileSize: 40 * 1024 * 1024 }
+    limits: { fileSize: 50 * 1024 * 1024 }
 });
 const uploadAny = multer({
     storage: storage,

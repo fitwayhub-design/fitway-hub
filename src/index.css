@@ -2210,21 +2210,23 @@ html.light .web-bold [data-bold="card"] {
 }
 
 html.light .web-fwh {
-  --fwh-bg:        #f0ede6;
-  --fwh-s1:        #e8e5de;
-  --fwh-s2:        #ddd9d0;
-  --fwh-s3:        #ccc9c1;
-  --fwh-br:        #ccc9c1;
+  /* Clean "normal white" version — true white surfaces with subtle warm borders
+     rather than the previous cream/parchment palette. */
+  --fwh-bg:        #ffffff;
+  --fwh-s1:        #fafafa;
+  --fwh-s2:        #f3f3f1;
+  --fwh-s3:        #ebebe7;
+  --fwh-br:        #e5e5e2;
   --fwh-text:      #0a0a0a;
-  --fwh-tm:        #666666;
-  --fwh-td:        #999999;
+  --fwh-tm:        #5a5a5a;
+  --fwh-td:        #8a8a8a;
   --bg-primary:    var(--fwh-bg);
   --bg-surface:    var(--fwh-s1);
   --bg-card:       #ffffff;
   --bg-card-hover: var(--fwh-s2);
   --border:        var(--fwh-br);
   --text-primary:  var(--fwh-text);
-  --text-secondary:#3a3a3a;
+  --text-secondary:#2a2a2a;
   --text-muted:    var(--fwh-tm);
   background: var(--fwh-bg);
   color: var(--fwh-text);

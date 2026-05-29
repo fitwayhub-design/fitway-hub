@@ -709,7 +709,7 @@ router.put('/payment-settings', authenticateToken, adminOnly, async (req, res) =
         'paypal_mode', 'paypal_webhook_id',
         // E-Wallets (manual)
         'ewallet_phone', 'ewallet_phone_vodafone', 'ewallet_phone_orange',
-        'ewallet_phone_we',
+        'ewallet_phone_we', 'ewallet_phone_instapay',
         // Paymob (automated)
         'paymob_api_key', 'paymob_integration_id_card', 'paymob_integration_id_wallet',
         'paymob_iframe_id', 'paymob_hmac_secret', 'paymob_disbursement_api_key',

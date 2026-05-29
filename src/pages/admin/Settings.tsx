@@ -154,7 +154,7 @@ export default function AdminSettings() {
   // Only PayPal and manual e-wallet (Vodafone / Orange / WE) are configured here.
   const [paySettings, setPaySettings] = useState<Record<string, string>>({
     paypal_user_client_id: "", paypal_user_secret: "", paypal_mode: "sandbox", paypal_webhook_id: "",
-    ewallet_phone_vodafone: "", ewallet_phone_orange: "", ewallet_phone_we: "",
+    ewallet_phone_vodafone: "", ewallet_phone_orange: "", ewallet_phone_we: "", ewallet_phone_instapay: "",
     pm_paypal: "1", pm_credit_card: "0", pm_google_pay: "1", pm_apple_pay: "1",
     google_play_enabled: "0", google_play_product_id_monthly: "", google_play_product_id_annual: "",
     apple_pay_enabled: "0", apple_pay_product_id_monthly: "", apple_pay_product_id_annual: "",
@@ -524,6 +524,7 @@ export default function AdminSettings() {
             {inp("ewallet_phone_vodafone", "Vodafone Cash number", "Your registered Vodafone Cash number", "tel")}
             {inp("ewallet_phone_orange", "Orange Cash number", "Your registered Orange Cash number", "tel")}
             {inp("ewallet_phone_we", "WE Pay number", "Your registered WE Pay number", "tel")}
+            {inp("ewallet_phone_instapay", "InstaPay handle/number", "Your InstaPay ID or phone (e.g. user@instapay)", "text")}
           </ModeBlock>
         </SectionCard>
 

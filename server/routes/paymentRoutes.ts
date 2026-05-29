@@ -174,7 +174,7 @@ router.get('/public-settings', async (_req: Request, res: Response) => {
     const rows = await query('SELECT setting_key, setting_value FROM payment_settings') as any[];
     const settings: Record<string, string> = {};
     for (const row of rows) {
-      if (['paypal_user_link', 'paypal_coach_link', 'ewallet_phone', 'ewallet_phone_vodafone', 'ewallet_phone_orange', 'ewallet_phone_we', 'paypal_user_client_id', 'paypal_coach_client_id', 'pm_orange_cash', 'pm_vodafone_cash', 'pm_we_pay', 'pm_paypal', 'pm_credit_card', 'pm_google_pay', 'pm_apple_pay'].includes(row.setting_key)) {
+      if (['paypal_user_link', 'paypal_coach_link', 'ewallet_phone', 'ewallet_phone_vodafone', 'ewallet_phone_orange', 'ewallet_phone_we', 'ewallet_phone_instapay', 'paypal_user_client_id', 'paypal_coach_client_id', 'pm_orange_cash', 'pm_vodafone_cash', 'pm_we_pay', 'pm_instapay', 'pm_paypal', 'pm_credit_card', 'pm_google_pay', 'pm_apple_pay'].includes(row.setting_key)) {
         settings[row.setting_key] = row.setting_value;
       }
     }

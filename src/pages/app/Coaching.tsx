@@ -52,15 +52,14 @@ export default function Coaching() {
   const [coachReviews, setCoachReviews] = useState<Record<number, any[]>>({});
 
   const [query, setQuery] = useState("");
-  const [searchField, setSearchField] = useState<"name" | "plan" | "monthly">("name");
+  const searchField: "name" | "plan" | "monthly" = "name";
   const [specialty, setSpecialty] = useState("All");
   const [location, setLocation] = useState("All Locations");
-  const [planTypeFilter, setPlanTypeFilter] = useState<"all" | "complete" | "nutrition" | "workout">("all");
-  const [monthlyMin, setMonthlyMin] = useState("");
-  const [monthlyMax, setMonthlyMax] = useState("");
-  const [sortBy, setSortBy] = useState("rating");
-  const [availableOnly, setAvailableOnly] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [planTypeFilter] = useState<"all" | "complete" | "nutrition" | "workout">("all");
+  const [monthlyMin] = useState("");
+  const [monthlyMax] = useState("");
+  const [sortBy] = useState("rating");
+  const [availableOnly] = useState(false);
   const [followedCoaches, setFollowedCoaches] = useState<Set<number>>(new Set());
   const [subscribedCoaches, setSubscribedCoaches] = useState<Record<number, any>>({});
   const [hasAssignedPlan, setHasAssignedPlan] = useState(false);
@@ -343,69 +342,13 @@ export default function Coaching() {
           value={query}
           onChange={e => setQuery(e.target.value)}
           className="input-base"
-          placeholder={searchField === "name" ? "Search by coach name..." : searchField === "plan" ? "Search by plan type (complete/workout/nutrition)..." : "Search exact monthly cost (EGP)..."}
-          style={{ paddingInlineStart: 46, paddingInlineEnd: isMobile ? 100 : 140, fontSize: 14 }}
+          placeholder="Search by coach name..."
+          style={{ paddingInlineStart: 46, paddingInlineEnd: 16, fontSize: 14 }}
         />
-        <button onClick={() => setShowFilters(!showFilters)} style={{ position: "absolute", insetInlineEnd: 8, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", gap: isMobile ? 4 : 6, padding: isMobile ? "7px 10px" : "7px 14px", borderRadius: "var(--radius-full)", background: showFilters ? "var(--accent-dim)" : "var(--bg-surface)", border: `1px solid ${showFilters ? "var(--accent)" : "var(--border)"}`, color: showFilters ? "var(--accent)" : "var(--text-secondary)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-          <SlidersHorizontal size={13} /> Filters {activeFilters > 0 && <span style={{ width: 17, height: 17, borderRadius: "50%", background: "var(--accent)", color: "#000000", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{activeFilters}</span>}
-        </button>
       </div>
-
-      {showFilters && (
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: isMobile ? "12px" : "16px 20px", marginBottom: 16, display: "flex", flexWrap: "wrap", gap: isMobile ? 10 : 16, alignItems: "flex-end" }}>
-          <div style={{ flex: "1 1 180px", minWidth: isMobile ? "100%" : 180 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Search In</label>
-            <select className="input-base" value={searchField} onChange={e => setSearchField(e.target.value as "name" | "plan" | "monthly")}>
-              <option value="name">Name</option>
-              <option value="plan">Plan Type</option>
-              <option value="monthly">Cost Per Month</option>
-            </select>
-          </div>
-          <div style={{ flex: "1 1 180px", minWidth: isMobile ? "100%" : 180 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Specialty</label>
-            <select className="input-base" value={specialty} onChange={e => setSpecialty(e.target.value)}>{specialties.map(s => <option key={s}>{s}</option>)}</select>
-          </div>
-          <div style={{ flex: "1 1 160px", minWidth: isMobile ? "100%" : 160 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Location</label>
-            <select className="input-base" value={location} onChange={e => setLocation(e.target.value)}>{locations.map(l => <option key={l}>{l}</option>)}</select>
-          </div>
-          <div style={{ flex: "1 1 160px", minWidth: isMobile ? "100%" : 160 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Plan Type</label>
-            <select className="input-base" value={planTypeFilter} onChange={e => setPlanTypeFilter(e.target.value as "all" | "complete" | "nutrition" | "workout")}>
-              <option value="all">All Plans</option>
-              <option value="complete">Complete</option>
-              <option value="workout">Workout</option>
-              <option value="nutrition">Nutrition</option>
-            </select>
-          </div>
-          <div style={{ flex: "1 1 160px", minWidth: isMobile ? "100%" : 160 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Monthly Min (EGP)</label>
-            <input type="number" min="0" className="input-base" value={monthlyMin} onChange={e => setMonthlyMin(e.target.value)} placeholder="0" />
-          </div>
-          <div style={{ flex: "1 1 160px", minWidth: isMobile ? "100%" : 160 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Monthly Max (EGP)</label>
-            <input type="number" min="0" className="input-base" value={monthlyMax} onChange={e => setMonthlyMax(e.target.value)} placeholder="Any" />
-          </div>
-          <div style={{ flex: "1 1 160px", minWidth: isMobile ? "100%" : 160 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Sort By</label>
-            <select className="input-base" value={sortBy} onChange={e => setSortBy(e.target.value)}>{sortOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
-          </div>
-          <div style={{ display: "flex", alignItems: isMobile ? "stretch" : "center", flexDirection: isMobile ? "column" : "row", gap: 10, paddingBottom: 2, width: isMobile ? "100%" : "auto" }}>
-            <label style={{ fontSize: 13, color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" checked={availableOnly} onChange={e => setAvailableOnly(e.target.checked)} style={{ width: 16, height: 16, accentColor: "var(--accent)", cursor: "pointer" }} /> Available only
-            </label>
-            {activeFilters > 0 && <button onClick={() => { setSpecialty("All"); setLocation("All Locations"); setPlanTypeFilter("all"); setMonthlyMin(""); setMonthlyMax(""); setSortBy("rating"); setAvailableOnly(false); }} style={{ padding: "5px 10px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.2)", color: "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Clear</button>}
-          </div>
-        </div>
-      )}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
         <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{filtered.length === coaches.length ? `${coaches.length} coaches available` : `${filtered.length} of ${coaches.length} coaches`}</p>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {["All", "Strength & Conditioning", "HIIT & Weight Loss", "Yoga & Mobility"].map(s => (
-            <button key={s} onClick={() => setSpecialty(s)} style={{ padding: "4px 12px", borderRadius: "var(--radius-full)", fontSize: 12, fontWeight: specialty === s ? 600 : 400, cursor: "pointer", border: `1px solid ${specialty === s ? "var(--accent)" : "var(--border)"}`, background: specialty === s ? "var(--accent-dim)" : "transparent", color: specialty === s ? "var(--accent)" : "var(--text-muted)", transition: "all 0.15s" }}>{s === "All" ? "All" : s.split(" ")[0]}</button>
-          ))}
-        </div>
       </div>
 
       {loading ? (
@@ -454,13 +397,11 @@ export default function Coaching() {
                 </div>
               </div>
               <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 14 }}>{c.bio || "No bio yet."}</p>
-              {/* Plan type + pricing */}
+              {/* Plan type */}
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "rgba(59,130,246,0.1)", color: "var(--blue)", border: "1px solid rgba(59,130,246,0.2)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   {c.plan_types === "workout" ? "💪 Workout" : c.plan_types === "nutrition" ? "🥗 Nutrition" : "🏆 Complete"}
                 </span>
-                {(c.monthly_price || 0) > 0 && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "rgba(255,214,0,0.08)", color: "var(--accent)", border: "1px solid rgba(255,214,0,0.2)", fontWeight: 600 }}>{c.monthly_price} EGP/mo</span>}
-                {(c.yearly_price || 0) > 0 && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "rgba(6,182,212,0.08)", color: "var(--cyan)", border: "1px solid rgba(6,182,212,0.2)", fontWeight: 600 }}>{c.yearly_price} EGP/yr</span>}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                 <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{c.review_count} review{c.review_count !== 1 ? "s" : ""}</span>
@@ -895,25 +836,6 @@ export default function Coaching() {
                 <div>
                   <h4 style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>About</h4>
                   <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7 }}>{viewProfileCoach.bio || "No bio provided yet."}</p>
-                </div>
-
-                {/* Pricing */}
-                <div>
-                  <h4 style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Pricing</h4>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    {(viewProfileCoach.monthly_price || 0) > 0 && (
-                      <div style={{ flex: "1 1 140px", padding: "12px 16px", backgroundColor: "var(--accent-dim)", borderRadius: "var(--radius-full)", border: "1px solid rgba(255,214,0,0.2)" }}>
-                        <span style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Monthly</span>
-                        <span style={{ fontSize: 20, fontWeight: 700, fontFamily: "var(--font-en)", color: "var(--accent)" }}>{viewProfileCoach.monthly_price} EGP</span>
-                      </div>
-                    )}
-                    {(viewProfileCoach.yearly_price || 0) > 0 && (
-                      <div style={{ flex: "1 1 140px", padding: "12px 16px", backgroundColor: "rgba(6,182,212,0.06)", borderRadius: "var(--radius-full)", border: "1px solid rgba(6,182,212,0.2)" }}>
-                        <span style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Yearly</span>
-                        <span style={{ fontSize: 20, fontWeight: 700, fontFamily: "var(--font-en)", color: "var(--cyan)" }}>{viewProfileCoach.yearly_price} EGP</span>
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 {/* Reviews */}
