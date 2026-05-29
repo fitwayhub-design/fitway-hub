@@ -39,6 +39,7 @@ import adSettingsRoutes from './server/routes/adSettingsRoutes.js';
 import adModerationRoutes from './server/routes/adModerationRoutes.js';
 import appImagesRoutes from './server/routes/appImagesRoutes.js';
 import debugRoutes from './server/routes/debugRoutes.js';
+import ticketsRoutes from './server/routes/ticketsRoutes.js';
 import { startSmtpServer } from './server/emailServer.js';
 import { errorHandler } from './server/middleware/error.js';
 import { query as dbQuery, run as dbRun } from './server/config/database.js';
@@ -285,6 +286,7 @@ async function startServer() {
     app.use('/api/ad-settings', adSettingsRoutes);
     app.use('/api/ad-moderation', adModerationRoutes);
     app.use('/api/app-images', appImagesRoutes);
+    app.use('/api/tickets', ticketsRoutes);
     // Start SMTP receive server
     try {
         startSmtpServer(Number(process.env.SMTP_PORT || 2525));

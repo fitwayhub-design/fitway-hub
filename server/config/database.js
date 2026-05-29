@@ -966,6 +966,61 @@ async function initTables() {
       INDEX idx_email_otps_lookup (email, purpose, id),
       INDEX idx_email_otps_expires (expires_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+        // Tickets (athlete ↔ coach forms / inquiries on workouts & nutrition)
+        `CREATE TABLE IF NOT EXISTS tickets (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      coach_id INT NOT NULL,
+      kind VARCHAR(32) NOT NULL DEFAULT 'general',
+      subject VARCHAR(255) NOT NULL,
+      body TEXT,
+      status VARCHAR(20) NOT NULL DEFAULT 'open',
+      workout_plan_id INT DEFAULT NULL,
+      nutrition_plan_id INT DEFAULT NULL,
+      exercise_key VARCHAR(255) DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_tickets_user (user_id, created_at),
+      INDEX idx_tickets_coach (coach_id, status, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+        `CREATE TABLE IF NOT EXISTS ticket_replies (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      ticket_id INT NOT NULL,
+      author_id INT NOT NULL,
+      author_role VARCHAR(20) NOT NULL,
+      body TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_ticket_replies_ticket (ticket_id, id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+        // Plan comments (Asana-style)
+        `CREATE TABLE IF NOT EXISTS plan_comments (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      workout_plan_id INT DEFAULT NULL,
+      nutrition_plan_id INT DEFAULT NULL,
+      exercise_key VARCHAR(255) DEFAULT NULL,
+      meal_key VARCHAR(255) DEFAULT NULL,
+      author_id INT NOT NULL,
+      author_role VARCHAR(20) NOT NULL,
+      body TEXT NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'open',
+      parent_id INT DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_plan_comments_workout (workout_plan_id, exercise_key),
+      INDEX idx_plan_comments_nutrition (nutrition_plan_id, meal_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+        // Training session events (start / finish workout, finish plan)
+        `CREATE TABLE IF NOT EXISTS training_events (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      coach_id INT DEFAULT NULL,
+      workout_plan_id INT DEFAULT NULL,
+      event_type VARCHAR(40) NOT NULL,
+      payload JSON DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_training_events_user (user_id, created_at),
+      INDEX idx_training_events_coach (coach_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     ];
     for (const sql of migrations) {
         try {

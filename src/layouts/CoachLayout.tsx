@@ -18,7 +18,8 @@ const navItems: NavItem[] = [
   { path: "/coach/dashboard",      icon: LayoutDashboard, label: "Dashboard" },
   { path: "/coach/requests",       icon: ClipboardList,   label: "Requests" },
   { path: "/coach/athletes",       icon: Users,           label: "Athletes" },
-  { path: "/coach/chat",           icon: MessageSquare,   label: "Messages" },
+  { path: "/coach/tickets",        icon: MessageSquare,   label: "Tickets" },
+  { path: "/coach/chat",           icon: MessageSquare,   label: "Groups" },
   { path: "/coach/ads/campaigns",  icon: Target,          label: "Campaigns" },
   { path: "/coach/ads/my-ads",     icon: Megaphone,       label: "My Ads" },
   { path: "/coach/ads/creatives",  icon: Image,           label: "Creatives" },
@@ -34,7 +35,7 @@ const bottomNavItems: NavItem[] = [
   { path: "/coach/dashboard", icon: LayoutDashboard, label: "Home" },
   { path: "/coach/requests",  icon: ClipboardList,   label: "Requests" },
   { path: "/coach/athletes",  icon: Users,           label: "Athletes" },
-  { path: "/coach/chat",      icon: MessageSquare,   label: "Chat" },
+  { path: "/coach/tickets",   icon: MessageSquare,   label: "Tickets" },
   { path: "/coach/profile",   icon: Activity,        label: "Profile" },
 ];
 

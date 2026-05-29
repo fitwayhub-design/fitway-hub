@@ -31,7 +31,11 @@ const TOP_NAV = [
   { path: "/app/steps",      icon: Activity,      label: "Activity" },
   { path: "/app/community",  icon: Users,         label: "Community" },
   { path: "/app/profile",    icon: User,          label: "Profile" },
-  { path: "/app/chat",       icon: MessageCircle, label: "Chat" },
+  // "Chat" now scopes to group chats only — direct chats were replaced
+  // by Tickets per the May meeting. Both entries are shown so an athlete
+  // can pick the right tool from the nav.
+  { path: "/app/chat",       icon: MessageCircle, label: "Groups" },
+  { path: "/app/tickets",    icon: MessageCircle, label: "Tickets" },
   { path: "/app/tools",      icon: Wrench,        label: "Tools" },
   { path: "/app/analytics",  icon: BarChart2,     label: "Analytics" },
   { path: "/app/blogs",          icon: BookOpen,       label: "Our Blog" },
