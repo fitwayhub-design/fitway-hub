@@ -22,7 +22,7 @@ interface AppSetting {
   label: string | null;
 }
 
-type Category = "dashboard" | "access" | "features" | "pricing" | "points" | "payments" | "system";
+type Category = "dashboard" | "access" | "features" | "pricing" | "points" | "payments" | "promo" | "system";
 
 const CATEGORIES: { key: Category; label: string; icon: typeof Palette; desc: string }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, desc: "Hero, sections, visibility" },
@@ -31,6 +31,7 @@ const CATEGORIES: { key: Category; label: string; icon: typeof Palette; desc: st
   { key: "pricing",   label: "Pricing",   icon: CreditCard,      desc: "Fees & packages" },
   { key: "points",    label: "Points",    icon: Star,            desc: "Rewards & bonus points" },
   { key: "payments",  label: "Payments",  icon: CreditCard,      desc: "Payment gateways & methods" },
+  { key: "promo",     label: "Promo codes", icon: Star,          desc: "Discount & gift codes" },
   { key: "system",    label: "System",    icon: Database,        desc: "Backup, server, tools" },
 ];
 
@@ -492,6 +493,68 @@ export default function AdminSettings() {
     );
   }
 
+  function renderPromoCodes() {
+    type Promo = { code: string; type: "percent" | "amount"; value: number; uses_left: number; description: string };
+    const raw = settings.find(s => s.setting_key === "promo_codes")?.setting_value || "[]";
+    let list: Promo[] = [];
+    try { list = JSON.parse(raw); if (!Array.isArray(list)) list = []; } catch { list = []; }
+    const persist = async (next: Promo[]) => {
+      try {
+        await api("/api/admin/app-settings", {
+          method: "PUT",
+          body: JSON.stringify({ promo_codes: JSON.stringify(next) }),
+        });
+        await fetchSettings();
+        showFlash("Promo codes saved", true);
+      } catch { showFlash("Save failed", false); }
+    };
+    const add = () => persist([...list, { code: `CODE${list.length + 1}`, type: "percent", value: 10, uses_left: 100, description: "" }]);
+    const update = (i: number, patch: Partial<Promo>) => {
+      const next = list.map((p, idx) => idx === i ? { ...p, ...patch } : p);
+      persist(next);
+    };
+    const remove = (i: number) => persist(list.filter((_, idx) => idx !== i));
+
+    return (
+      <div style={{ ...card, padding: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            Promo & gift codes are stored as a JSON blob in app settings — admin can add, edit, or remove them here without touching code. Changes save instantly.
+          </p>
+          <button onClick={add} style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10,
+            border: "none", background: "var(--main)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer",
+          }}>
+            + Add code
+          </button>
+        </div>
+        {list.length === 0 ? (
+          <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "40px 0", fontSize: 13 }}>
+            No promo codes yet. Click "Add code" to create one.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {list.map((p, i) => (
+              <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px", display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 2fr auto", gap: 8, alignItems: "center" }}>
+                <input value={p.code} onChange={e => update(i, { code: e.target.value.toUpperCase() })} placeholder="CODE" style={{ ...inputStyle, fontWeight: 700, letterSpacing: "0.1em" }} />
+                <select value={p.type} onChange={e => update(i, { type: e.target.value as "percent" | "amount" })} style={inputStyle}>
+                  <option value="percent">% off</option>
+                  <option value="amount">EGP off</option>
+                </select>
+                <input type="number" min={0} value={p.value} onChange={e => update(i, { value: Number(e.target.value) || 0 })} placeholder="Value" style={inputStyle} />
+                <input type="number" min={0} value={p.uses_left} onChange={e => update(i, { uses_left: Number(e.target.value) || 0 })} placeholder="Uses left" style={inputStyle} />
+                <input value={p.description} onChange={e => update(i, { description: e.target.value })} placeholder="Description (internal)" style={inputStyle} />
+                <button onClick={() => remove(i)} title="Delete" style={{
+                  background: "rgba(248,113,113,0.1)", border: "1px solid var(--red)", borderRadius: 10, padding: "7px 10px", color: "var(--red)", cursor: "pointer", fontSize: 12,
+                }}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function renderPayments() {
     const ps = paySettings;
     const set = (key: string, val: string) => setPaySettings(s => ({ ...s, [key]: val }));
@@ -776,6 +839,7 @@ export default function AdminSettings() {
   const isPayments = activeTab === "payments";
   const isFeatures = activeTab === "features";
   const isSystem = activeTab === "system";
+  const isPromo = activeTab === "promo";
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "24px 16px 48px" }}>
@@ -839,7 +903,7 @@ export default function AdminSettings() {
                 {CATEGORIES.find(c => c.key === activeTab)?.desc}
               </p>
             </div>
-            {!isSystem && <button
+            {!isSystem && !isPromo && <button
               onClick={isPayments ? savePaymentSettings : saveAppSettings}
               disabled={saving || (!isPayments && filtered.length === 0)}
               style={{
@@ -853,7 +917,7 @@ export default function AdminSettings() {
             </button>}
           </div>
 
-          {isSystem ? renderSystem() : isPayments ? (
+          {isSystem ? renderSystem() : isPromo ? renderPromoCodes() : isPayments ? (
             payLoading ? (
               <div style={{ ...card, padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
                 Loading...

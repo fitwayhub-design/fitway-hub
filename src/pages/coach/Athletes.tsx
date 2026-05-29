@@ -29,6 +29,31 @@ interface Meal { id: string; name: string; time: string; calories: number; foods
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
+/* Common exercise names shown in the workout-builder name dropdown. Coaches can
+   still type a custom name — the input is bound to a <datalist>, not a strict
+   select. Admin can later override / extend this from the workouts video
+   library; this list is the safe minimum for a fresh install. */
+const EXERCISE_LIBRARY: string[] = [
+  // Push
+  "Bench Press", "Incline Dumbbell Press", "Push-Up", "Dumbbell Shoulder Press",
+  "Overhead Press", "Lateral Raise", "Triceps Pushdown", "Skull Crusher",
+  // Pull
+  "Pull-Up", "Lat Pulldown", "Barbell Row", "Seated Cable Row", "T-Bar Row",
+  "Face Pull", "Dumbbell Curl", "Hammer Curl",
+  // Legs
+  "Back Squat", "Front Squat", "Romanian Deadlift", "Deadlift", "Leg Press",
+  "Walking Lunge", "Bulgarian Split Squat", "Hip Thrust", "Leg Curl",
+  "Leg Extension", "Calf Raise",
+  // Core
+  "Plank", "Side Plank", "Hanging Leg Raise", "Cable Crunch", "Russian Twist",
+  // Cardio / conditioning
+  "Treadmill (Steady)", "Treadmill (HIIT)", "Cycling", "Rowing Machine",
+  "Stair Climber", "Jump Rope", "Burpees",
+  // Mobility
+  "Foam Rolling", "Hip Mobility Flow", "Thoracic Opener",
+];
+
+
 export default function CoachAthletes() {
   const { token } = useAuth();
   const { t } = useI18n();
@@ -339,10 +364,13 @@ export default function CoachAthletes() {
                   <button onClick={addExercise} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: "var(--radius-full)", background: "var(--accent-dim)", border: "1px solid rgba(255,214,0,0.25)", color: "var(--accent)", fontSize: 12, cursor: "pointer", fontWeight: 600 }}><Plus size={13} /> {t("coach_athletes_add_exercise")}</button>
                 </div>
                 {workoutPlan.exercises.length === 0 && <p style={{ textAlign: "center", padding: "24px 0", color: "var(--text-muted)", fontSize: 13 }}>{t("coach_athletes_no_exercises")}</p>}
+                <datalist id="coach-exercise-names">
+                  {EXERCISE_LIBRARY.map(name => <option key={name} value={name} />)}
+                </datalist>
                 {workoutPlan.exercises.map(ex => (
                   <div key={ex.id} style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 70px 70px 70px auto", gap: 8, alignItems: "center" }}>
-                      <input className="input-base" value={ex.name} onChange={e => updateEx(ex.id, "name", e.target.value)} placeholder={t('exercise_name')} style={{ padding: "7px 10px" }} />
+                      <input className="input-base" list="coach-exercise-names" value={ex.name} onChange={e => updateEx(ex.id, "name", e.target.value)} placeholder={t('exercise_name')} style={{ padding: "7px 10px" }} />
                       <select className="input-base" value={ex.day} onChange={e => updateEx(ex.id, "day", e.target.value)} style={{ padding: "7px 8px", fontSize: 12 }}>
                         {DAYS.map(d => <option key={d} value={d}>{d.slice(0,3)}</option>)}
                       </select>

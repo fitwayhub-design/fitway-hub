@@ -1171,6 +1171,7 @@ export async function seedDefaultAppSettings() {
     ['video_watch_points', '2', 'number', 'points', 'Points per Video Watch'],
     ['goal_complete_points', '2', 'number', 'points', 'Points per Goal Completed'],
     ['certified_coach_fee', '500', 'number', 'pricing', 'Certified Coach Monthly Fee (EGP)'],
+    ['promo_codes', '[]', 'json', 'promo', 'Active promo / gift codes (JSON array)'],
     ['feature_user_workouts', '1', 'boolean', 'features', 'User: Workouts'],
     ['feature_user_workout_plan', '1', 'boolean', 'features', 'User: Workout Plan'],
     ['feature_user_nutrition_plan', '1', 'boolean', 'features', 'User: Nutrition Plan'],
