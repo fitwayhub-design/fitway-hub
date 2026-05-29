@@ -2210,21 +2210,23 @@ html.light .web-bold [data-bold="card"] {
 }
 
 html.light .web-fwh {
-  --fwh-bg:        #f0ede6;
-  --fwh-s1:        #e8e5de;
-  --fwh-s2:        #ddd9d0;
-  --fwh-s3:        #ccc9c1;
-  --fwh-br:        #ccc9c1;
+  /* Clean "normal white" version — true white surfaces with subtle warm borders
+     rather than the previous cream/parchment palette. */
+  --fwh-bg:        #ffffff;
+  --fwh-s1:        #fafafa;
+  --fwh-s2:        #f3f3f1;
+  --fwh-s3:        #ebebe7;
+  --fwh-br:        #e5e5e2;
   --fwh-text:      #0a0a0a;
-  --fwh-tm:        #666666;
-  --fwh-td:        #999999;
+  --fwh-tm:        #5a5a5a;
+  --fwh-td:        #8a8a8a;
   --bg-primary:    var(--fwh-bg);
   --bg-surface:    var(--fwh-s1);
   --bg-card:       #ffffff;
   --bg-card-hover: var(--fwh-s2);
   --border:        var(--fwh-br);
   --text-primary:  var(--fwh-text);
-  --text-secondary:#3a3a3a;
+  --text-secondary:#2a2a2a;
   --text-muted:    var(--fwh-tm);
   background: var(--fwh-bg);
   color: var(--fwh-text);
@@ -3618,4 +3620,37 @@ html.light .app-fwh .dash-hero-overlay {
 
 /* Section spacing */
 .app-fwh .dash-section { margin-bottom: 24px; }
+
+
+
+/* ── Mobile profile fix (web mobile view) ─────────────────────────────────
+   The user profile header on /app/profile used to clip the Edit-profile CTA
+   and crush the 3-up stats row at sub-360px widths. These rules let the
+   header stack vertically on phones and shorten the long uppercase label
+   on the Edit button so it doesn't overflow off-screen. */
+@media (max-width: 480px) {
+  .profile-identity-row {
+    align-items: flex-start !important;
+  }
+  .profile-identity-row > div:first-child {
+    padding-top: 64px !important;
+    width: 100%;
+  }
+  .profile-edit-cta {
+    width: 100%;
+    justify-content: center;
+    margin-top: 8px;
+  }
+  .profile-edit-cta-label { font-size: 10px; letter-spacing: 0.14em !important; }
+  .profile-stats-row {
+    grid-template-columns: 1fr !important;
+  }
+  .profile-stats-row > div {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+  }
+  .profile-stats-row > div:last-child {
+    border-bottom: none;
+  }
+}
 

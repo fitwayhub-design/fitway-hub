@@ -67,6 +67,21 @@ router.patch('/profile', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to update profile' });
     }
 });
+// Limited "public profile" — id + name + community posts only (no avatar,
+// email, fitness data). Per the May meeting: profiles are open to everyone,
+// but only the bare minimum is exposed.
+router.get('/public-profile/:id', authenticateToken, async (req, res) => {
+    try {
+        const target = Number(req.params.id);
+        if (!Number.isFinite(target)) return res.status(400).json({ message: 'invalid id' });
+        const user = await get('SELECT id, name FROM users WHERE id = ?', [target]);
+        if (!user) return res.status(404).json({ message: 'Not found' });
+        const posts = await query(`SELECT id, content, media_url, hashtags, likes, created_at
+       FROM posts WHERE user_id = ? ORDER BY id DESC LIMIT 20`, [target]);
+        res.json({ user, posts });
+    } catch { res.status(500).json({ message: 'Failed to load profile' }); }
+});
+
 router.post('/points', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;

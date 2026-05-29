@@ -1031,7 +1031,7 @@ const translations: Record<Lang, Record<string, string>> = {
     ctr_label: 'CTR',
     book_free_consultation: 'Book Free Consultation',
     png_jpg_hint: 'PNG, JPG, WEBP — max 5MB',
-    video_hint: 'MP4, MOV, WEBM — max 500MB',
+    video_hint: 'MP4, MOV, WEBM — max 50MB',
 
     // ── Ads System ──
     campaigns: 'Campaigns',
@@ -1121,13 +1121,13 @@ const translations: Record<Lang, Record<string, string>> = {
     cert_doc_link: 'Certification Doc',
     cert_rejected_text: 'Your previous request was rejected.',
     cert_resubmit_text: 'You can submit a new request with updated documents below.',
-    cert_badge_info: 'Get the Certified Coach badge for {fee} EGP/month. Upload your National ID and Certification papers for admin review.',
+    cert_badge_info: 'Upload your National ID and Certification papers (image or PDF). Our admin will review your documents and verify your coach profile manually.',
     cert_national_id_label: 'National ID *',
     cert_upload_national_id: 'Upload / Capture National ID',
     cert_papers_label: 'Certification Papers *',
     cert_upload_papers: 'Upload / Capture Certification Papers',
     cert_submitting: 'Submitting…',
-    cert_submit_review: 'Submit for Review · {fee} EGP',
+    cert_submit_review: 'Submit for Review',
 
     // ── Media Gallery ──
     photos: 'Photos',
@@ -2236,7 +2236,7 @@ const translations: Record<Lang, Record<string, string>> = {
     ctr_label: 'نسبة النقر',
     book_free_consultation: 'احجز استشارة مجانية',
     png_jpg_hint: 'PNG, JPG, WEBP — حد أقصى 5MB',
-    video_hint: 'MP4, MOV, WEBM — حد أقصى 500MB',
+    video_hint: 'MP4, MOV, WEBM — حد أقصى 50MB',
 
     // ── نظام الإعلانات ──
     campaigns: 'الحملات',
@@ -2326,13 +2326,13 @@ const translations: Record<Lang, Record<string, string>> = {
     cert_doc_link: 'مستند التوثيق',
     cert_rejected_text: 'الطلب السابق بتاعك اترفض.',
     cert_resubmit_text: 'تقدر تبعت طلب جديد بمستندات محدّثة.',
-    cert_badge_info: 'احصل على شارة المدرب المعتمد بـ {fee} ج.م/شهر. ارفع البطاقة الوطنية ووثائق التوثيق.',
+    cert_badge_info: 'ارفع البطاقة الوطنية ووثائق التوثيق (صورة أو PDF). الإدارة هتراجع أوراقك يدوياً وتعتمد ملفك كمدرب.',
     cert_national_id_label: 'البطاقة الوطنية *',
     cert_upload_national_id: 'ارفع / صوّر البطاقة الوطنية',
     cert_papers_label: 'وثائق التوثيق *',
     cert_upload_papers: 'ارفع / صوّر وثائق التوثيق',
     cert_submitting: 'بيترفع...',
-    cert_submit_review: 'ابعت للمراجعة · {fee} ج.م',
+    cert_submit_review: 'ابعت للمراجعة',
 
     // ── معرض الوسائط ──
     photos: 'الصور',

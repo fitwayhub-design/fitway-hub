@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import {
   Play, Search, Clock, ChevronRight, X, BookmarkCheck, Sparkles,
-  SlidersHorizontal, Flame, Zap, User, TrendingUp, Heart, Eye,
+  Flame, Zap, User, TrendingUp, Heart, Eye,
 } from "lucide-react";
 import VideoPlayer from "@/components/app/VideoPlayer";
 
@@ -618,22 +618,6 @@ export default function Workouts() {
             <button onClick={() => setSearching(true)} style={{ width: 40, height: 40, borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)" }}>
               <Search size={18} />
             </button>
-            <button
-              onClick={() => setShowFilters(v => !v)}
-              style={{
-                position: "relative",
-                width: 40, height: 40, borderRadius: 12,
-                border: `1px solid ${showFilters || activeFilterCount ? "var(--accent)" : "var(--border)"}`,
-                background: showFilters || activeFilterCount ? "var(--accent-dim)" : "var(--bg-card)",
-                color: showFilters || activeFilterCount ? "var(--accent)" : "var(--text-secondary)",
-                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-              }}
-            >
-              <SlidersHorizontal size={18} />
-              {activeFilterCount > 0 && (
-                <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 99, background: "var(--accent)", color: "#000", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{activeFilterCount}</span>
-              )}
-            </button>
           </>
         )}
       </div>
@@ -664,29 +648,6 @@ export default function Workouts() {
         </div>
       </div>
 
-      {/* Smart category chips — workout type always visible, others under filter button */}
-      <div style={{ padding: "0 16px 4px" }}>
-        <ChipRow label="Workout type" items={WORKOUT_TYPES} value={fType} onChange={setFType} />
-      </div>
-
-      {/* Extended filter chips (collapsible) */}
-      {showFilters && (
-        <div style={{ padding: "0 16px 8px" }}>
-          <ChipRow label="Goal" items={GOALS} value={fGoal} onChange={setFGoal} />
-          <ChipRow label="Body area" items={BODY_AREAS} value={fBody} onChange={setFBody} />
-          {mode === "long" && (
-            <ChipRow label="Duration" items={DURATIONS.map(d => ({ value: d.value, label: d.label }))} value={fDuration} onChange={setFDuration} />
-          )}
-          <ChipRow label="Equipment" items={EQUIPMENTS} value={fEquipment} onChange={setFEquipment} />
-          <ChipRow label="Level" items={LEVELS} value={fLevel} onChange={setFLevel} />
-          {activeFilterCount > 0 && (
-            <button onClick={() => { setFGoal(""); setFBody(""); setFDuration(""); setFEquipment(""); setFLevel(""); setFType(""); }}
-              style={{ marginTop: 4, fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}>
-              Clear all filters
-            </button>
-          )}
-        </div>
-      )}
 
       {loading && <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>{t("loading_ellipsis")}</div>}
 

@@ -35,6 +35,28 @@ router.patch('/profile', authenticateToken, async (req: any, res: any) => {
   }
 });
 
+/**
+ * Limited "public profile" — anyone authenticated can call /public-profile/:id
+ * and get back ONLY the bare minimum the May meeting agreed to expose:
+ * id + name + the user's community posts. No avatar, no email, no fitness
+ * data. Coaches see this version of every athlete who isn't subscribed
+ * to them; other athletes always see this version.
+ */
+router.get('/public-profile/:id', authenticateToken, async (req: any, res: any) => {
+  try {
+    const target = Number(req.params.id);
+    if (!Number.isFinite(target)) return res.status(400).json({ message: 'invalid id' });
+    const user = await get<any>('SELECT id, name FROM users WHERE id = ?', [target]);
+    if (!user) return res.status(404).json({ message: 'Not found' });
+    const posts = await query(
+      `SELECT id, content, media_url, hashtags, likes, created_at
+       FROM posts WHERE user_id = ? ORDER BY id DESC LIMIT 20`,
+      [target]
+    );
+    res.json({ user, posts });
+  } catch { res.status(500).json({ message: 'Failed to load profile' }); }
+});
+
 router.post('/points', authenticateToken, async (req: any, res: any) => {
   try {
     const userId = req.user.id;

@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Home, Dumbbell, Activity, Users,
   MessageCircle, Wrench, CreditCard, BarChart2,
-  UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut,
+  UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut, Inbox,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { CoachSearchIcon } from "@/components/icons/CoachSearchIcon";
@@ -31,7 +31,11 @@ const TOP_NAV = [
   { path: "/app/steps",      icon: Activity,      label: "Activity" },
   { path: "/app/community",  icon: Users,         label: "Community" },
   { path: "/app/profile",    icon: User,          label: "Profile" },
-  { path: "/app/chat",       icon: MessageCircle, label: "Chat" },
+  // "Chat" now scopes to group chats only — direct chats were replaced
+  // by Tickets per the May meeting. Both entries are shown so an athlete
+  // can pick the right tool from the nav.
+  { path: "/app/chat",       icon: MessageCircle, label: "Groups" },
+  { path: "/app/tickets",    icon: Inbox,         label: "Tickets" },
   { path: "/app/tools",      icon: Wrench,        label: "Tools" },
   { path: "/app/analytics",  icon: BarChart2,     label: "Analytics" },
   { path: "/app/blogs",          icon: BookOpen,       label: "Our Blog" },

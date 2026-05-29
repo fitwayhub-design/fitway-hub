@@ -119,6 +119,7 @@ const Coaching = lazy(() => import("@/pages/app/Coaching"));
 const Onboarding = lazy(() => import("@/pages/app/Onboarding"));
 const Steps = lazy(() => import("@/pages/app/Steps"));
 const AppNotifications = lazy(() => import("@/pages/app/Notifications"));
+const Tickets = lazy(() => import("@/pages/app/Tickets"));
 
 const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const CoachDashboard = lazy(() => import("@/pages/coach/Dashboard"));
@@ -340,6 +341,7 @@ export default function App() {
                 <Route path="/app/workout-plan" element={<WorkoutPlan />} />
                 <Route path="/app/nutrition-plan" element={<NutritionPlan />} />
                 <Route path="/app/notifications" element={<AppNotifications />} />
+                <Route path="/app/tickets" element={<Tickets />} />
               </Route>
 
               {/* Coach Routes */}
@@ -365,6 +367,7 @@ export default function App() {
                 <Route path="/coach/blogs" element={<CoachBlogs />} />
                 <Route path="/coach/workouts" element={<CoachWorkouts />} />
                 <Route path="/coach/notifications" element={<CoachNotifications />} />
+                <Route path="/coach/tickets" element={<Tickets />} />
               </Route>
 
               {/* Admin Routes */}

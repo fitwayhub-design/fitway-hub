@@ -901,7 +901,7 @@ function PostCard({
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <p
-                style={{ fontSize: 14, fontWeight: 700, cursor: isCoach ? "pointer" : "default", color: isCoach ? "var(--blue)" : "var(--text-primary)", fontFamily: "var(--font-en)" }}
+                style={{ fontSize: 14, fontWeight: 700, cursor: isCoach ? "pointer" : "default", color: isCoach ? "var(--blue)" : "var(--accent)", fontFamily: "var(--font-en)" }}
                 onClick={() => { if (isCoach) onViewCoach(post.user_id, post.user_name, post.user_avatar); }}
               >
                 {post.user_name}
@@ -992,7 +992,7 @@ function PostCard({
               <img src={c.user_avatar || getAvatar(c.user_id, null, null, c.user_name)} alt={c.user_name} style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, border: "1px solid var(--border)" }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 2 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700 }}>{c.user_name}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>{c.user_name}</span>
                   <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{timeAgo(c.created_at)}</span>
                 </div>
                 <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, wordBreak: "break-word" }}>{c.content}</p>

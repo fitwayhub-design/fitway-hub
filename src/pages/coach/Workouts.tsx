@@ -340,13 +340,7 @@ export default function CoachWorkouts() {
               <button onClick={closeModal} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}><X size={20} /></button>
             </div>
 
-            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-              {(["upload", "youtube"] as const).map((type) => (
-                <button key={type} onClick={() => setSourceType(type)} style={{ flex: 1, padding: "10px 12px", borderRadius: 14, border: `1px solid ${sourceType === type ? "var(--red)" : "var(--border)"}`, background: sourceType === type ? "var(--red)" : "var(--bg-surface)", color: sourceType === type ? "#fff" : "var(--text-primary)", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                  {type === "upload" ? <Upload size={15} /> : <Link2 size={15} />} {type === "upload" ? t("coach_video_source_upload") : t("coach_video_source_youtube")}
-                </button>
-              ))}
-            </div>
+            {/* YouTube source is admin-only — coaches must upload video files directly. */}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
@@ -366,7 +360,7 @@ export default function CoachWorkouts() {
                     <div onClick={() => document.getElementById("coach-video-file-input")?.click()} style={{ padding: "16px 14px", borderRadius: 16, border: "1px dashed var(--border)", background: "var(--bg-surface)", cursor: "pointer", textAlign: "center", fontSize: 13, color: videoFile ? "var(--accent)" : "var(--text-muted)", fontWeight: videoFile ? 700 : 500 }}>
                       {videoFile ? `${videoFile.name} (${(videoFile.size / 1024 / 1024).toFixed(1)} MB)` : t("coach_video_file_pick")}
                     </div>
-                    <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>MP4 or MOV — max 500 MB</p>
+                    <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>MP4 or MOV — max 50 MB</p>
                     <input id="coach-video-file-input" type="file" accept="video/*" style={{ display: "none" }} onChange={(e) => setVideoFile(e.target.files?.[0] || null)} />
                   </div>
 

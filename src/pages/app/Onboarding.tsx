@@ -43,7 +43,28 @@ export default function Onboarding() {
   const [formData, setFormData] = useState<Partial<OnboardingData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [inbodyFile, setInbodyFile] = useState<File | null>(null);
+  const [inbodyUploadMsg, setInbodyUploadMsg] = useState("");
   const totalSteps = 4;
+
+  const uploadInbody = async (file: File) => {
+    setInbodyFile(file);
+    setInbodyUploadMsg("");
+    try {
+      const fd = new FormData();
+      fd.append("medical", file);
+      fd.append("medical_history", "InBody / body composition document attached");
+      const r = await fetch(getApiBase() + "/api/user/medical-history", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token || localStorage.getItem("token") || ""}` },
+        body: fd,
+      });
+      if (r.ok) setInbodyUploadMsg("✓ Uploaded");
+      else setInbodyUploadMsg("Couldn't upload — saved file will be requested again later.");
+    } catch {
+      setInbodyUploadMsg("Couldn't upload — saved file will be requested again later.");
+    }
+  };
 
   const handleNext = async (data: any) => {
     const merged = { ...formData, ...data };
@@ -285,6 +306,22 @@ export default function Onboarding() {
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 6 }}>{t("medical_history")}</label>
                   <input type="text" {...register("medicalHistory")} style={inputStyle} placeholder={t("medical_placeholder")} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 6 }}>
+                    {lang === "ar" ? "تقرير InBody (اختياري)" : "InBody / body composition (optional)"}
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadInbody(f); }}
+                    style={{ ...inputStyle, padding: "10px 12px" }}
+                  />
+                  {inbodyFile && (
+                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                      {inbodyFile.name} {inbodyUploadMsg && `· ${inbodyUploadMsg}`}
+                    </p>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button type="button" onClick={() => setStep(s => s - 1)} style={{ flex: 1, padding: "12px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-secondary)", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><ArrowLeft size={15} /> {t("back")}</button>

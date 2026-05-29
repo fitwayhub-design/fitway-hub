@@ -1652,7 +1652,7 @@ export default function AdminDashboard() {
               ) : (
                 <>
                   <div>
-                    <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Video File * (.mp4, .mov, .webm — max 500MB)</label>
+                    <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Video File * (.mp4, .mov, .webm — max 50MB)</label>
                     <div style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius-full)", padding: "18px 14px", textAlign: "center", cursor: "pointer", backgroundColor: videoFile ? "rgba(16,185,129,0.07)" : "var(--bg-surface)" }}
                       onClick={() => document.getElementById("videoFileInput")?.click()}>
                       {videoFile ? (
@@ -1665,7 +1665,7 @@ export default function AdminDashboard() {
                         <div>
                           <Play size={28} color="var(--text-muted)" style={{ marginBottom: 6 }} />
                           <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Click to select video file</p>
-                          <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>MP4 or MOV — max 500 MB</p>
+                          <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>MP4 or MOV — max 50 MB</p>
                         </div>
                       )}
                     </div>
