@@ -336,6 +336,11 @@ export default function CoachAthletes() {
                     </div>
                   ))}
                 </div>
+
+                {/* Training activity feed — plan progress this coach can
+                    actually act on (start/finish events fired from the
+                    athlete's workout-plan view). */}
+                <AthleteTrainingFeed athleteId={selected.id} token={token} />
               </div>
             )}
 
@@ -453,6 +458,58 @@ export default function CoachAthletes() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * AthleteTrainingFeed
+ * ─────────────────────────────────────────────────────────
+ * Compact training-events feed shown on a coach's per-athlete overview.
+ * Reads /api/tickets/training-events?user_id= and renders the latest
+ * starts/finishes/plan-completes so the coach can follow up without
+ * leaving the page.
+ */
+function AthleteTrainingFeed({ athleteId, token }: { athleteId: number; token: string | null }) {
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!token) { setLoading(false); return; }
+    fetch(getApiBase() + `/api/tickets/training-events?user_id=${athleteId}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : { events: [] })
+      .then(d => setEvents(d.events || []))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, [athleteId, token]);
+  if (!token) return null;
+  const labels: Record<string, { label: string; icon: string }> = {
+    workout_started:  { label: "Started training",   icon: "🏋️" },
+    workout_finished: { label: "Finished a workout", icon: "✅" },
+    plan_finished:    { label: "Finished the plan",  icon: "🎉" },
+  };
+  return (
+    <div style={{ marginTop: 4, padding: "14px 16px", borderRadius: 14, background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+      <p style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 10, fontWeight: 700 }}>
+        Training activity
+      </p>
+      {loading ? (
+        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Loading…</p>
+      ) : events.length === 0 ? (
+        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>No training sessions logged yet.</p>
+      ) : (
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+          {events.slice(0, 8).map((e: any) => {
+            const meta = labels[e.event_type] || { label: e.event_type, icon: "•" };
+            return (
+              <li key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 14 }}>{meta.icon}</span>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", flex: 1 }}>{meta.label}</p>
+                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{new Date(e.created_at).toLocaleString()}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

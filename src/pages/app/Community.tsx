@@ -892,17 +892,25 @@ function PostCard({
           <img
             src={post.user_avatar || getAvatar(post.user_id, null, null, post.user_name)} alt={post.user_name}
             style={{
-              width: 40, height: 40, borderRadius: "50%", cursor: isCoach ? "pointer" : "default",
+              width: 40, height: 40, borderRadius: "50%", cursor: "pointer",
               border: isCoach ? "2px solid var(--blue)" : "2px solid var(--border)",
               transition: "transform 0.2s",
             }}
-            onClick={() => { if (isCoach) onViewCoach(post.user_id, post.user_name, post.user_avatar); }}
+            onClick={() => {
+              // Coach → full coach profile modal (uses subscribed-coach context).
+              // Athlete → limited public profile page (name + posts only).
+              if (isCoach) onViewCoach(post.user_id, post.user_name, post.user_avatar);
+              else window.location.href = `/app/u/${post.user_id}`;
+            }}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <p
-                style={{ fontSize: 14, fontWeight: 700, cursor: isCoach ? "pointer" : "default", color: isCoach ? "var(--blue)" : "var(--accent)", fontFamily: "var(--font-en)" }}
-                onClick={() => { if (isCoach) onViewCoach(post.user_id, post.user_name, post.user_avatar); }}
+                style={{ fontSize: 14, fontWeight: 700, cursor: "pointer", color: isCoach ? "var(--blue)" : "var(--accent)", fontFamily: "var(--font-en)" }}
+                onClick={() => {
+                  if (isCoach) onViewCoach(post.user_id, post.user_name, post.user_avatar);
+                  else window.location.href = `/app/u/${post.user_id}`;
+                }}
               >
                 {post.user_name}
               </p>

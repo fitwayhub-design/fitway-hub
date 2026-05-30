@@ -238,6 +238,30 @@ router.post('/training-events', authenticateToken, async (req: any, res: Respons
       const body  = `${u.name || 'Your athlete'} — ${title.toLowerCase()}.`;
       await notify(coachId, event_type, title, body, `/coach/athletes/${u.id}`);
     }
+
+    // Award completion credit when a plan is finished. Reward amount is
+    // admin-controlled via app_settings.plan_finish_credit (default 50 EGP),
+    // and we de-dupe per workout_plan_id so a user can't claim it twice.
+    if (event_type === 'plan_finished' && workout_plan_id) {
+      const prior: any = await get(
+        `SELECT id FROM credit_transactions WHERE user_id = ? AND type = 'plan_finish_bonus' AND reference_id = ? LIMIT 1`,
+        [u.id, workout_plan_id]
+      ).catch(() => null);
+      if (!prior) {
+        const setting: any = await get(`SELECT setting_value FROM app_settings WHERE setting_key = 'plan_finish_credit'`).catch(() => null);
+        const amount = Number(setting?.setting_value) || 50;
+        try {
+          await run('UPDATE users SET credit = COALESCE(credit, 0) + ? WHERE id = ?', [amount, u.id]);
+          await run(
+            `INSERT INTO credit_transactions (user_id, amount, type, reference_id, description, created_at)
+             VALUES (?, ?, 'plan_finish_bonus', ?, ?, NOW())`,
+            [u.id, amount, workout_plan_id, `Bonus for finishing plan #${workout_plan_id}`]
+          );
+          await notify(u.id, 'credit_awarded', 'You earned credit 🎁', `Nice work — ${amount} EGP added to your wallet for finishing your plan.`, '/app/profile');
+        } catch { /* credit table may not exist yet on fresh installs */ }
+      }
+    }
+
     res.json({ ok: true });
   } catch (err: any) {
     res.status(500).json({ message: err?.message || 'Failed to log training event' });
