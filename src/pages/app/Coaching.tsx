@@ -452,8 +452,10 @@ export default function Coaching() {
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button onClick={() => navigate(`/app/chat?coach=${c.id}`)} style={{ flex: isMobile ? "1 1 48%" : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px", borderRadius: "var(--radius-full)", backgroundColor: subscribedCoaches[c.id]?.subscribed ? "var(--accent-dim)" : "var(--bg-surface)", border: `1px solid ${subscribedCoaches[c.id]?.subscribed ? "rgba(255,214,0,0.2)" : "var(--border)"}`, color: subscribedCoaches[c.id]?.subscribed ? "var(--accent)" : "var(--text-muted)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  <MessageSquare size={14} /> Chat
+                {/* Direct chat removed in May meeting — route to Tickets so
+                    the athlete files a ticket to this coach instead. */}
+                <button onClick={() => navigate(`/app/tickets?coach=${c.id}`)} style={{ flex: isMobile ? "1 1 48%" : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px", borderRadius: "var(--radius-full)", backgroundColor: subscribedCoaches[c.id]?.subscribed ? "var(--accent-dim)" : "var(--bg-surface)", border: `1px solid ${subscribedCoaches[c.id]?.subscribed ? "rgba(255,214,0,0.2)" : "var(--border)"}`, color: subscribedCoaches[c.id]?.subscribed ? "var(--accent)" : "var(--text-muted)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  <MessageSquare size={14} /> Ticket
                 </button>
                 {(c.monthly_price || c.yearly_price) ? (
                   subscribedCoaches[c.id]?.canRequestNew === false && !subscribedCoaches[c.id]?.subscribed ? (
@@ -906,8 +908,8 @@ export default function Coaching() {
 
               {/* Actions */}
               <div style={{ display: "flex", gap: 10, flexDirection: isMobile ? "column" : "row" }}>
-                <button onClick={() => { setViewProfileCoach(null); navigate(`/app/chat?coach=${viewProfileCoach.id}`); }} style={{ flex: 1, padding: "11px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                  <MessageSquare size={15} /> Chat
+                <button onClick={() => { setViewProfileCoach(null); navigate(`/app/tickets?coach=${viewProfileCoach.id}`); }} style={{ flex: 1, padding: "11px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <MessageSquare size={15} /> Ticket
                 </button>
                 <button
                   onClick={() => {

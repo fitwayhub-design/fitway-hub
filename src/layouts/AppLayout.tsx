@@ -103,7 +103,8 @@ export function AppLayout() {
     if (path === "/app/steps") return t("activity");
     if (path === "/app/community") return t("nav_community");
     if (path === "/app/profile") return t("nav_profile");
-    if (path === "/app/chat") return t("nav_chat");
+    if (path === "/app/chat") return "Groups";
+    if (path === "/app/tickets") return "Tickets";
     if (path === "/app/tools") return t("nav_tools");
     if (path === "/app/analytics") return t("nav_analytics");
     if (path === "/app/blogs") return t("blog_title");

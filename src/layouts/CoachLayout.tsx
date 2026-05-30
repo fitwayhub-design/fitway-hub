@@ -19,7 +19,6 @@ const navItems: NavItem[] = [
   { path: "/coach/requests",       icon: ClipboardList,   label: "Requests" },
   { path: "/coach/athletes",       icon: Users,           label: "Athletes" },
   { path: "/coach/tickets",        icon: Inbox,           label: "Tickets" },
-  { path: "/coach/chat",           icon: MessageSquare,   label: "Groups" },
   { path: "/coach/ads/campaigns",  icon: Target,          label: "Campaigns" },
   { path: "/coach/ads/my-ads",     icon: Megaphone,       label: "My Ads" },
   { path: "/coach/ads/creatives",  icon: Image,           label: "Creatives" },
@@ -215,7 +214,7 @@ export function CoachLayout() {
     { path: "/coach/dashboard", icon: LayoutDashboard, label: t("dashboard") },
     { path: "/coach/requests",  icon: ClipboardList,   label: t("requests") },
     { path: "/coach/athletes",  icon: Users,           label: t("athletes") },
-    { path: "/coach/chat",      icon: MessageSquare,   label: t("messages") },
+    { path: "/coach/tickets",   icon: Inbox,           label: "Tickets" },
     { path: "/coach/ads",       icon: Megaphone,       label: t("my_ads") },
     { path: "/coach/blogs",     icon: FileText,        label: t("blog_title") },
     { path: "/coach/community", icon: Globe,           label: t("community") },
@@ -227,7 +226,7 @@ export function CoachLayout() {
     { path: "/coach/dashboard", icon: LayoutDashboard, label: t("nav_home") },
     { path: "/coach/requests",  icon: ClipboardList,   label: t("requests") },
     { path: "/coach/athletes",  icon: Users,           label: t("athletes") },
-    { path: "/coach/chat",      icon: MessageSquare,   label: t("nav_chat") },
+    { path: "/coach/tickets",   icon: Inbox,           label: "Tickets" },
     { path: "/coach/profile",   icon: Activity,        label: t("nav_profile") },
   ].filter((item) => isFeatureEnabled(item.path));
 

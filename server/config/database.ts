@@ -1243,6 +1243,13 @@ export async function seedDefaultAppSettings() {
     ['video_call_provider', 'external', 'text', 'features', 'Video call provider: external (Zoom / Google Meet link), daily, agora, twilio'],
     ['video_call_room_base', '', 'text', 'features', 'Optional base URL for in-app rooms (e.g. https://room.fitwayhub.com)'],
     ['plan_finish_credit', '50', 'number', 'points', 'EGP credited to athlete wallet when a coach plan is finished'],
+    // Subscription packages (May business plan)
+    ['sub_community_freemium_egp',  '0',    'number', 'pricing', 'Community · Freemium (EGP/mo)'],
+    ['sub_community_premium_egp',   '149',  'number', 'pricing', 'Community · Premium (EGP/mo)'],
+    ['sub_community_exclusive_egp', '299',  'number', 'pricing', 'Community · Exclusive (EGP/mo)'],
+    ['sub_pt_basic_egp',            '499',  'number', 'pricing', 'PT · Basic (EGP/mo)'],
+    ['sub_pt_premium_egp',          '899',  'number', 'pricing', 'PT · Premium (EGP/mo)'],
+    ['sub_pt_gold_egp',             '1499', 'number', 'pricing', 'PT · Gold (EGP/mo)'],
     ['feature_user_workouts', '1', 'boolean', 'features', 'User: Workouts'],
     ['feature_user_workout_plan', '1', 'boolean', 'features', 'User: Workout Plan'],
     ['feature_user_nutrition_plan', '1', 'boolean', 'features', 'User: Nutrition Plan'],
