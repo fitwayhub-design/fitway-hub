@@ -2,7 +2,7 @@ import { getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import WebsiteCMS from "@/pages/admin/WebsiteCMS";
-import Chat from "@/pages/app/Chat";
+// 1:1 chat removed. Admin chat lives at /admin/chat as a dedicated page.
 import { Users, Dumbbell, DollarSign, Activity, TrendingUp, Trash2, Shield, UserCheck, Gift, Sun, Moon, Plus, X, Search, Video, Megaphone, Star, CheckCircle, Clock, CreditCard, Play, Lock, Unlock, Edit3 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -1476,16 +1476,13 @@ export default function AdminDashboard() {
       )}
 
       {tab === "chat" && (
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", overflow: "hidden", display: "flex", flexDirection: "column", gap: 10, padding: 10 }}>
-          <div style={{ display: "flex", gap: 6, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 4, width: "fit-content" }}>
-            <button onClick={() => setChatView("all")} style={{ padding: "6px 12px", borderRadius: "var(--radius-full)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: chatView === "all" ? "var(--bg-card)" : "transparent", color: chatView === "all" ? "var(--text-primary)" : "var(--text-muted)" }}>
-              All Chats
-            </button>
-            <button onClick={() => setChatView("support")} style={{ padding: "6px 12px", borderRadius: "var(--radius-full)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: chatView === "support" ? "var(--bg-card)" : "transparent", color: chatView === "support" ? "var(--text-primary)" : "var(--text-muted)" }}>
-              Support
-            </button>
-          </div>
-          <Chat supportOnly={chatView === "support"} />
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 32, textAlign: "center" }}>
+          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Chat moved</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+            1:1 chat was removed. Read & post in groups from{" "}
+            <a href="/admin/chat" style={{ color: "var(--main)" }}>Admin → Chat</a>. Direct contact lives in{" "}
+            <a href="/admin/tickets" style={{ color: "var(--main)" }}>Tickets</a>.
+          </p>
         </div>
       )}
 
