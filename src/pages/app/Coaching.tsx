@@ -66,6 +66,36 @@ export default function Coaching() {
   const [subscribeCoach, setSubscribeCoach] = useState<Coach | null>(null);
   const [subCycle, setSubCycle] = useState<"monthly" | "yearly">("monthly");
   const [subMsg, setSubMsg] = useState("");
+  const [selectedPackage, setSelectedPackage] = useState<string>("community_premium");
+  const [packagePrices, setPackagePrices] = useState<Record<string, number>>({});
+
+  // Pull package prices from admin settings. Same source of truth as the
+  // /app/pricing page so prices stay consistent across the app.
+  useEffect(() => {
+    if (!token) return;
+    fetch(getApiBase() + "/api/admin/app-settings", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : { settings: [] })
+      .then(d => {
+        const out: Record<string, number> = {};
+        for (const s of (d.settings || [])) {
+          if (s.setting_key?.startsWith("sub_")) {
+            const key = s.setting_key.replace(/^sub_/, "").replace(/_egp$/, "");
+            const n = Number(s.setting_value); if (!Number.isNaN(n)) out[key] = n;
+          }
+        }
+        setPackagePrices(out);
+      })
+      .catch(() => {});
+  }, [token]);
+
+  const PACKAGES = [
+    { id: "community_freemium",  label: "Community · Freemium",  desc: "Calorie calc only" },
+    { id: "community_premium",   label: "Community · Premium",   desc: "Plans + courses + weekly follow-up" },
+    { id: "community_exclusive", label: "Community · Exclusive", desc: "All Community perks + 1:1 chat + in-person" },
+    { id: "pt_basic",            label: "PT · Basic",            desc: "Custom plan + monthly follow-up" },
+    { id: "pt_premium",          label: "PT · Premium",          desc: "Custom plan + weekly follow-up + post-plan access" },
+    { id: "pt_gold",             label: "PT · Gold",             desc: "Full PT experience + exclusive perks" },
+  ];
 
   const [giftCoach, setGiftCoach] = useState<Coach | null>(null);
   const [giftAmount, setGiftAmount] = useState("50");
@@ -452,11 +482,9 @@ export default function Coaching() {
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {/* Direct chat removed in May meeting — route to Tickets so
-                    the athlete files a ticket to this coach instead. */}
-                <button onClick={() => navigate(`/app/tickets?coach=${c.id}`)} style={{ flex: isMobile ? "1 1 48%" : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px", borderRadius: "var(--radius-full)", backgroundColor: subscribedCoaches[c.id]?.subscribed ? "var(--accent-dim)" : "var(--bg-surface)", border: `1px solid ${subscribedCoaches[c.id]?.subscribed ? "rgba(255,214,0,0.2)" : "var(--border)"}`, color: subscribedCoaches[c.id]?.subscribed ? "var(--accent)" : "var(--text-muted)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  <MessageSquare size={14} /> Ticket
-                </button>
+                {/* Direct chat + per-coach ticket button removed in May
+                    meeting — tickets are filed from inside a workout in the
+                    plan instead. */}
                 {(c.monthly_price || c.yearly_price) ? (
                   subscribedCoaches[c.id]?.canRequestNew === false && !subscribedCoaches[c.id]?.subscribed ? (
                     <button disabled style={{ flex: isMobile ? "1 1 48%" : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px", borderRadius: "var(--radius-full)", backgroundColor: "rgba(255,179,64,0.08)", border: "1px solid rgba(255,179,64,0.25)", color: "var(--amber)", fontSize: 12, fontWeight: 700, cursor: "not-allowed", opacity: 0.85 }}>
@@ -611,38 +639,59 @@ export default function Coaching() {
                 </p>
               </div>
 
-              {/* Billing cycle */}
+              {/* Package picker — prices are unified across all coaches
+                  (May meeting). Athlete picks a package, the price comes
+                  from app_settings so admin can change it without code. */}
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Billing Cycle</label>
-                <div style={{ display: "flex", gap: 8, flexDirection: isMobile ? "column" : "row" }}>
-                  {(subscribeCoach.monthly_price || 0) > 0 && (
-                    <button onClick={() => setSubCycle("monthly")} style={{ flex: 1, padding: "14px 12px", borderRadius: "var(--radius-full)", fontSize: 13, fontWeight: 600, border: `2px solid ${subCycle === "monthly" ? "var(--accent)" : "var(--border)"}`, background: subCycle === "monthly" ? "var(--accent-dim)" : "var(--bg-card)", color: subCycle === "monthly" ? "var(--accent)" : "var(--text-secondary)", cursor: "pointer", textAlign: "center" }}>
-                      <p style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700, marginBottom: 2 }}>{subscribeCoach.monthly_price} <span style={{ fontSize: 12 }}>EGP</span></p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Monthly</p>
-                    </button>
-                  )}
-                  {(subscribeCoach.yearly_price || 0) > 0 && (
-                    <button onClick={() => setSubCycle("yearly")} style={{ flex: 1, padding: "14px 12px", borderRadius: "var(--radius-full)", fontSize: 13, fontWeight: 600, border: `2px solid ${subCycle === "yearly" ? "var(--accent)" : "var(--border)"}`, background: subCycle === "yearly" ? "var(--accent-dim)" : "var(--bg-card)", color: subCycle === "yearly" ? "var(--accent)" : "var(--text-secondary)", cursor: "pointer", textAlign: "center", position: "relative" }}>
-                      {(subscribeCoach.monthly_price || 0) > 0 && (subscribeCoach.yearly_price || 0) < (subscribeCoach.monthly_price || 0) * 12 && (
-                        <span style={{ position: "absolute", top: -8, insetInlineEnd: 8, fontSize: 10, padding: "1px 6px", borderRadius: "var(--radius-full)", background: "var(--accent)", color: "#000000", fontWeight: 700 }}>
-                          Save {Math.round(100 - ((subscribeCoach.yearly_price || 0) / ((subscribeCoach.monthly_price || 0) * 12)) * 100)}%
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Pick a package</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {PACKAGES.map(p => {
+                    const price = packagePrices[p.id] ?? 0;
+                    const active = selectedPackage === p.id;
+                    return (
+                      <button key={p.id} onClick={() => setSelectedPackage(p.id)} style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+                        padding: "12px 14px", borderRadius: "var(--radius-md)",
+                        border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                        background: active ? "var(--accent-dim)" : "var(--bg-card)",
+                        color: "var(--text-primary)", textAlign: "left", cursor: "pointer",
+                      }}>
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: active ? "var(--accent)" : "var(--text-primary)" }}>{p.label}</p>
+                          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.desc}</p>
+                        </div>
+                        <span style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 800, color: active ? "var(--accent)" : "var(--text-primary)", whiteSpace: "nowrap" }}>
+                          {price === 0 ? "Free" : `${price} EGP/mo`}
                         </span>
-                      )}
-                      <p style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700, marginBottom: 2 }}>{subscribeCoach.yearly_price} <span style={{ fontSize: 12 }}>EGP</span></p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Yearly</p>
-                    </button>
-                  )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* PaymentForm with all methods (PayPal, E-Wallet, IAP) */}
+              {/* Billing cycle stays as monthly/annual on top of the chosen
+                  package. Annual = 10× monthly (2 months free). */}
+              <div style={{ display: "flex", gap: 6, padding: 4, background: "var(--bg-surface)", borderRadius: 99 }}>
+                {(["monthly", "yearly"] as const).map(c => (
+                  <button key={c} onClick={() => setSubCycle(c)} style={{
+                    flex: 1, padding: "8px 10px", borderRadius: 99,
+                    border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
+                    background: subCycle === c ? "var(--accent)" : "transparent",
+                    color: subCycle === c ? "#0a0a0a" : "var(--text-muted)",
+                  }}>{c === "monthly" ? "Monthly" : "Annual · 2 months free"}</button>
+                ))}
+              </div>
+
+              {/* Manual e-wallet / InstaPay checkout. Sends package_id along
+                  with the payment so the server records the right tier. */}
               <PaymentForm
-                amount={subCycle === "monthly" ? (subscribeCoach.monthly_price || 50) : (subscribeCoach.yearly_price || 450)}
+                amount={subCycle === "monthly" ? (packagePrices[selectedPackage] ?? 0) : (packagePrices[selectedPackage] ?? 0) * 10}
                 plan={subCycle === "monthly" ? "monthly" : "annual"}
                 type="user"
                 token={token}
                 coachId={subscribeCoach.id}
                 coachName={subscribeCoach.name}
+                packageId={selectedPackage}
                 onSuccess={() => {
                   setSubMsg("✅ Request sent. We're confirming your payment, then your coach will respond.");
                   setSubscribedCoaches(prev => ({ ...prev, [subscribeCoach.id]: { ...(prev[subscribeCoach.id] || {}), subscribed: false, latestStatus: "pending_admin", canRequestNew: false } }));
@@ -908,8 +957,8 @@ export default function Coaching() {
 
               {/* Actions */}
               <div style={{ display: "flex", gap: 10, flexDirection: isMobile ? "column" : "row" }}>
-                <button onClick={() => { setViewProfileCoach(null); navigate(`/app/tickets?coach=${viewProfileCoach.id}`); }} style={{ flex: 1, padding: "11px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                  <MessageSquare size={15} /> Ticket
+                <button onClick={() => { setViewProfileCoach(null); navigate("/app/workout-plan"); }} style={{ flex: 1, padding: "11px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <MessageSquare size={15} /> Open my plan
                 </button>
                 <button
                   onClick={() => {

@@ -2129,6 +2129,36 @@ router.post('/generate-fake-users', authenticateToken, adminOnly, async (req, re
         res.status(500).json({ message: 'Failed to generate users' });
     }
 });
+// ── Seed fake subscriptions (only on fake users) ─────────────────────────
+// May meeting: fake-subscription generator must never touch real accounts.
+// We look up users with the fake.* email prefix and pair each with a random
+// coach, then write an "active" subscription row + assign a package tier.
+router.post('/generate-fake-subs', authenticateToken, adminOnly, async (_req, res) => {
+    try {
+        const fakeUsers = await query(`SELECT id, name FROM users WHERE email LIKE 'fake.%@gmail.com' AND role = 'user'`);
+        const coaches = await query(`SELECT id FROM users WHERE role = 'coach' LIMIT 50`);
+        if (!fakeUsers.length || !coaches.length) {
+            return res.json({ created: 0, message: 'Need at least one fake user and one coach first.' });
+        }
+        const packages = ['community_premium', 'community_exclusive', 'pt_basic', 'pt_premium', 'pt_gold'];
+        let created = 0;
+        for (const u of fakeUsers) {
+            // Skip if this fake user already has an active sub
+            const existing = await get(`SELECT id FROM coach_subscriptions WHERE user_id = ? AND status = 'active' LIMIT 1`, [u.id]);
+            if (existing)
+                continue;
+            const coach = coaches[Math.floor(Math.random() * coaches.length)];
+            const pkg = packages[Math.floor(Math.random() * packages.length)];
+            await run(`INSERT INTO coach_subscriptions (user_id, coach_id, plan_cycle, plan_type, amount, status, admin_approval_status, coach_decision_status, package_id, started_at)
+         VALUES (?, ?, 'monthly', 'complete', 0, 'active', 'approved', 'approved', ?, NOW())`, [u.id, coach.id, pkg]);
+            created++;
+        }
+        res.json({ created, message: `Created ${created} fake subscription(s) on fake users only.` });
+    }
+    catch (err) {
+        res.status(500).json({ message: err?.message || 'Failed to seed fake subscriptions' });
+    }
+});
 // ── Remove all fake user accounts ────────────────────────────────────────────
 router.delete('/fake-users', authenticateToken, adminOnly, async (_req, res) => {
     try {

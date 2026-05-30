@@ -680,8 +680,15 @@ export default function Workouts() {
                       : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
                     <ProgressBar id={v.id} />
                   </div>
-                  <p style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, marginBottom: 2 }}>{v.title}</p>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                  <p style={{
+                    fontSize: 13, fontWeight: 600, lineHeight: 1.3, marginBottom: 2,
+                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                    overflow: "hidden", textOverflow: "ellipsis", wordBreak: "break-word",
+                  }}>{v.title}</p>
+                  <p style={{
+                    fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4,
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  }}>
                     <Clock size={11} /> {v.duration || ""}{v.coach_name ? ` · ${v.coach_name}` : ""}
                     {relTime ? ` · ${relTime}` : ""}
                   </p>
@@ -789,8 +796,12 @@ export default function Workouts() {
                   <ProgressBar id={v.id} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4 }}>{v.title}</p>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{v.duration}{v.coach_name ? ` · ${v.coach_name}` : ""}</p>
+                  <p style={{
+                    fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4,
+                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                    overflow: "hidden", textOverflow: "ellipsis", wordBreak: "break-word",
+                  }}>{v.title}</p>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.duration}{v.coach_name ? ` · ${v.coach_name}` : ""}</p>
                 </div>
                 <ChevronRight size={16} color="var(--text-muted)" />
               </div>

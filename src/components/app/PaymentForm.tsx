@@ -17,6 +17,8 @@ interface PaymentFormProps {
   /** For coach subscription payments */
   coachId?: number;
   coachName?: string;
+  /** Package id (e.g. community_premium, pt_basic) selected by athlete */
+  packageId?: string;
 }
 
 const iStyle: React.CSSProperties = {
@@ -26,7 +28,7 @@ const iStyle: React.CSSProperties = {
 };
 
 // ── Main PaymentForm ─────────────────────────────────────────────────────────
-export default function PaymentForm({ amount, plan, type, token, onSuccess, onError, coachId, coachName }: PaymentFormProps) {
+export default function PaymentForm({ amount, plan, type, token, onSuccess, onError, coachId, coachName, packageId }: PaymentFormProps) {
   type Method = "paypal" | "ewallet" | "apple_iap" | "google_iap";
   const platform = detectPlatform();
   const native = isNativeApp();
@@ -192,6 +194,7 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
       formData.append("senderNumber", senderNumber);
       formData.append("proof", proofFile);
       if (coachId) formData.append("coachId", coachId.toString());
+      if (packageId) formData.append("packageId", packageId);
       const res = await fetch(getApiBase() + "/api/payments/ewallet", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData });
       if (!res.ok) {
         const text = await res.text();

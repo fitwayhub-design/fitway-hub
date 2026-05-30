@@ -12,9 +12,11 @@ import { SharedSidebar, NavItem } from "@/components/layout/SharedSidebar";
 const navItems: NavItem[] = [
   { path: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/admin/users",     icon: Users,           label: "Users" },
-  { path: "/admin/coaches",   icon: UserCheck,       label: "Coaches" },
-  { path: "/admin/certifications", icon: ShieldCheck, label: "Certifications" },
+  // "Coach Requests" replaces both the old Certifications + Coaches pages.
+  // Coaches register, upload their papers, admin approves/declines here.
+  { path: "/admin/coach-requests", icon: ShieldCheck, label: "Coach Requests" },
   { path: "/admin/coach-reports", icon: Flag, label: "Coach Reports" },
+  { path: "/admin/tickets",   icon: MessageCircle,   label: "Tickets" },
   { path: "/admin/payments",  icon: DollarSign,      label: "Payments" },
   { path: "/admin/videos",    icon: Video,           label: "Videos" },
   { path: "/admin/ads",         icon: Megaphone,       label: "Ads Manager" },
@@ -33,8 +35,8 @@ const navItems: NavItem[] = [
 const bottomNavItems: NavItem[] = [
   { path: "/admin/dashboard", icon: LayoutDashboard, label: "Overview" },
   { path: "/admin/users",     icon: Users,           label: "Users" },
-  { path: "/admin/payments",  icon: DollarSign,      label: "Payments" },
-  { path: "/admin/coaches",   icon: UserCheck,       label: "Coaches" },
+  { path: "/admin/coach-requests", icon: UserCheck,  label: "Coaches" },
+  { path: "/admin/tickets",   icon: MessageCircle,   label: "Tickets" },
   { path: "/admin/settings",  icon: Settings,        label: "Settings" },
 ];
 
@@ -58,9 +60,12 @@ export function AdminLayout() {
   const translatedNavItems: NavItem[] = [
     { path: "/admin/dashboard", icon: LayoutDashboard, label: t("dashboard") },
     { path: "/admin/users",     icon: Users,           label: t("users") },
-    { path: "/admin/coaches",   icon: UserCheck,       label: t("coaches") },
-    { path: "/admin/certifications", icon: ShieldCheck, label: t("certifications") },
+    // "Coach Requests" page replaces the old Certifications + Coaches pages
+    // (coach registration approval). Coach Reports stays separate for
+    // moderation reports against active coaches.
+    { path: "/admin/coach-requests", icon: ShieldCheck, label: "Coach Requests" },
     { path: "/admin/coach-reports", icon: Flag, label: t("coach_reports") },
+    { path: "/admin/tickets",   icon: MessageCircle,   label: "Tickets" },
     { path: "/admin/payments",  icon: DollarSign,      label: t("payments") },
     { path: "/admin/videos",    icon: Video,           label: t("videos") },
     { path: "/admin/ads",       icon: Megaphone,       label: t("ads_manager") },
@@ -78,15 +83,16 @@ export function AdminLayout() {
   const translatedBottomNavItems: NavItem[] = [
     { path: "/admin/dashboard", icon: LayoutDashboard, label: t("overview") },
     { path: "/admin/users",     icon: Users,           label: t("users") },
-    { path: "/admin/payments",  icon: DollarSign,      label: t("payments") },
-    { path: "/admin/coaches",   icon: UserCheck,       label: t("coaches") },
+    { path: "/admin/coach-requests", icon: UserCheck,  label: "Coaches" },
+    { path: "/admin/tickets",   icon: MessageCircle,   label: "Tickets" },
     { path: "/admin/settings",  icon: Settings,        label: t("settings") },
   ];
 
   const translatedMoreItems: NavItem[] = [
     { path: "/admin/videos",  icon: Video,          label: t("videos") },
     { path: "/admin/ads",     icon: Megaphone,      label: t("ads_manager") },
-    { path: "/admin/coach-reports", icon: Flag,      label: t("coach_reports") },
+    { path: "/admin/coach-reports", icon: Flag,    label: t("coach_reports") },
+    { path: "/admin/payments", icon: DollarSign,    label: t("payments") },
     { path: "/admin/chat",           icon: MessageCircle,  label: t("chat") },
     { path: "/admin/gifts",          icon: Gift,           label: t("gifts") },
     { path: "/admin/blogs",          icon: FileText,       label: "Our Blog" },
