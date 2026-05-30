@@ -265,12 +265,45 @@ export default function CoachRequests() {
     );
   };
 
+  // Combined recent timeline — the May meeting asked for requests and
+  // recent requests to be shown together ("beysama3"), instead of split
+  // across two disconnected sections. We merge incoming coaching requests
+  // and pending paid subscriptions into one reverse-chronological feed at
+  // the top so the coach sees the latest activity from any source at a
+  // glance, then the original detail sections still render below for
+  // drill-down.
+  const recentCombined = [
+    ...requests.map(r => ({ kind: "coaching" as const, id: r.id, name: r.user_name, summary: `${r.plan} plan · ${r.booking_type}`, status: r.status, created_at: r.created_at })),
+    ...subscriptionRequests.map(s => ({ kind: "subscription" as const, id: s.id, name: s.user_name, summary: `${s.plan_cycle} ${s.plan_type} · ${s.amount} EGP`, status: s.status, created_at: s.created_at })),
+  ]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 8);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
         <h1 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(18px,4vw,26px)", fontWeight: 700 }}>{t("coach_requests_title")}</h1>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 3 }}>{t("coach_requests_subtitle")}</p>
       </div>
+
+      {/* Unified recent feed (subscriptions + coaching requests together) */}
+      {recentCombined.length > 0 && (
+        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "14px 18px" }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Recent activity</p>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+            {recentCombined.map(item => (
+              <li key={`${item.kind}-${item.id}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 12, background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 16 }}>{item.kind === "subscription" ? "💳" : "📋"}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700 }}>{item.name}</p>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.kind === "subscription" ? "Subscription" : "Coaching request"} · {item.summary}</p>
+                </div>
+                <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "capitalize" }}>{item.status}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {message && <div style={{ padding: "10px 16px", backgroundColor: message.startsWith("✅") ? "var(--accent-dim)" : "rgba(255,68,68,0.08)", border: `1px solid ${message.startsWith("✅") ? "var(--accent)" : "var(--red)"}`, borderRadius: "var(--radius-full)", fontSize: 13, color: message.startsWith("✅") ? "var(--accent)" : "var(--red)" }}>{message}</div>}
 

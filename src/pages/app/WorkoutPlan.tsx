@@ -173,17 +173,25 @@ export default function WorkoutPlan() {
     let willBeDone = false;
     let firstToggleToday = false;
     let allDoneNow = false;
-    setPlan(p => p.map(d => {
-      if (d.id !== dayId) return d;
-      const wasAnyDone = d.exercises.some(e => e.done);
-      const next = d.exercises.map(e => {
-        if (e.id === exId) { willBeDone = !e.done; return { ...e, done: !e.done }; }
-        return e;
+    let wholePlanDoneNow = false;
+    setPlan(p => {
+      const nextPlan = p.map(d => {
+        if (d.id !== dayId) return d;
+        const wasAnyDone = d.exercises.some(e => e.done);
+        const next = d.exercises.map(e => {
+          if (e.id === exId) { willBeDone = !e.done; return { ...e, done: !e.done }; }
+          return e;
+        });
+        if (willBeDone && !wasAnyDone) firstToggleToday = true;
+        if (next.length > 0 && next.every(e => e.done)) allDoneNow = true;
+        return { ...d, exercises: next };
       });
-      if (willBeDone && !wasAnyDone) firstToggleToday = true;
-      if (next.length > 0 && next.every(e => e.done)) allDoneNow = true;
-      return { ...d, exercises: next };
-    }));
+      // Plan-finished fires once every exercise on every day is done. The
+      // server is idempotent per-plan_id so re-toggles can't double-credit.
+      wholePlanDoneNow = nextPlan.every(d => d.exercises.length === 0 || d.exercises.every(e => e.done))
+        && nextPlan.some(d => d.exercises.length > 0);
+      return nextPlan;
+    });
     // Fire training events so the coach sees a "started training" /
     // "finished a workout" entry. Only when we have a coach plan.
     if (tab === "coach" && coachPlanId && token) {
@@ -195,6 +203,7 @@ export default function WorkoutPlan() {
         }).catch(() => {});
       if (firstToggleToday) post("workout_started");
       if (allDoneNow) post("workout_finished");
+      if (wholePlanDoneNow) post("plan_finished");
     }
   };
 

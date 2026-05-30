@@ -77,7 +77,10 @@ export default function Chat({ supportOnly = false }: { supportOnly?: boolean } 
   const [newMessage, setNewMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"contacts" | "challenges">("contacts");
+  // Direct chats were removed per the May meeting (tickets replace 1:1
+  // conversation). Default the page to the Groups (challenge) tab; the
+  // Direct tab is hidden below.
+  const [activeTab, setActiveTab] = useState<"contacts" | "challenges">("challenges");
   const [searchQuery, setSearchQuery] = useState("");
   const [sending, setSending] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState("");
@@ -439,7 +442,9 @@ export default function Chat({ supportOnly = false }: { supportOnly?: boolean } 
             <div style={{
               display: "flex", gap: 4, backgroundColor: cv.surface, padding: 3, borderRadius: "var(--radius-full)",
             }}>
-              {(["contacts", ...(canUseChallengeChat ? ["challenges"] as const : [])] as ("contacts" | "challenges")[]).map((tab) => (
+              {/* Direct (1:1) chats removed per the May meeting — file a
+                  Ticket instead. Only Group / challenge chats remain. */}
+              {(canUseChallengeChat ? ["challenges"] as const : ["contacts"] as const).map((tab) => (
                 <button key={tab} onClick={() => setActiveTab(tab)} style={{
                   flex: 1, padding: "8px 0", borderRadius: "var(--radius-full)", fontSize: 12.5, fontWeight: 600,
                   border: "none", cursor: "pointer", transition: "all 0.2s",
@@ -474,7 +479,9 @@ export default function Chat({ supportOnly = false }: { supportOnly?: boolean } 
 
           {/* Contact / Challenge List */}
           <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 8px" }}>
-            {activeTab === "contacts" && (
+            {/* Direct-chat list intentionally never rendered — kept the JSX
+                guarded so the rest of the page still type-checks. */}
+            {false && activeTab === "contacts" && (
               filteredContacts.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "40px 20px", color: cv.textMuted }}>
                   <Users size={32} style={{ marginBottom: 8, opacity: 0.4 }} />

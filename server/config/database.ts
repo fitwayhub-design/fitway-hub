@@ -1242,6 +1242,7 @@ export async function seedDefaultAppSettings() {
     ['promo_codes', '[]', 'json', 'promo', 'Active promo / gift codes (JSON array)'],
     ['video_call_provider', 'external', 'text', 'features', 'Video call provider: external (Zoom / Google Meet link), daily, agora, twilio'],
     ['video_call_room_base', '', 'text', 'features', 'Optional base URL for in-app rooms (e.g. https://room.fitwayhub.com)'],
+    ['plan_finish_credit', '50', 'number', 'points', 'EGP credited to athlete wallet when a coach plan is finished'],
     ['feature_user_workouts', '1', 'boolean', 'features', 'User: Workouts'],
     ['feature_user_workout_plan', '1', 'boolean', 'features', 'User: Workout Plan'],
     ['feature_user_nutrition_plan', '1', 'boolean', 'features', 'User: Nutrition Plan'],
