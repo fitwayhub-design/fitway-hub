@@ -110,7 +110,7 @@ const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
 const Dashboard = lazy(() => import("@/pages/app/Dashboard"));
 const Workouts = lazy(() => import("@/pages/app/Workouts"));
 const Community = lazy(() => import("@/pages/app/Community"));
-const Chat = lazy(() => import("@/pages/app/Chat"));
+// 1:1 chat removed — /app/chat now redirects to /app/community.
 const Profile = lazy(() => import("@/pages/app/Profile"));
 const Tools = lazy(() => import("@/pages/app/Tools"));
 const Pricing = lazy(() => import("@/pages/app/Pricing"));
@@ -335,7 +335,10 @@ export default function App() {
                 <Route path="/app/workouts" element={<Workouts />} />
                 <Route path="/app/steps" element={<Steps />} />
                 <Route path="/app/community" element={<Community />} />
-                <Route path="/app/chat" element={<Chat />} />
+                {/* 1:1 chat removed entirely — direct messages are gone,
+                    challenge/group conversations live inside the Community
+                    page. Old /app/chat redirects to Community. */}
+                <Route path="/app/chat" element={<Navigate to="/app/community" replace />} />
                 <Route path="/app/profile" element={<Profile />} />
                 <Route path="/app/tools" element={<Tools />} />
                 <Route path="/app/pricing" element={<Pricing />} />

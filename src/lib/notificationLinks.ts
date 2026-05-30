@@ -42,10 +42,11 @@ export function resolveNotificationLink(n: NotificationLike): string | null {
     case 'meal_plan_updated':
       return '/app/nutrition-plan';
 
-    // Direct messaging
+    // Direct messaging removed in May meeting — coach communication goes
+    // through Tickets; community chat lives inside Community.
     case 'new_message':
     case 'coach_message':
-      return '/app/chat';
+      return '/app/tickets';
 
     // Community / social
     case 'post_liked':

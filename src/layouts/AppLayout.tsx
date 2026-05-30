@@ -31,10 +31,8 @@ const TOP_NAV = [
   { path: "/app/steps",      icon: Activity,      label: "Activity" },
   { path: "/app/community",  icon: Users,         label: "Community" },
   { path: "/app/profile",    icon: User,          label: "Profile" },
-  // "Chat" now scopes to group chats only — direct chats were replaced
-  // by Tickets per the May meeting. Both entries are shown so an athlete
-  // can pick the right tool from the nav.
-  { path: "/app/chat",       icon: MessageCircle, label: "Groups" },
+  // 1:1 chat removed (May meeting). Tickets is the only direct contact
+  // channel; challenge/group conversations live inside Community.
   { path: "/app/tickets",    icon: Inbox,         label: "Tickets" },
   { path: "/app/tools",      icon: Wrench,        label: "Tools" },
   { path: "/app/analytics",  icon: BarChart2,     label: "Analytics" },
@@ -47,7 +45,6 @@ const FEATURE_BY_PATH: Record<string, string> = {
   "/app/nutrition-plan": "feature_user_nutrition_plan",
   "/app/steps": "feature_user_steps",
   "/app/community": "feature_user_community",
-  "/app/chat": "feature_user_chat",
   "/app/coaching": "feature_user_coaching",
   "/app/tools": "feature_user_tools",
   "/app/analytics": "feature_user_analytics",
@@ -103,7 +100,6 @@ export function AppLayout() {
     if (path === "/app/steps") return t("activity");
     if (path === "/app/community") return t("nav_community");
     if (path === "/app/profile") return t("nav_profile");
-    if (path === "/app/chat") return "Groups";
     if (path === "/app/tickets") return "Tickets";
     if (path === "/app/tools") return t("nav_tools");
     if (path === "/app/analytics") return t("nav_analytics");

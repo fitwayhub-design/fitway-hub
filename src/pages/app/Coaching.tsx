@@ -88,13 +88,51 @@ export default function Coaching() {
       .catch(() => {});
   }, [token]);
 
-  const PACKAGES = [
-    { id: "community_freemium",  label: "Community · Freemium",  desc: "Calorie calc only" },
-    { id: "community_premium",   label: "Community · Premium",   desc: "Plans + courses + weekly follow-up" },
-    { id: "community_exclusive", label: "Community · Exclusive", desc: "All Community perks + 1:1 chat + in-person" },
-    { id: "pt_basic",            label: "PT · Basic",            desc: "Custom plan + monthly follow-up" },
-    { id: "pt_premium",          label: "PT · Premium",          desc: "Custom plan + weekly follow-up + post-plan access" },
-    { id: "pt_gold",             label: "PT · Gold",             desc: "Full PT experience + exclusive perks" },
+  // Package catalogue — full design (icon, badge, headline price line,
+  // included perks, and the per-package monthly ticket allowance). Used
+  // by the subscribe modal and the /app/pricing page so both stay in
+  // sync with the same content.
+  const PACKAGES: {
+    id: string; track: "Community" | "Personal Trainer"; tier: string;
+    emoji: string; tagline: string; badge?: string;
+    perks: string[]; tickets: string;
+  }[] = [
+    {
+      id: "community_freemium", track: "Community", tier: "Freemium",
+      emoji: "🟢", tagline: "Start free with the basics.",
+      perks: ["Calorie calculator"],
+      tickets: "No coach tickets",
+    },
+    {
+      id: "community_premium", track: "Community", tier: "Premium", badge: "Popular",
+      emoji: "⭐", tagline: "Everything to follow a plan consistently.",
+      perks: ["General programs (PPL / Upper-Lower / Pro split)", "Nutrition plans + courses", "Community forum + live support", "Weekly training follow-up"],
+      tickets: "10 tickets / month",
+    },
+    {
+      id: "community_exclusive", track: "Community", tier: "Exclusive",
+      emoji: "💎", tagline: "Community perks + in-person + 1:1 trainer support.",
+      perks: ["All Premium perks", "Monthly follow-up + fitness assessment", "Nutrition facts database", "Hybrid / in-person training"],
+      tickets: "Unlimited tickets",
+    },
+    {
+      id: "pt_basic", track: "Personal Trainer", tier: "Basic",
+      emoji: "🥉", tagline: "Custom plan from a certified coach.",
+      perks: ["Personal fitness program", "Custom nutrition plan", "Monthly follow-up"],
+      tickets: "20 tickets / month",
+    },
+    {
+      id: "pt_premium", track: "Personal Trainer", tier: "Premium", badge: "Most picked",
+      emoji: "🥈", tagline: "Tighter loop + post-plan access.",
+      perks: ["Personal program + nutrition", "Weekly follow-up", "Premium subscription for 3 months after plan ends"],
+      tickets: "50 tickets / month",
+    },
+    {
+      id: "pt_gold", track: "Personal Trainer", tier: "Gold",
+      emoji: "🥇", tagline: "Full personal-training experience with exclusive perks.",
+      perks: ["Continuous follow-up", "Exclusive subscription for 3 months after plan ends", "Additional benefits"],
+      tickets: "Unlimited tickets",
+    },
   ];
 
   const [giftCoach, setGiftCoach] = useState<Coach | null>(null);
@@ -639,34 +677,19 @@ export default function Coaching() {
                 </p>
               </div>
 
-              {/* Package picker — prices are unified across all coaches
-                  (May meeting). Athlete picks a package, the price comes
-                  from app_settings so admin can change it without code. */}
+              {/* Package cards — full design. Prices come from admin
+                  settings (sub_<id>_egp); ticket allowance comes from the
+                  catalogue itself. Cards stack as a grid: one column on
+                  phones, two on wider screens. */}
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Pick a package</label>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {PACKAGES.map(p => {
-                    const price = packagePrices[p.id] ?? 0;
-                    const active = selectedPackage === p.id;
-                    return (
-                      <button key={p.id} onClick={() => setSelectedPackage(p.id)} style={{
-                        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-                        padding: "12px 14px", borderRadius: "var(--radius-md)",
-                        border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                        background: active ? "var(--accent-dim)" : "var(--bg-card)",
-                        color: "var(--text-primary)", textAlign: "left", cursor: "pointer",
-                      }}>
-                        <div style={{ minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: active ? "var(--accent)" : "var(--text-primary)" }}>{p.label}</p>
-                          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.desc}</p>
-                        </div>
-                        <span style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 800, color: active ? "var(--accent)" : "var(--text-primary)", whiteSpace: "nowrap" }}>
-                          {price === 0 ? "Free" : `${price} EGP/mo`}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 10 }}>Pick a package</label>
+                <PackageGrid
+                  packages={PACKAGES}
+                  prices={packagePrices}
+                  cycle={subCycle}
+                  selectedId={selectedPackage}
+                  onSelect={setSelectedPackage}
+                />
               </div>
 
               {/* Billing cycle stays as monthly/annual on top of the chosen
@@ -1026,5 +1049,120 @@ export default function Coaching() {
         </div>
       )}
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PackageGrid + PackageCard
+   Visual cards used by the subscribe-to-coach modal AND (by re-export) the
+   /app/pricing page. One source of truth so the package design stays
+   identical across the app.
+   ────────────────────────────────────────────────────────────────────────── */
+type PackageDef = {
+  id: string; track: "Community" | "Personal Trainer"; tier: string;
+  emoji: string; tagline: string; badge?: string;
+  perks: string[]; tickets: string;
+};
+
+export function PackageGrid({ packages, prices, cycle, selectedId, onSelect }: {
+  packages: PackageDef[];
+  prices: Record<string, number>;
+  cycle: "monthly" | "yearly";
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  // Group by track so cards within Community/PT visually cluster.
+  const tracks: Record<string, PackageDef[]> = {};
+  for (const p of packages) {
+    (tracks[p.track] = tracks[p.track] || []).push(p);
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {Object.entries(tracks).map(([track, list]) => (
+        <div key={track}>
+          <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 8, fontFamily: "var(--font-mono, monospace)" }}>
+            {track}
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+            {list.map(p => (
+              <PackageCard key={p.id} pkg={p} price={prices[p.id] ?? 0} cycle={cycle} active={selectedId === p.id} onSelect={() => onSelect(p.id)} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function PackageCard({ pkg, price, cycle, active, onSelect }: {
+  pkg: PackageDef; price: number; cycle: "monthly" | "yearly"; active: boolean; onSelect: () => void;
+}) {
+  const isFree = price === 0;
+  const cyclePrice = cycle === "yearly" ? price * 10 : price; // annual = 10 months
+  const cycleLabel = cycle === "yearly" ? "/yr" : "/mo";
+  return (
+    <button onClick={onSelect}
+      aria-pressed={active}
+      style={{
+        position: "relative",
+        textAlign: "left", cursor: "pointer",
+        background: active ? "var(--accent-dim)" : "var(--bg-card)",
+        border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`,
+        borderRadius: 14,
+        padding: "16px 16px 14px",
+        display: "flex", flexDirection: "column", gap: 10,
+        transition: "all 0.15s",
+        boxShadow: active ? "0 4px 18px rgba(255,214,0,0.12)" : "none",
+      }}>
+      {pkg.badge && (
+        <span style={{
+          position: "absolute", top: -9, insetInlineEnd: 14,
+          fontSize: 9, padding: "3px 9px", borderRadius: 99,
+          background: "var(--main)", color: "#0a0a0a",
+          fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
+        }}>{pkg.badge}</span>
+      )}
+
+      {/* Header: emoji icon + tier name + (selected) check */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: 10,
+          background: active ? "var(--main)" : "var(--bg-surface)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 20, flexShrink: 0,
+        }}>{pkg.emoji}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: active ? "var(--accent)" : "var(--text-primary)", marginBottom: 2 }}>{pkg.tier}</p>
+          <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>{pkg.tagline}</p>
+        </div>
+        {active && (
+          <div style={{ width: 20, height: 20, borderRadius: 99, background: "var(--main)", color: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>✓</div>
+        )}
+      </div>
+
+      {/* Price */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span style={{ fontFamily: "var(--font-en)", fontSize: 26, fontWeight: 800, color: active ? "var(--accent)" : "var(--text-primary)" }}>
+          {isFree ? "Free" : cyclePrice}
+        </span>
+        {!isFree && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>EGP{cycleLabel}</span>}
+      </div>
+
+      {/* Tickets allowance */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 8, background: "var(--bg-surface)", border: "1px solid var(--border)", width: "fit-content" }}>
+        <span style={{ fontSize: 11 }}>🎫</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)" }}>{pkg.tickets}</span>
+      </div>
+
+      {/* Perks list */}
+      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+        {pkg.perks.slice(0, 4).map(p => (
+          <li key={p} style={{ display: "flex", gap: 6, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+            <span style={{ color: "var(--green)", flexShrink: 0 }}>✓</span>
+            <span>{p}</span>
+          </li>
+        ))}
+      </ul>
+    </button>
   );
 }

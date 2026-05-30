@@ -50,7 +50,6 @@ const moreItems: NavItem[] = [
 const FEATURE_BY_PATH: Record<string, string> = {
   "/coach/requests": "feature_coach_requests",
   "/coach/athletes": "feature_coach_athletes",
-  "/coach/chat": "feature_coach_chat",
   "/coach/ads": "feature_coach_ads",
   "/coach/ads/campaigns": "feature_coach_ads",
   "/coach/ads/my-ads": "feature_coach_ads",

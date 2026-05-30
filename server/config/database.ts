@@ -1261,7 +1261,7 @@ export async function seedDefaultAppSettings() {
     ['feature_user_nutrition_plan', '1', 'boolean', 'features', 'User: Nutrition Plan'],
     ['feature_user_steps', '1', 'boolean', 'features', 'User: Steps'],
     ['feature_user_community', '1', 'boolean', 'features', 'User: Community'],
-    ['feature_user_chat', '1', 'boolean', 'features', 'User: Chat'],
+    // feature_user_chat seed removed — 1:1 chat is gone (May meeting).
     ['feature_user_coaching', '1', 'boolean', 'features', 'User: Coaching'],
     ['feature_user_tools', '1', 'boolean', 'features', 'User: Tools'],
     ['feature_user_analytics', '1', 'boolean', 'features', 'User: Analytics'],
@@ -1270,7 +1270,7 @@ export async function seedDefaultAppSettings() {
     ['feature_user_notifications', '1', 'boolean', 'features', 'User: Notifications'],
     ['feature_coach_requests', '1', 'boolean', 'features', 'Coach: Requests'],
     ['feature_coach_athletes', '1', 'boolean', 'features', 'Coach: Athletes'],
-    ['feature_coach_chat', '1', 'boolean', 'features', 'Coach: Chat'],
+    // feature_coach_chat seed removed — 1:1 chat is gone (May meeting).
     ['feature_coach_ads', '1', 'boolean', 'features', 'Coach: Ads'],
     ['feature_coach_blogs', '1', 'boolean', 'features', 'Coach: Blogs'],
     ['feature_coach_community', '1', 'boolean', 'features', 'Coach: Community'],
@@ -1563,6 +1563,9 @@ export async function initDatabase() {
     await run("DELETE FROM app_settings WHERE setting_key = 'free_user_can_access_coaching'");
   } catch {}
   try { await run("DELETE FROM app_settings WHERE setting_key IN ('video_call_provider','video_call_room_base')"); } catch {}
+  // 1:1 chat feature flags are dead now (May meeting). Drop the rows so
+  // they stop showing in the admin Features tab.
+  try { await run("DELETE FROM app_settings WHERE setting_key IN ('feature_user_chat','feature_coach_chat')"); } catch {}
 
   // Branding images are stored inline as base64 data URLs (see /upload-branding-image),
   // so widen setting_value from TEXT (64KB) to LONGTEXT (4GB) for existing tables.
