@@ -151,6 +151,8 @@ const CoachMyAds = lazy(() => import("@/pages/coach/ads/MyAds"));
 const AdminAdsManager = lazy(() => import("@/pages/admin/AdsManager"));
 const AdsSettingsPanel = lazy(() => import("@/pages/admin/AdsSettings"));
 const AdminCertifications = lazy(() => import("@/pages/admin/Certifications"));
+const AdminTickets = lazy(() => import("@/pages/admin/Tickets"));
+const AdminChat = lazy(() => import("@/pages/admin/Chat"));
 const AdminCoachReports = lazy(() => import("@/pages/admin/CoachReports"));
 const AdminAppImages = lazy(() => import("@/pages/admin/AppImagesManager"));
 const AdminEmailServer = lazy(() => import("@/pages/admin/EmailServer"));
@@ -387,7 +389,7 @@ export default function App() {
                 <Route path="/admin/videos" element={<AdminDashboard />} />
                 <Route path="/admin/ads" element={<AdminAdsManager />} />
                 <Route path="/admin/ad-settings" element={<AdsSettingsPanel />} />
-                <Route path="/admin/chat" element={<AdminDashboard />} />
+                <Route path="/admin/chat" element={<AdminChat />} />
                 <Route path="/admin/gifts" element={<AdminDashboard />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
                 <Route path="/admin/website" element={<AdminDashboard />} />
@@ -396,8 +398,14 @@ export default function App() {
                 <Route path="/admin/withdrawals" element={<AdminDashboard />} />
                 <Route path="/admin/blogs" element={<AdminBlogs />} />
                 <Route path="/admin/notifications" element={<AdminNotifications />} />
-                <Route path="/admin/certifications" element={<AdminCertifications />} />
+                {/* "Coach Requests" page replaces the old Certifications +
+                    Coaches pages (coach registration approval). Coach Reports
+                    stays as a separate page for athlete reports. */}
+                <Route path="/admin/coach-requests" element={<AdminCertifications />} />
                 <Route path="/admin/coach-reports" element={<AdminCoachReports />} />
+                <Route path="/admin/tickets" element={<AdminTickets />} />
+                <Route path="/admin/certifications" element={<Navigate to="/admin/coach-requests" replace />} />
+                <Route path="/admin/coaches" element={<Navigate to="/admin/coach-requests" replace />} />
                 <Route path="/admin/app-images" element={<AdminAppImages />} />
                 <Route path="/admin/email-server" element={<AdminEmailServer />} />
               </Route>

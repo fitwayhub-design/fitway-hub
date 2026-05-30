@@ -29,6 +29,27 @@ async function canSeeTicket(req, ticket) {
     return ticket.user_id === u.id || ticket.coach_id === u.id;
 }
 // ── Tickets ────────────────────────────────────────────────────────────────
+// Admin: every ticket in the system. Mounted under /api/tickets so it
+// shares the canSeeTicket / status / reply endpoints below (admins pass the
+// role check). Keeps everything in one router rather than scattering into
+// adminRoutes.
+router.get('/admin/all', authenticateToken, async (req, res) => {
+    if (req.user?.role !== 'admin')
+        return res.status(403).json({ message: 'Forbidden' });
+    try {
+        const rows = await query(`SELECT t.*, u.name AS user_name, u.avatar AS user_avatar,
+              c.name AS coach_name, c.avatar AS coach_avatar
+       FROM tickets t
+       LEFT JOIN users u ON u.id = t.user_id
+       LEFT JOIN users c ON c.id = t.coach_id
+       ORDER BY t.updated_at DESC, t.id DESC
+       LIMIT 500`, []);
+        res.json({ tickets: rows });
+    }
+    catch (err) {
+        res.status(500).json({ message: err?.message || 'Failed to list tickets' });
+    }
+});
 // List my tickets (athlete) or tickets sent to me (coach).
 router.get('/', authenticateToken, async (req, res) => {
     try {
@@ -49,15 +70,54 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 });
 // Open a new ticket (athlete → coach).
+// Enforced rules:
+//   • Athlete must have an active subscription to the coach they're filing
+//     against (no random coach DMs anymore).
+//   • Ticket must reference a workout in the coach's plan (workout_plan_id
+//     + exercise_key required) — tickets are workout-specific per meeting.
+//   • Counted against the athlete's package's monthly allowance
+//     (ticket_limit_<package_id>; 0 = unlimited for paid tiers,
+//     0 = none for the freemium tier — see settings).
 router.post('/', authenticateToken, async (req, res) => {
     try {
         const u = req.user;
         const { coach_id, subject, body, kind, workout_plan_id, nutrition_plan_id, exercise_key } = req.body || {};
         if (!coach_id || !subject)
             return res.status(400).json({ message: 'coach_id and subject are required' });
+        if (!workout_plan_id || !exercise_key)
+            return res.status(400).json({ message: 'Tickets can only be filed from a workout in your plan.' });
+        // Subscription gate
+        const sub = await get(`SELECT * FROM coach_subscriptions
+       WHERE user_id = ? AND coach_id = ? AND status = 'active'
+       ORDER BY id DESC LIMIT 1`, [u.id, coach_id]);
+        if (!sub)
+            return res.status(403).json({ message: 'You can only file tickets to a coach you are subscribed to.' });
+        // Package allowance
+        const packageId = sub.package_id || 'basic';
+        const settingKey = `ticket_limit_${packageId}`;
+        const limitRow = await get(`SELECT setting_value FROM app_settings WHERE setting_key = ?`, [settingKey]).catch(() => null);
+        const limit = Number(limitRow?.setting_value) || 0;
+        if (limit > 0) {
+            // Tickets used this calendar month for this subscription
+            const usedRow = await get(`SELECT COUNT(*) AS used FROM tickets
+         WHERE user_id = ? AND coach_id = ?
+         AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')`, [u.id, coach_id]);
+            const used = Number(usedRow?.used) || 0;
+            if (used >= limit) {
+                return res.status(429).json({ message: `Monthly ticket allowance reached (${limit}). Upgrade your package for more tickets.`, limit, used });
+            }
+        }
+        else if (packageId === 'community_freemium' || packageId === 'freemium') {
+            // Explicit zero on the freemium tier = no tickets at all
+            return res.status(403).json({ message: 'Tickets are not included in the Freemium package. Upgrade to file tickets to your coach.' });
+        }
         const result = await run(`INSERT INTO tickets (user_id, coach_id, kind, subject, body, status, workout_plan_id, nutrition_plan_id, exercise_key, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, NOW(), NOW())`, [u.id, coach_id, kind || 'general', subject, body || '', workout_plan_id || null, nutrition_plan_id || null, exercise_key || null]);
+       VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, NOW(), NOW())`, [u.id, coach_id, kind || 'workout_question', subject, body || '', workout_plan_id || null, nutrition_plan_id || null, exercise_key || null]);
         const ticketId = result.insertId || result.lastID;
+        try {
+            await run('UPDATE coach_subscriptions SET tickets_used = COALESCE(tickets_used,0) + 1 WHERE id = ?', [sub.id]);
+        }
+        catch { }
         await notify(coach_id, 'ticket_opened', 'New ticket', `${u.name || 'An athlete'} opened "${subject}"`, `/coach/tickets/${ticketId}`);
         const ticket = await get('SELECT * FROM tickets WHERE id = ?', [ticketId]);
         res.json({ ticket });

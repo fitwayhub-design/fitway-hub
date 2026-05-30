@@ -67,7 +67,7 @@ export default function AdminCertifications() {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <h1 style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700 }}>Certification Requests</h1>
+        <h1 style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700 }}>Coach Requests</h1>
         <div style={{ display: "flex", gap: 6 }}>
           {(["pending", "all", "approved", "rejected"] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)} style={{

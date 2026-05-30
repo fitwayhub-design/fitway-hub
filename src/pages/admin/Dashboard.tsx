@@ -633,29 +633,12 @@ export default function AdminDashboard() {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700 }}>{t("manage_coaches")}</p>
-            <button
-              onClick={addCoachProfiles}
-              disabled={addingCoaches}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 14px",
-                borderRadius: "var(--radius-full)",
-                background: "var(--cyan)",
-                border: "none",
-                color: "#072226",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: addingCoaches ? "not-allowed" : "pointer",
-                opacity: addingCoaches ? 0.7 : 1,
-                fontFamily: "var(--font-en)"
-              }}
-            >
-              <Plus size={14} /> {addingCoaches ? t("adding_text") : t("add_5_coaches")}
-            </button>
+            {/* Fake-coach generator moved to admin Settings (May meeting) so all
+                testing helpers live in one place. */}
           </div>
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("add_coach_hint")}</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            Need fake demo coaches? Generate them from <a href="/admin/settings" style={{ color: "var(--accent)" }}>Settings → System</a>.
+          </p>
           {coaches.length === 0 ? (
             <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
               {t("no_coaches_yet_hint")}

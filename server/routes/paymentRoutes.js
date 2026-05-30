@@ -318,24 +318,29 @@ function getPremiumAmount(plan) {
 // Coach e-wallet → PENDING (requires admin approval)
 // User e-wallet → PENDING (requires admin approval)
 router.post('/ewallet', authenticateToken, uploadPaymentProof, optimizeImage(), async (req, res) => {
-    const { plan, type, walletType, senderNumber, coachId } = req.body;
+    const { plan, type, walletType, senderNumber, coachId, packageId } = req.body;
     if (!plan || !type || !walletType || !senderNumber)
         return res.status(400).json({ message: 'All fields required' });
     if (!req.file)
         return res.status(400).json({ message: 'Payment proof screenshot is required' });
     const proofUrl = await uploadToR2(req.file, 'proofs');
     try {
-        // Coach subscription payment flow (user pays for a specific coach)
+        // Coach subscription payment flow (user pays for a specific coach).
+        // Prices come from app_settings (sub_<package_id>_egp) — unified across
+        // all coaches per the May meeting. Athlete must pick a package.
         if (coachId) {
-            const coach = await get(`SELECT u.id, COALESCE(cp.monthly_price, 0) as monthly_price, COALESCE(cp.yearly_price, 0) as yearly_price, COALESCE(cp.plan_types, 'complete') as plan_types
+            const coach = await get(`SELECT u.id, COALESCE(cp.plan_types, 'complete') as plan_types
          FROM users u LEFT JOIN coach_profiles cp ON cp.user_id = u.id
          WHERE u.id = ? AND u.role = 'coach'`, [coachId]);
             if (!coach)
                 return res.status(404).json({ message: 'Coach not found' });
+            const pkgId = String(packageId || 'community_premium');
             const planCycle = plan === 'annual' ? 'yearly' : 'monthly';
-            const amount = planCycle === 'yearly' ? Number(coach.yearly_price || 0) : Number(coach.monthly_price || 0);
-            if (amount <= 0)
-                return res.status(400).json({ message: 'Coach has not set pricing for this plan' });
+            const priceRow = await get(`SELECT setting_value FROM app_settings WHERE setting_key = ?`, [`sub_${pkgId}_egp`]).catch(() => null);
+            const monthly = Number(priceRow?.setting_value) || 0;
+            const amount = planCycle === 'yearly' ? monthly * 10 : monthly;
+            if (amount < 0)
+                return res.status(400).json({ message: 'Package price unavailable.' });
             const existingPending = await get(`SELECT id FROM coach_subscriptions
          WHERE user_id = ? AND coach_id = ? AND status IN ('pending_admin', 'pending_coach', 'pending')
          ORDER BY created_at DESC LIMIT 1`, [req.user.id, coachId]);
@@ -345,8 +350,8 @@ router.post('/ewallet', authenticateToken, uploadPaymentProof, optimizeImage(), 
             const expiresAt = new Date();
             expiresAt.setMonth(expiresAt.getMonth() + getCoachSubscriptionDurationMonths(planCycle));
             await run(`INSERT INTO coach_subscriptions
-         (user_id, coach_id, plan_cycle, plan_type, amount, status, payment_method, payment_proof, expires_at, payer_wallet_type, payer_number)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [
+         (user_id, coach_id, plan_cycle, plan_type, amount, status, payment_method, payment_proof, expires_at, payer_wallet_type, payer_number, package_id)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, [
                 req.user.id,
                 coachId,
                 planCycle,
@@ -358,6 +363,7 @@ router.post('/ewallet', authenticateToken, uploadPaymentProof, optimizeImage(), 
                 expiresAt.toISOString().slice(0, 19).replace('T', ' '),
                 walletType,
                 senderNumber,
+                pkgId,
             ]);
             return res.json({
                 message: 'Payment proof submitted. Awaiting admin verification, then coach confirmation.',

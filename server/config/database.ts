@@ -1240,8 +1240,6 @@ export async function seedDefaultAppSettings() {
     ['goal_complete_points', '2', 'number', 'points', 'Points per Goal Completed'],
     ['certified_coach_fee', '500', 'number', 'pricing', 'Certified Coach Monthly Fee (EGP)'],
     ['promo_codes', '[]', 'json', 'promo', 'Active promo / gift codes (JSON array)'],
-    ['video_call_provider', 'external', 'text', 'features', 'Video call provider: external (Zoom / Google Meet link), daily, agora, twilio'],
-    ['video_call_room_base', '', 'text', 'features', 'Optional base URL for in-app rooms (e.g. https://room.fitwayhub.com)'],
     ['plan_finish_credit', '50', 'number', 'points', 'EGP credited to athlete wallet when a coach plan is finished'],
     // Subscription packages (May business plan)
     ['sub_community_freemium_egp',  '0',    'number', 'pricing', 'Community · Freemium (EGP/mo)'],
@@ -1250,6 +1248,14 @@ export async function seedDefaultAppSettings() {
     ['sub_pt_basic_egp',            '499',  'number', 'pricing', 'PT · Basic (EGP/mo)'],
     ['sub_pt_premium_egp',          '899',  'number', 'pricing', 'PT · Premium (EGP/mo)'],
     ['sub_pt_gold_egp',             '1499', 'number', 'pricing', 'PT · Gold (EGP/mo)'],
+    // Per-package monthly ticket allowance (athlete → coach questions).
+    // 0 means unlimited.
+    ['ticket_limit_community_freemium',  '0',  'number', 'pricing', 'Tickets/mo · Community Freemium (0 = none)'],
+    ['ticket_limit_community_premium',   '10', 'number', 'pricing', 'Tickets/mo · Community Premium'],
+    ['ticket_limit_community_exclusive', '0',  'number', 'pricing', 'Tickets/mo · Community Exclusive (0 = unlimited)'],
+    ['ticket_limit_pt_basic',            '20', 'number', 'pricing', 'Tickets/mo · PT Basic'],
+    ['ticket_limit_pt_premium',          '50', 'number', 'pricing', 'Tickets/mo · PT Premium'],
+    ['ticket_limit_pt_gold',             '0',  'number', 'pricing', 'Tickets/mo · PT Gold (0 = unlimited)'],
     ['feature_user_workouts', '1', 'boolean', 'features', 'User: Workouts'],
     ['feature_user_workout_plan', '1', 'boolean', 'features', 'User: Workout Plan'],
     ['feature_user_nutrition_plan', '1', 'boolean', 'features', 'User: Nutrition Plan'],
@@ -1546,10 +1552,17 @@ export async function initDatabase() {
     await run('ALTER TABLE coach_subscriptions ADD COLUMN auto_renew TINYINT(1) DEFAULT 1');
   } catch {}
 
-  // Cleanup: remove deprecated settings
+  // Package tier on every subscription so we know which ticket allowance to
+  // enforce on it. Default 'basic' so legacy rows stay queryable.
+  try { await run("ALTER TABLE coach_subscriptions ADD COLUMN package_id VARCHAR(40) DEFAULT 'basic'"); } catch {}
+  try { await run("ALTER TABLE coach_subscriptions ADD COLUMN tickets_used INT DEFAULT 0"); } catch {}
+
+  // Cleanup: remove deprecated settings (PayPal + video-call provider were
+  // both removed in May meeting).
   try {
     await run("DELETE FROM app_settings WHERE setting_key = 'free_user_can_access_coaching'");
   } catch {}
+  try { await run("DELETE FROM app_settings WHERE setting_key IN ('video_call_provider','video_call_room_base')"); } catch {}
 
   // Branding images are stored inline as base64 data URLs (see /upload-branding-image),
   // so widen setting_value from TEXT (64KB) to LONGTEXT (4GB) for existing tables.
