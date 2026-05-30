@@ -966,7 +966,10 @@ async function initTables() {
       INDEX idx_email_otps_lookup (email, purpose, id),
       INDEX idx_email_otps_expires (expires_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-        // Tickets (athlete ↔ coach forms / inquiries on workouts & nutrition)
+        // ── Tickets (athlete ↔ coach forms / inquiries on workouts & nutrition) ──
+        // Replaces direct chats per the May meeting. A ticket is attached to an
+        // optional workout_plan_id / nutrition_plan_id / exercise_key so coach
+        // and athlete can discuss a specific item.
         `CREATE TABLE IF NOT EXISTS tickets (
       id INT AUTO_INCREMENT PRIMARY KEY,
       user_id INT NOT NULL,
@@ -992,7 +995,10 @@ async function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_ticket_replies_ticket (ticket_id, id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-        // Plan comments (Asana-style)
+        // ── Plan comments (Asana-style on a specific exercise/meal) ───────────
+        // A coach drops a note on an exercise; the athlete can resolve / check /
+        // reply. status: "open" | "resolved". exercise_key references the JSON
+        // exercises[].id stored inside workout_plans.exercises.
         `CREATE TABLE IF NOT EXISTS plan_comments (
       id INT AUTO_INCREMENT PRIMARY KEY,
       workout_plan_id INT DEFAULT NULL,
@@ -1009,7 +1015,10 @@ async function initTables() {
       INDEX idx_plan_comments_workout (workout_plan_id, exercise_key),
       INDEX idx_plan_comments_nutrition (nutrition_plan_id, meal_key)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-        // Training session events (start / finish workout, finish plan)
+        // ── Training session events (start / finish workout, finish plan) ─────
+        // Used so a trainer can see when their athlete starts / finishes a
+        // workout and follow up. Surfaced via notifications + a recent-activity
+        // feed on the athlete's profile.
         `CREATE TABLE IF NOT EXISTS training_events (
       id INT AUTO_INCREMENT PRIMARY KEY,
       user_id INT NOT NULL,
@@ -1142,6 +1151,13 @@ export async function seedDefaultAppSettings() {
         ['video_call_provider', 'external', 'text', 'features', 'Video call provider: external (Zoom / Google Meet link), daily, agora, twilio'],
         ['video_call_room_base', '', 'text', 'features', 'Optional base URL for in-app rooms (e.g. https://room.fitwayhub.com)'],
         ['plan_finish_credit', '50', 'number', 'points', 'EGP credited to athlete wallet when a coach plan is finished'],
+        // Subscription packages (May business plan)
+        ['sub_community_freemium_egp', '0', 'number', 'pricing', 'Community · Freemium (EGP/mo)'],
+        ['sub_community_premium_egp', '149', 'number', 'pricing', 'Community · Premium (EGP/mo)'],
+        ['sub_community_exclusive_egp', '299', 'number', 'pricing', 'Community · Exclusive (EGP/mo)'],
+        ['sub_pt_basic_egp', '499', 'number', 'pricing', 'PT · Basic (EGP/mo)'],
+        ['sub_pt_premium_egp', '899', 'number', 'pricing', 'PT · Premium (EGP/mo)'],
+        ['sub_pt_gold_egp', '1499', 'number', 'pricing', 'PT · Gold (EGP/mo)'],
         ['feature_user_workouts', '1', 'boolean', 'features', 'User: Workouts'],
         ['feature_user_workout_plan', '1', 'boolean', 'features', 'User: Workout Plan'],
         ['feature_user_nutrition_plan', '1', 'boolean', 'features', 'User: Nutrition Plan'],

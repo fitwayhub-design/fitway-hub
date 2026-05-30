@@ -126,7 +126,8 @@ const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const CoachDashboard = lazy(() => import("@/pages/coach/Dashboard"));
 const CoachRequests = lazy(() => import("@/pages/coach/Requests"));
 const CoachAthletes = lazy(() => import("@/pages/coach/Athletes"));
-const CoachChat = lazy(() => import("@/pages/coach/Chat"));
+// /coach/chat is now a redirect to /coach/tickets — the May meeting removed
+// direct chat in favour of tickets. The component is no longer imported.
 const CoachCommunity = lazy(() => import("@/pages/coach/Community"));
 const CoachProfile = lazy(() => import("@/pages/coach/Profile"));
 const CoachBlogs = lazy(() => import("@/pages/coach/Blogs"));
@@ -356,7 +357,7 @@ export default function App() {
                 <Route path="/coach/dashboard" element={<CoachDashboard />} />
                 <Route path="/coach/requests" element={<CoachRequests />} />
                 <Route path="/coach/athletes" element={<CoachAthletes />} />
-                <Route path="/coach/chat" element={<CoachChat />} />
+                <Route path="/coach/chat" element={<Navigate to="/coach/tickets" replace />} />
                 <Route path="/coach/ads" element={<Navigate to="/coach/ads/campaigns" replace />} />
                 <Route path="/coach/ads/campaigns" element={<CoachAdsCampaigns />} />
                 <Route path="/coach/ads/my-ads" element={<CoachMyAds />} />

@@ -36,15 +36,16 @@ export default function Tickets() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const focusId = Number(params.get("id")) || null;
+  const preselectCoach = Number(params.get("coach")) || null;
 
   const isCoach = user?.role === "coach";
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
-  const [composeMode, setComposeMode] = useState(false);
+  const [composeMode, setComposeMode] = useState(!!preselectCoach && !isCoach);
   const [newSubject, setNewSubject] = useState("");
   const [newBody, setNewBody] = useState("");
-  const [newCoachId, setNewCoachId] = useState<number | "">("");
+  const [newCoachId, setNewCoachId] = useState<number | "">(preselectCoach || "");
   const [coachOptions, setCoachOptions] = useState<{ id: number; name: string }[]>([]);
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [replies, setReplies] = useState<Reply[]>([]);
