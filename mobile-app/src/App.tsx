@@ -101,7 +101,7 @@ const ForgotPassword = lazy(() => import("@/pages/auth/ForgotPassword"));
 const Dashboard = lazy(() => import("@/pages/app/Dashboard"));
 const Workouts = lazy(() => import("@/pages/app/Workouts"));
 const Community = lazy(() => import("@/pages/app/Community"));
-const Chat = lazy(() => import("@/pages/app/Chat"));
+// 1:1 chat removed — /app/chat now redirects to /app/community.
 const Profile = lazy(() => import("@/pages/app/Profile"));
 const Tools = lazy(() => import("@/pages/app/Tools"));
 const Pricing = lazy(() => import("@/pages/app/Pricing"));
@@ -110,12 +110,16 @@ const Coaching = lazy(() => import("@/pages/app/Coaching"));
 const Onboarding = lazy(() => import("@/pages/app/Onboarding"));
 const Steps = lazy(() => import("@/pages/app/Steps"));
 const AppNotifications = lazy(() => import("@/pages/app/Notifications"));
+const Tickets = lazy(() => import("@/pages/app/Tickets"));
+const PublicProfile = lazy(() => import("@/pages/app/PublicProfile"));
+const Challenges = lazy(() => import("@/pages/app/Challenges"));
 
 const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const CoachDashboard = lazy(() => import("@/pages/coach/Dashboard"));
 const CoachRequests = lazy(() => import("@/pages/coach/Requests"));
 const CoachAthletes = lazy(() => import("@/pages/coach/Athletes"));
-const CoachChat = lazy(() => import("@/pages/coach/Chat"));
+// /coach/chat is now a redirect to /coach/tickets — the May meeting removed
+// direct chat in favour of tickets. The component is no longer imported.
 const CoachCommunity = lazy(() => import("@/pages/coach/Community"));
 const CoachProfile = lazy(() => import("@/pages/coach/Profile"));
 const CoachBlogs = lazy(() => import("@/pages/coach/Blogs"));
@@ -139,8 +143,11 @@ const CoachMyAds = lazy(() => import("@/pages/coach/ads/MyAds"));
 const AdminAdsManager = lazy(() => import("@/pages/admin/AdsManager"));
 const AdsSettingsPanel = lazy(() => import("@/pages/admin/AdsSettings"));
 const AdminCertifications = lazy(() => import("@/pages/admin/Certifications"));
+const AdminTickets = lazy(() => import("@/pages/admin/Tickets"));
+const AdminChat = lazy(() => import("@/pages/admin/Chat"));
 const AdminCoachReports = lazy(() => import("@/pages/admin/CoachReports"));
 const AdminAppImages = lazy(() => import("@/pages/admin/AppImagesManager"));
+const AdminEmailServer = lazy(() => import("@/pages/admin/EmailServer"));
 
 // ── Page spinner (shown while lazy chunks download) ────────────────────────────
 function PageSpinner() {
@@ -184,6 +191,9 @@ function PushBanner() {
   );
 }
 
+// Mobile-specific: no public website exists in the Capacitor build, so the
+// root path always redirects to /auth/login (when signed out) or to the
+// role-specific dashboard (when signed in).
 function SmartRedirect() {
   const { user, isReady } = useAuth();
   if (!isReady) return null;
@@ -284,7 +294,7 @@ export default function App() {
                   <Onboarding />
                 </ProtectedRoute>
               } />
-              
+
               <Route element={
                 <ProtectedRoute role="user">
                   <AppLayout />
@@ -294,7 +304,10 @@ export default function App() {
                 <Route path="/app/workouts" element={<Workouts />} />
                 <Route path="/app/steps" element={<Steps />} />
                 <Route path="/app/community" element={<Community />} />
-                <Route path="/app/chat" element={<Chat />} />
+                {/* 1:1 chat removed entirely — direct messages are gone,
+                    challenge/group conversations live inside the Community
+                    page. Old /app/chat redirects to Community. */}
+                <Route path="/app/chat" element={<Navigate to="/app/community" replace />} />
                 <Route path="/app/profile" element={<Profile />} />
                 <Route path="/app/tools" element={<Tools />} />
                 <Route path="/app/pricing" element={<Pricing />} />
@@ -304,6 +317,9 @@ export default function App() {
                 <Route path="/app/workout-plan" element={<WorkoutPlan />} />
                 <Route path="/app/nutrition-plan" element={<NutritionPlan />} />
                 <Route path="/app/notifications" element={<AppNotifications />} />
+                <Route path="/app/tickets" element={<Tickets />} />
+                <Route path="/app/u/:id" element={<PublicProfile />} />
+                <Route path="/app/challenges" element={<Challenges />} />
               </Route>
 
               {/* Coach Routes */}
@@ -316,7 +332,7 @@ export default function App() {
                 <Route path="/coach/dashboard" element={<CoachDashboard />} />
                 <Route path="/coach/requests" element={<CoachRequests />} />
                 <Route path="/coach/athletes" element={<CoachAthletes />} />
-                <Route path="/coach/chat" element={<CoachChat />} />
+                <Route path="/coach/chat" element={<Navigate to="/coach/tickets" replace />} />
                 <Route path="/coach/ads" element={<Navigate to="/coach/ads/campaigns" replace />} />
                 <Route path="/coach/ads/campaigns" element={<CoachAdsCampaigns />} />
                 <Route path="/coach/ads/my-ads" element={<CoachMyAds />} />
@@ -329,6 +345,7 @@ export default function App() {
                 <Route path="/coach/blogs" element={<CoachBlogs />} />
                 <Route path="/coach/workouts" element={<CoachWorkouts />} />
                 <Route path="/coach/notifications" element={<CoachNotifications />} />
+                <Route path="/coach/tickets" element={<Tickets />} />
               </Route>
 
               {/* Admin Routes */}
@@ -345,7 +362,7 @@ export default function App() {
                 <Route path="/admin/videos" element={<AdminDashboard />} />
                 <Route path="/admin/ads" element={<AdminAdsManager />} />
                 <Route path="/admin/ad-settings" element={<AdsSettingsPanel />} />
-                <Route path="/admin/chat" element={<AdminDashboard />} />
+                <Route path="/admin/chat" element={<AdminChat />} />
                 <Route path="/admin/gifts" element={<AdminDashboard />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
                 <Route path="/admin/website" element={<AdminDashboard />} />
@@ -354,9 +371,16 @@ export default function App() {
                 <Route path="/admin/withdrawals" element={<AdminDashboard />} />
                 <Route path="/admin/blogs" element={<AdminBlogs />} />
                 <Route path="/admin/notifications" element={<AdminNotifications />} />
-                <Route path="/admin/certifications" element={<AdminCertifications />} />
+                {/* "Coach Requests" page replaces the old Certifications +
+                    Coaches pages (coach registration approval). Coach Reports
+                    stays as a separate page for athlete reports. */}
+                <Route path="/admin/coach-requests" element={<AdminCertifications />} />
                 <Route path="/admin/coach-reports" element={<AdminCoachReports />} />
+                <Route path="/admin/tickets" element={<AdminTickets />} />
+                <Route path="/admin/certifications" element={<Navigate to="/admin/coach-requests" replace />} />
+                <Route path="/admin/coaches" element={<Navigate to="/admin/coach-requests" replace />} />
                 <Route path="/admin/app-images" element={<AdminAppImages />} />
+                <Route path="/admin/email-server" element={<AdminEmailServer />} />
               </Route>
 
               {/* Payment Result Routes */}

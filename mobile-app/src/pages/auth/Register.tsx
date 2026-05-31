@@ -5,7 +5,7 @@ import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
 import { getApiBase } from "@/lib/api";
-import { Eye, EyeOff, Mail, Lock, User, Activity, CheckCircle2, Dumbbell, Trophy, Chrome, ArrowLeft, ShieldQuestion } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Activity, CheckCircle2, Dumbbell, Trophy, Chrome, ArrowLeft, ShieldQuestion, KeyRound } from "lucide-react";
 
 const SECURITY_QUESTIONS = [
   "What was the name of your first pet?",
@@ -30,6 +30,18 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  // OTP step state. The form is filled out first; once "Continue" is clicked
+  // we POST /register/request-otp, show the OTP screen, and the actual
+  // /register call happens after the user types the 6-digit code.
+  const [otpStep, setOtpStep] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [info, setInfo] = useState("");
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendCooldown]);
 
   const [liveStats, setLiveStats] = useState({ members: 0, programs: 0, rating: "5.0" });
   useEffect(() => {
@@ -49,10 +61,22 @@ export default function Register() {
     window.location.href = `${base}/api/auth/oauth/${provider}${qs}`;
   };
 
-  const handleRegister = async (e: FormEvent) => {
+  const requestOtp = async () => {
+    setError(""); setInfo("");
+    const res = await fetch(`${getApiBase()}/api/auth/register/request-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || "Failed to send code");
+    setInfo(data.message || `Code sent to ${email}`);
+    setResendCooldown(30);
+  };
+
+  const handleContinueToOtp = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    // Client-side validation
     const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email)) { setError(t("valid_email")); return; }
     if (password.length < 8) { setError(t("password_min")); return; }
@@ -60,7 +84,29 @@ export default function Register() {
     if (!securityAnswer.trim()) { setError(t("security_answer_placeholder")); return; }
     setIsLoading(true);
     try {
-      await register(email, password, name, role, securityQuestion, securityAnswer);
+      await requestOtp();
+      setOtpStep(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to send verification code");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    setIsLoading(true);
+    try { await requestOtp(); } catch (err: any) { setError(err.message); }
+    finally { setIsLoading(false); }
+  };
+
+  const handleVerifyAndRegister = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (otp.trim().length !== 6) { setError("Enter the 6-digit code"); return; }
+    setIsLoading(true);
+    try {
+      await register(email, password, name, role, securityQuestion, securityAnswer, otp.trim());
       if (role === "coach") {
         navigate("/coach/dashboard");
       } else {
@@ -182,8 +228,40 @@ export default function Register() {
               {error}
             </div>
           )}
+          {info && !error && (
+            <div style={{ padding: "12px 16px", backgroundColor: "rgba(255,214,0,0.08)", border: "1px solid rgba(255,214,0,0.25)", borderRadius: "var(--radius-full)", color: "var(--accent)", fontSize: 13, marginBottom: 20 }}>
+              {info}
+            </div>
+          )}
 
-          <form onSubmit={handleRegister} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {otpStep ? (
+            <form onSubmit={handleVerifyAndRegister} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ padding: "14px 16px", backgroundColor: "rgba(255,214,0,0.06)", border: "1px solid rgba(255,214,0,0.2)", borderRadius: "var(--radius-full)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <Mail size={16} color="var(--accent)" />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Check your email</span>
+                </div>
+                <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>We sent a 6-digit code to <strong style={{ color: "var(--text-primary)" }}>{email}</strong>. It expires in 2 minutes.</p>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>Verification code</label>
+                <div style={{ position: "relative" }}>
+                  <KeyRound size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+                  <input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} className="input-base" style={{ paddingInlineStart: 40, letterSpacing: "0.5em", fontFamily: "monospace", fontSize: 18 }} placeholder="000000" required autoFocus />
+                </div>
+              </div>
+              <button type="submit" disabled={isLoading || otp.length !== 6} className="btn-accent" style={{ marginTop: 4, padding: "13px", fontSize: 14 }}>
+                {isLoading ? t("creating_account") : "Verify & create account"}
+              </button>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                <button type="button" onClick={() => { setOtpStep(false); setOtp(""); setInfo(""); }} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 0 }}>← Back</button>
+                <button type="button" onClick={handleResendOtp} disabled={resendCooldown > 0 || isLoading} style={{ background: "none", border: "none", color: resendCooldown > 0 ? "var(--text-muted)" : "var(--accent)", cursor: resendCooldown > 0 ? "default" : "pointer", padding: 0, fontWeight: 600 }}>
+                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                </button>
+              </div>
+            </form>
+          ) : (
+          <form onSubmit={handleContinueToOtp} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("full_name")}</label>
               <div style={{ position: "relative" }}>
@@ -248,7 +326,7 @@ export default function Register() {
               <a href="#" style={{ color: "var(--accent)", textDecoration: "none" }}>{t("privacy_policy")}</a>.
             </p>
             <button type="submit" disabled={isLoading} className="btn-accent" style={{ marginTop: 4, padding: "13px", fontSize: 14 }}>
-              {isLoading ? t("creating_account") : role === "coach" ? t("join_as_coach") : t("join_as_athlete")}
+              {isLoading ? "Sending code..." : "Continue"}
             </button>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
@@ -267,6 +345,7 @@ export default function Register() {
               {t("sign_up_google")}
             </button>
           </form>
+          )}
 
           <p style={{ marginTop: 28, textAlign: "center", fontSize: 14, color: "var(--text-secondary)" }}>
             {t("have_account")}{" "}

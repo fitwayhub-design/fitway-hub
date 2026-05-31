@@ -151,7 +151,14 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.45;
   transition: background-color var(--motion-base) var(--ease-out-soft), color var(--motion-base) var(--ease-out-soft);
-  overflow-x: hidden;
+  /* `clip` (not `hidden`) — hidden upgrades body's implicit overflow-y to
+     `auto`, which turns BODY into its own scroll container and steals the
+     viewport scroller. On macOS Chrome that silently breaks trackpad scroll
+     (no visible scrollbar by default), so long pages like /auth/register
+     can't be scrolled to reveal the Sign-in link at the bottom. `clip`
+     clips overflow without becoming a scroll container, keeping HTML as
+     the single root scroller. */
+  overflow-x: clip;
 }
 
 body {
@@ -543,7 +550,7 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 ═══════════════════════════════════════════════════════════ */
 main { overflow-x: clip !important; min-width: 0 !important; max-width: 100vw; }
 main > div { max-width: 100% !important; overflow-x: clip; }
-#root { overflow-x: hidden; }
+#root { overflow-x: clip; }
 
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
@@ -1129,10 +1136,13 @@ html.light .app-top-bar {
    images, fixed-width tables, ad creatives, etc.) should scroll inside
    its container rather than blow out page width. */
 @media (max-width: 720px) {
+  /* Prevent inline-style fixed widths from forcing horizontal scroll on
+     the whole page. Children of the main app shell get a width cap. */
   .app-view main img,
   .app-view main video,
   .app-view main iframe,
   .app-view main canvas { max-width: 100%; height: auto; }
+  /* Ant Modal / Drawer should hug the viewport on tiny phones. */
   .ant-modal { max-width: calc(100vw - 16px) !important; margin: 8px auto !important; }
   .ant-modal-content { max-width: 100% !important; }
 }
@@ -2200,21 +2210,23 @@ html.light .web-bold [data-bold="card"] {
 }
 
 html.light .web-fwh {
-  --fwh-bg:        #f0ede6;
-  --fwh-s1:        #e8e5de;
-  --fwh-s2:        #ddd9d0;
-  --fwh-s3:        #ccc9c1;
-  --fwh-br:        #ccc9c1;
+  /* Clean "normal white" version — true white surfaces with subtle warm borders
+     rather than the previous cream/parchment palette. */
+  --fwh-bg:        #ffffff;
+  --fwh-s1:        #fafafa;
+  --fwh-s2:        #f3f3f1;
+  --fwh-s3:        #ebebe7;
+  --fwh-br:        #e5e5e2;
   --fwh-text:      #0a0a0a;
-  --fwh-tm:        #666666;
-  --fwh-td:        #999999;
+  --fwh-tm:        #5a5a5a;
+  --fwh-td:        #8a8a8a;
   --bg-primary:    var(--fwh-bg);
   --bg-surface:    var(--fwh-s1);
   --bg-card:       #ffffff;
   --bg-card-hover: var(--fwh-s2);
   --border:        var(--fwh-br);
   --text-primary:  var(--fwh-text);
-  --text-secondary:#3a3a3a;
+  --text-secondary:#2a2a2a;
   --text-muted:    var(--fwh-tm);
   background: var(--fwh-bg);
   color: var(--fwh-text);
@@ -2758,6 +2770,10 @@ html.light .web-fwh .fwh-gate-btn { border-color: rgba(0,0,0,0.18); background: 
 .web-fwh .fwh-con { max-width: 1400px; margin: 0 auto; }
 .web-fwh section.fwh-section { padding: 100px 24px; position: relative; }
 @media (max-width: 880px) { .web-fwh section.fwh-section { padding: 70px 20px; } }
+/* Keep section content above the CMS-driven background overlay. */
+.web-fwh section.fwh-section > .fwh-con,
+.web-fwh section.fwh-hero > .fwh-con,
+.web-fwh section.fwh-gate > .fwh-gate-content { position: relative; z-index: 1; }
 
 /* Footer wordmark */
 .web-fwh .fwh-foot-mark {
@@ -3604,4 +3620,37 @@ html.light .app-fwh .dash-hero-overlay {
 
 /* Section spacing */
 .app-fwh .dash-section { margin-bottom: 24px; }
+
+
+
+/* ── Mobile profile fix (web mobile view) ─────────────────────────────────
+   The user profile header on /app/profile used to clip the Edit-profile CTA
+   and crush the 3-up stats row at sub-360px widths. These rules let the
+   header stack vertically on phones and shorten the long uppercase label
+   on the Edit button so it doesn't overflow off-screen. */
+@media (max-width: 480px) {
+  .profile-identity-row {
+    align-items: flex-start !important;
+  }
+  .profile-identity-row > div:first-child {
+    padding-top: 64px !important;
+    width: 100%;
+  }
+  .profile-edit-cta {
+    width: 100%;
+    justify-content: center;
+    margin-top: 8px;
+  }
+  .profile-edit-cta-label { font-size: 10px; letter-spacing: 0.14em !important; }
+  .profile-stats-row {
+    grid-template-columns: 1fr !important;
+  }
+  .profile-stats-row > div {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+  }
+  .profile-stats-row > div:last-child {
+    border-bottom: none;
+  }
+}
 

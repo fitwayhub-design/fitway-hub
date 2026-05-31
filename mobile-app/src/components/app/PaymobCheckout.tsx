@@ -27,14 +27,14 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/lib/api";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type WalletType = "vodafone" | "orange" | "we";
+type WalletType = "vodafone" | "orange" | "we" | "instapay";
 
 interface PayConfig {
   paypal: { configured: boolean; clientId: string; mode: string };
   manualEwallet?: { enabled: boolean };
 }
 
-interface AdminNumbers { vodafone?: string; orange?: string; we?: string }
+interface AdminNumbers { vodafone?: string; orange?: string; we?: string; instapay?: string }
 
 interface Props {
   amount:     number;
@@ -87,6 +87,7 @@ export default function UnifiedCheckout({
         vodafone: s.ewallet_phone_vodafone || s.ewallet_phone || "",
         orange:   s.ewallet_phone_orange   || "",
         we:       s.ewallet_phone_we       || "",
+        instapay: s.ewallet_phone_instapay || s.instapay_handle || "",
       });
     }).catch(() => {});
   }, []);
@@ -237,8 +238,8 @@ export default function UnifiedCheckout({
         Pick your wallet, send <strong style={{ color: "var(--main)" }}>{amount} EGP</strong> to the
         number below from your wallet app, then upload the confirmation screenshot.
       </p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        {(["vodafone", "orange", "we"] as WalletType[]).map(w => (
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        {(["vodafone", "orange", "we", "instapay"] as WalletType[]).map(w => (
           <WalletChip key={w} id={w} selected={walletType === w} onClick={() => setWalletType(w)} />
         ))}
       </div>
@@ -269,7 +270,6 @@ export default function UnifiedCheckout({
 
   // ── Provider Selection (root) ─────────────────────────────────────────────
   const manualEnabled = config?.manualEwallet?.enabled !== false;
-  const paypalEnabled = config?.paypal.configured !== false;
   return (
     <Overlay><Sheet>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 22 }}>
@@ -281,33 +281,21 @@ export default function UnifiedCheckout({
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {/* Manual e-wallet — primary path for Egypt */}
+        {/* Manual e-wallet — Vodafone, Orange, WE, InstaPay */}
         {manualEnabled && (
           <ProviderCard
             emoji="📱"
-            title="Mobile Wallet"
-            sub="Vodafone Cash · Orange Cash · WE Pay"
+            title="Mobile Wallet & InstaPay"
+            sub="Vodafone Cash · Orange Cash · WE Pay · InstaPay"
             tag="EGP"
             tagColor="var(--main)"
             modes={["🕐 Reviewed by admin"]}
             onClick={() => setStep("manual_ewallet")}
           />
         )}
-        {/* PayPal — instant, international */}
-        {paypalEnabled && (
-          <ProviderCard
-            emoji="🅿"
-            title="PayPal"
-            sub="PayPal · Credit / Debit Card · Google Pay · Apple Pay"
-            tag="USD"
-            tagColor="#0070BA"
-            modes={["⚡ Instant"]}
-            onClick={() => setStep("paypal")}
-          />
-        )}
       </div>
 
-      {!manualEnabled && !paypalEnabled && (
+      {!manualEnabled && (
         <div style={{ textAlign: "center", padding: 24, color: "var(--text-muted)", fontSize: 13 }}>
           No payment methods are configured yet. Please contact support.
         </div>
@@ -450,16 +438,16 @@ function ErrBox({ children }: { children: React.ReactNode }) {
 
 // ── Wallet helpers ─────────────────────────────────────────────────────────────
 function walletColor(w: WalletType): string {
-  return { vodafone: "#E60000", orange: "#FF6900", we: "#7B2D8E" }[w];
+  return { vodafone: "#E60000", orange: "#FF6900", we: "#7B2D8E", instapay: "#1E1E3F" }[w];
 }
 function walletEmoji(w: WalletType): string {
-  return { vodafone: "🔴", orange: "🟠", we: "🟣" }[w];
+  return { vodafone: "🔴", orange: "🟠", we: "🟣", instapay: "💳" }[w];
 }
 function walletLabel(w: WalletType): string {
-  return { vodafone: "Vodafone Cash", orange: "Orange Cash", we: "WE Pay" }[w];
+  return { vodafone: "Vodafone Cash", orange: "Orange Cash", we: "WE Pay", instapay: "InstaPay" }[w];
 }
 function walletShort(w: WalletType): string {
-  return { vodafone: "Vodafone", orange: "Orange", we: "WE" }[w];
+  return { vodafone: "Vodafone", orange: "Orange", we: "WE", instapay: "InstaPay" }[w];
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────────

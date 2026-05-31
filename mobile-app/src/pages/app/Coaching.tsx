@@ -52,21 +52,79 @@ export default function Coaching() {
   const [coachReviews, setCoachReviews] = useState<Record<number, any[]>>({});
 
   const [query, setQuery] = useState("");
-  const [searchField, setSearchField] = useState<"name" | "plan" | "monthly">("name");
+  const searchField: "name" | "plan" | "monthly" = "name";
   const [specialty, setSpecialty] = useState("All");
   const [location, setLocation] = useState("All Locations");
-  const [planTypeFilter, setPlanTypeFilter] = useState<"all" | "complete" | "nutrition" | "workout">("all");
-  const [monthlyMin, setMonthlyMin] = useState("");
-  const [monthlyMax, setMonthlyMax] = useState("");
-  const [sortBy, setSortBy] = useState("rating");
-  const [availableOnly, setAvailableOnly] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [planTypeFilter] = useState<"all" | "complete" | "nutrition" | "workout">("all");
+  const [monthlyMin] = useState("");
+  const [monthlyMax] = useState("");
+  const [sortBy] = useState("rating");
+  const [availableOnly] = useState(false);
   const [followedCoaches, setFollowedCoaches] = useState<Set<number>>(new Set());
   const [subscribedCoaches, setSubscribedCoaches] = useState<Record<number, any>>({});
   const [hasAssignedPlan, setHasAssignedPlan] = useState(false);
   const [subscribeCoach, setSubscribeCoach] = useState<Coach | null>(null);
   const [subCycle, setSubCycle] = useState<"monthly" | "yearly">("monthly");
   const [subMsg, setSubMsg] = useState("");
+  const [selectedPackage, setSelectedPackage] = useState<string>("community_premium");
+  const [packagePrices, setPackagePrices] = useState<Record<string, number>>({});
+
+  // Pull package prices from admin settings. Same source of truth as the
+  // /app/pricing page so prices stay consistent across the app.
+  useEffect(() => {
+    if (!token) return;
+    fetch(getApiBase() + "/api/admin/app-settings", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : { settings: [] })
+      .then(d => {
+        const out: Record<string, number> = {};
+        for (const s of (d.settings || [])) {
+          if (s.setting_key?.startsWith("sub_")) {
+            const key = s.setting_key.replace(/^sub_/, "").replace(/_egp$/, "");
+            const n = Number(s.setting_value); if (!Number.isNaN(n)) out[key] = n;
+          }
+        }
+        setPackagePrices(out);
+      })
+      .catch(() => {});
+  }, [token]);
+
+  // Package catalogue — three athlete subscription tiers shared with the
+  // /app/pricing page. Freemium has no coach access; Premium and Exclusive
+  // unlock a personal coach with custom plans and a ticket allowance.
+  const PACKAGES: {
+    id: string; tier: string;
+    tagline: string; badge?: string;
+    perks: string[]; tickets: string;
+  }[] = [
+    {
+      id: "community_freemium", tier: "Freemium",
+      tagline: "Start free — no coach, just the basics.",
+      perks: ["Calorie calculator", "General programs (Pro split / PPL / Upper & Lower)"],
+      tickets: "No coach tickets",
+    },
+    {
+      id: "community_premium", tier: "Premium", badge: "Popular",
+      tagline: "Coach-led plan with monthly progress reviews.",
+      perks: [
+        "Customized workout program",
+        "Customized nutrition plans",
+        "Courses, live support, community",
+        "Monthly training follow-up report",
+      ],
+      tickets: "10 tickets / month",
+    },
+    {
+      id: "community_exclusive", tier: "Exclusive",
+      tagline: "Full coaching access with weekly reviews and in-person sessions.",
+      perks: [
+        "Everything in Premium",
+        "Weekly training follow-up report",
+        "Nutrition facts for food + fitness assessment",
+        "Hybrid / training in person",
+      ],
+      tickets: "Unlimited tickets",
+    },
+  ];
 
   const [giftCoach, setGiftCoach] = useState<Coach | null>(null);
   const [giftAmount, setGiftAmount] = useState("50");
@@ -343,69 +401,13 @@ export default function Coaching() {
           value={query}
           onChange={e => setQuery(e.target.value)}
           className="input-base"
-          placeholder={searchField === "name" ? "Search by coach name..." : searchField === "plan" ? "Search by plan type (complete/workout/nutrition)..." : "Search exact monthly cost (EGP)..."}
-          style={{ paddingInlineStart: 46, paddingInlineEnd: isMobile ? 100 : 140, fontSize: 14 }}
+          placeholder="Search by coach name..."
+          style={{ paddingInlineStart: 46, paddingInlineEnd: 16, fontSize: 14 }}
         />
-        <button onClick={() => setShowFilters(!showFilters)} style={{ position: "absolute", insetInlineEnd: 8, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", gap: isMobile ? 4 : 6, padding: isMobile ? "7px 10px" : "7px 14px", borderRadius: "var(--radius-full)", background: showFilters ? "var(--accent-dim)" : "var(--bg-surface)", border: `1px solid ${showFilters ? "var(--accent)" : "var(--border)"}`, color: showFilters ? "var(--accent)" : "var(--text-secondary)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-          <SlidersHorizontal size={13} /> Filters {activeFilters > 0 && <span style={{ width: 17, height: 17, borderRadius: "50%", background: "var(--accent)", color: "#000000", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{activeFilters}</span>}
-        </button>
       </div>
-
-      {showFilters && (
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: isMobile ? "12px" : "16px 20px", marginBottom: 16, display: "flex", flexWrap: "wrap", gap: isMobile ? 10 : 16, alignItems: "flex-end" }}>
-          <div style={{ flex: "1 1 180px", minWidth: isMobile ? "100%" : 180 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Search In</label>
-            <select className="input-base" value={searchField} onChange={e => setSearchField(e.target.value as "name" | "plan" | "monthly")}>
-              <option value="name">Name</option>
-              <option value="plan">Plan Type</option>
-              <option value="monthly">Cost Per Month</option>
-            </select>
-          </div>
-          <div style={{ flex: "1 1 180px", minWidth: isMobile ? "100%" : 180 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Specialty</label>
-            <select className="input-base" value={specialty} onChange={e => setSpecialty(e.target.value)}>{specialties.map(s => <option key={s}>{s}</option>)}</select>
-          </div>
-          <div style={{ flex: "1 1 160px", minWidth: isMobile ? "100%" : 160 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Location</label>
-            <select className="input-base" value={location} onChange={e => setLocation(e.target.value)}>{locations.map(l => <option key={l}>{l}</option>)}</select>
-          </div>
-          <div style={{ flex: "1 1 160px", minWidth: isMobile ? "100%" : 160 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Plan Type</label>
-            <select className="input-base" value={planTypeFilter} onChange={e => setPlanTypeFilter(e.target.value as "all" | "complete" | "nutrition" | "workout")}>
-              <option value="all">All Plans</option>
-              <option value="complete">Complete</option>
-              <option value="workout">Workout</option>
-              <option value="nutrition">Nutrition</option>
-            </select>
-          </div>
-          <div style={{ flex: "1 1 160px", minWidth: isMobile ? "100%" : 160 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Monthly Min (EGP)</label>
-            <input type="number" min="0" className="input-base" value={monthlyMin} onChange={e => setMonthlyMin(e.target.value)} placeholder="0" />
-          </div>
-          <div style={{ flex: "1 1 160px", minWidth: isMobile ? "100%" : 160 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Monthly Max (EGP)</label>
-            <input type="number" min="0" className="input-base" value={monthlyMax} onChange={e => setMonthlyMax(e.target.value)} placeholder="Any" />
-          </div>
-          <div style={{ flex: "1 1 160px", minWidth: isMobile ? "100%" : 160 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Sort By</label>
-            <select className="input-base" value={sortBy} onChange={e => setSortBy(e.target.value)}>{sortOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
-          </div>
-          <div style={{ display: "flex", alignItems: isMobile ? "stretch" : "center", flexDirection: isMobile ? "column" : "row", gap: 10, paddingBottom: 2, width: isMobile ? "100%" : "auto" }}>
-            <label style={{ fontSize: 13, color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" checked={availableOnly} onChange={e => setAvailableOnly(e.target.checked)} style={{ width: 16, height: 16, accentColor: "var(--accent)", cursor: "pointer" }} /> Available only
-            </label>
-            {activeFilters > 0 && <button onClick={() => { setSpecialty("All"); setLocation("All Locations"); setPlanTypeFilter("all"); setMonthlyMin(""); setMonthlyMax(""); setSortBy("rating"); setAvailableOnly(false); }} style={{ padding: "5px 10px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.2)", color: "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Clear</button>}
-          </div>
-        </div>
-      )}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
         <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{filtered.length === coaches.length ? `${coaches.length} coaches available` : `${filtered.length} of ${coaches.length} coaches`}</p>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {["All", "Strength & Conditioning", "HIIT & Weight Loss", "Yoga & Mobility"].map(s => (
-            <button key={s} onClick={() => setSpecialty(s)} style={{ padding: "4px 12px", borderRadius: "var(--radius-full)", fontSize: 12, fontWeight: specialty === s ? 600 : 400, cursor: "pointer", border: `1px solid ${specialty === s ? "var(--accent)" : "var(--border)"}`, background: specialty === s ? "var(--accent-dim)" : "transparent", color: specialty === s ? "var(--accent)" : "var(--text-muted)", transition: "all 0.15s" }}>{s === "All" ? "All" : s.split(" ")[0]}</button>
-          ))}
-        </div>
       </div>
 
       {loading ? (
@@ -454,13 +456,11 @@ export default function Coaching() {
                 </div>
               </div>
               <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 14 }}>{c.bio || "No bio yet."}</p>
-              {/* Plan type + pricing */}
+              {/* Plan type */}
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "rgba(59,130,246,0.1)", color: "var(--blue)", border: "1px solid rgba(59,130,246,0.2)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   {c.plan_types === "workout" ? "💪 Workout" : c.plan_types === "nutrition" ? "🥗 Nutrition" : "🏆 Complete"}
                 </span>
-                {(c.monthly_price || 0) > 0 && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "rgba(255,214,0,0.08)", color: "var(--accent)", border: "1px solid rgba(255,214,0,0.2)", fontWeight: 600 }}>{c.monthly_price} EGP/mo</span>}
-                {(c.yearly_price || 0) > 0 && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "rgba(6,182,212,0.08)", color: "var(--cyan)", border: "1px solid rgba(6,182,212,0.2)", fontWeight: 600 }}>{c.yearly_price} EGP/yr</span>}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                 <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{c.review_count} review{c.review_count !== 1 ? "s" : ""}</span>
@@ -511,9 +511,9 @@ export default function Coaching() {
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button onClick={() => navigate(`/app/chat?coach=${c.id}`)} style={{ flex: isMobile ? "1 1 48%" : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px", borderRadius: "var(--radius-full)", backgroundColor: subscribedCoaches[c.id]?.subscribed ? "var(--accent-dim)" : "var(--bg-surface)", border: `1px solid ${subscribedCoaches[c.id]?.subscribed ? "rgba(255,214,0,0.2)" : "var(--border)"}`, color: subscribedCoaches[c.id]?.subscribed ? "var(--accent)" : "var(--text-muted)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  <MessageSquare size={14} /> Chat
-                </button>
+                {/* Direct chat + per-coach ticket button removed in May
+                    meeting — tickets are filed from inside a workout in the
+                    plan instead. */}
                 {(c.monthly_price || c.yearly_price) ? (
                   subscribedCoaches[c.id]?.canRequestNew === false && !subscribedCoaches[c.id]?.subscribed ? (
                     <button disabled style={{ flex: isMobile ? "1 1 48%" : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px", borderRadius: "var(--radius-full)", backgroundColor: "rgba(255,179,64,0.08)", border: "1px solid rgba(255,179,64,0.25)", color: "var(--amber)", fontSize: 12, fontWeight: 700, cursor: "not-allowed", opacity: 0.85 }}>
@@ -668,38 +668,44 @@ export default function Coaching() {
                 </p>
               </div>
 
-              {/* Billing cycle */}
+              {/* Package cards — full design. Prices come from admin
+                  settings (sub_<id>_egp); ticket allowance comes from the
+                  catalogue itself. Cards stack as a grid: one column on
+                  phones, two on wider screens. */}
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 8 }}>Billing Cycle</label>
-                <div style={{ display: "flex", gap: 8, flexDirection: isMobile ? "column" : "row" }}>
-                  {(subscribeCoach.monthly_price || 0) > 0 && (
-                    <button onClick={() => setSubCycle("monthly")} style={{ flex: 1, padding: "14px 12px", borderRadius: "var(--radius-full)", fontSize: 13, fontWeight: 600, border: `2px solid ${subCycle === "monthly" ? "var(--accent)" : "var(--border)"}`, background: subCycle === "monthly" ? "var(--accent-dim)" : "var(--bg-card)", color: subCycle === "monthly" ? "var(--accent)" : "var(--text-secondary)", cursor: "pointer", textAlign: "center" }}>
-                      <p style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700, marginBottom: 2 }}>{subscribeCoach.monthly_price} <span style={{ fontSize: 12 }}>EGP</span></p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Monthly</p>
-                    </button>
-                  )}
-                  {(subscribeCoach.yearly_price || 0) > 0 && (
-                    <button onClick={() => setSubCycle("yearly")} style={{ flex: 1, padding: "14px 12px", borderRadius: "var(--radius-full)", fontSize: 13, fontWeight: 600, border: `2px solid ${subCycle === "yearly" ? "var(--accent)" : "var(--border)"}`, background: subCycle === "yearly" ? "var(--accent-dim)" : "var(--bg-card)", color: subCycle === "yearly" ? "var(--accent)" : "var(--text-secondary)", cursor: "pointer", textAlign: "center", position: "relative" }}>
-                      {(subscribeCoach.monthly_price || 0) > 0 && (subscribeCoach.yearly_price || 0) < (subscribeCoach.monthly_price || 0) * 12 && (
-                        <span style={{ position: "absolute", top: -8, insetInlineEnd: 8, fontSize: 10, padding: "1px 6px", borderRadius: "var(--radius-full)", background: "var(--accent)", color: "#000000", fontWeight: 700 }}>
-                          Save {Math.round(100 - ((subscribeCoach.yearly_price || 0) / ((subscribeCoach.monthly_price || 0) * 12)) * 100)}%
-                        </span>
-                      )}
-                      <p style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700, marginBottom: 2 }}>{subscribeCoach.yearly_price} <span style={{ fontSize: 12 }}>EGP</span></p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Yearly</p>
-                    </button>
-                  )}
-                </div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 10 }}>Pick a package</label>
+                <PackageGrid
+                  packages={PACKAGES}
+                  prices={packagePrices}
+                  cycle={subCycle}
+                  selectedId={selectedPackage}
+                  onSelect={setSelectedPackage}
+                />
               </div>
 
-              {/* PaymentForm with all methods (PayPal, E-Wallet, IAP) */}
+              {/* Billing cycle stays as monthly/annual on top of the chosen
+                  package. Annual = 10× monthly (2 months free). */}
+              <div style={{ display: "flex", gap: 6, padding: 4, background: "var(--bg-surface)", borderRadius: 99 }}>
+                {(["monthly", "yearly"] as const).map(c => (
+                  <button key={c} onClick={() => setSubCycle(c)} style={{
+                    flex: 1, padding: "8px 10px", borderRadius: 99,
+                    border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
+                    background: subCycle === c ? "var(--accent)" : "transparent",
+                    color: subCycle === c ? "#0a0a0a" : "var(--text-muted)",
+                  }}>{c === "monthly" ? "Monthly" : "Annual · 2 months free"}</button>
+                ))}
+              </div>
+
+              {/* Manual e-wallet / InstaPay checkout. Sends package_id along
+                  with the payment so the server records the right tier. */}
               <PaymentForm
-                amount={subCycle === "monthly" ? (subscribeCoach.monthly_price || 50) : (subscribeCoach.yearly_price || 450)}
+                amount={subCycle === "monthly" ? (packagePrices[selectedPackage] ?? 0) : (packagePrices[selectedPackage] ?? 0) * 10}
                 plan={subCycle === "monthly" ? "monthly" : "annual"}
                 type="user"
                 token={token}
                 coachId={subscribeCoach.id}
                 coachName={subscribeCoach.name}
+                packageId={selectedPackage}
                 onSuccess={() => {
                   setSubMsg("✅ Request sent. We're confirming your payment, then your coach will respond.");
                   setSubscribedCoaches(prev => ({ ...prev, [subscribeCoach.id]: { ...(prev[subscribeCoach.id] || {}), subscribed: false, latestStatus: "pending_admin", canRequestNew: false } }));
@@ -897,25 +903,6 @@ export default function Coaching() {
                   <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7 }}>{viewProfileCoach.bio || "No bio provided yet."}</p>
                 </div>
 
-                {/* Pricing */}
-                <div>
-                  <h4 style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Pricing</h4>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    {(viewProfileCoach.monthly_price || 0) > 0 && (
-                      <div style={{ flex: "1 1 140px", padding: "12px 16px", backgroundColor: "var(--accent-dim)", borderRadius: "var(--radius-full)", border: "1px solid rgba(255,214,0,0.2)" }}>
-                        <span style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Monthly</span>
-                        <span style={{ fontSize: 20, fontWeight: 700, fontFamily: "var(--font-en)", color: "var(--accent)" }}>{viewProfileCoach.monthly_price} EGP</span>
-                      </div>
-                    )}
-                    {(viewProfileCoach.yearly_price || 0) > 0 && (
-                      <div style={{ flex: "1 1 140px", padding: "12px 16px", backgroundColor: "rgba(6,182,212,0.06)", borderRadius: "var(--radius-full)", border: "1px solid rgba(6,182,212,0.2)" }}>
-                        <span style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Yearly</span>
-                        <span style={{ fontSize: 20, fontWeight: 700, fontFamily: "var(--font-en)", color: "var(--cyan)" }}>{viewProfileCoach.yearly_price} EGP</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
                 {/* Reviews */}
                 <div>
                   <h4 style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Reviews ({viewProfileCoach.review_count})</h4>
@@ -984,8 +971,8 @@ export default function Coaching() {
 
               {/* Actions */}
               <div style={{ display: "flex", gap: 10, flexDirection: isMobile ? "column" : "row" }}>
-                <button onClick={() => { setViewProfileCoach(null); navigate(`/app/chat?coach=${viewProfileCoach.id}`); }} style={{ flex: 1, padding: "11px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                  <MessageSquare size={15} /> Chat
+                <button onClick={() => { setViewProfileCoach(null); navigate("/app/workout-plan"); }} style={{ flex: 1, padding: "11px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <MessageSquare size={15} /> Open my plan
                 </button>
                 <button
                   onClick={() => {
@@ -1053,5 +1040,99 @@ export default function Coaching() {
         </div>
       )}
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PackageGrid + PackageCard
+   Visual cards used by the subscribe-to-coach modal AND (by re-export) the
+   /app/pricing page. One source of truth so the package design stays
+   identical across the app.
+   ────────────────────────────────────────────────────────────────────────── */
+type PackageDef = {
+  id: string; tier: string;
+  tagline: string; badge?: string;
+  perks: string[]; tickets: string;
+};
+
+export function PackageGrid({ packages, prices, cycle, selectedId, onSelect }: {
+  packages: PackageDef[];
+  prices: Record<string, number>;
+  cycle: "monthly" | "yearly";
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+      {packages.map(p => (
+        <PackageCard key={p.id} pkg={p} price={prices[p.id] ?? 0} cycle={cycle} active={selectedId === p.id} onSelect={() => onSelect(p.id)} />
+      ))}
+    </div>
+  );
+}
+
+export function PackageCard({ pkg, price, cycle, active, onSelect }: {
+  pkg: PackageDef; price: number; cycle: "monthly" | "yearly"; active: boolean; onSelect: () => void;
+}) {
+  const isFree = price === 0;
+  const cyclePrice = cycle === "yearly" ? price * 10 : price; // annual = 10 months
+  const cycleLabel = cycle === "yearly" ? "/yr" : "/mo";
+  return (
+    <button onClick={onSelect}
+      aria-pressed={active}
+      style={{
+        position: "relative",
+        textAlign: "left", cursor: "pointer",
+        background: active ? "var(--accent-dim)" : "var(--bg-card)",
+        border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`,
+        borderRadius: 14,
+        padding: "16px 16px 14px",
+        display: "flex", flexDirection: "column", gap: 10,
+        transition: "all 0.15s",
+        boxShadow: active ? "0 4px 18px rgba(255,214,0,0.12)" : "none",
+      }}>
+      {pkg.badge && (
+        <span style={{
+          position: "absolute", top: -9, insetInlineEnd: 14,
+          fontSize: 9, padding: "3px 9px", borderRadius: 99,
+          background: "var(--main)", color: "#0a0a0a",
+          fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
+        }}>{pkg.badge}</span>
+      )}
+
+      {/* Header: tier name + tagline + (selected) check */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: active ? "var(--accent)" : "var(--text-primary)", marginBottom: 2 }}>{pkg.tier}</p>
+          <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>{pkg.tagline}</p>
+        </div>
+        {active && (
+          <div style={{ width: 20, height: 20, borderRadius: 99, background: "var(--main)", color: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>✓</div>
+        )}
+      </div>
+
+      {/* Price */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span style={{ fontFamily: "var(--font-en)", fontSize: 26, fontWeight: 800, color: active ? "var(--accent)" : "var(--text-primary)" }}>
+          {isFree ? "Free" : cyclePrice}
+        </span>
+        {!isFree && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>EGP{cycleLabel}</span>}
+      </div>
+
+      {/* Tickets allowance */}
+      <div style={{ padding: "5px 10px", borderRadius: 8, background: "var(--bg-surface)", border: "1px solid var(--border)", width: "fit-content" }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)" }}>{pkg.tickets}</span>
+      </div>
+
+      {/* Perks list */}
+      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+        {pkg.perks.slice(0, 4).map(p => (
+          <li key={p} style={{ display: "flex", gap: 6, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+            <span style={{ color: "var(--green)", flexShrink: 0 }}>•</span>
+            <span>{p}</span>
+          </li>
+        ))}
+      </ul>
+    </button>
   );
 }

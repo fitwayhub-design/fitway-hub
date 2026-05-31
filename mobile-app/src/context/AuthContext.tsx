@@ -57,7 +57,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<any>;
-  register: (email: string, password: string, name: string, role?: "user" | "coach", securityQuestion?: string, securityAnswer?: string) => Promise<void>;
+  register: (email: string, password: string, name: string, role?: "user" | "coach", securityQuestion?: string, securityAnswer?: string, otp?: string) => Promise<void>;
   completeSocialLogin: (jwtToken: string) => Promise<User>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
@@ -335,13 +335,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data;
   };
 
-  const register = async (email: string, password: string, name: string, role: "user" | "coach" = "user", securityQuestion?: string, securityAnswer?: string) => {
+  const register = async (email: string, password: string, name: string, role: "user" | "coach" = "user", securityQuestion?: string, securityAnswer?: string, otp?: string) => {
     ensureSingleAccount(email);
 
     const response = await fetch(getApiBase() + '/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, name, role, securityQuestion, securityAnswer }),
+      body: JSON.stringify({ email, password, name, role, securityQuestion, securityAnswer, otp }),
     });
     const text = await response.text();
     let data: any;

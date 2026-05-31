@@ -445,7 +445,7 @@ export default function CoachProfile() {
             {/* Certification document upload */}
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4, display: "block" }}>{t("cert_papers_label")}</label>
-              <input ref={certDocRef} type="file" accept="image/*" capture="environment" onChange={e => setCertDocFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
+              <input ref={certDocRef} type="file" accept="image/*,application/pdf" onChange={e => setCertDocFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
               <button onClick={() => certDocRef.current?.click()} style={{ width: "100%", padding: "12px", borderRadius: "var(--radius-full)", background: certDocFile ? "rgba(59,130,246,0.08)" : "var(--bg-surface)", border: `1px dashed ${certDocFile ? "#3b82f6" : "var(--border)"}`, color: certDocFile ? "#3b82f6" : "var(--text-muted)", cursor: "pointer", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 {certDocFile ? (<><FileText size={14} /> {certDocFile.name}</>) : (<><Upload size={14} /> {t("cert_upload_papers")}</>)}
               </button>

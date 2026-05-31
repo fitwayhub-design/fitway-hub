@@ -61,7 +61,13 @@ export default function Profile() {
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
+    otp: "",
   });
+  // OTP flow state for password change: a code is sent to the user's
+  // registered email, valid for 2 minutes (5 attempts).
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [otpRequesting, setOtpRequesting] = useState(false);
+  const [otpResendCooldown, setOtpResendCooldown] = useState(0);
   const [emailForm, setEmailForm] = useState({
     currentPassword: "",
     newEmail: user?.email || "",
@@ -203,7 +209,13 @@ export default function Profile() {
     setPhotosLoading(false);
   };
 
-  const saveSecuritySettings = async () => {
+  useEffect(() => {
+    if (otpResendCooldown <= 0) return;
+    const id = setTimeout(() => setOtpResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [otpResendCooldown]);
+
+  const requestPasswordOtp = async () => {
     if (!securityForm.currentPassword || !securityForm.newPassword || !securityForm.confirmPassword) {
       flash(`❌ ${t("all_password_fields_required")}`);
       return;
@@ -216,6 +228,31 @@ export default function Profile() {
       flash(`❌ ${t("password_confirmation_mismatch")}`);
       return;
     }
+    setOtpRequesting(true);
+    try {
+      const r = await fetch(`${getApiBase()}/api/auth/change-password/request-otp`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        flash(`❌ ${d?.message || "Failed to send verification code"}`);
+      } else {
+        setOtpRequested(true);
+        setOtpResendCooldown(30);
+        flash(`✅ ${d.message || `Code sent to ${user?.email}`}`);
+      }
+    } catch {
+      flash(`❌ Failed to send verification code`);
+    }
+    setOtpRequesting(false);
+  };
+
+  const saveSecuritySettings = async () => {
+    if (!securityForm.otp || securityForm.otp.trim().length !== 6) {
+      flash(`❌ Enter the 6-digit code sent to your email`);
+      return;
+    }
     setSecuritySaving(true);
     try {
       const r = await fetch(`${getApiBase()}/api/auth/change-password`, {
@@ -224,13 +261,16 @@ export default function Profile() {
         body: JSON.stringify({
           currentPassword: securityForm.currentPassword,
           newPassword: securityForm.newPassword,
+          otp: securityForm.otp.trim(),
         }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
         flash(`❌ ${d?.message || t("failed_update_password")}`);
       } else {
-        setSecurityForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+        setSecurityForm({ currentPassword: "", newPassword: "", confirmPassword: "", otp: "" });
+        setOtpRequested(false);
+        setOtpResendCooldown(0);
         flash(`✅ ${t("password_updated_success")}`);
       }
     } catch {
@@ -305,10 +345,15 @@ export default function Profile() {
 
   const progressPhotoCount = (beforePhoto ? 1 : 0) + (nowPhoto ? 1 : 0);
 
+  // Short labels — the full strings ("My Community Posts", "Onboarding Data",
+  // "Progress Photos") overflowed each tab button at the available width and
+  // bled into the next tab. The tab bar uses flex: 1 to distribute width
+  // evenly, so the labels themselves have to fit; clipping with ellipsis on
+  // the button below is the secondary safety net.
   const TABS: { key: ProfileTab; label: string; icon: any; count?: number }[] = [
-    { key: "posts",    label: t("my_community_posts") || "Posts", icon: Grid3x3, count: communityPosts.length },
-    { key: "progress", label: t("progress_photos") || "Progress", icon: ImageIcon, count: progressPhotoCount },
-    { key: "about",    label: t("onboarding_data") || "About",    icon: Info },
+    { key: "posts",    label: lang === "ar" ? "منشوراتي" : "Posts",    icon: Grid3x3,   count: communityPosts.length },
+    { key: "progress", label: lang === "ar" ? "صور التقدم" : "Photos", icon: ImageIcon, count: progressPhotoCount },
+    { key: "about",    label: lang === "ar" ? "بياناتي" : "About",     icon: Info },
     { key: "settings", label: lang === "ar" ? "الإعدادات" : "Settings", icon: Settings },
   ];
 
@@ -353,7 +398,7 @@ export default function Profile() {
 
         {/* Identity info under cover */}
         <div style={{ padding: "12px 20px 0", marginTop: 0 }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div className="profile-identity-row" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 180, paddingTop: 64 }}>
               {editName ? (
                 <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>
@@ -363,12 +408,12 @@ export default function Profile() {
                   <button onClick={() => { setEditName(false); setNameVal(user?.name || ""); }} style={{ width: 30, height: 30, borderRadius: 8, background: "var(--bg-surface)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={14} /></button>
                 </div>
               ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                  <h1 style={{ fontSize: 32, fontWeight: 300, fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", letterSpacing: "-0.02em", lineHeight: 1.0, textTransform: "uppercase", margin: 0 }}>{user?.name}</h1>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+                  <h1 style={{ fontSize: "clamp(22px, 7vw, 32px)", fontWeight: 300, fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", letterSpacing: "-0.02em", lineHeight: 1.0, textTransform: "uppercase", margin: 0, wordBreak: "break-word" }}>{user?.name}</h1>
                   <button onClick={() => { setEditName(true); setNameVal(user?.name || ""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}><Edit2 size={13} /></button>
                 </div>
               )}
-              <p style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 10, color: "var(--text-muted)", margin: 0, letterSpacing: "0.1em", textTransform: "uppercase" }}>{user?.email}</p>
+              <p style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 10, color: "var(--text-muted)", margin: 0, letterSpacing: "0.1em", textTransform: "uppercase", wordBreak: "break-all" }}>{user?.email}</p>
               {(user as any)?.fitnessGoal && (
                 <p style={{ fontSize: 12, color: "var(--accent)", margin: "4px 0 0", fontWeight: 600 }}>
                   🎯 {(user as any).fitnessGoal}
@@ -376,13 +421,14 @@ export default function Profile() {
               )}
             </div>
             <button onClick={() => { setEditProfile(!editProfile); setActiveTab("about"); setProfileForm({ height: user?.height || "", weight: user?.weight || "", gender: user?.gender || "", dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.date_of_birth || "", fitnessGoal: (user as any)?.fitnessGoal || (user as any)?.fitness_goal || "", activityLevel: (user as any)?.activityLevel || (user as any)?.activity_level || "", targetWeight: (user as any)?.targetWeight || (user as any)?.target_weight || "", weeklyGoal: (user as any)?.weeklyGoal || (user as any)?.weekly_goal || "" }); }}
-              style={{ padding: "10px 18px", borderRadius: 12, border: "1px solid var(--main)", background: editProfile ? "var(--main)" : "transparent", color: editProfile ? "#0A0A0B" : "var(--main)", fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontWeight: 600, fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-              <Edit2 size={13} /> {editProfile ? t("cancel_editing") : t("edit_profile_info")}
+              className="profile-edit-cta"
+              style={{ padding: "10px 18px", borderRadius: 12, border: "1px solid var(--main)", background: editProfile ? "var(--main)" : "transparent", color: editProfile ? "#0A0A0B" : "var(--main)", fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontWeight: 600, fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+              <Edit2 size={13} /> <span className="profile-edit-cta-label">{editProfile ? t("cancel_editing") : t("edit_profile_info")}</span>
             </button>
           </div>
 
           {/* Stats row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", marginTop: 20 }}>
+          <div className="profile-stats-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", marginTop: 20 }}>
             {[
               { label: t("points"), value: (user?.points || 0).toLocaleString() },
               { label: t("steps_today"), value: (user?.steps || 0).toLocaleString() },
@@ -401,7 +447,7 @@ export default function Profile() {
       {msg && <div style={{ margin: "0 16px 12px", padding: "10px 14px", borderRadius: 12, background: msg.startsWith("✅") ? "rgba(74,222,128,0.1)" : "rgba(251,113,133,0.1)", border: `1px solid ${msg.startsWith("✅") ? "var(--green)" : "var(--red)"}`, fontSize: 13, fontWeight: 600, color: msg.startsWith("✅") ? "var(--green)" : "var(--red)" }}>{msg}</div>}
 
       {/* ═══════════ TAB NAV ═══════════ */}
-      <div style={{ margin: "0 16px 20px", position: "sticky", top: 0, zIndex: 5, background: "var(--bg-primary)", paddingTop: 4 }}>
+      <div style={{ margin: "0 16px 20px", position: "sticky", top: "var(--app-top-offset, 0px)", zIndex: 5, background: "var(--bg-primary)", paddingTop: 4 }}>
         <div role="tablist" style={{ display: "flex", gap: 0, padding: 0, borderRadius: 12, background: "transparent", borderBottom: "1px solid var(--border)", overflowX: "auto" }}>
           {TABS.map(tab => {
             const Icon = tab.icon;
@@ -412,21 +458,24 @@ export default function Profile() {
                 aria-selected={active}
                 onClick={() => setActiveTab(tab.key)}
                 style={{
-                  flex: 1, minWidth: 82,
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  padding: "12px 10px", borderRadius: 12,
+                  flex: 1, minWidth: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  padding: "12px 4px", borderRadius: 12,
                   border: "none",
                   borderBottom: active ? "2px solid var(--main)" : "2px solid transparent",
                   cursor: "pointer",
                   background: "transparent",
                   color: active ? "var(--main)" : "var(--text-muted)",
                   fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)",
-                  fontSize: 10, fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase",
+                  fontSize: 9.5, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase",
                   transition: "all 0.15s",
-                  whiteSpace: "nowrap",
+                  // Containment: each tab is a flex item allowed to shrink (minWidth 0),
+                  // and any label that's still too long is ellipsised instead of bleeding
+                  // into the next tab.
+                  overflow: "hidden",
                 }}>
-                <Icon size={13} />
-                <span>{tab.label}</span>
+                <Icon size={13} style={{ flexShrink: 0 }} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{tab.label}</span>
                 {typeof tab.count === "number" && tab.count > 0 && (
                   <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 12, border: "1px solid currentColor", color: active ? "var(--main)" : "var(--text-muted)" }}>
                     {tab.count}
@@ -440,33 +489,40 @@ export default function Profile() {
 
       {/* ═══════════ TAB: POSTS ═══════════ */}
       {activeTab === "posts" && (
-        <div style={{ margin: "0 16px 20px", padding: "16px", borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-          {communityPosts.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "30px 16px" }}>
-              <Grid3x3 size={32} color="var(--text-muted)" style={{ marginBottom: 8 }} />
-              <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>{t("no_community_posts_yet")}</p>
-              <Link to="/app/community" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
-                {lang === "ar" ? "اذهب للمجتمع →" : "Go to Community →"}
-              </Link>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {communityPosts.map((post: any) => (
-                <div key={post.id} style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>{post.created_at ? new Date(post.created_at).toLocaleString() : ""}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, margin: 0, display: "flex", alignItems: "center", gap: 3 }}><Heart size={11} /> {post.likes || 0}</p>
+        <>
+          <div style={{ margin: "0 16px 20px", padding: "16px", borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            {communityPosts.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "30px 16px" }}>
+                <Grid3x3 size={32} color="var(--text-muted)" style={{ marginBottom: 8 }} />
+                <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>{t("no_community_posts_yet")}</p>
+                <Link to="/app/community" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+                  {lang === "ar" ? "اذهب للمجتمع →" : "Go to Community →"}
+                </Link>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {communityPosts.map((post: any) => (
+                  <div key={post.id} style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+                      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>{post.created_at ? new Date(post.created_at).toLocaleString() : ""}</p>
+                      <p style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, margin: 0, display: "flex", alignItems: "center", gap: 3 }}><Heart size={11} /> {post.likes || 0}</p>
+                    </div>
+                    {post.content && <p style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, marginBottom: post.media_url || post.hashtags ? 8 : 0 }}>{post.content}</p>}
+                    {post.media_url && (
+                      <img src={post.media_url} alt="post" style={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 10, border: "1px solid var(--border)", marginBottom: post.hashtags ? 8 : 0 }} />
+                    )}
+                    {post.hashtags && <p style={{ fontSize: 12, color: "var(--blue)", wordBreak: "break-word", margin: 0 }}>{post.hashtags}</p>}
                   </div>
-                  {post.content && <p style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, marginBottom: post.media_url || post.hashtags ? 8 : 0 }}>{post.content}</p>}
-                  {post.media_url && (
-                    <img src={post.media_url} alt="post" style={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 10, border: "1px solid var(--border)", marginBottom: post.hashtags ? 8 : 0 }} />
-                  )}
-                  {post.hashtags && <p style={{ fontSize: 12, color: "var(--blue)", wordBreak: "break-word", margin: 0 }}>{post.hashtags}</p>}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recent activity feed: forms, tickets, plan-comments, training
+              events — the meeting wants this beside the community posts on
+              the client profile. */}
+          <RecentActivityCard token={token} />
+        </>
       )}
 
       {/* ═══════════ TAB: PROGRESS ═══════════ */}
@@ -782,10 +838,41 @@ export default function Profile() {
                       <input type="password" value={securityForm.confirmPassword} onChange={(e) => setSecurityForm((p) => ({ ...p, confirmPassword: e.target.value }))}
                         style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
                     </div>
-                    <button onClick={saveSecuritySettings} disabled={securitySaving}
-                      style={{ width: "100%", padding: "11px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#0A0A0B", fontWeight: 700, fontSize: 13, cursor: securitySaving ? "not-allowed" : "pointer", opacity: securitySaving ? 0.65 : 1 }}>
-                      {securitySaving ? t("updating_text") : t("update_password")}
-                    </button>
+                    {!otpRequested ? (
+                      <button onClick={requestPasswordOtp} disabled={otpRequesting}
+                        style={{ width: "100%", padding: "11px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#0A0A0B", fontWeight: 700, fontSize: 13, cursor: otpRequesting ? "not-allowed" : "pointer", opacity: otpRequesting ? 0.65 : 1 }}>
+                        {otpRequesting ? "Sending code..." : `Send code to ${user?.email}`}
+                      </button>
+                    ) : (
+                      <>
+                        <div style={{ padding: "10px 12px", backgroundColor: "rgba(255,214,0,0.08)", border: "1px solid rgba(255,214,0,0.25)", borderRadius: 10, fontSize: 12, color: "var(--text-secondary)" }}>
+                          We sent a 6-digit code to <strong style={{ color: "var(--text-primary)" }}>{user?.email}</strong>. It expires in 2 minutes.
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>Verification code</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={6}
+                            value={securityForm.otp}
+                            onChange={(e) => setSecurityForm((p) => ({ ...p, otp: e.target.value.replace(/\D/g, "") }))}
+                            placeholder="000000"
+                            style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 16, letterSpacing: "0.4em", fontFamily: "monospace", outline: "none", boxSizing: "border-box" }}
+                          />
+                        </div>
+                        <button onClick={saveSecuritySettings} disabled={securitySaving || securityForm.otp.length !== 6}
+                          style={{ width: "100%", padding: "11px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#0A0A0B", fontWeight: 700, fontSize: 13, cursor: securitySaving ? "not-allowed" : "pointer", opacity: (securitySaving || securityForm.otp.length !== 6) ? 0.65 : 1 }}>
+                          {securitySaving ? t("updating_text") : "Verify & update password"}
+                        </button>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                          <button type="button" onClick={() => { setOtpRequested(false); setSecurityForm((p) => ({ ...p, otp: "" })); setOtpResendCooldown(0); }} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 0 }}>← Cancel</button>
+                          <button type="button" onClick={requestPasswordOtp} disabled={otpResendCooldown > 0 || otpRequesting} style={{ background: "none", border: "none", color: otpResendCooldown > 0 ? "var(--text-muted)" : "var(--accent)", cursor: otpResendCooldown > 0 ? "default" : "pointer", padding: 0, fontWeight: 600 }}>
+                            {otpResendCooldown > 0 ? `Resend in ${otpResendCooldown}s` : "Resend code"}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -812,3 +899,61 @@ export default function Profile() {
     </div>
   );
 }
+
+
+function RecentActivityCard({ token }: { token: string | null }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!token) { setLoading(false); return; }
+    fetch(getApiBase() + '/api/tickets/recent-activity', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : { activity: [] })
+      .then(d => setItems(d.activity || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  const labelFor = (it: any) => {
+    if (it.kind === 'post')     return { label: 'Community post',   icon: '💬' };
+    if (it.kind === 'ticket')   return { label: 'Ticket',           icon: '🎫' };
+    if (it.kind === 'comment')  return { label: 'Plan comment',     icon: '💭' };
+    if (it.kind === 'training') {
+      if (it.title === 'workout_started')  return { label: 'Started training',  icon: '🏋️' };
+      if (it.title === 'workout_finished') return { label: 'Finished a workout', icon: '✅' };
+      if (it.title === 'plan_finished')    return { label: 'Finished the plan', icon: '🎉' };
+      return { label: 'Training update', icon: '⚡' };
+    }
+    return { label: it.kind, icon: '•' };
+  };
+
+  return (
+    <div style={{ margin: '0 16px 20px', padding: '16px', borderRadius: 12, background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+      <p style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 12, fontFamily: 'var(--font-mono, monospace)' }}>
+        Recent activity
+      </p>
+      {loading ? (
+        <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</p>
+      ) : items.length === 0 ? (
+        <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Nothing yet — open a ticket, comment on a plan, or finish a workout to see it here.</p>
+      ) : (
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {items.slice(0, 12).map((it: any) => {
+            const meta = labelFor(it);
+            const titlePreview = (it.title || '').slice(0, 80);
+            return (
+              <li key={`${it.kind}-${it.id}`} style={{ display: 'flex', gap: 10, padding: '8px 10px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>{meta.label}</p>
+                  {titlePreview && <p style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{titlePreview}</p>}
+                </div>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(it.created_at).toLocaleDateString()}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+

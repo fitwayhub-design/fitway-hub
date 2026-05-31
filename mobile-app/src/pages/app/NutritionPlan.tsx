@@ -315,6 +315,10 @@ export default function NutritionPlan() {
         ))}
       </div>
 
+      {/* Grams-to-calories quick estimator */}
+      <GramsCalorieCalc />
+
+
       {/* Coach tab: locked card when no active subscription */}
       {tab === "coach" && !hasSubscription && (
         <div style={{ margin: "0 16px 24px", padding: "28px 22px", borderRadius: 18, border: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "center" }}>
@@ -623,6 +627,72 @@ export default function NutritionPlan() {
         })}
       </div>
       )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   GramsCalorieCalc
+   Lightweight grams → kcal estimator that lives next to the nutrition plan.
+   Picks one of a few common foods (or "Custom" with kcal-per-100g), takes a
+   grams input, and shows kcal + protein/carbs/fat. No backend — this is just
+   a planning aid, so the foods table is local. Admin can extend this in CMS
+   later if needed.
+   ────────────────────────────────────────────────────────────────────────── */
+const FOOD_TABLE: { id: string; name: string; kcal: number; p: number; c: number; f: number }[] = [
+  { id: "chicken",  name: "Chicken Breast (cooked)", kcal: 165, p: 31, c: 0,  f: 3.6 },
+  { id: "rice",     name: "Rice (cooked)",           kcal: 130, p: 2.7, c: 28, f: 0.3 },
+  { id: "oats",     name: "Oats (raw)",              kcal: 389, p: 17, c: 66, f: 7   },
+  { id: "egg",      name: "Egg (whole)",             kcal: 155, p: 13, c: 1.1, f: 11 },
+  { id: "salmon",   name: "Salmon (cooked)",         kcal: 208, p: 20, c: 0,  f: 13  },
+  { id: "yogurt",   name: "Greek Yogurt (plain)",    kcal: 59,  p: 10, c: 3.6, f: 0.4 },
+  { id: "banana",   name: "Banana",                  kcal: 89,  p: 1.1, c: 23, f: 0.3 },
+  { id: "almonds",  name: "Almonds",                 kcal: 579, p: 21, c: 22, f: 50  },
+  { id: "beef",     name: "Beef (lean, cooked)",     kcal: 250, p: 26, c: 0,  f: 15  },
+  { id: "custom",   name: "Custom (enter kcal/100g)", kcal: 0,  p: 0,  c: 0,  f: 0   },
+];
+function GramsCalorieCalc() {
+  const [foodId, setFoodId] = useState("chicken");
+  const [grams, setGrams] = useState("100");
+  const [customKcal, setCustomKcal] = useState("");
+  const food = FOOD_TABLE.find(f => f.id === foodId) || FOOD_TABLE[0];
+  const g = Math.max(0, Number(grams) || 0);
+  const per100 = food.id === "custom" ? Math.max(0, Number(customKcal) || 0) : food.kcal;
+  const kcal = Math.round((per100 * g) / 100);
+  const ratio = g / 100;
+  const prot = (food.p * ratio).toFixed(1);
+  const carb = (food.c * ratio).toFixed(1);
+  const fat  = (food.f * ratio).toFixed(1);
+  return (
+    <div style={{ margin: "0 16px 16px", padding: "14px 16px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+        <Flame size={14} color="#FB7185" /> Calorie calculator (by grams)
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
+        <select value={foodId} onChange={e => setFoodId(e.target.value)}
+          style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13 }}>
+          {FOOD_TABLE.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </select>
+        <input type="number" min="0" value={grams} onChange={e => setGrams(e.target.value)} placeholder="grams"
+          style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13 }} />
+      </div>
+      {food.id === "custom" && (
+        <input type="number" min="0" value={customKcal} onChange={e => setCustomKcal(e.target.value)} placeholder="kcal per 100g (from label)"
+          style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13, marginBottom: 8 }} />
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 4 }}>
+        {[
+          { label: "kcal", val: kcal,  c: "#FB7185" },
+          { label: "P (g)", val: prot, c: "#60A5FA" },
+          { label: "C (g)", val: carb, c: "#4ADE80" },
+          { label: "F (g)", val: fat,  c: "#FBBF24" },
+        ].map(({ label, val, c }) => (
+          <div key={label} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 10, background: `${c}14` }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: c }}>{val}</div>
+            <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{label}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
