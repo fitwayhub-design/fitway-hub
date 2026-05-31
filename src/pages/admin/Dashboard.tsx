@@ -488,7 +488,7 @@ export default function AdminDashboard() {
   const tabDef: { id: Tab; label: string }[] = [
     { id: "overview", label: t("overview") }, { id: "users", label: t("users") }, { id: "coaches", label: t("coaches") },
     { id: "payments", label: t("payments") }, { id: "subscriptions", label: `📋 ${t("subscriptions")}` }, { id: "withdrawals", label: `💸 ${t("withdrawals")}` },
-    { id: "videos", label: t("videos") }, { id: "ads", label: t("coach_ads") },
+    { id: "ads", label: t("coach_ads") },
     { id: "chat", label: t("chat") },
     { id: "gifts", label: t("gifts") }, { id: "community", label: `🛡 ${t("community")}` },
     { id: "website", label: `🌐 ${t("website_config")}` },

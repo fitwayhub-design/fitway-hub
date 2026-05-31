@@ -360,7 +360,7 @@ export default function App() {
                 <Route path="/admin/users" element={<AdminDashboard />} />
                 <Route path="/admin/coaches" element={<AdminDashboard />} />
                 <Route path="/admin/payments" element={<AdminDashboard />} />
-                <Route path="/admin/videos" element={<AdminDashboard />} />
+                <Route path="/admin/videos" element={<Navigate to="/admin/trainings" replace />} />
                 <Route path="/admin/trainings" element={<AdminTrainings />} />
                 <Route path="/admin/ads" element={<AdminAdsManager />} />
                 <Route path="/admin/ad-settings" element={<AdsSettingsPanel />} />
