@@ -91,9 +91,16 @@ router.get('/', authenticateToken, async (req: any, res: Response) => {
 router.post('/', authenticateToken, async (req: any, res: Response) => {
   try {
     const u = req.user;
-    const { coach_id, subject, body, kind, workout_plan_id, nutrition_plan_id, exercise_key } = req.body || {};
+    const { coach_id, subject, body, kind, workout_plan_id, nutrition_plan_id, exercise_key, meal_key } = req.body || {};
     if (!coach_id || !subject) return res.status(400).json({ message: 'coach_id and subject are required' });
-    if (!workout_plan_id || !exercise_key) return res.status(400).json({ message: 'Tickets can only be filed from a workout in your plan.' });
+    const isWorkout = !!workout_plan_id && !!exercise_key;
+    const isNutrition = !!nutrition_plan_id && !!meal_key;
+    if (!isWorkout && !isNutrition) {
+      return res.status(400).json({ message: 'Pick a workout (day + exercise) or a nutrition meal from your coach plan.' });
+    }
+    // We stash the meal_key in exercise_key for nutrition tickets so we don't
+    // need a schema change — the column is just a free-form item identifier.
+    const itemKey = isWorkout ? exercise_key : meal_key;
 
     // Subscription gate
     const sub: any = await get(
@@ -129,7 +136,7 @@ router.post('/', authenticateToken, async (req: any, res: Response) => {
     const result: any = await run(
       `INSERT INTO tickets (user_id, coach_id, kind, subject, body, status, workout_plan_id, nutrition_plan_id, exercise_key, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, NOW(), NOW())`,
-      [u.id, coach_id, kind || 'workout_question', subject, body || '', workout_plan_id || null, nutrition_plan_id || null, exercise_key || null]
+      [u.id, coach_id, kind || (isWorkout ? 'workout_question' : 'nutrition_question'), subject, body || '', workout_plan_id || null, nutrition_plan_id || null, itemKey || null]
     );
     const ticketId = result.insertId || result.lastID;
     try { await run('UPDATE coach_subscriptions SET tickets_used = COALESCE(tickets_used,0) + 1 WHERE id = ?', [sub.id]); } catch {}
