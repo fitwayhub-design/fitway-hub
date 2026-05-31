@@ -410,7 +410,9 @@ router.get('/trainings/:id/videos', authenticateToken, adminOnly, async (req: an
 
 // Upload a video file straight into a training. Slim version of POST /videos —
 // the training owns category/grouping so we only ask for what the admin must
-// pick per-video: title, short/long, optional description + thumbnail.
+// pick per-video: title, short/long, optional thumbnail. Duration is probed
+// client-side from the video file and posted as `duration_seconds` + the
+// formatted `duration` label, so admins don't have to type it.
 router.post('/trainings/:id/videos', authenticateToken, adminOnly, uploadVideo.fields([
   { name: 'video', maxCount: 1 },
   { name: 'thumbnail', maxCount: 1 },
@@ -418,7 +420,7 @@ router.post('/trainings/:id/videos', authenticateToken, adminOnly, uploadVideo.f
   try {
     const training = await get<any>('SELECT * FROM trainings WHERE id = ?', [req.params.id]);
     if (!training) return res.status(404).json({ message: 'Training not found' });
-    const { title, description, duration, is_premium } = req.body;
+    const { title, description, duration, duration_seconds, is_premium } = req.body;
     if (!title) return res.status(400).json({ message: 'Title is required' });
     const isShort = req.body.is_short === '1' || req.body.is_short === true ? 1 : 0;
 
@@ -429,14 +431,18 @@ router.post('/trainings/:id/videos', authenticateToken, adminOnly, uploadVideo.f
 
     const videoUrl = await uploadToR2(videoFile, 'videos');
     const thumbnailUrl = thumbnailFile ? await uploadToR2(thumbnailFile, 'thumbnails') : null;
-    const durationSeconds = videoFile.size > 0 ? Math.ceil(videoFile.size / (1024 * 1024)) : parseInt(duration || '0');
+    // Trust the client-probed seconds when present; fall back to 0 otherwise.
+    const durationSeconds = parseInt(duration_seconds || '0', 10) || 0;
+    const durationLabel = duration || (durationSeconds > 0
+      ? `${Math.floor(durationSeconds / 60)}:${String(durationSeconds % 60).padStart(2, '0')}`
+      : '');
 
     const { insertId } = await run(
       `INSERT INTO workout_videos
        (title, description, url, duration, duration_seconds, category, is_premium, thumbnail, is_short, source_type, approval_status, submitted_by, approved_by, approved_at, training_id)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
-        title, description || '', videoUrl, duration || '', durationSeconds,
+        title, description || '', videoUrl, durationLabel, durationSeconds,
         training.title, is_premium === '1' || is_premium === true ? 1 : 0,
         thumbnailUrl || '', isShort, 'upload', 'approved',
         req.user.id, req.user.id, new Date(), training.id,
@@ -447,41 +453,6 @@ router.post('/trainings/:id/videos', authenticateToken, adminOnly, uploadVideo.f
   } catch (err) {
     console.error('Training video upload error:', err);
     res.status(500).json({ message: 'Failed to upload video' });
-  }
-});
-
-router.post('/trainings/:id/videos/youtube', authenticateToken, adminOnly, async (req: any, res: Response) => {
-  try {
-    const training = await get<any>('SELECT * FROM trainings WHERE id = ?', [req.params.id]);
-    if (!training) return res.status(404).json({ message: 'Training not found' });
-    const { title, description, duration, is_premium, is_short, youtube_url } = req.body || {};
-    if (!title) return res.status(400).json({ message: 'Title is required' });
-    if (!youtube_url) return res.status(400).json({ message: 'YouTube URL is required' });
-    const ytRegex = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-    const match = String(youtube_url).match(ytRegex);
-    if (!match) return res.status(400).json({ message: 'Invalid YouTube URL' });
-
-    const videoId = match[1];
-    const embedUrl = `https://www.youtube.com/embed/${videoId}`;
-    const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-    const isShortVal = is_short === '1' || is_short === true ? 1 : 0;
-    const isPremiumVal = is_premium === '1' || is_premium === true ? 1 : 0;
-
-    const { insertId } = await run(
-      `INSERT INTO workout_videos
-       (title, description, url, youtube_url, source_type, duration, duration_seconds, category, is_premium, thumbnail, is_short, approval_status, submitted_by, approved_by, approved_at, training_id)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [
-        title, description || '', embedUrl, youtube_url, 'youtube',
-        duration || '', 0, training.title, isPremiumVal, thumbnail, isShortVal,
-        'approved', req.user.id, req.user.id, new Date(), training.id,
-      ]
-    );
-    const video = await get('SELECT * FROM workout_videos WHERE id = ?', [insertId]);
-    res.json({ video, message: 'YouTube video added' });
-  } catch (err) {
-    console.error('Training YouTube video error:', err);
-    res.status(500).json({ message: 'Failed to add YouTube video' });
   }
 });
 

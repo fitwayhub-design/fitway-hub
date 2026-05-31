@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Dumbbell, Plus, Trash2, RefreshCw, Upload, CheckCircle, AlertTriangle,
-  Video as VideoIcon, Youtube, Link2, X, Edit3,
+  Video as VideoIcon, X, Edit3,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
@@ -36,11 +36,10 @@ type Video = {
 type AddVideoState = {
   trainingId: number;
   isShort: boolean;
-  source: "upload" | "youtube";
   title: string;
   description: string;
-  duration: string;
-  youtubeUrl: string;
+  durationSeconds: number;
+  durationLabel: string;
   videoFile: File | null;
   thumbFile: File | null;
 };
@@ -165,43 +164,25 @@ export default function AdminTrainings() {
       notify("err", l("Title is required", "العنوان مطلوب"));
       return;
     }
-    if (addVideo.source === "upload" && !addVideo.videoFile) {
+    if (!addVideo.videoFile) {
       notify("err", l("Pick a video file", "اختر ملف فيديو"));
-      return;
-    }
-    if (addVideo.source === "youtube" && !addVideo.youtubeUrl.trim()) {
-      notify("err", l("YouTube URL required", "رابط يوتيوب مطلوب"));
       return;
     }
     setSubmitting(true);
     try {
-      if (addVideo.source === "youtube") {
-        const res = await authFetch(`/api/admin/trainings/${addVideo.trainingId}/videos/youtube`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: addVideo.title,
-            description: addVideo.description,
-            duration: addVideo.duration,
-            is_short: addVideo.isShort ? "1" : "0",
-            youtube_url: addVideo.youtubeUrl,
-          }),
-        });
-        if (!res.ok) throw new Error();
-      } else {
-        const fd = new FormData();
-        fd.append("title", addVideo.title);
-        fd.append("description", addVideo.description);
-        fd.append("duration", addVideo.duration);
-        fd.append("is_short", addVideo.isShort ? "1" : "0");
-        fd.append("video", addVideo.videoFile!);
-        if (addVideo.thumbFile) fd.append("thumbnail", addVideo.thumbFile);
-        const res = await authFetch(`/api/admin/trainings/${addVideo.trainingId}/videos`, {
-          method: "POST",
-          body: fd,
-        });
-        if (!res.ok) throw new Error();
-      }
+      const fd = new FormData();
+      fd.append("title", addVideo.title);
+      fd.append("description", addVideo.description);
+      fd.append("duration", addVideo.durationLabel);
+      fd.append("duration_seconds", String(addVideo.durationSeconds));
+      fd.append("is_short", addVideo.isShort ? "1" : "0");
+      fd.append("video", addVideo.videoFile);
+      if (addVideo.thumbFile) fd.append("thumbnail", addVideo.thumbFile);
+      const res = await authFetch(`/api/admin/trainings/${addVideo.trainingId}/videos`, {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) throw new Error();
       setAddVideo(null);
       notify("ok", l("Video added", "تمت إضافة الفيديو"));
       await loadTrainings();
@@ -214,10 +195,36 @@ export default function AdminTrainings() {
 
   const openAddVideo = (trainingId: number, isShort: boolean) => {
     setAddVideo({
-      trainingId, isShort, source: "upload",
-      title: "", description: "", duration: "", youtubeUrl: "",
+      trainingId, isShort,
+      title: "", description: "",
+      durationSeconds: 0, durationLabel: "",
       videoFile: null, thumbFile: null,
     });
+  };
+
+  // Probe the picked file with a hidden <video> element so the admin doesn't
+  // have to type the duration. Falls back to 0/"" if the browser can't read
+  // metadata (e.g. some MOV variants) — server keeps using file size in that
+  // case so we never block the upload on missing duration.
+  const handleVideoFilePicked = (file: File | null) => {
+    if (!file) {
+      setAddVideo(v => v ? { ...v, videoFile: null, durationSeconds: 0, durationLabel: "" } : v);
+      return;
+    }
+    setAddVideo(v => v ? { ...v, videoFile: file, durationSeconds: 0, durationLabel: "" } : v);
+    const url = URL.createObjectURL(file);
+    const probe = document.createElement("video");
+    probe.preload = "metadata";
+    probe.onloadedmetadata = () => {
+      const secs = Math.max(0, Math.floor(probe.duration || 0));
+      const mm = Math.floor(secs / 60);
+      const ss = secs % 60;
+      const label = secs > 0 ? `${mm}:${ss.toString().padStart(2, "0")}` : "";
+      setAddVideo(v => v ? { ...v, durationSeconds: secs, durationLabel: label } : v);
+      URL.revokeObjectURL(url);
+    };
+    probe.onerror = () => URL.revokeObjectURL(url);
+    probe.src = url;
   };
 
   return (
@@ -374,24 +381,6 @@ export default function AdminTrainings() {
       {/* Add video modal */}
       {addVideo && (
         <Modal onClose={() => setAddVideo(null)} title={addVideo.isShort ? l("Add Short Video", "إضافة فيديو قصير") : l("Add Long Video", "إضافة فيديو طويل")}>
-          {/* Source switch */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 14, padding: 4, background: "var(--bg-primary)", borderRadius: 10, border: "1px solid var(--border)" }}>
-            {(["upload", "youtube"] as const).map(s => (
-              <button
-                key={s}
-                onClick={() => setAddVideo(v => v ? { ...v, source: s } : v)}
-                style={{
-                  flex: 1, padding: "8px 10px", border: "none", borderRadius: 8, cursor: "pointer",
-                  background: addVideo.source === s ? "var(--accent)" : "transparent",
-                  color: addVideo.source === s ? "#000" : "var(--text-secondary)",
-                  fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                }}
-              >
-                {s === "upload" ? <><Upload size={14} /> {l("Upload file", "رفع ملف")}</> : <><Youtube size={14} /> YouTube</>}
-              </button>
-            ))}
-          </div>
-
           <Field label={l("Title", "العنوان")}>
             <input
               autoFocus
@@ -401,59 +390,45 @@ export default function AdminTrainings() {
             />
           </Field>
 
-          {addVideo.source === "upload" ? (
-            <>
-              <Field label={l("Video file", "ملف الفيديو")}>
-                <input
-                  ref={videoFileRef}
-                  type="file"
-                  accept="video/*"
-                  onChange={e => setAddVideo(v => v ? { ...v, videoFile: e.target.files?.[0] || null } : v)}
-                  style={{ display: "none" }}
-                />
-                <button
-                  onClick={() => videoFileRef.current?.click()}
-                  style={{ ...btnGhost, width: "100%", justifyContent: "flex-start", display: "flex", alignItems: "center", gap: 8 }}
-                >
-                  <VideoIcon size={14} />
-                  {addVideo.videoFile ? `${addVideo.videoFile.name} (${(addVideo.videoFile.size / 1024 / 1024).toFixed(1)} MB)` : l("Choose video", "اختر فيديو")}
-                </button>
-              </Field>
-              <Field label={l("Thumbnail (optional)", "صورة مصغرة (اختياري)")}>
-                <input
-                  ref={thumbFileRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={e => setAddVideo(v => v ? { ...v, thumbFile: e.target.files?.[0] || null } : v)}
-                  style={{ display: "none" }}
-                />
-                <button
-                  onClick={() => thumbFileRef.current?.click()}
-                  style={{ ...btnGhost, width: "100%", justifyContent: "flex-start", display: "flex", alignItems: "center", gap: 8 }}
-                >
-                  <Upload size={14} />
-                  {addVideo.thumbFile ? addVideo.thumbFile.name : l("Choose thumbnail", "اختر صورة مصغرة")}
-                </button>
-              </Field>
-            </>
-          ) : (
-            <Field label={l("YouTube URL", "رابط يوتيوب")}>
-              <input
-                value={addVideo.youtubeUrl}
-                onChange={e => setAddVideo(v => v ? { ...v, youtubeUrl: e.target.value } : v)}
-                placeholder="https://youtube.com/watch?v=..."
-                style={inputStyle}
-              />
-            </Field>
-          )}
-
-          <Field label={l("Duration (e.g. 12:30)", "المدة (مثلاً 12:30)")}>
+          <Field label={l("Video file", "ملف الفيديو")}>
             <input
-              value={addVideo.duration}
-              onChange={e => setAddVideo(v => v ? { ...v, duration: e.target.value } : v)}
-              placeholder="12:30"
-              style={inputStyle}
+              ref={videoFileRef}
+              type="file"
+              accept="video/*"
+              onChange={e => handleVideoFilePicked(e.target.files?.[0] || null)}
+              style={{ display: "none" }}
             />
+            <button
+              onClick={() => videoFileRef.current?.click()}
+              style={{ ...btnGhost, width: "100%", justifyContent: "flex-start", display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <VideoIcon size={14} />
+              {addVideo.videoFile ? `${addVideo.videoFile.name} (${(addVideo.videoFile.size / 1024 / 1024).toFixed(1)} MB)` : l("Choose video", "اختر فيديو")}
+            </button>
+            {addVideo.videoFile && (
+              <div style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }}>
+                {addVideo.durationLabel
+                  ? `${l("Duration", "المدة")}: ${addVideo.durationLabel}`
+                  : l("Reading duration…", "جارٍ قراءة المدة…")}
+              </div>
+            )}
+          </Field>
+
+          <Field label={l("Thumbnail (optional)", "صورة مصغرة (اختياري)")}>
+            <input
+              ref={thumbFileRef}
+              type="file"
+              accept="image/*"
+              onChange={e => setAddVideo(v => v ? { ...v, thumbFile: e.target.files?.[0] || null } : v)}
+              style={{ display: "none" }}
+            />
+            <button
+              onClick={() => thumbFileRef.current?.click()}
+              style={{ ...btnGhost, width: "100%", justifyContent: "flex-start", display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <Upload size={14} />
+              {addVideo.thumbFile ? addVideo.thumbFile.name : l("Choose thumbnail", "اختر صورة مصغرة")}
+            </button>
           </Field>
 
           <Field label={l("Description", "الوصف")}>
@@ -513,11 +488,6 @@ function VideoSubsection({
                   <img src={v.thumbnail} alt={v.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
                   <VideoIcon size={28} opacity={0.4} />
-                )}
-                {v.source_type === "youtube" && (
-                  <div style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.7)", color: "#fff", padding: "2px 6px", borderRadius: 6, fontSize: 10, display: "flex", alignItems: "center", gap: 4 }}>
-                    <Link2 size={10} /> YouTube
-                  </div>
                 )}
               </div>
               <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 4 }}>
