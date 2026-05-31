@@ -190,7 +190,10 @@ export default function HomePage() {
   const STATS = [
     { num: liveStats.members > 0 ? `${liveStats.members.toLocaleString()}+` : "—", desc: statsDesc(0, isAr ? "عضو نشط يتدرب على المنصة." : "Active members training across the platform every week."), icon: Users },
     { num: liveStats.coaches > 0 ? `${liveStats.coaches}+` : "—", desc: statsDesc(1, isAr ? "كوتش معتمد بشهادات موثقة." : "Vetted certified coaches with verified credentials."), icon: Award },
-    { num: `${liveStats.rating}★`, desc: statsDesc(2, isAr ? "تقييم التطبيق من المستخدمين." : "App rating from athletes who trained with us."), icon: Star },
+    // Rating renders the numeric value separately from a smaller star
+    // glyph (with a space) so the star doesn't dominate the cell the way
+    // a full-display-size "★" does.
+    { num: liveStats.rating, suffix: "★", desc: statsDesc(2, isAr ? "تقييم التطبيق من المستخدمين." : "App rating from athletes who trained with us."), icon: Star },
   ];
 
   /* ── Testimonials — prefer CMS, fall back to seeded defaults ───────────
@@ -267,12 +270,17 @@ export default function HomePage() {
   );
 
   /* ── Features list (CMS overrideable) ──────────────────────────────────── */
+  // Strip leading count prefixes like "50+ " from CMS-supplied titles so the
+  // section reads "Workout Programs" rather than "50+ Workout Programs" —
+  // the live-stats card already exposes the count and the duplication
+  // was a usability complaint on wide screens.
+  const stripCountPrefix = (s: string) => String(s || "").replace(/^\s*\d+\s*\+\s+/, "");
   const cmsFeat = cmsSections.features;
   const featureItems = (cmsFeat?.items?.length
     ? cmsFeat.items.map((it: any, i: number) => ({
         id: DEFAULT_FEATURES[i % DEFAULT_FEATURES.length].id,
         icon: it.icon || DEFAULT_FEATURES[i % DEFAULT_FEATURES.length].id,
-        title: isAr ? (it.title_ar || it.title) : (it.title || it.title_ar),
+        title: stripCountPrefix(isAr ? (it.title_ar || it.title) : (it.title || it.title_ar)),
         desc: isAr ? (it.desc_ar || it.desc) : (it.desc || it.desc_ar),
         imageUrl: it.imageUrl || "",
       }))
@@ -351,7 +359,21 @@ export default function HomePage() {
             </button>
             <button
               className="fwh-btn-outline"
-              onClick={() => navigate(cmsSections.hero?.secondaryBtnLink || "/about")}
+              onClick={() => {
+                // The CMS-configured Learn More link is allowed to point to
+                // any in-app destination. When it points to the team section
+                // on About, use hash navigation so the browser scrolls to it.
+                const link = cmsSections.hero?.secondaryBtnLink || "/about";
+                if (link.includes("#")) {
+                  const [path, hash] = link.split("#");
+                  navigate(path || "/about");
+                  setTimeout(() => {
+                    document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 80);
+                } else {
+                  navigate(link);
+                }
+              }}
             >
               <span>{cms("hero", "secondaryBtnText", isAr ? "اعرف أكتر" : "Learn More")}</span>
               <span className="fwh-btn-outline-arr">↗</span>
@@ -365,14 +387,16 @@ export default function HomePage() {
             borderTop: "1px solid var(--border)",
           }}>
             {TRUST.map((item, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <item.icon size={15} color={accent} strokeWidth={2.2} />
+              <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 10, lineHeight: 1 }}>
+                <item.icon size={15} color={accent} strokeWidth={2.2} style={{ display: "block", flexShrink: 0 }} />
                 <span style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
                   letterSpacing: "0.18em",
                   textTransform: "uppercase",
                   color: "var(--text-muted)",
+                  lineHeight: 1,
+                  display: "inline-block",
                 }}>{item.label}</span>
               </div>
             ))}
@@ -415,18 +439,40 @@ export default function HomePage() {
             {cms("portal_select", "eyebrow", isAr ? "— اختر مسارك" : "— Choose Your Path")}
           </div>
           <h2 className="fwh-gate-h">
-            {cmsSections.portal_select ? (
-              <>
-                {cms("portal_select", "heading", "")}
-                {cms("portal_select", "headingAccent", "") && (
-                  <> <em className="fwh-italic">{cms("portal_select", "headingAccent", "")}</em></>
-                )}
-              </>
-            ) : isAr ? (
-              <>رياضي <em className="fwh-italic">أم</em> مدرب.</>
-            ) : (
-              <>Athlete <em className="fwh-italic">or</em> Coach.</>
-            )}
+            {(() => {
+              if (!cmsSections.portal_select) {
+                return isAr
+                  ? <>رياضي <em className="fwh-italic">أم</em> مدرب.</>
+                  : <>Athlete <em className="fwh-italic">or</em> Coach.</>;
+              }
+              const heading = cms("portal_select", "heading", "");
+              const accent  = cms("portal_select", "headingAccent", "");
+              // If the connector word the admin put in `headingAccent`
+              // already appears inside the main heading, italicise the
+              // first occurrence inline instead of appending a duplicate
+              // copy at the end (which produced "Athlete or Coach. or").
+              if (accent) {
+                const re = new RegExp(`(\\b${accent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b)`, "i");
+                if (re.test(heading)) {
+                  const parts = heading.split(re);
+                  return (
+                    <>
+                      {parts.map((p: string, i: number) =>
+                        re.test(p)
+                          ? <em key={i} className="fwh-italic">{p}</em>
+                          : <span key={i}>{p}</span>
+                      )}
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    {heading} <em className="fwh-italic">{accent}</em>
+                  </>
+                );
+              }
+              return <>{heading}</>;
+            })()}
           </h2>
           <div className="fwh-gate-buttons">
             <button
@@ -484,9 +530,20 @@ export default function HomePage() {
             )}
           </h2>
           <div className="fwh-stats-grid">
-            {STATS.map((s, i) => (
+            {STATS.map((s: any, i) => (
               <div key={i} className="fwh-stat-cell">
-                <div className="fwh-stat-num">{s.num}</div>
+                <div className="fwh-stat-num">
+                  {s.num}
+                  {s.suffix && (
+                    <span style={{
+                      fontSize: "0.55em",
+                      marginInlineStart: "0.22em",
+                      color: accent,
+                      verticalAlign: "0.18em",
+                      letterSpacing: 0,
+                    }}>{s.suffix}</span>
+                  )}
+                </div>
                 <div className="fwh-stat-desc">{s.desc}</div>
               </div>
             ))}

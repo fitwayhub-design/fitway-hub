@@ -196,12 +196,15 @@ export default function AboutPage() {
   })();
 
   /* ── Resolve features list — prefer CMS, fall back to FEATURES const ──── */
+  // Strip a leading "NN+ " prefix (e.g. "50+ Workout Programs") so the row
+  // shows the feature label without the count duplicated from the live stat.
+  const stripCountPrefix = (s: string) => String(s || "").replace(/^\s*\d+\s*\+\s+/, "");
   const featureItems = (() => {
     const cmsItems = cmsSections.features?.items;
     if (cmsItems?.length) {
       return cmsItems.map((it: any) => ({
         Icon: ICON_MAP[it.icon] || Dumbbell,
-        title: isAr ? (it.title_ar || it.title) : (it.title || it.title_ar),
+        title: stripCountPrefix(isAr ? (it.title_ar || it.title) : (it.title || it.title_ar)),
         desc:  isAr ? (it.desc_ar  || it.desc)  : (it.desc  || it.desc_ar),
         imageUrl: it.imageUrl || "",
       }));
@@ -288,7 +291,24 @@ export default function AboutPage() {
               {cms("hero", "primaryBtnText", isAr ? "ابدأ مجاناً" : "Start Free Today")}
               <span className="fwh-btn-arr"><ArrowRight size={14} /></span>
             </button>
-            <button className="fwh-btn-outline" onClick={() => navigate(cmsSections.hero?.secondaryBtnLink || "/blogs")}>
+            <button
+              className="fwh-btn-outline"
+              onClick={() => {
+                // Allow the CMS link to be a hash like /about#team so the
+                // "Meet Our Coaches" CTA scrolls the visitor straight to
+                // the team section instead of dead-ending on the same page.
+                const link = cmsSections.hero?.secondaryBtnLink || "/blogs";
+                if (link.startsWith("#") || link.includes("#")) {
+                  const [path, hash] = link.split("#");
+                  if (path && path !== window.location.pathname) navigate(path);
+                  setTimeout(() => {
+                    document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 80);
+                } else {
+                  navigate(link);
+                }
+              }}
+            >
               <span>{cms("hero", "secondaryBtnText", isAr ? "اقرأ المدونة" : "Read the Blog")}</span>
               <span className="fwh-btn-outline-arr">↗</span>
             </button>
@@ -517,9 +537,18 @@ export default function AboutPage() {
                   style={{ cursor: f.imageUrl ? "none" : "default" }}
                   role="group"
                 >
-                  <div className="fwh-service-num">{String(i + 1).padStart(2, "0")} —</div>
-                  <div className="fwh-service-title" style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    <Icon size={22} strokeWidth={1.6} style={{ color: accent, flexShrink: 0 }} />
+                  <div className="fwh-service-num">
+                    <span style={{ display: "inline-block", minWidth: "2ch", textAlign: "end" }}>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span style={{ display: "inline-block", marginInlineStart: 8 }}>—</span>
+                  </div>
+                  <div className="fwh-service-title" style={{ display: "flex", alignItems: "center", gap: 18 }}>
+                    {/* Fixed-width icon slot keeps the title text left-aligned
+                        regardless of the visual weight of each lucide glyph. */}
+                    <span style={{ display: "inline-flex", width: 28, height: 28, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Icon size={22} strokeWidth={1.6} style={{ color: accent }} />
+                    </span>
                     <span>{f.title}</span>
                   </div>
                   <div style={{
@@ -585,7 +614,7 @@ export default function AboutPage() {
       {/* ══════════════════════════════════════════════════════════════════════
           TEAM
       ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="fwh-section" style={{ overflow: "hidden" }}>
+      <section id="team" className="fwh-section" style={{ overflow: "hidden", scrollMarginTop: 100 }}>
         {sectionBg("team")}
         <div className="fwh-con">
           <div className="fwh-section-meta">

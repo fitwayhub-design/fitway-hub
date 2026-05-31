@@ -2355,7 +2355,12 @@ html.light .web-fwh .fwh-btn-outline { border-color: rgba(0,0,0,0.18); backgroun
   border-radius: 50%;
   background: var(--fwh-ac); color: var(--fwh-ac-fg);
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700;
+  font-size: 15px; font-weight: 700;
+  line-height: 1;
+  /* Pull the unicode arrow glyph back to optical center — most fonts
+     render "↗" with extra space on the left/bottom of its bounding box. */
+  padding-bottom: 2px;
+  padding-right: 1px;
   transition: transform 0.3s;
 }
 .web-fwh .fwh-btn-outline:hover .fwh-btn-outline-arr { transform: rotate(-45deg); }
@@ -2722,7 +2727,11 @@ html.light .web-fwh .fwh-gate-btn { border-color: rgba(0,0,0,0.18); background: 
   background: var(--fwh-ac);
   color: var(--fwh-ac-fg);
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700;
+  font-size: 15px; font-weight: 700;
+  line-height: 1;
+  /* Optical-center the "↗" glyph inside the yellow circle. */
+  padding-bottom: 2px;
+  padding-right: 1px;
   transition: transform 0.3s;
 }
 .web-fwh .fwh-gate-btn:hover .fwh-gate-btn-arr { transform: rotate(-45deg); }
@@ -2739,9 +2748,13 @@ html.light .web-fwh .fwh-gate-btn { border-color: rgba(0,0,0,0.18); background: 
      Match the admin-panel preview where Gotham is the default web font. */
   font-family: var(--font-en);
   font-weight: 700;
-  font-size: clamp(56px, 10vw, 168px);
-  line-height: 0.95;
+  font-size: clamp(58px, 10.5vw, 184px);
+  line-height: 0.98;
   letter-spacing: -0.035em;
+  /* The top padding keeps the cap-height of letters like "O" from rising
+     into the kicker/eyebrow above (was visible on Our Blog where the
+     "THE JOURNAL" eyebrow overlapped the "O" of the title). */
+  padding-top: 6px;
   margin: 28px 0 36px;
   color: var(--fwh-text);
 }
@@ -2766,8 +2779,12 @@ html.light .web-fwh .fwh-gate-btn { border-color: rgba(0,0,0,0.18); background: 
 }
 .web-fwh.rtl .fwh-s-h { font-family: var(--font-ar); font-weight: 800; letter-spacing: 0; line-height: 1.05; }
 
-/* Container */
+/* Container — widens on larger screens so the design doesn't look
+   stranded inside a 1400px column on 2K/4K displays. */
 .web-fwh .fwh-con { max-width: 1400px; margin: 0 auto; }
+@media (min-width: 1600px) { .web-fwh .fwh-con { max-width: 1560px; } }
+@media (min-width: 1920px) { .web-fwh .fwh-con { max-width: 1720px; } }
+@media (min-width: 2200px) { .web-fwh .fwh-con { max-width: 1880px; } }
 .web-fwh section.fwh-section { padding: 100px 24px; position: relative; }
 @media (max-width: 880px) { .web-fwh section.fwh-section { padding: 70px 20px; } }
 /* Keep section content above the CMS-driven background overlay. */

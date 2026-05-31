@@ -129,34 +129,35 @@ export function WebsiteLayout() {
         }}
       >
         <div style={{
-          maxWidth: 1280,
+          maxWidth: 1600,
           margin: "0 auto",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           padding: "0 32px",
-          height: 84,
+          height: 96,
         }}>
-          {/* Logo */}
-          <Link to="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", flexShrink: 0 }}>
+          {/* Logo — sized up for wide screens so the brand mark reads as a
+              first-class element rather than a tiny icon next to the nav. */}
+          <Link to="/" style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none", flexShrink: 0 }}>
             {brandLogo ? (
               <img
                 src={brandLogo}
                 alt={branding.app_name || t("fitway_hub")}
-                style={{ height: 56, borderRadius: 12, objectFit: "contain" }}
+                style={{ height: 76, borderRadius: 12, objectFit: "contain" }}
               />
             ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{
-                  width: 52, height: 52, borderRadius: 12,
+                  width: 64, height: 64, borderRadius: 14,
                   background: "var(--main)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
-                  <Activity size={26} color="#0a0a0a" strokeWidth={2.5} />
+                  <Activity size={32} color="#0a0a0a" strokeWidth={2.5} />
                 </div>
                 <span style={{
                   fontFamily: "var(--font-heading)",
-                  fontSize: 26,
+                  fontSize: 30,
                   fontWeight: 700,
                   letterSpacing: "-0.02em",
                   color: "var(--text-primary)",
@@ -439,27 +440,29 @@ export function WebsiteLayout() {
         borderTop: "1px solid var(--border)",
         transition: "background-color 0.2s",
       }}>
-        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "80px 32px 40px" }}>
+        <div style={{ maxWidth: 1600, margin: "0 auto", padding: "80px 32px 40px" }}>
           {/* Top row — brand + socials */}
           <div style={{
             display: "flex", justifyContent: "space-between", alignItems: "flex-start",
             flexWrap: "wrap", gap: 40, marginBottom: 48, paddingBottom: 48,
             borderBottom: "1px solid var(--border)",
           }}>
-            <div style={{ maxWidth: 380 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+            <div style={{ maxWidth: 420 }}>
+              {/* Footer logo — bumped from 56px → 96px to match the new
+                  header weight and stop it disappearing on wide screens. */}
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 22 }}>
                 {brandLogo ? (
-                  <img src={brandLogo} alt="" style={{ height: 56, borderRadius: 12, objectFit: "contain" }} />
+                  <img src={brandLogo} alt="" style={{ height: 96, borderRadius: 14, objectFit: "contain" }} />
                 ) : (
                   <>
                     <div style={{
-                      width: 52, height: 52, borderRadius: 12,
+                      width: 84, height: 84, borderRadius: 16,
                       background: "var(--main)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
-                      <Activity size={24} color="#0a0a0a" strokeWidth={2.5} />
+                      <Activity size={40} color="#0a0a0a" strokeWidth={2.5} />
                     </div>
-                    <span style={{ fontFamily: "var(--font-heading)", fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", textTransform: "uppercase" }}>
+                    <span style={{ fontFamily: "var(--font-heading)", fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em", textTransform: "uppercase" }}>
                       {branding.app_name || "FitWay Hub"}
                     </span>
                   </>
@@ -508,14 +511,16 @@ export function WebsiteLayout() {
             </div>
           </div>
 
-          {/* Links grid */}
+          {/* Links grid — the first column used to carry a "PRODUCT" label
+              that the design review flagged as redundant (the links in it
+              are just the site's main nav). The label is gone; only the
+              "Legal" and "Contact" columns keep their kicker headings. */}
           <div
             style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 40 }}
             className="footer-grid"
           >
-            {/* Product col */}
+            {/* Navigation col (no header) */}
             <div>
-              <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.18em", color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 18, fontFamily: "var(--font-mono, ui-monospace, monospace)" }}>{t("product")}</p>
               {footerProductLinks.map(l => (
                 <Link key={l.path} to={l.path} className="web-footer-link">{l.name}</Link>
               ))}
