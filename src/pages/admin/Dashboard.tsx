@@ -11,7 +11,7 @@ import { useLocation } from "react-router-dom";
 import { getAvatar } from "@/lib/avatar";
 
 interface AdminUser { id: number; name: string; email: string; role: string; is_premium?: boolean; membership_paid?: boolean; coach_membership_active?: boolean; points: number; steps: number; step_goal?: number; height?: number; weight?: number; gender?: string; medical_history?: string; medical_file_url?: string; created_at: string; avatar: string;
-  coach_specialty?: string; coach_bio?: string; coach_location?: string; coach_monthly_price?: number; coach_yearly_price?: number; coach_available?: number | boolean; coach_certified?: number | boolean;
+  coach_specialty?: string; coach_bio?: string; coach_location?: string; coach_available?: number | boolean; coach_certified?: number | boolean;
 }
 interface Gift { id: number; user_id: number; user_name: string; title: string; description: string; type: string; value: number; created_at: string; }
 interface CoachAd { id: number; coach_id: number; coach_name: string; coach_email: string; coach_avatar: string; coach_gender?: string | null; title: string; description: string; specialty: string; status: "active" | "pending" | "rejected" | "expired"; cta: string; highlight: string; impressions: number; clicks: number; created_at: string; admin_note?: string; paid_amount: number; paid_minutes: number; payment_status?: string; payment_proof?: string; payment_phone?: string; ad_type?: string; media_type?: string; objective?: string; image_url?: string; video_url?: string; duration_hours?: number; duration_days?: number; boost_start?: string; boost_end?: string; }
@@ -99,11 +99,10 @@ export default function AdminDashboard() {
     coach_membership_active: false,
     step_goal: 10000,
     // Coach-only fields, mirrored from coach_profiles. Empty for athletes/admins.
+    // Subscription pricing isn't here — that's a global setting per package.
     coach_specialty: "",
     coach_bio: "",
     coach_location: "",
-    coach_monthly_price: "",
-    coach_yearly_price: "",
     coach_available: false,
     coach_certified: false,
   });
@@ -303,8 +302,6 @@ export default function AdminDashboard() {
       coach_specialty: (u as any).coach_specialty || "",
       coach_bio: (u as any).coach_bio || "",
       coach_location: (u as any).coach_location || "",
-      coach_monthly_price: (u as any).coach_monthly_price ?? "",
-      coach_yearly_price: (u as any).coach_yearly_price ?? "",
       coach_available: !!(u as any).coach_available,
       coach_certified: !!(u as any).coach_certified,
     });
@@ -329,9 +326,6 @@ export default function AdminDashboard() {
         medical_history: isCoach ? undefined : userEditForm.medical_history,
         medical_file_url: isCoach ? undefined : userEditForm.medical_file_url,
         membership_paid: isCoach ? undefined : userEditForm.membership_paid,
-        // Coach price fields — coerce to numbers when present.
-        coach_monthly_price: isCoach && userEditForm.coach_monthly_price !== "" ? Number(userEditForm.coach_monthly_price) : userEditForm.coach_monthly_price,
-        coach_yearly_price: isCoach && userEditForm.coach_yearly_price !== "" ? Number(userEditForm.coach_yearly_price) : userEditForm.coach_yearly_price,
       };
       const res = await api(`/api/admin/users/${editingUserId}`, { method: "PUT", body: JSON.stringify(payload) });
       const data = await res.json().catch(() => ({}));
@@ -1575,8 +1569,6 @@ export default function AdminDashboard() {
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                   <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Specialty</label><input className="input-base" value={userEditForm.coach_specialty} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_specialty: e.target.value }))} placeholder="e.g. Strength Training" /></div>
                   <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Location</label><input className="input-base" value={userEditForm.coach_location} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_location: e.target.value }))} placeholder="e.g. Cairo" /></div>
-                  <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Monthly price (EGP)</label><input className="input-base" type="number" value={userEditForm.coach_monthly_price} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_monthly_price: e.target.value }))} placeholder="0" /></div>
-                  <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Yearly price (EGP)</label><input className="input-base" type="number" value={userEditForm.coach_yearly_price} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_yearly_price: e.target.value }))} placeholder="0" /></div>
                 </div>
                 <div style={{ marginTop: 12 }}>
                   <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Bio</label>
@@ -1587,7 +1579,7 @@ export default function AdminDashboard() {
                   <span style={{ fontSize: 13, color: userEditForm.coach_certified ? "var(--green)" : "var(--text-muted)" }}>{userEditForm.coach_certified ? "✓ Certified" : "Not certified"}</span>
                 </div>
                 <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10, lineHeight: 1.5 }}>
-                  Certification status is managed from the Certifications page.
+                  Subscription prices are set globally on the Settings page. Certification is managed from the Certifications page.
                 </p>
               </div>
             )}
