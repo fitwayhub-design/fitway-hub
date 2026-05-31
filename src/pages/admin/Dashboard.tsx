@@ -1487,11 +1487,16 @@ export default function AdminDashboard() {
       )}
 
       {/* Gift Modal */}
-      {showUserEditModal && (
+      {showUserEditModal && (() => {
+        // Coaches don't track steps, weight/height, or have a medical file —
+        // those are athlete-only fields. Hide them so the coach edit form is
+        // focused on what an admin actually needs to manage for a coach.
+        const isCoachRow = userEditForm.role === "coach";
+        return (
         <div style={{ position: "fixed", inset: 0, zIndex: 1100, backgroundColor: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 24, width: "100%", maxWidth: 760, maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <p style={{ fontFamily: "var(--font-en)", fontSize: 17, fontWeight: 700 }}>Edit User</p>
+              <p style={{ fontFamily: "var(--font-en)", fontSize: 17, fontWeight: 700 }}>Edit {isCoachRow ? "Coach" : userEditForm.role === "admin" ? "Admin" : userEditForm.role === "moderator" ? "Moderator" : "User"}</p>
               <button onClick={() => setShowUserEditModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}><X size={20} /></button>
             </div>
 
@@ -1502,35 +1507,47 @@ export default function AdminDashboard() {
               <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Password (leave blank to keep)</label><input className="input-base" type="password" value={userEditForm.password} onChange={e => setUserEditForm((f: any) => ({ ...f, password: e.target.value }))} /></div>
               <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Role</label><select className="input-base" value={userEditForm.role} onChange={e => setUserEditForm((f: any) => ({ ...f, role: e.target.value }))}><option value="user">User</option><option value="coach">Coach</option><option value="moderator">Moderator</option><option value="admin">Admin</option></select></div>
               <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Avatar URL</label><input className="input-base" value={userEditForm.avatar} onChange={e => setUserEditForm((f: any) => ({ ...f, avatar: e.target.value }))} /></div>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Points</label><input className="input-base" type="number" value={userEditForm.points} onChange={e => setUserEditForm((f: any) => ({ ...f, points: e.target.value }))} /></div>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Steps</label><input className="input-base" type="number" value={userEditForm.steps} onChange={e => setUserEditForm((f: any) => ({ ...f, steps: e.target.value }))} /></div>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Step Goal</label><input className="input-base" type="number" value={userEditForm.step_goal} onChange={e => setUserEditForm((f: any) => ({ ...f, step_goal: e.target.value }))} /></div>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Height</label><input className="input-base" type="number" value={userEditForm.height} onChange={e => setUserEditForm((f: any) => ({ ...f, height: e.target.value }))} /></div>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Weight</label><input className="input-base" type="number" value={userEditForm.weight} onChange={e => setUserEditForm((f: any) => ({ ...f, weight: e.target.value }))} /></div>
               <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Gender</label><input className="input-base" value={userEditForm.gender} onChange={e => setUserEditForm((f: any) => ({ ...f, gender: e.target.value }))} /></div>
+              {!isCoachRow && <>
+                <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Points</label><input className="input-base" type="number" value={userEditForm.points} onChange={e => setUserEditForm((f: any) => ({ ...f, points: e.target.value }))} /></div>
+                <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Steps</label><input className="input-base" type="number" value={userEditForm.steps} onChange={e => setUserEditForm((f: any) => ({ ...f, steps: e.target.value }))} /></div>
+                <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Step Goal</label><input className="input-base" type="number" value={userEditForm.step_goal} onChange={e => setUserEditForm((f: any) => ({ ...f, step_goal: e.target.value }))} /></div>
+                <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Height</label><input className="input-base" type="number" value={userEditForm.height} onChange={e => setUserEditForm((f: any) => ({ ...f, height: e.target.value }))} /></div>
+                <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Weight</label><input className="input-base" type="number" value={userEditForm.weight} onChange={e => setUserEditForm((f: any) => ({ ...f, weight: e.target.value }))} /></div>
+              </>}
             </div>
 
-            <div style={{ marginTop: 12 }}>
-              <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Medical History</label>
-              <textarea className="input-base" rows={3} value={userEditForm.medical_history} onChange={e => setUserEditForm((f: any) => ({ ...f, medical_history: e.target.value }))} style={{ resize: "vertical" }} />
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Medical File URL</label>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input className="input-base" value={userEditForm.medical_file_url} onChange={e => setUserEditForm((f: any) => ({ ...f, medical_file_url: e.target.value }))} style={{ flex: 1, minWidth: 220 }} />
-                <label style={{ padding: "10px 12px", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", background: "var(--bg-surface)", cursor: medicalUploading ? "not-allowed" : "pointer", color: "var(--text-secondary)", fontSize: 12, whiteSpace: "nowrap" }}>
-                  {medicalUploading ? "Uploading..." : "Upload Medical File"}
-                  <input type="file" hidden accept="image/*" disabled={medicalUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadMedicalForUser(f); }} />
-                </label>
+            {!isCoachRow && <>
+              <div style={{ marginTop: 12 }}>
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Medical History</label>
+                <textarea className="input-base" rows={3} value={userEditForm.medical_history} onChange={e => setUserEditForm((f: any) => ({ ...f, medical_history: e.target.value }))} style={{ resize: "vertical" }} />
               </div>
-              <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>JPG, PNG — max 5 MB</p>
-            </div>
+
+              <div style={{ marginTop: 10 }}>
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Medical File URL</label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input className="input-base" value={userEditForm.medical_file_url} onChange={e => setUserEditForm((f: any) => ({ ...f, medical_file_url: e.target.value }))} style={{ flex: 1, minWidth: 220 }} />
+                  <label style={{ padding: "10px 12px", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", background: "var(--bg-surface)", cursor: medicalUploading ? "not-allowed" : "pointer", color: "var(--text-secondary)", fontSize: 12, whiteSpace: "nowrap" }}>
+                    {medicalUploading ? "Uploading..." : "Upload Medical File"}
+                    <input type="file" hidden accept="image/*" disabled={medicalUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadMedicalForUser(f); }} />
+                  </label>
+                </div>
+                <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>JPG, PNG — max 5 MB</p>
+              </div>
+            </>}
 
             <div style={{ display: "flex", gap: 14, marginTop: 14, flexWrap: "wrap" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}><input type="checkbox" checked={!!userEditForm.membership_paid} onChange={e => setUserEditForm((f: any) => ({ ...f, membership_paid: e.target.checked }))} /> Membership Paid</label>
+              {!isCoachRow && (
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}><input type="checkbox" checked={!!userEditForm.membership_paid} onChange={e => setUserEditForm((f: any) => ({ ...f, membership_paid: e.target.checked }))} /> Membership Paid</label>
+              )}
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}><input type="checkbox" checked={!!userEditForm.coach_membership_active} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_membership_active: e.target.checked }))} /> {t("coach_membership")} {t("active")}</label>
             </div>
+
+            {isCoachRow && (
+              <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 14, lineHeight: 1.5 }}>
+                Coach-specific fields like specialty, bio, location, and pricing are edited from the coach's own profile page (or the Coaches tab).
+              </p>
+            )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
               <button onClick={() => setShowUserEditModal(false)} style={{ padding: "10px 14px", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-secondary)", cursor: "pointer" }}>Cancel</button>
@@ -1540,7 +1557,8 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Gift Modal */}
       {showGiftModal && (
