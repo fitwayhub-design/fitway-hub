@@ -35,7 +35,25 @@ router.post('/bootstrap-admin', async (req: any, res: Response) => {
 // ── Users ──────────────────────────────────────────────────────────────────────
 router.get('/users', authenticateToken, adminOnly, async (_req: Request, res: Response) => {
   try {
-    const users = await query('SELECT id, name, email, role, avatar, is_premium, points, steps, step_goal, height, weight, gender, medical_history, medical_file_url, membership_paid, coach_membership_active, created_at FROM users ORDER BY created_at DESC');
+    // LEFT JOIN coach_profiles so the admin edit modal has the coach-specific
+    // fields ready without a second round-trip. Athletes and admins just get
+    // NULLs in the coach_* columns.
+    const users = await query(`
+      SELECT u.id, u.name, u.email, u.role, u.avatar, u.is_premium,
+             u.points, u.steps, u.step_goal, u.height, u.weight, u.gender,
+             u.medical_history, u.medical_file_url,
+             u.membership_paid, u.coach_membership_active, u.created_at,
+             cp.specialty   AS coach_specialty,
+             cp.bio         AS coach_bio,
+             cp.location    AS coach_location,
+             cp.monthly_price AS coach_monthly_price,
+             cp.yearly_price  AS coach_yearly_price,
+             cp.available     AS coach_available,
+             cp.certified     AS coach_certified
+      FROM users u
+      LEFT JOIN coach_profiles cp ON cp.user_id = u.id
+      ORDER BY u.created_at DESC
+    `);
     res.json({ users });
   } catch { res.status(500).json({ message: 'Failed to fetch users' }); }
 });
@@ -245,8 +263,42 @@ router.put('/users/:id', authenticateToken, adminOnly, async (req: any, res: Res
       ]
     );
 
+    // If this account is (or just became) a coach, upsert their coach_profile
+    // so admins can edit specialty/bio/location/pricing/availability inline.
+    // Only fields that were sent on the body get written; the rest stay put.
+    if (role === 'coach') {
+      const profileFields: Record<string, any> = {};
+      if (body.coach_specialty !== undefined)      profileFields.specialty     = String(body.coach_specialty || '').trim();
+      if (body.coach_bio !== undefined)            profileFields.bio           = String(body.coach_bio || '').trim();
+      if (body.coach_location !== undefined)       profileFields.location      = String(body.coach_location || '').trim();
+      if (body.coach_monthly_price !== undefined)  profileFields.monthly_price = body.coach_monthly_price === '' ? 0 : Number(body.coach_monthly_price);
+      if (body.coach_yearly_price !== undefined)   profileFields.yearly_price  = body.coach_yearly_price === '' ? 0 : Number(body.coach_yearly_price);
+      if (body.coach_available !== undefined)      profileFields.available     = body.coach_available ? 1 : 0;
+
+      if (Object.keys(profileFields).length > 0) {
+        const existingProfile = await get<any>('SELECT id FROM coach_profiles WHERE user_id = ?', [nextId]).catch(() => null);
+        if (existingProfile) {
+          const setSql = Object.keys(profileFields).map(k => `${k} = ?`).join(', ');
+          await run(`UPDATE coach_profiles SET ${setSql} WHERE user_id = ?`, [...Object.values(profileFields), nextId]);
+        } else {
+          const cols = ['user_id', ...Object.keys(profileFields)];
+          const placeholders = cols.map(() => '?').join(', ');
+          await run(`INSERT INTO coach_profiles (${cols.join(', ')}) VALUES (${placeholders})`, [nextId, ...Object.values(profileFields)]);
+        }
+      }
+    }
+
     const updated = await get<any>(
-      'SELECT id, name, email, role, avatar, is_premium, points, steps, step_goal, height, weight, gender, medical_history, medical_file_url, membership_paid, coach_membership_active, created_at FROM users WHERE id = ?',
+      `SELECT u.id, u.name, u.email, u.role, u.avatar, u.is_premium,
+              u.points, u.steps, u.step_goal, u.height, u.weight, u.gender,
+              u.medical_history, u.medical_file_url, u.membership_paid,
+              u.coach_membership_active, u.created_at,
+              cp.specialty AS coach_specialty, cp.bio AS coach_bio,
+              cp.location AS coach_location, cp.monthly_price AS coach_monthly_price,
+              cp.yearly_price AS coach_yearly_price, cp.available AS coach_available,
+              cp.certified AS coach_certified
+       FROM users u LEFT JOIN coach_profiles cp ON cp.user_id = u.id
+       WHERE u.id = ?`,
       [nextId]
     );
 
