@@ -11,7 +11,6 @@ import { useI18n } from "@/context/I18nContext";
 import { useTheme } from "@/context/ThemeContext";
 import { SharedSidebar, NavItem } from "@/components/layout/SharedSidebar";
 import PaymentForm from "@/components/app/PaymentForm";
-import LocationPermissionModal, { shouldAskForLocation } from "@/components/app/LocationPermissionModal";
 import { getApiBase } from "@/lib/api";
 
 const navItems: NavItem[] = [
@@ -168,7 +167,6 @@ export function CoachLayout() {
   const location = useLocation();
   const brandLogo = getBrandLogoForLang(branding, lang, isDark);
   const [showPayment, setShowPayment] = useState(false);
-  const [showLocationModal, setShowLocationModal] = useState(false);
   const [features, setFeatures] = useState<Record<string, boolean>>({});
   const isFeatureEnabled = useCallback((path: string) => {
     const key = FEATURE_BY_PATH[path];
@@ -186,12 +184,6 @@ export function CoachLayout() {
     }
   }, []);
 
-  useEffect(() => {
-    if (token && user && shouldAskForLocation()) {
-      const timer = setTimeout(() => setShowLocationModal(true), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [token, user]);
   useEffect(() => {
     fetchFeatures();
     const onRefresh = () => fetchFeatures();
@@ -334,10 +326,6 @@ export function CoachLayout() {
       </main>
 
       {isMobile && <MobileBottomBar />}
-
-      {showLocationModal && (
-        <LocationPermissionModal token={token} onDismiss={() => setShowLocationModal(false)} />
-      )}
     </div>
   );
 }
