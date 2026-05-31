@@ -157,7 +157,6 @@ const AdminChat = lazy(() => import("@/pages/admin/Chat"));
 const AdminCoachReports = lazy(() => import("@/pages/admin/CoachReports"));
 const AdminAppImages = lazy(() => import("@/pages/admin/AppImagesManager"));
 const AdminEmailServer = lazy(() => import("@/pages/admin/EmailServer"));
-const AdminTrainings = lazy(() => import("@/pages/admin/Trainings"));
 
 // ── Page spinner (shown while lazy chunks download) ────────────────────────────
 function PageSpinner() {
@@ -392,8 +391,7 @@ export default function App() {
                 <Route path="/admin/users" element={<AdminDashboard />} />
                 <Route path="/admin/coaches" element={<AdminDashboard />} />
                 <Route path="/admin/payments" element={<AdminDashboard />} />
-                <Route path="/admin/videos" element={<Navigate to="/admin/trainings" replace />} />
-                <Route path="/admin/trainings" element={<AdminTrainings />} />
+                <Route path="/admin/videos" element={<AdminDashboard />} />
                 <Route path="/admin/ads" element={<AdminAdsManager />} />
                 <Route path="/admin/ad-settings" element={<AdsSettingsPanel />} />
                 <Route path="/admin/chat" element={<AdminChat />} />

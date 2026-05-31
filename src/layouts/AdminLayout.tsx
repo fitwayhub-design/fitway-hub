@@ -1,8 +1,8 @@
 import { Outlet, Link, NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Settings, Activity,
-  Gift, DollarSign, Megaphone, UserCheck, Globe, MessageCircle, FileText,
-  ClipboardList, Wallet, Bell, ShieldCheck, Flag, Image as ImageIcon, Mail, Dumbbell,
+  Gift, DollarSign, Video, Megaphone, UserCheck, Globe, MessageCircle, FileText,
+  ClipboardList, Wallet, Bell, ShieldCheck, Flag, Image as ImageIcon, Mail,
 } from "lucide-react";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useI18n } from "@/context/I18nContext";
@@ -18,7 +18,7 @@ const navItems: NavItem[] = [
   { path: "/admin/coach-reports", icon: Flag, label: "Coach Reports" },
   { path: "/admin/tickets",   icon: MessageCircle,   label: "Tickets" },
   { path: "/admin/payments",  icon: DollarSign,      label: "Payments" },
-  { path: "/admin/trainings", icon: Dumbbell,        label: "Trainings" },
+  { path: "/admin/videos",    icon: Video,           label: "Videos" },
   { path: "/admin/ads",         icon: Megaphone,       label: "Ads Manager" },
   { path: "/admin/ad-settings", icon: Settings,        label: "Ads Settings" },
   { path: "/admin/chat",      icon: MessageCircle,   label: "Chat" },
@@ -41,7 +41,7 @@ const bottomNavItems: NavItem[] = [
 ];
 
 const moreItems: NavItem[] = [
-  { path: "/admin/trainings", icon: Dumbbell,  label: "Trainings" },
+  { path: "/admin/videos",  icon: Video,     label: "Videos" },
   { path: "/admin/ads",     icon: Megaphone, label: "Coach Ads" },
   { path: "/admin/chat",           icon: MessageCircle, label: "Chat" },
   { path: "/admin/gifts",          icon: Gift,          label: "Gifts" },
@@ -67,7 +67,7 @@ export function AdminLayout() {
     { path: "/admin/coach-reports", icon: Flag, label: t("coach_reports") },
     { path: "/admin/tickets",   icon: MessageCircle,   label: "Tickets" },
     { path: "/admin/payments",  icon: DollarSign,      label: t("payments") },
-    { path: "/admin/trainings", icon: Dumbbell,        label: lang === "ar" ? "التدريبات" : "Trainings" },
+    { path: "/admin/videos",    icon: Video,           label: t("videos") },
     { path: "/admin/ads",       icon: Megaphone,       label: t("ads_manager") },
     { path: "/admin/chat",      icon: MessageCircle,   label: t("chat") },
     { path: "/admin/gifts",     icon: Gift,            label: t("gifts") },
@@ -89,7 +89,7 @@ export function AdminLayout() {
   ];
 
   const translatedMoreItems: NavItem[] = [
-    { path: "/admin/trainings", icon: Dumbbell,     label: lang === "ar" ? "التدريبات" : "Trainings" },
+    { path: "/admin/videos",  icon: Video,          label: t("videos") },
     { path: "/admin/ads",     icon: Megaphone,      label: t("ads_manager") },
     { path: "/admin/coach-reports", icon: Flag,    label: t("coach_reports") },
     { path: "/admin/payments", icon: DollarSign,    label: t("payments") },

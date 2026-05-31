@@ -28,6 +28,7 @@ interface TrainingVideo {
   thumbnail: string;
   created_at: string;
   coach_id?: number | null;
+  training_id?: number | null;
   approval_status?: "pending" | "approved" | "rejected";
   rejection_reason?: string | null;
   submitted_by_name?: string;
@@ -79,7 +80,9 @@ export default function AdminDashboard() {
   const [userEditSaving, setUserEditSaving] = useState(false);
   const [medicalUploading, setMedicalUploading] = useState(false);
   const [giftForm, setGiftForm] = useState({ user_id: 0, title: "", description: "", type: "points", value: 100 });
-  const [videoForm, setVideoForm] = useState({ title: "", description: "", duration: "", category: "HIIT", is_premium: false, is_short: false, coach_id: "", goal: "", body_area: "", equipment: "", level: "" });
+  const [videoForm, setVideoForm] = useState({ title: "", description: "", duration: "", duration_seconds: 0, category: "HIIT", is_premium: false, is_short: false, training_id: "", goal: "", body_area: "", equipment: "", level: "" });
+  const [trainings, setTrainings] = useState<Array<{ id: number; title: string }>>([]);
+  const [newTrainingTitle, setNewTrainingTitle] = useState("");
   const [userEditForm, setUserEditForm] = useState<any>({
     id: "",
     name: "",
@@ -180,12 +183,13 @@ export default function AdminDashboard() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [usersRes, videosRes, adsRes, paymentsRes, giftsRes] = await Promise.all([
+      const [usersRes, videosRes, adsRes, paymentsRes, giftsRes, trainingsRes] = await Promise.all([
         api("/api/admin/users"),
         api("/api/admin/videos"),
         api("/api/admin/ads"),
         api("/api/admin/payments"),
         api("/api/admin/gifts"),
+        api("/api/admin/trainings"),
       ]);
       const usersData = await usersRes.json();
       if (usersData.users) {
@@ -199,6 +203,7 @@ export default function AdminDashboard() {
         });
       }
       if (videosRes.ok) { const d = await videosRes.json(); setVideos(d.videos || []); }
+      if (trainingsRes.ok) { const d = await trainingsRes.json(); setTrainings((d.trainings || []).map((t: any) => ({ id: t.id, title: t.title }))); }
       if (adsRes.ok) { const d = await adsRes.json(); setAds(d.ads || []); }
       if (paymentsRes.ok) {
         const d = await paymentsRes.json();
@@ -371,59 +376,75 @@ export default function AdminDashboard() {
 
   const addVideo = async () => {
     if (!videoForm.title) { showMsg("❌ Title is required"); return; }
-    if (videoSourceType === "upload" && !videoFile) { showMsg("❌ Title and video file are required"); return; }
-    if (videoSourceType === "youtube" && !youtubeUrl.trim()) { showMsg("❌ YouTube URL is required"); return; }
+    if (!videoFile) { showMsg("❌ Video file is required"); return; }
     try {
-      setVideoUploadProgress(videoSourceType === "youtube" ? "Saving..." : "Uploading...");
-
-      if (videoSourceType === "youtube") {
-        const ytRegex = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-        if (!youtubeUrl.match(ytRegex)) { showMsg("❌ Invalid YouTube URL"); return; }
-        const res = await fetch(getApiBase() + "/api/admin/videos/youtube", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ ...videoForm, youtube_url: youtubeUrl }),
-        });
-        const data = await res.json();
-        if (res.ok && data.video) {
-          setVideos(v => [data.video, ...v]);
-          setShowVideoModal(false);
-          setVideoForm({ title: "", description: "", duration: "", category: "HIIT", is_premium: false, is_short: false, coach_id: "", goal: "", body_area: "", equipment: "", level: "" });
-          setYoutubeUrl("");
-          setVideoSourceType("upload");
-          showMsg("🎬 YouTube video added!");
-        } else { showMsg("❌ " + (data.message || "Failed to add video")); }
-      } else {
-        const formData = new FormData();
-        formData.append("title", videoForm.title);
-        formData.append("description", videoForm.description);
-        formData.append("duration", videoForm.duration);
-        formData.append("category", videoForm.category);
-        formData.append("is_premium", videoForm.is_premium ? "1" : "0");
-        formData.append("is_short", videoForm.is_short ? "1" : "0");
-        if (videoForm.coach_id) formData.append("coach_id", videoForm.coach_id);
-        if (videoForm.goal) formData.append("goal", videoForm.goal);
-        if (videoForm.body_area) formData.append("body_area", videoForm.body_area);
-        if (videoForm.equipment) formData.append("equipment", videoForm.equipment);
-        if (videoForm.level) formData.append("level", videoForm.level);
-        formData.append("video", videoFile!);
-        if (thumbnailFile) formData.append("thumbnail", thumbnailFile);
-        const res = await fetch(getApiBase() + "/api/admin/videos", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        });
-        const data = await res.json();
-        if (res.ok && data.video) {
-          setVideos(v => [data.video, ...v]);
-          setShowVideoModal(false);
-          setVideoForm({ title: "", description: "", duration: "", category: "HIIT", is_premium: false, is_short: false, coach_id: "", goal: "", body_area: "", equipment: "", level: "" });
-          setVideoFile(null); setThumbnailFile(null);
-          showMsg("🎬 Video uploaded!");
-        } else { showMsg("❌ " + (data.message || "Failed to upload video")); }
-      }
+      setVideoUploadProgress("Uploading...");
+      const formData = new FormData();
+      formData.append("title", videoForm.title);
+      formData.append("description", videoForm.description);
+      formData.append("duration", videoForm.duration);
+      formData.append("duration_seconds", String(videoForm.duration_seconds || 0));
+      formData.append("category", videoForm.category);
+      formData.append("is_premium", videoForm.is_premium ? "1" : "0");
+      formData.append("is_short", videoForm.is_short ? "1" : "0");
+      if (videoForm.training_id) formData.append("training_id", videoForm.training_id);
+      if (videoForm.goal) formData.append("goal", videoForm.goal);
+      if (videoForm.body_area) formData.append("body_area", videoForm.body_area);
+      if (videoForm.equipment) formData.append("equipment", videoForm.equipment);
+      if (videoForm.level) formData.append("level", videoForm.level);
+      formData.append("video", videoFile);
+      if (thumbnailFile) formData.append("thumbnail", thumbnailFile);
+      const res = await fetch(getApiBase() + "/api/admin/videos", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.video) {
+        setVideos(v => [data.video, ...v]);
+        setShowVideoModal(false);
+        setVideoForm({ title: "", description: "", duration: "", duration_seconds: 0, category: "HIIT", is_premium: false, is_short: false, training_id: "", goal: "", body_area: "", equipment: "", level: "" });
+        setVideoFile(null); setThumbnailFile(null);
+        showMsg("🎬 Video uploaded!");
+      } else { showMsg("❌ " + (data.message || "Failed to upload video")); }
     } catch { showMsg("❌ Failed to add video"); }
     finally { setVideoUploadProgress(""); }
+  };
+
+  // Read the file's duration from a hidden <video> so the admin doesn't have
+  // to type it. mm:ss label is stored alongside the seconds count.
+  const handleVideoFilePicked = (file: File | null) => {
+    setVideoFile(file);
+    if (!file) {
+      setVideoForm(f => ({ ...f, duration: "", duration_seconds: 0 }));
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const probe = document.createElement("video");
+    probe.preload = "metadata";
+    probe.onloadedmetadata = () => {
+      const secs = Math.max(0, Math.floor(probe.duration || 0));
+      const label = secs > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}` : "";
+      setVideoForm(f => ({ ...f, duration: label, duration_seconds: secs }));
+      URL.revokeObjectURL(url);
+    };
+    probe.onerror = () => URL.revokeObjectURL(url);
+    probe.src = url;
+  };
+
+  const createInlineTraining = async () => {
+    const title = newTrainingTitle.trim();
+    if (!title) return;
+    try {
+      const res = await api("/api/admin/trainings", { method: "POST", body: JSON.stringify({ title }) });
+      const data = await res.json();
+      if (res.ok && data.training) {
+        setTrainings(ts => [...ts, { id: data.training.id, title: data.training.title }]);
+        setVideoForm(f => ({ ...f, training_id: String(data.training.id) }));
+        setNewTrainingTitle("");
+        showMsg("✅ Training created");
+      } else { showMsg("❌ " + (data.message || "Failed to create training")); }
+    } catch { showMsg("❌ Failed to create training"); }
   };
 
   const deleteVideo = async (videoId: number) => {
@@ -488,7 +509,7 @@ export default function AdminDashboard() {
   const tabDef: { id: Tab; label: string }[] = [
     { id: "overview", label: t("overview") }, { id: "users", label: t("users") }, { id: "coaches", label: t("coaches") },
     { id: "payments", label: t("payments") }, { id: "subscriptions", label: `📋 ${t("subscriptions")}` }, { id: "withdrawals", label: `💸 ${t("withdrawals")}` },
-    { id: "ads", label: t("coach_ads") },
+    { id: "videos", label: t("videos") }, { id: "ads", label: t("coach_ads") },
     { id: "chat", label: t("chat") },
     { id: "gifts", label: t("gifts") }, { id: "community", label: `🛡 ${t("community")}` },
     { id: "website", label: `🌐 ${t("website_config")}` },
@@ -863,13 +884,11 @@ export default function AdminDashboard() {
                   {v.approval_status === "rejected" && v.rejection_reason && (
                     <p style={{ fontSize: 11, color: "var(--red)", marginBottom: 8 }}>Reason: {v.rejection_reason}</p>
                   )}
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ fontSize: 10, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t("coach")}</label>
-                    <select className="input-base" value={v.coach_id ?? ""} onChange={e => assignVideoCoach(v.id, e.target.value)} style={{ fontSize: 12, padding: "7px 10px" }}>
-                      <option value="">{t("no_coach_general")}</option>
-                      {coaches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
+                  {v.training_id != null && (
+                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
+                      Training: {trainings.find(tr => tr.id === v.training_id)?.title || `#${v.training_id}`}
+                    </p>
+                  )}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {v.approval_status !== "approved" && (
                       <button onClick={() => reviewVideo(v.id, "approved")} style={{ padding: "7px 12px", borderRadius: "var(--radius-full)", background: "rgba(255,214,0,0.12)", border: "1px solid rgba(255,214,0,0.3)", color: "var(--accent)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
@@ -1644,100 +1663,67 @@ export default function AdminDashboard() {
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, backgroundColor: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 28, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-              <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700 }}>🎬 {videoSourceType === "youtube" ? "Add YouTube Video" : "Upload Training Video"}</p>
-              <button onClick={() => { setShowVideoModal(false); setVideoSourceType("upload"); setYoutubeUrl(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}><X size={20} /></button>
+              <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700 }}>🎬 Upload Training Video</p>
+              <button onClick={() => setShowVideoModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}><X size={20} /></button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
-              {/* Source type toggle */}
-              <div style={{ display: "flex", gap: 8 }}>
-                {(["upload", "youtube"] as const).map(t => (
-                  <button key={t} onClick={() => setVideoSourceType(t)} style={{ flex: 1, padding: "9px", borderRadius: "var(--radius-full)", background: videoSourceType === t ? "var(--red)" : "var(--bg-surface)", color: videoSourceType === t ? "#fff" : "var(--text-muted)", border: `1px solid ${videoSourceType === t ? "var(--red)" : "var(--border)"}`, cursor: "pointer", fontSize: 13, fontWeight: 700, transition: "all 0.15s" }}>
-                    {t === "upload" ? "📁 Upload File" : "▶️ YouTube URL"}
-                  </button>
-                ))}
-              </div>
 
               <div>
                 <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Title *</label>
                 <input className="input-base" value={videoForm.title} onChange={e => setVideoForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Full Body HIIT Blast" />
               </div>
 
-              {videoSourceType === "youtube" ? (
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>YouTube URL *</label>
-                  <input className="input-base" value={youtubeUrl} onChange={e => setYoutubeUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
-                  {youtubeUrl && (() => {
-                    const m = youtubeUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-                    if (m) return (
-                      <div style={{ marginTop: 10, borderRadius: 10, overflow: "hidden", border: "1px solid var(--border)", position: "relative" }}>
-                        <img src={`https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`} alt="YouTube thumbnail" style={{ width: "100%", display: "block" }} />
-                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
-                          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(255,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <Play size={22} color="#fff" fill="#fff" />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                    return <p style={{ color: "var(--red)", fontSize: 12, marginTop: 6 }}>⚠️ Couldn\'t detect a valid YouTube video ID</p>;
-                  })()}
+              <div>
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Training *</label>
+                <select className="input-base" value={videoForm.training_id} onChange={e => setVideoForm(f => ({ ...f, training_id: e.target.value }))}>
+                  <option value="">— Select training —</option>
+                  {trainings.map(tr => <option key={tr.id} value={String(tr.id)}>{tr.title}</option>)}
+                </select>
+                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                  <input className="input-base" value={newTrainingTitle} onChange={e => setNewTrainingTitle(e.target.value)} placeholder="Or create a new training…" style={{ flex: 1, fontSize: 12 }} />
+                  <button onClick={createInlineTraining} disabled={!newTrainingTitle.trim()} style={{ padding: "8px 12px", borderRadius: "var(--radius-full)", background: newTrainingTitle.trim() ? "var(--accent)" : "var(--bg-surface)", border: "none", color: newTrainingTitle.trim() ? "#000" : "var(--text-muted)", cursor: newTrainingTitle.trim() ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 700 }}>+ Add</button>
                 </div>
-              ) : (
-                <>
-                  <div>
-                    <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Video File * (.mp4, .mov, .webm — max 50MB)</label>
-                    <div style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius-full)", padding: "18px 14px", textAlign: "center", cursor: "pointer", backgroundColor: videoFile ? "rgba(16,185,129,0.07)" : "var(--bg-surface)" }}
-                      onClick={() => document.getElementById("videoFileInput")?.click()}>
-                      {videoFile ? (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                          <Play size={18} color="var(--accent)" />
-                          <span style={{ fontSize: 13, color: "var(--accent)", fontWeight: 600 }}>{videoFile.name}</span>
-                          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>({(videoFile.size / 1024 / 1024).toFixed(1)} MB)</span>
-                        </div>
-                      ) : (
-                        <div>
-                          <Play size={28} color="var(--text-muted)" style={{ marginBottom: 6 }} />
-                          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Click to select video file</p>
-                          <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>MP4 or MOV — max 50 MB</p>
-                        </div>
-                      )}
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Video File * (.mp4, .mov, .webm — max 50MB)</label>
+                <div style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius-full)", padding: "18px 14px", textAlign: "center", cursor: "pointer", backgroundColor: videoFile ? "rgba(16,185,129,0.07)" : "var(--bg-surface)" }}
+                  onClick={() => document.getElementById("videoFileInput")?.click()}>
+                  {videoFile ? (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+                      <Play size={18} color="var(--accent)" />
+                      <span style={{ fontSize: 13, color: "var(--accent)", fontWeight: 600 }}>{videoFile.name}</span>
+                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>({(videoFile.size / 1024 / 1024).toFixed(1)} MB{videoForm.duration ? ` · ${videoForm.duration}` : ""})</span>
                     </div>
-                    <input id="videoFileInput" type="file" accept="video/*" style={{ display: "none" }} onChange={e => setVideoFile(e.target.files?.[0] || null)} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Thumbnail Image (optional)</label>
-                    <div style={{ border: "1px dashed var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px", textAlign: "center", cursor: "pointer", backgroundColor: "var(--bg-surface)" }}
-                      onClick={() => document.getElementById("thumbFileInput")?.click()}>
-                      {thumbnailFile ? <span style={{ fontSize: 13, color: "var(--accent)" }}>✅ {thumbnailFile.name}</span>
-                        : <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Click to select thumbnail</span>}
+                  ) : (
+                    <div>
+                      <Play size={28} color="var(--text-muted)" style={{ marginBottom: 6 }} />
+                      <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Click to select video file</p>
+                      <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>MP4 or MOV — max 50 MB · duration auto-detected</p>
                     </div>
-                    <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>JPG or PNG — recommended 1280×720px (16:9)</p>
-                    <input id="thumbFileInput" type="file" accept="image/*" style={{ display: "none" }} onChange={e => setThumbnailFile(e.target.files?.[0] || null)} />
-                  </div>
-                </>
-              )}
+                  )}
+                </div>
+                <input id="videoFileInput" type="file" accept="video/*" style={{ display: "none" }} onChange={e => handleVideoFilePicked(e.target.files?.[0] || null)} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Thumbnail Image (optional)</label>
+                <div style={{ border: "1px dashed var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px", textAlign: "center", cursor: "pointer", backgroundColor: "var(--bg-surface)" }}
+                  onClick={() => document.getElementById("thumbFileInput")?.click()}>
+                  {thumbnailFile ? <span style={{ fontSize: 13, color: "var(--accent)" }}>✅ {thumbnailFile.name}</span>
+                    : <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Click to select thumbnail</span>}
+                </div>
+                <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>JPG or PNG — recommended 1280×720px (16:9)</p>
+                <input id="thumbFileInput" type="file" accept="image/*" style={{ display: "none" }} onChange={e => setThumbnailFile(e.target.files?.[0] || null)} />
+              </div>
 
               <div>
                 <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Description</label>
                 <textarea className="input-base" value={videoForm.description} onChange={e => setVideoForm(f => ({ ...f, description: e.target.value }))} rows={2} style={{ resize: "none" }} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Duration (e.g. 45:00)</label>
-                  <input className="input-base" value={videoForm.duration} onChange={e => setVideoForm(f => ({ ...f, duration: e.target.value }))} placeholder="45:00" />
-                </div>
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Category</label>
-                  <select className="input-base" value={videoForm.category} onChange={e => setVideoForm(f => ({ ...f, category: e.target.value }))}>
-                    {["HIIT", "Strength", "Yoga", "Cardio", "Nutrition", "General"].map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
               <div>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Assign Coach (optional)</label>
-                <select className="input-base" value={videoForm.coach_id} onChange={e => setVideoForm(f => ({ ...f, coach_id: e.target.value }))}>
-                  <option value="">No coach (general)</option>
-                  {coaches.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Category</label>
+                <select className="input-base" value={videoForm.category} onChange={e => setVideoForm(f => ({ ...f, category: e.target.value }))}>
+                  {["HIIT", "Strength", "Yoga", "Cardio", "Nutrition", "General"].map(c => <option key={c}>{c}</option>)}
                 </select>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -1793,7 +1779,7 @@ export default function AdminDashboard() {
                 </div>
               )}
               <button onClick={addVideo} disabled={!!videoUploadProgress} style={{ padding: "13px", borderRadius: "var(--radius-full)", backgroundColor: videoUploadProgress ? "var(--bg-surface)" : "var(--red)", color: videoUploadProgress ? "var(--text-muted)" : "#fff", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, border: "none", cursor: videoUploadProgress ? "not-allowed" : "pointer" }}>
-                {videoUploadProgress ? "Saving..." : videoSourceType === "youtube" ? "Add YouTube Video" : "Upload Video"}
+                {videoUploadProgress ? "Saving..." : "Upload Video"}
               </button>
             </div>
           </div>
