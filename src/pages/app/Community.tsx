@@ -32,6 +32,7 @@ interface SponsoredAd {
   id: number; title: string; description: string; image_url?: string; video_url?: string;
   media_type?: string; coach_name: string; coach_avatar?: string; coach_id?: number; objective?: string; contact_phone?: string;
   cta: string; specialty: string;
+  coach_rating?: number; coach_review_count?: number;
 }
 interface TrendingTag { tag: string; count: number; }
 
@@ -805,17 +806,39 @@ function SponsoredAdCard({ ad, token }: { ad: SponsoredAd; token: string | null 
           <img
             src={ad.coach_avatar || getAvatar(ad.coach_name, null, null, ad.coach_name)}
             alt={ad.coach_name}
-            style={{ width: 36, height: 36, borderRadius: "50%", backgroundColor: "var(--bg-surface)", border: "2px solid rgba(59,139,255,0.2)" }}
+            style={{ width: 40, height: 40, borderRadius: "50%", backgroundColor: "var(--bg-surface)", border: "2px solid rgba(59,139,255,0.25)" }}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-en)" }}>{ad.title}</p>
-            <p style={{ fontSize: 12, color: "var(--blue)" }}>{ad.coach_name} · {ad.specialty}</p>
+            <p style={{ fontSize: 12, color: "var(--blue)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span>{ad.coach_name}</span>
+              <span style={{ color: "var(--text-muted)" }}>·</span>
+              <span>{ad.specialty}</span>
+              {typeof ad.coach_rating === "number" && ad.coach_rating > 0 && (
+                <>
+                  <span style={{ color: "var(--text-muted)" }}>·</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "var(--amber)" }}>
+                    ★ {ad.coach_rating.toFixed(1)}
+                    {typeof ad.coach_review_count === "number" && ad.coach_review_count > 0 && (
+                      <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>({ad.coach_review_count})</span>
+                    )}
+                  </span>
+                </>
+              )}
+            </p>
           </div>
         </div>
         {ad.description && (
           <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, marginBottom: 12 }}>
             {ad.description}
           </p>
+        )}
+        {isCall && ad.coach_id && (
+          <Link to={`/app/coaching?coach=${ad.coach_id}`}
+            onClick={(e) => e.stopPropagation()}
+            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, color: "var(--blue)", textDecoration: "none", marginBottom: 10 }}>
+            View Profile →
+          </Link>
         )}
         {target && (
           <span

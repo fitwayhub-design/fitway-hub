@@ -762,6 +762,21 @@ export default function AdminSettings() {
                 + Add 5 Fake Coaches
               </button>
               <button onClick={async () => {
+                if (!confirm("Remove ALL fake coaches? This will delete every coach with an @fitwayhub.coach email and cascade their posts, subscriptions, ads, and reviews. This cannot be undone.")) return;
+                setGenLoading(true); setGenMsg("");
+                try {
+                  const res = await api("/api/admin/remove-fake-coaches", { method: "POST" });
+                  const d = await res.json().catch(() => ({}));
+                  if (res.ok) setGenMsg(`✅ ${d?.message || "Fake coaches removed"}`);
+                  else setGenMsg(`❌ ${d?.message || "Failed to remove fake coaches"}`);
+                } catch { setGenMsg("❌ Request failed"); }
+                finally { setGenLoading(false); }
+              }} disabled={genLoading}
+                style={{ padding: "10px 22px", borderRadius: 99, background: genLoading ? "var(--bg-surface)" : "transparent",
+                  color: genLoading ? "var(--text-muted)" : "var(--red)", fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 14, border: "1px solid var(--red)", cursor: genLoading ? "not-allowed" : "pointer" }}>
+                − Remove Fake Coaches
+              </button>
+              <button onClick={async () => {
                 setGenLoading(true); setGenMsg("");
                 try {
                   const res = await api("/api/admin/generate-fake-subs", { method: "POST" });

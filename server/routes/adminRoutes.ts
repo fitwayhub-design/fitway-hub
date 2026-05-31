@@ -1408,6 +1408,70 @@ router.post('/generate-coach-profiles', authenticateToken, adminOnly, async (_re
   }
 });
 
+// Remove every fake coach created by /generate-coach-profiles. The marker is
+// the @fitwayhub.coach email domain — real coaches don't get that domain so
+// this can't touch genuine accounts. Mirrors the cleanup table list used by
+// /fake-users so FK constraints don't trip the delete.
+router.post('/remove-fake-coaches', authenticateToken, adminOnly, async (_req: any, res: Response) => {
+  try {
+    const fakeCoaches = await query<any>(
+      `SELECT id FROM users WHERE role = 'coach' AND email LIKE '%@fitwayhub.coach'`
+    );
+    if (!fakeCoaches.length) return res.json({ removed: 0, message: 'No fake coaches found' });
+
+    const ids = fakeCoaches.map((u: any) => Number(u.id)).filter((id: number) => id > 0);
+    const placeholders = ids.map(() => '?').join(',');
+
+    await run('SET FOREIGN_KEY_CHECKS = 0');
+    const cleanupTables = [
+      { sql: `DELETE FROM post_likes WHERE user_id IN (${placeholders})` },
+      { sql: `DELETE FROM post_comments WHERE user_id IN (${placeholders})` },
+      { sql: `DELETE FROM posts WHERE user_id IN (${placeholders})` },
+      { sql: `DELETE FROM messages WHERE sender_id IN (${placeholders}) OR receiver_id IN (${placeholders})`, double: true },
+      { sql: `DELETE FROM coach_subscriptions WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+      { sql: `DELETE FROM payments WHERE user_id IN (${placeholders})` },
+      { sql: `DELETE FROM gifts WHERE user_id IN (${placeholders})` },
+      { sql: `DELETE FROM user_follows WHERE follower_id IN (${placeholders}) OR following_id IN (${placeholders})`, double: true },
+      { sql: `DELETE FROM coach_follows WHERE follower_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+      { sql: `DELETE FROM chat_requests WHERE sender_id IN (${placeholders}) OR receiver_id IN (${placeholders})`, double: true },
+      { sql: `DELETE FROM workout_plans WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+      { sql: `DELETE FROM nutrition_plans WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+      { sql: `DELETE FROM notifications WHERE user_id IN (${placeholders})` },
+      { sql: `DELETE FROM credit_transactions WHERE user_id IN (${placeholders})` },
+      { sql: `DELETE FROM coaching_meetings WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+      { sql: `DELETE FROM withdrawal_requests WHERE coach_id IN (${placeholders})` },
+      { sql: `DELETE FROM push_tokens WHERE user_id IN (${placeholders})` },
+      { sql: `DELETE FROM push_log WHERE user_id IN (${placeholders})` },
+      { sql: `DELETE FROM coach_ads WHERE coach_id IN (${placeholders})` },
+      { sql: `DELETE FROM ad_payments WHERE coach_id IN (${placeholders})` },
+      { sql: `DELETE FROM coach_reviews WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+      { sql: `DELETE FROM coach_reports WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+      { sql: `DELETE FROM coaching_bookings WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+      { sql: `DELETE FROM certification_requests WHERE coach_id IN (${placeholders})` },
+      { sql: `DELETE FROM coach_profiles WHERE user_id IN (${placeholders})` },
+    ];
+
+    let removed = 0;
+    try {
+      for (const step of cleanupTables) {
+        try {
+          const params = step.double ? [...ids, ...ids] : ids;
+          await run(step.sql, params);
+        } catch { /* some optional tables may not exist */ }
+      }
+      const result: any = await run(`DELETE FROM users WHERE id IN (${placeholders})`, ids);
+      removed = result?.affectedRows ?? ids.length;
+    } finally {
+      await run('SET FOREIGN_KEY_CHECKS = 1');
+    }
+
+    res.json({ removed, message: `Removed ${removed} fake coach${removed === 1 ? '' : 'es'}` });
+  } catch (err: any) {
+    try { await run('SET FOREIGN_KEY_CHECKS = 1'); } catch {}
+    res.status(500).json({ message: 'Failed to remove fake coaches', error: err?.message || 'Unknown error' });
+  }
+});
+
 // ── Fake Accounts Generator ──────────────────────────────────────────────────
 
 // ── Moderator (admin + moderator can use these) ─────────────────────────────
