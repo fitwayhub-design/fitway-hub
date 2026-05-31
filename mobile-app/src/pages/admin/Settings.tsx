@@ -22,7 +22,7 @@ interface AppSetting {
   label: string | null;
 }
 
-type Category = "dashboard" | "access" | "features" | "pricing" | "points" | "payments" | "system";
+type Category = "dashboard" | "access" | "features" | "pricing" | "points" | "payments" | "promo" | "system";
 
 const CATEGORIES: { key: Category; label: string; icon: typeof Palette; desc: string }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, desc: "Hero, sections, visibility" },
@@ -31,6 +31,7 @@ const CATEGORIES: { key: Category; label: string; icon: typeof Palette; desc: st
   { key: "pricing",   label: "Pricing",   icon: CreditCard,      desc: "Fees & packages" },
   { key: "points",    label: "Points",    icon: Star,            desc: "Rewards & bonus points" },
   { key: "payments",  label: "Payments",  icon: CreditCard,      desc: "Payment gateways & methods" },
+  { key: "promo",     label: "Promo codes", icon: Star,          desc: "Discount & gift codes" },
   { key: "system",    label: "System",    icon: Database,        desc: "Backup, server, tools" },
 ];
 
@@ -150,12 +151,12 @@ export default function AdminSettings() {
   const [restoringDb, setRestoringDb] = useState(false);
   const restoreInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Payment settings — Paymob + Fawry support was removed in v3.0 (May 2026).
-  // Only PayPal and manual e-wallet (Vodafone / Orange / WE) are configured here.
+  // Payment settings — Paymob/Fawry/PayPal were all removed (May 2026 meeting).
+  // Only manual e-wallet (Vodafone / Orange / WE / InstaPay) and the Google
+  // Play / Apple App Store IAP plumbing for native subscriptions remain.
   const [paySettings, setPaySettings] = useState<Record<string, string>>({
-    paypal_user_client_id: "", paypal_user_secret: "", paypal_mode: "sandbox", paypal_webhook_id: "",
-    ewallet_phone_vodafone: "", ewallet_phone_orange: "", ewallet_phone_we: "",
-    pm_paypal: "1", pm_credit_card: "0", pm_google_pay: "1", pm_apple_pay: "1",
+    ewallet_phone_vodafone: "", ewallet_phone_orange: "", ewallet_phone_we: "", ewallet_phone_instapay: "",
+    pm_credit_card: "0", pm_google_pay: "1", pm_apple_pay: "1",
     google_play_enabled: "0", google_play_product_id_monthly: "", google_play_product_id_annual: "",
     apple_pay_enabled: "0", apple_pay_product_id_monthly: "", apple_pay_product_id_annual: "",
     coach_cut_percentage: "85", egp_usd_rate: "",
@@ -492,6 +493,74 @@ export default function AdminSettings() {
     );
   }
 
+  function renderPromoCodes() {
+    type Promo = { code: string; type: "percent" | "amount"; value: number; uses_left: number; description: string };
+    const raw = settings.find(s => s.setting_key === "promo_codes")?.setting_value || "[]";
+    let list: Promo[] = [];
+    try { list = JSON.parse(raw); if (!Array.isArray(list)) list = []; } catch { list = []; }
+    const persist = async (next: Promo[]) => {
+      try {
+        await api("/api/admin/app-settings", {
+          method: "PUT",
+          body: JSON.stringify({ promo_codes: JSON.stringify(next) }),
+        });
+        await fetchSettings();
+        showFlash("Promo codes saved", true);
+      } catch { showFlash("Save failed", false); }
+    };
+    const add = () => persist([...list, { code: `CODE${list.length + 1}`, type: "percent", value: 10, uses_left: 100, description: "" }]);
+    const update = (i: number, patch: Partial<Promo>) => {
+      const next = list.map((p, idx) => idx === i ? { ...p, ...patch } : p);
+      persist(next);
+    };
+    const remove = (i: number) => persist(list.filter((_, idx) => idx !== i));
+
+    return (
+      <div style={{ ...card, padding: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            Promo & gift codes are stored as a JSON blob in app settings — admin can add, edit, or remove them here without touching code. Changes save instantly.
+          </p>
+          <button onClick={add} style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10,
+            border: "none", background: "var(--main)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer",
+          }}>
+            + Add code
+          </button>
+        </div>
+        {list.length === 0 ? (
+          <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "40px 0", fontSize: 13 }}>
+            No promo codes yet. Click "Add code" to create one.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Column headers — aligned with the same grid below */}
+            <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 2fr auto", gap: 8, padding: "0 14px", alignItems: "center" }}>
+              {["Code", "Type", "Value", "Uses left", "Description (internal)", ""].map((h, hi) => (
+                <div key={hi} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{h}</div>
+              ))}
+            </div>
+            {list.map((p, i) => (
+              <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px", display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 2fr auto", gap: 8, alignItems: "center" }}>
+                <input value={p.code} onChange={e => update(i, { code: e.target.value.toUpperCase() })} placeholder="CODE" style={{ ...inputStyle, fontWeight: 700, letterSpacing: "0.1em" }} />
+                <select value={p.type} onChange={e => update(i, { type: e.target.value as "percent" | "amount" })} style={inputStyle}>
+                  <option value="percent">% off</option>
+                  <option value="amount">EGP off</option>
+                </select>
+                <input type="number" min={0} value={p.value} onChange={e => update(i, { value: Number(e.target.value) || 0 })} placeholder="Value" style={inputStyle} />
+                <input type="number" min={0} value={p.uses_left} onChange={e => update(i, { uses_left: Number(e.target.value) || 0 })} placeholder="Uses left" style={inputStyle} />
+                <input value={p.description} onChange={e => update(i, { description: e.target.value })} placeholder="Description (internal)" style={inputStyle} />
+                <button onClick={() => remove(i)} title="Delete" style={{
+                  background: "rgba(248,113,113,0.1)", border: "1px solid var(--red)", borderRadius: 10, padding: "7px 10px", color: "var(--red)", cursor: "pointer", fontSize: 12,
+                }}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function renderPayments() {
     const ps = paySettings;
     const set = (key: string, val: string) => setPaySettings(s => ({ ...s, [key]: val }));
@@ -524,33 +593,13 @@ export default function AdminSettings() {
             {inp("ewallet_phone_vodafone", "Vodafone Cash number", "Your registered Vodafone Cash number", "tel")}
             {inp("ewallet_phone_orange", "Orange Cash number", "Your registered Orange Cash number", "tel")}
             {inp("ewallet_phone_we", "WE Pay number", "Your registered WE Pay number", "tel")}
+            {inp("ewallet_phone_instapay", "InstaPay handle/number", "Your InstaPay ID or phone (e.g. user@instapay)", "text")}
           </ModeBlock>
         </SectionCard>
 
-        <SectionCard color="#0070BA" emoji="&#127359;" title="PayPal" sub="PayPal, Credit/debit card, Google Pay, Apple Pay">
-          <ModeBlock enabled={ps.pm_paypal === "1"} onToggle={() => tog("pm_paypal")}
-            badge="&#9889; Automated" badgeColor="var(--green)"
-            desc="PayPal JS SDK renders payment buttons in the app.">
-            {inp("paypal_user_client_id", "Client ID", "developer.paypal.com > My Apps")}
-            {inp("paypal_user_secret", "Secret Key", "Same app page > Show > copy Secret", "secret")}
-            <PayField label="Mode" hint="Sandbox for testing, Live for real payments">
-              <div style={{ display: "flex", gap: 8 }}>
-                {(["sandbox", "live"] as const).map(m => (
-                  <button key={m} type="button" onClick={() => set("paypal_mode", m)} style={{
-                    flex: 1, padding: "9px", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 12,
-                    border: `2px solid ${ps.paypal_mode === m ? (m === "live" ? "var(--red)" : "var(--amber)") : "var(--border)"}`,
-                    background: ps.paypal_mode === m ? (m === "live" ? "rgba(248,113,113,0.1)" : "rgba(251,191,36,0.1)") : "var(--bg-surface)",
-                    color: ps.paypal_mode === m ? (m === "live" ? "var(--red)" : "var(--amber)") : "var(--text-muted)",
-                  }}>
-                    {m === "sandbox" ? "Sandbox" : "Live"}
-                  </button>
-                ))}
-              </div>
-            </PayField>
-            {inp("paypal_webhook_id", "Webhook ID", "PayPal Developer > Webhooks")}
-            <WebhookInfo url="https://your-domain.com/api/pay/webhook/paypal" />
-          </ModeBlock>
-        </SectionCard>
+        {/* PayPal was removed per the May meeting — InstaPay (handled in the
+            Mobile Wallet block above) replaces it. Google Play / App Store
+            IAP stay below for Android / iOS native subscription flows. */}
 
         <SectionCard color="#34A853" emoji="&#129302;" title="Google Play (Android IAP)" sub="In-app purchase for Android">
           <ModeBlock enabled={ps.google_play_enabled === "1"} onToggle={() => tog("google_play_enabled")}
@@ -688,6 +737,49 @@ export default function AdminSettings() {
           </div>
           {genMsg && <p style={{ fontSize: 13, marginTop: 12, color: genMsg.startsWith("✅") ? "var(--green)" : "var(--red)" }}>{genMsg}</p>}
           <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>⚠️ Fake accounts use the password <code>FakePass!2025</code> and are tagged with <code>fake.</code> email prefix.</p>
+
+          {/* Fake-coach button — moved here from the Dashboard per the May
+              meeting. Lives next to the fake-user controls so all the
+              testing helpers are in one place. */}
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px dashed var(--border)" }}>
+            <p style={{ fontFamily: "var(--font-heading)", fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Fake coaches</p>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>
+              Spin up demo coach profiles so the coach-side flows can be tested.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+              <button onClick={async () => {
+                setGenLoading(true); setGenMsg("");
+                try {
+                  const res = await api("/api/admin/generate-coach-profiles", { method: "POST", body: JSON.stringify({ count: 5 }) });
+                  const d = await res.json().catch(() => ({}));
+                  if (res.ok) setGenMsg(`✅ ${d?.message || "5 fake coaches added"}`);
+                  else setGenMsg(`❌ ${d?.message || "Failed to add coaches"}`);
+                } catch { setGenMsg("❌ Request failed"); }
+                finally { setGenLoading(false); }
+              }} disabled={genLoading}
+                style={{ padding: "10px 22px", borderRadius: 99, background: genLoading ? "var(--bg-surface)" : "var(--cyan)",
+                  color: genLoading ? "var(--text-muted)" : "#072226", fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 14, border: "none", cursor: genLoading ? "not-allowed" : "pointer" }}>
+                + Add 5 Fake Coaches
+              </button>
+              <button onClick={async () => {
+                setGenLoading(true); setGenMsg("");
+                try {
+                  const res = await api("/api/admin/generate-fake-subs", { method: "POST" });
+                  const d = await res.json().catch(() => ({}));
+                  if (res.ok) setGenMsg(`✅ ${d?.message || "Fake subscriptions seeded (fake users only)"}`);
+                  else setGenMsg(`❌ ${d?.message || "Failed"}`);
+                } catch { setGenMsg("❌ Request failed"); }
+                finally { setGenLoading(false); }
+              }} disabled={genLoading}
+                style={{ padding: "10px 22px", borderRadius: 99, background: genLoading ? "var(--bg-surface)" : "var(--main-dim)",
+                  color: genLoading ? "var(--text-muted)" : "var(--main)", fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 14, border: "1px solid var(--main)", cursor: genLoading ? "not-allowed" : "pointer" }}>
+                🎯 Seed Fake Subscriptions
+              </button>
+            </div>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>
+              Fake subscriptions only apply to fake users — real accounts are never modified.
+            </p>
+          </div>
         </div>
 
         {/* Admin Preferences */}
@@ -775,6 +867,7 @@ export default function AdminSettings() {
   const isPayments = activeTab === "payments";
   const isFeatures = activeTab === "features";
   const isSystem = activeTab === "system";
+  const isPromo = activeTab === "promo";
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "24px 16px 48px" }}>
@@ -838,7 +931,7 @@ export default function AdminSettings() {
                 {CATEGORIES.find(c => c.key === activeTab)?.desc}
               </p>
             </div>
-            {!isSystem && <button
+            {!isSystem && !isPromo && <button
               onClick={isPayments ? savePaymentSettings : saveAppSettings}
               disabled={saving || (!isPayments && filtered.length === 0)}
               style={{
@@ -852,7 +945,7 @@ export default function AdminSettings() {
             </button>}
           </div>
 
-          {isSystem ? renderSystem() : isPayments ? (
+          {isSystem ? renderSystem() : isPromo ? renderPromoCodes() : isPayments ? (
             payLoading ? (
               <div style={{ ...card, padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
                 Loading...

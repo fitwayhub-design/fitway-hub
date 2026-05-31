@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Outlet, Link, NavLink, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, Users, Activity, MessageSquare, Bell,
+  LayoutDashboard, Users, Activity, MessageSquare, Bell, Inbox,
   Megaphone, Globe, ClipboardList, CreditCard, Lock, X, FileText,
   Target, Image, BarChart2, Wallet, Dumbbell,
 } from "lucide-react";
@@ -18,7 +18,7 @@ const navItems: NavItem[] = [
   { path: "/coach/dashboard",      icon: LayoutDashboard, label: "Dashboard" },
   { path: "/coach/requests",       icon: ClipboardList,   label: "Requests" },
   { path: "/coach/athletes",       icon: Users,           label: "Athletes" },
-  { path: "/coach/chat",           icon: MessageSquare,   label: "Messages" },
+  { path: "/coach/tickets",        icon: Inbox,           label: "Tickets" },
   { path: "/coach/ads/campaigns",  icon: Target,          label: "Campaigns" },
   { path: "/coach/ads/my-ads",     icon: Megaphone,       label: "My Ads" },
   { path: "/coach/ads/creatives",  icon: Image,           label: "Creatives" },
@@ -34,7 +34,7 @@ const bottomNavItems: NavItem[] = [
   { path: "/coach/dashboard", icon: LayoutDashboard, label: "Home" },
   { path: "/coach/requests",  icon: ClipboardList,   label: "Requests" },
   { path: "/coach/athletes",  icon: Users,           label: "Athletes" },
-  { path: "/coach/chat",      icon: MessageSquare,   label: "Chat" },
+  { path: "/coach/tickets",   icon: Inbox,           label: "Tickets" },
   { path: "/coach/profile",   icon: Activity,        label: "Profile" },
 ];
 
@@ -50,7 +50,6 @@ const moreItems: NavItem[] = [
 const FEATURE_BY_PATH: Record<string, string> = {
   "/coach/requests": "feature_coach_requests",
   "/coach/athletes": "feature_coach_athletes",
-  "/coach/chat": "feature_coach_chat",
   "/coach/ads": "feature_coach_ads",
   "/coach/ads/campaigns": "feature_coach_ads",
   "/coach/ads/my-ads": "feature_coach_ads",
@@ -214,7 +213,7 @@ export function CoachLayout() {
     { path: "/coach/dashboard", icon: LayoutDashboard, label: t("dashboard") },
     { path: "/coach/requests",  icon: ClipboardList,   label: t("requests") },
     { path: "/coach/athletes",  icon: Users,           label: t("athletes") },
-    { path: "/coach/chat",      icon: MessageSquare,   label: t("messages") },
+    { path: "/coach/tickets",   icon: Inbox,           label: "Tickets" },
     { path: "/coach/ads",       icon: Megaphone,       label: t("my_ads") },
     { path: "/coach/blogs",     icon: FileText,        label: t("blog_title") },
     { path: "/coach/community", icon: Globe,           label: t("community") },
@@ -226,7 +225,7 @@ export function CoachLayout() {
     { path: "/coach/dashboard", icon: LayoutDashboard, label: t("nav_home") },
     { path: "/coach/requests",  icon: ClipboardList,   label: t("requests") },
     { path: "/coach/athletes",  icon: Users,           label: t("athletes") },
-    { path: "/coach/chat",      icon: MessageSquare,   label: t("nav_chat") },
+    { path: "/coach/tickets",   icon: Inbox,           label: "Tickets" },
     { path: "/coach/profile",   icon: Activity,        label: t("nav_profile") },
   ].filter((item) => isFeatureEnabled(item.path));
 

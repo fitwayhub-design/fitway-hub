@@ -2,7 +2,7 @@ import { getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import WebsiteCMS from "@/pages/admin/WebsiteCMS";
-import Chat from "@/pages/app/Chat";
+// 1:1 chat removed. Admin chat lives at /admin/chat as a dedicated page.
 import { Users, Dumbbell, DollarSign, Activity, TrendingUp, Trash2, Shield, UserCheck, Gift, Sun, Moon, Plus, X, Search, Video, Megaphone, Star, CheckCircle, Clock, CreditCard, Play, Lock, Unlock, Edit3 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -633,29 +633,12 @@ export default function AdminDashboard() {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700 }}>{t("manage_coaches")}</p>
-            <button
-              onClick={addCoachProfiles}
-              disabled={addingCoaches}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 14px",
-                borderRadius: "var(--radius-full)",
-                background: "var(--cyan)",
-                border: "none",
-                color: "#072226",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: addingCoaches ? "not-allowed" : "pointer",
-                opacity: addingCoaches ? 0.7 : 1,
-                fontFamily: "var(--font-en)"
-              }}
-            >
-              <Plus size={14} /> {addingCoaches ? t("adding_text") : t("add_5_coaches")}
-            </button>
+            {/* Fake-coach generator moved to admin Settings (May meeting) so all
+                testing helpers live in one place. */}
           </div>
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("add_coach_hint")}</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            Need fake demo coaches? Generate them from <a href="/admin/settings" style={{ color: "var(--accent)" }}>Settings → System</a>.
+          </p>
           {coaches.length === 0 ? (
             <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
               {t("no_coaches_yet_hint")}
@@ -1493,16 +1476,13 @@ export default function AdminDashboard() {
       )}
 
       {tab === "chat" && (
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", overflow: "hidden", display: "flex", flexDirection: "column", gap: 10, padding: 10 }}>
-          <div style={{ display: "flex", gap: 6, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 4, width: "fit-content" }}>
-            <button onClick={() => setChatView("all")} style={{ padding: "6px 12px", borderRadius: "var(--radius-full)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: chatView === "all" ? "var(--bg-card)" : "transparent", color: chatView === "all" ? "var(--text-primary)" : "var(--text-muted)" }}>
-              All Chats
-            </button>
-            <button onClick={() => setChatView("support")} style={{ padding: "6px 12px", borderRadius: "var(--radius-full)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: chatView === "support" ? "var(--bg-card)" : "transparent", color: chatView === "support" ? "var(--text-primary)" : "var(--text-muted)" }}>
-              Support
-            </button>
-          </div>
-          <Chat supportOnly={chatView === "support"} />
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 32, textAlign: "center" }}>
+          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Chat moved</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+            1:1 chat was removed. Read & post in groups from{" "}
+            <a href="/admin/chat" style={{ color: "var(--main)" }}>Admin → Chat</a>. Direct contact lives in{" "}
+            <a href="/admin/tickets" style={{ color: "var(--main)" }}>Tickets</a>.
+          </p>
         </div>
       )}
 
@@ -1652,7 +1632,7 @@ export default function AdminDashboard() {
               ) : (
                 <>
                   <div>
-                    <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Video File * (.mp4, .mov, .webm — max 500MB)</label>
+                    <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Video File * (.mp4, .mov, .webm — max 50MB)</label>
                     <div style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius-full)", padding: "18px 14px", textAlign: "center", cursor: "pointer", backgroundColor: videoFile ? "rgba(16,185,129,0.07)" : "var(--bg-surface)" }}
                       onClick={() => document.getElementById("videoFileInput")?.click()}>
                       {videoFile ? (
@@ -1665,7 +1645,7 @@ export default function AdminDashboard() {
                         <div>
                           <Play size={28} color="var(--text-muted)" style={{ marginBottom: 6 }} />
                           <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Click to select video file</p>
-                          <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>MP4 or MOV — max 500 MB</p>
+                          <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>MP4 or MOV — max 50 MB</p>
                         </div>
                       )}
                     </div>

@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import {
   Play, Search, Clock, ChevronRight, X, BookmarkCheck, Sparkles,
-  SlidersHorizontal, Flame, Zap, User, TrendingUp, Heart, Eye,
+  Flame, Zap, User, TrendingUp, Heart, Eye,
 } from "lucide-react";
 import VideoPlayer from "@/components/app/VideoPlayer";
 
@@ -618,22 +618,6 @@ export default function Workouts() {
             <button onClick={() => setSearching(true)} style={{ width: 40, height: 40, borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)" }}>
               <Search size={18} />
             </button>
-            <button
-              onClick={() => setShowFilters(v => !v)}
-              style={{
-                position: "relative",
-                width: 40, height: 40, borderRadius: 12,
-                border: `1px solid ${showFilters || activeFilterCount ? "var(--accent)" : "var(--border)"}`,
-                background: showFilters || activeFilterCount ? "var(--accent-dim)" : "var(--bg-card)",
-                color: showFilters || activeFilterCount ? "var(--accent)" : "var(--text-secondary)",
-                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-              }}
-            >
-              <SlidersHorizontal size={18} />
-              {activeFilterCount > 0 && (
-                <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 99, background: "var(--accent)", color: "#000", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{activeFilterCount}</span>
-              )}
-            </button>
           </>
         )}
       </div>
@@ -664,29 +648,6 @@ export default function Workouts() {
         </div>
       </div>
 
-      {/* Smart category chips — workout type always visible, others under filter button */}
-      <div style={{ padding: "0 16px 4px" }}>
-        <ChipRow label="Workout type" items={WORKOUT_TYPES} value={fType} onChange={setFType} />
-      </div>
-
-      {/* Extended filter chips (collapsible) */}
-      {showFilters && (
-        <div style={{ padding: "0 16px 8px" }}>
-          <ChipRow label="Goal" items={GOALS} value={fGoal} onChange={setFGoal} />
-          <ChipRow label="Body area" items={BODY_AREAS} value={fBody} onChange={setFBody} />
-          {mode === "long" && (
-            <ChipRow label="Duration" items={DURATIONS.map(d => ({ value: d.value, label: d.label }))} value={fDuration} onChange={setFDuration} />
-          )}
-          <ChipRow label="Equipment" items={EQUIPMENTS} value={fEquipment} onChange={setFEquipment} />
-          <ChipRow label="Level" items={LEVELS} value={fLevel} onChange={setFLevel} />
-          {activeFilterCount > 0 && (
-            <button onClick={() => { setFGoal(""); setFBody(""); setFDuration(""); setFEquipment(""); setFLevel(""); setFType(""); }}
-              style={{ marginTop: 4, fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}>
-              Clear all filters
-            </button>
-          )}
-        </div>
-      )}
 
       {loading && <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>{t("loading_ellipsis")}</div>}
 
@@ -719,8 +680,15 @@ export default function Workouts() {
                       : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
                     <ProgressBar id={v.id} />
                   </div>
-                  <p style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, marginBottom: 2 }}>{v.title}</p>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                  <p style={{
+                    fontSize: 13, fontWeight: 600, lineHeight: 1.3, marginBottom: 2,
+                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                    overflow: "hidden", textOverflow: "ellipsis", wordBreak: "break-word",
+                  }}>{v.title}</p>
+                  <p style={{
+                    fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4,
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  }}>
                     <Clock size={11} /> {v.duration || ""}{v.coach_name ? ` · ${v.coach_name}` : ""}
                     {relTime ? ` · ${relTime}` : ""}
                   </p>
@@ -828,8 +796,12 @@ export default function Workouts() {
                   <ProgressBar id={v.id} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4 }}>{v.title}</p>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{v.duration}{v.coach_name ? ` · ${v.coach_name}` : ""}</p>
+                  <p style={{
+                    fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4,
+                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                    overflow: "hidden", textOverflow: "ellipsis", wordBreak: "break-word",
+                  }}>{v.title}</p>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.duration}{v.coach_name ? ` · ${v.coach_name}` : ""}</p>
                 </div>
                 <ChevronRight size={16} color="var(--text-muted)" />
               </div>

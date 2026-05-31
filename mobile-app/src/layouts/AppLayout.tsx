@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Home, Dumbbell, Activity, Users,
   MessageCircle, Wrench, CreditCard, BarChart2,
-  UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut,
+  UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut, Inbox, Trophy,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { CoachSearchIcon } from "@/components/icons/CoachSearchIcon";
@@ -30,8 +30,12 @@ const NAV: BottomNavItem[] = [
 const TOP_NAV = [
   { path: "/app/steps",      icon: Activity,      label: "Activity" },
   { path: "/app/community",  icon: Users,         label: "Community" },
+  // Challenges = group fitness challenges + their group chats. Replaces
+  // the old Groups tab on /app/chat (1:1 chat is gone).
+  { path: "/app/challenges", icon: Trophy,        label: "Challenges" },
   { path: "/app/profile",    icon: User,          label: "Profile" },
-  { path: "/app/chat",       icon: MessageCircle, label: "Chat" },
+  // Tickets is the only direct contact channel with a coach (May meeting).
+  { path: "/app/tickets",    icon: Inbox,         label: "Tickets" },
   { path: "/app/tools",      icon: Wrench,        label: "Tools" },
   { path: "/app/analytics",  icon: BarChart2,     label: "Analytics" },
   { path: "/app/blogs",          icon: BookOpen,       label: "Our Blog" },
@@ -43,7 +47,6 @@ const FEATURE_BY_PATH: Record<string, string> = {
   "/app/nutrition-plan": "feature_user_nutrition_plan",
   "/app/steps": "feature_user_steps",
   "/app/community": "feature_user_community",
-  "/app/chat": "feature_user_chat",
   "/app/coaching": "feature_user_coaching",
   "/app/tools": "feature_user_tools",
   "/app/analytics": "feature_user_analytics",
@@ -98,8 +101,9 @@ export function AppLayout() {
     if (path === "/app/nutrition-plan") return t("nutrition_plan");
     if (path === "/app/steps") return t("activity");
     if (path === "/app/community") return t("nav_community");
+    if (path === "/app/challenges") return "Challenges";
     if (path === "/app/profile") return t("nav_profile");
-    if (path === "/app/chat") return t("nav_chat");
+    if (path === "/app/tickets") return "Tickets";
     if (path === "/app/tools") return t("nav_tools");
     if (path === "/app/analytics") return t("nav_analytics");
     if (path === "/app/blogs") return t("blog_title");
@@ -144,6 +148,11 @@ export function AppLayout() {
         color: "var(--text-primary)",
         minHeight: "100dvh",
         direction: isRtl ? "rtl" : "ltr",
+        // Height of the top bar that sits above page content. Children use this
+        // for sticky `top` offsets so their headers don't slide under it.
+        // Desktop: the sticky panel header (62px). Mobile: fixed top bar
+        // (56px) + iOS safe-area inset.
+        ["--app-top-offset" as any]: isDesktop ? "62px" : "calc(56px + env(safe-area-inset-top))",
       }}
     >
       {/* ── Desktop Sidebar ── */}

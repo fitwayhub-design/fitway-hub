@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/lib/api";
+import PlanCommentsThread from "@/components/app/PlanCommentsThread";
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Circle, Dumbbell, Calendar, Flame, Trophy, RefreshCw, UserCheck, User as UserIcon,
@@ -16,6 +17,8 @@ interface Exercise {
   rest: string;
   note?: string;
   done?: boolean;
+  video_url?: string;
+  video_type?: "upload" | "youtube";
 }
 
 interface WorkoutDay {
@@ -98,6 +101,13 @@ export default function WorkoutPlan() {
   const [tab, setTab] = useState<"self" | "coach">("self");
   const [plan, setPlan] = useState<WorkoutDay[]>(DEFAULT_PLAN);
   const [coachPlanData, setCoachPlanData] = useState<WorkoutDay[] | null>(null);
+  const [coachPlanId, setCoachPlanId] = useState<number | null>(null);
+  const [coachUserId, setCoachUserId] = useState<number | null>(null);
+  const [ticketModal, setTicketModal] = useState<{ ex: Exercise } | null>(null);
+  const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketBody, setTicketBody] = useState("");
+  const [ticketBusy, setTicketBusy] = useState(false);
+  const [ticketMsg, setTicketMsg] = useState("");
   const [coachName, setCoachName] = useState<string>("");
   const [hasSubscription, setHasSubscription] = useState(false);
   const [hasMyPlan, setHasMyPlan] = useState(false); // derived: any non-default edit
@@ -133,13 +143,15 @@ export default function WorkoutPlan() {
               exercises.forEach((ex: any, idx: number) => {
                 const day = ex.day || DAYS[idx % 7];
                 if (!dayMap.has(day)) dayMap.set(day, []);
-                dayMap.get(day)!.push({ id: idx + 1, name: ex.name || ex.exercise, sets: ex.sets || 3, reps: ex.reps || "10", rest: ex.rest || "60s" });
+                dayMap.get(day)!.push({ id: idx + 1, name: ex.name || ex.exercise, sets: ex.sets || 3, reps: ex.reps || "10", rest: ex.rest || "60s", video_url: ex.video_url || undefined, video_type: ex.video_type || undefined });
               });
               const coachPlan: WorkoutDay[] = DAYS.map((day, i) => ({
                 id: i + 1, day, focus: dayMap.has(day) ? "Full" : "Rest",
                 exercises: dayMap.get(day) || [], expanded: false,
               }));
               setCoachPlanData(coachPlan);
+              setCoachPlanId(d.plan.id || null);
+              setCoachUserId(d.plan.coach_id || null);
               setCoachName(d.plan.coach_name || "Your Coach");
             }
           } catch { /* leave coachPlanData null */ }
@@ -165,10 +177,41 @@ export default function WorkoutPlan() {
   };
 
   const toggleExercise = (dayId: number, exId: number) => {
-    setPlan(p => p.map(d => d.id === dayId
-      ? { ...d, exercises: d.exercises.map(e => e.id === exId ? { ...e, done: !e.done } : e) }
-      : d
-    ));
+    let willBeDone = false;
+    let firstToggleToday = false;
+    let allDoneNow = false;
+    let wholePlanDoneNow = false;
+    setPlan(p => {
+      const nextPlan = p.map(d => {
+        if (d.id !== dayId) return d;
+        const wasAnyDone = d.exercises.some(e => e.done);
+        const next = d.exercises.map(e => {
+          if (e.id === exId) { willBeDone = !e.done; return { ...e, done: !e.done }; }
+          return e;
+        });
+        if (willBeDone && !wasAnyDone) firstToggleToday = true;
+        if (next.length > 0 && next.every(e => e.done)) allDoneNow = true;
+        return { ...d, exercises: next };
+      });
+      // Plan-finished fires once every exercise on every day is done. The
+      // server is idempotent per-plan_id so re-toggles can't double-credit.
+      wholePlanDoneNow = nextPlan.every(d => d.exercises.length === 0 || d.exercises.every(e => e.done))
+        && nextPlan.some(d => d.exercises.length > 0);
+      return nextPlan;
+    });
+    // Fire training events so the coach sees a "started training" /
+    // "finished a workout" entry. Only when we have a coach plan.
+    if (tab === "coach" && coachPlanId && token) {
+      const post = (event_type: string) =>
+        fetch(getApiBase() + "/api/tickets/training-events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ event_type, workout_plan_id: coachPlanId }),
+        }).catch(() => {});
+      if (firstToggleToday) post("workout_started");
+      if (allDoneNow) post("workout_finished");
+      if (wholePlanDoneNow) post("plan_finished");
+    }
   };
 
   const changeFocus = (dayId: number, focus: string) => {
@@ -471,43 +514,77 @@ export default function WorkoutPlan() {
                         <div
                           key={ex.id}
                           style={{
-                            display: "flex", alignItems: "center", gap: 10,
                             padding: "10px 12px", borderRadius: 12,
                             background: ex.done ? `${color}12` : "var(--bg-surface)",
                             border: `1px solid ${ex.done ? color + "44" : "var(--border)"}`,
                             transition: "all 0.2s",
                           }}
                         >
-                          <button
-                            onClick={() => toggleExercise(day.id, ex.id)}
-                            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}
-                          >
-                            {ex.done
-                              ? <CheckCircle2 size={20} color={color} strokeWidth={2} />
-                              : <Circle size={20} color="var(--text-muted)" strokeWidth={1.8} />
-                            }
-                          </button>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <button
+                              onClick={() => toggleExercise(day.id, ex.id)}
+                              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}
+                            >
+                              {ex.done
+                                ? <CheckCircle2 size={20} color={color} strokeWidth={2} />
+                                : <Circle size={20} color="var(--text-muted)" strokeWidth={1.8} />
+                              }
+                            </button>
 
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{
-                              fontSize: 13, fontWeight: 600,
-                              color: ex.done ? "var(--text-muted)" : "var(--text-primary)",
-                              textDecoration: ex.done ? "line-through" : "none",
-                            }}>
-                              {idx + 1}. {ex.name}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                fontSize: 13, fontWeight: 600,
+                                color: ex.done ? "var(--text-muted)" : "var(--text-primary)",
+                                textDecoration: ex.done ? "line-through" : "none",
+                              }}>
+                                {idx + 1}. {ex.name}
+                              </div>
+                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                                {ex.sets} sets × {ex.reps} reps · rest {ex.rest}
+                              </div>
                             </div>
-                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                              {ex.sets} sets × {ex.reps} reps · rest {ex.rest}
-                            </div>
+
+                            {/* Linked workout video (when coach attached one) */}
+                            {ex.video_url && (
+                              <a
+                                href={ex.video_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Watch reference video"
+                                style={{ background: "var(--accent-dim)", border: "1px solid var(--accent)", borderRadius: 8, padding: "4px 8px", color: "var(--accent)", fontSize: 11, cursor: "pointer", whiteSpace: "nowrap", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}
+                              >
+                                ▶ Video
+                              </a>
+                            )}
+
+                            {/* Ask coach about THIS exercise — only place the
+                                ticket button lives now (May meeting).
+                                Requires a coach plan + a real coach. */}
+                            {tab === "coach" && coachPlanId && coachUserId && (
+                              <button
+                                title="Ask your coach about this exercise"
+                                onClick={() => { setTicketModal({ ex }); setTicketSubject(`Question about: ${ex.name}`); setTicketBody(""); setTicketMsg(""); }}
+                                style={{ background: "var(--main-dim)", border: "1px solid var(--main)", borderRadius: 8, padding: "4px 10px", color: "var(--main)", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}
+                              >
+                                🎫 Ticket
+                              </button>
+                            )}
+
+                            {tab === "self" && editingMyPlan && (
+                              <button
+                                onClick={() => removeExercise(day.id, ex.id)}
+                                style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", flexShrink: 0 }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </div>
 
-                          {tab === "self" && editingMyPlan && (
-                            <button
-                              onClick={() => removeExercise(day.id, ex.id)}
-                              style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", flexShrink: 0 }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                          {/* Asana-style comments thread (coach plan only — own
+                              plan doesn't have a coach yet, so nothing to
+                              discuss). Mounted compact so users opt in. */}
+                          {tab === "coach" && coachPlanId && (
+                            <PlanCommentsThread workoutPlanId={coachPlanId} exerciseKey={String(ex.id) + "::" + ex.name} compact />
                           )}
                         </div>
                       ))}
@@ -605,6 +682,65 @@ export default function WorkoutPlan() {
           );
         })}
       </div>
+      )}
+
+      {/* Ticket modal — only path to file an athlete→coach ticket. Scoped to
+          the current exercise so the coach knows what the question's about. */}
+      {ticketModal && (
+        <div onClick={() => !ticketBusy && setTicketModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "20px 22px", width: "100%", maxWidth: 460 }}>
+            <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>Ask {coachName}</h3>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>About: <strong>{ticketModal.ex.name}</strong></p>
+            <label style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>Subject</label>
+            <input value={ticketSubject} onChange={e => setTicketSubject(e.target.value)}
+              style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, marginBottom: 12 }} />
+            <label style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>Your question</label>
+            <textarea value={ticketBody} onChange={e => setTicketBody(e.target.value)} rows={4} placeholder="What's confusing you about this exercise?"
+              style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, marginBottom: 12, resize: "vertical" }} />
+            {ticketMsg && <p style={{ fontSize: 12, color: ticketMsg.startsWith("✅") ? "var(--green)" : "var(--red)", marginBottom: 10 }}>{ticketMsg}</p>}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setTicketModal(null)} disabled={ticketBusy}
+                style={{ padding: "9px 16px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button disabled={ticketBusy || !ticketSubject.trim() || !coachUserId || !coachPlanId}
+                onClick={async () => {
+                  if (!coachUserId || !coachPlanId || !ticketModal) return;
+                  setTicketBusy(true); setTicketMsg("");
+                  try {
+                    const r = await fetch(getApiBase() + "/api/tickets", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({
+                        coach_id: coachUserId,
+                        subject: ticketSubject.trim(),
+                        body: ticketBody.trim(),
+                        kind: "workout_question",
+                        workout_plan_id: coachPlanId,
+                        exercise_key: `${ticketModal.ex.id}::${ticketModal.ex.name}`,
+                      }),
+                    });
+                    const d = await r.json().catch(() => ({}));
+                    if (r.ok) {
+                      setTicketMsg("✅ Sent — your coach will reply in your tickets inbox.");
+                      setTimeout(() => { setTicketModal(null); setTicketMsg(""); }, 1300);
+                    } else {
+                      setTicketMsg(d.message || "Couldn't send ticket.");
+                    }
+                  } catch { setTicketMsg("Couldn't send ticket."); }
+                  finally { setTicketBusy(false); }
+                }}
+                style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: "var(--main)", color: "#0a0a0a", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: (ticketBusy || !ticketSubject.trim()) ? 0.5 : 1 }}>
+                {ticketBusy ? "Sending…" : "Send ticket"}
+              </button>
+            </div>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>
+              You can also see + reply to all your tickets at <a href="/app/tickets" style={{ color: "var(--accent)" }}>Tickets</a>.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

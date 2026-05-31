@@ -42,10 +42,11 @@ export function resolveNotificationLink(n: NotificationLike): string | null {
     case 'meal_plan_updated':
       return '/app/nutrition-plan';
 
-    // Direct messaging
+    // Direct messaging removed in May meeting — coach communication goes
+    // through Tickets; community chat lives inside Community.
     case 'new_message':
     case 'coach_message':
-      return '/app/chat';
+      return '/app/tickets';
 
     // Community / social
     case 'post_liked':
@@ -72,8 +73,9 @@ export function resolveNotificationLink(n: NotificationLike): string | null {
 
     // Onboarding / new-user nudges
     case 'user_register':
+      return '/app/profile';
     case 'profile_complete':
-      return '/app/onboarding';
+      return '/app/profile';
     case 'coach_register':
       return '/coach/profile';
 
@@ -136,7 +138,7 @@ export function resolveNotificationLink(n: NotificationLike): string | null {
     case 'coach_report':
       return '/app/coaching';
     case 'welcome':
-      return '/app/dashboard';
+      return '/app/profile';
 
     case 'info':
     case '':

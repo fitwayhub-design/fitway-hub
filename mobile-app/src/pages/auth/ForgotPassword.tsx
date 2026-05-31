@@ -1,26 +1,36 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, ShieldQuestion, Activity, ArrowLeft, Eye, EyeOff, CheckCircle } from "lucide-react";
+import { Mail, Lock, ShieldQuestion, Activity, ArrowLeft, Eye, EyeOff, CheckCircle, KeyRound } from "lucide-react";
 import { getApiBase } from "@/lib/api";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
 
-type Step = "email" | "answer" | "done";
+type Step = "email" | "answer" | "otp" | "done";
+type Method = "otp" | "security";
 
 export default function ForgotPassword() {
   const { t, lang } = useI18n();
   const { branding } = useBranding();
   const { isDark } = useTheme();
   const brandLogo = getBrandLogoForLang(branding, lang, isDark);
+  const [method, setMethod] = useState<Method>("otp"); // OTP is the default; security questions remain as a fallback.
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [question, setQuestion] = useState("");
   const [securityAnswer, setSecurityAnswer] = useState("");
+  const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendCooldown]);
   const navigate = useNavigate();
 
   const questionMap: Record<string, string> = {
@@ -34,23 +44,70 @@ export default function ForgotPassword() {
 
   const localizedQuestion = questionMap[question] || question;
 
-  const handleGetQuestion = async (e: FormEvent) => {
+  const requestEmailOtp = async () => {
+    const res = await fetch(getApiBase() + "/api/auth/forgot-password/request-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || "Failed to send code");
+    setResendCooldown(30);
+    setInfo(data.message || `A code was sent to ${email} if an account exists.`);
+  };
+
+  const handleSubmitEmail = async (e: FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError(""); setInfo("");
     if (!email.trim()) { setError(t("please_enter_your_email")); return; }
     setIsLoading(true);
     try {
-      const res = await fetch(getApiBase() + "/api/auth/forgot-password/question", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || t("account_not_found"));
-      setQuestion(data.question);
-      setStep("answer");
+      if (method === "security") {
+        const res = await fetch(getApiBase() + "/api/auth/forgot-password/question", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || t("account_not_found"));
+        setQuestion(data.question);
+        setStep("answer");
+      } else {
+        await requestEmailOtp();
+        setStep("otp");
+      }
     } catch (err: any) {
       setError(err.message || t("failed_find_account"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    setError(""); setInfo("");
+    setIsLoading(true);
+    try { await requestEmailOtp(); } catch (err: any) { setError(err.message); }
+    finally { setIsLoading(false); }
+  };
+
+  const handleOtpReset = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (otp.trim().length !== 6) { setError("Enter the 6-digit code"); return; }
+    if (newPassword.length < 8) { setError(t("password_min_8_chars")); return; }
+    setIsLoading(true);
+    try {
+      const res = await fetch(getApiBase() + "/api/auth/forgot-password/otp-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp: otp.trim(), newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || t("verification_failed"));
+      setStep("done");
+    } catch (err: any) {
+      setError(err.message || t("failed_reset_password"));
     } finally {
       setIsLoading(false);
     }
@@ -147,7 +204,7 @@ export default function ForgotPassword() {
               {/* Progress dots */}
               <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
                 <div style={{ width: 40, height: 4, borderRadius: "var(--radius-full)", backgroundColor: "var(--accent)" }} />
-                <div style={{ width: 40, height: 4, borderRadius: "var(--radius-full)", backgroundColor: step === "answer" ? "var(--accent)" : "var(--border)" }} />
+                <div style={{ width: 40, height: 4, borderRadius: "var(--radius-full)", backgroundColor: step === "answer" || step === "otp" ? "var(--accent)" : "var(--border)" }} />
               </div>
 
               {error && (
@@ -155,9 +212,46 @@ export default function ForgotPassword() {
                   {error}
                 </div>
               )}
+              {info && !error && (
+                <div style={{ padding: "12px 16px", backgroundColor: "rgba(255,214,0,0.08)", border: "1px solid rgba(255,214,0,0.25)", borderRadius: "var(--radius-full)", color: "var(--accent)", fontSize: 13, marginBottom: 20 }}>
+                  {info}
+                </div>
+              )}
 
               {step === "email" && (
-                <form onSubmit={handleGetQuestion} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <>
+                  {/* Recovery method toggle. Default is email OTP; security question stays as a fallback. */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16, padding: 4, backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)" }}>
+                    {([
+                      { val: "otp" as const, label: "Email code", Icon: Mail },
+                      { val: "security" as const, label: "Security question", Icon: ShieldQuestion },
+                    ]).map(({ val, label, Icon }) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setMethod(val)}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: "var(--radius-full)",
+                          border: "none",
+                          backgroundColor: method === val ? "var(--accent)" : "transparent",
+                          color: method === val ? "#000" : "var(--text-secondary)",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        <Icon size={14} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <form onSubmit={handleSubmitEmail} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("email_or_username")}</label>
                     <div style={{ position: "relative" }}>
@@ -168,6 +262,48 @@ export default function ForgotPassword() {
                   <button type="submit" disabled={isLoading} className="btn-accent" style={{ padding: "13px", fontSize: 14, marginTop: 4 }}>
                     {isLoading ? t("looking_up") : t("continue_label")}
                   </button>
+                </form>
+                </>
+              )}
+
+              {step === "otp" && (
+                <form onSubmit={handleOtpReset} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div style={{ padding: "14px 16px", backgroundColor: "rgba(255,214,0,0.06)", border: "1px solid rgba(255,214,0,0.2)", borderRadius: "var(--radius-full)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <Mail size={16} color="var(--accent)" />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Check your email</span>
+                    </div>
+                    <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>If <strong style={{ color: "var(--text-primary)" }}>{email}</strong> has an account, we sent a 6-digit code. It expires in 2 minutes.</p>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>Verification code</label>
+                    <div style={{ position: "relative" }}>
+                      <KeyRound size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} className="input-base" style={{ paddingInlineStart: 40, letterSpacing: "0.5em", fontFamily: "monospace", fontSize: 18 }} placeholder="000000" required autoFocus />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("new_password")}</label>
+                    <div style={{ position: "relative" }}>
+                      <Lock size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+                      <input type={showPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input-base" style={{ paddingInlineStart: 40, paddingInlineEnd: 44 }} placeholder={t("min_chars")} required />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", insetInlineEnd: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}>
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button type="submit" disabled={isLoading || otp.length !== 6} className="btn-accent" style={{ padding: "13px", fontSize: 14, marginTop: 4 }}>
+                    {isLoading ? t("verifying") : t("reset_password")}
+                  </button>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                    <button type="button" onClick={() => { setStep("email"); setError(""); setInfo(""); setOtp(""); }} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 0 }}>← {t("try_different_email")}</button>
+                    <button type="button" onClick={handleResendOtp} disabled={resendCooldown > 0 || isLoading} style={{ background: "none", border: "none", color: resendCooldown > 0 ? "var(--text-muted)" : "var(--accent)", cursor: resendCooldown > 0 ? "default" : "pointer", padding: 0, fontWeight: 600 }}>
+                      {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                    </button>
+                  </div>
                 </form>
               )}
 

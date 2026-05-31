@@ -29,6 +29,31 @@ interface Meal { id: string; name: string; time: string; calories: number; foods
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
+/* Common exercise names shown in the workout-builder name dropdown. Coaches can
+   still type a custom name — the input is bound to a <datalist>, not a strict
+   select. Admin can later override / extend this from the workouts video
+   library; this list is the safe minimum for a fresh install. */
+const EXERCISE_LIBRARY: string[] = [
+  // Push
+  "Bench Press", "Incline Dumbbell Press", "Push-Up", "Dumbbell Shoulder Press",
+  "Overhead Press", "Lateral Raise", "Triceps Pushdown", "Skull Crusher",
+  // Pull
+  "Pull-Up", "Lat Pulldown", "Barbell Row", "Seated Cable Row", "T-Bar Row",
+  "Face Pull", "Dumbbell Curl", "Hammer Curl",
+  // Legs
+  "Back Squat", "Front Squat", "Romanian Deadlift", "Deadlift", "Leg Press",
+  "Walking Lunge", "Bulgarian Split Squat", "Hip Thrust", "Leg Curl",
+  "Leg Extension", "Calf Raise",
+  // Core
+  "Plank", "Side Plank", "Hanging Leg Raise", "Cable Crunch", "Russian Twist",
+  // Cardio / conditioning
+  "Treadmill (Steady)", "Treadmill (HIIT)", "Cycling", "Rowing Machine",
+  "Stair Climber", "Jump Rope", "Burpees",
+  // Mobility
+  "Foam Rolling", "Hip Mobility Flow", "Thoracic Opener",
+];
+
+
 export default function CoachAthletes() {
   const { token } = useAuth();
   const { t } = useI18n();
@@ -311,6 +336,11 @@ export default function CoachAthletes() {
                     </div>
                   ))}
                 </div>
+
+                {/* Training activity feed — plan progress this coach can
+                    actually act on (start/finish events fired from the
+                    athlete's workout-plan view). */}
+                <AthleteTrainingFeed athleteId={selected.id} token={token} />
               </div>
             )}
 
@@ -339,10 +369,13 @@ export default function CoachAthletes() {
                   <button onClick={addExercise} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: "var(--radius-full)", background: "var(--accent-dim)", border: "1px solid rgba(255,214,0,0.25)", color: "var(--accent)", fontSize: 12, cursor: "pointer", fontWeight: 600 }}><Plus size={13} /> {t("coach_athletes_add_exercise")}</button>
                 </div>
                 {workoutPlan.exercises.length === 0 && <p style={{ textAlign: "center", padding: "24px 0", color: "var(--text-muted)", fontSize: 13 }}>{t("coach_athletes_no_exercises")}</p>}
+                <datalist id="coach-exercise-names">
+                  {EXERCISE_LIBRARY.map(name => <option key={name} value={name} />)}
+                </datalist>
                 {workoutPlan.exercises.map(ex => (
                   <div key={ex.id} style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 70px 70px 70px auto", gap: 8, alignItems: "center" }}>
-                      <input className="input-base" value={ex.name} onChange={e => updateEx(ex.id, "name", e.target.value)} placeholder={t('exercise_name')} style={{ padding: "7px 10px" }} />
+                      <input className="input-base" list="coach-exercise-names" value={ex.name} onChange={e => updateEx(ex.id, "name", e.target.value)} placeholder={t('exercise_name')} style={{ padding: "7px 10px" }} />
                       <select className="input-base" value={ex.day} onChange={e => updateEx(ex.id, "day", e.target.value)} style={{ padding: "7px 8px", fontSize: 12 }}>
                         {DAYS.map(d => <option key={d} value={d}>{d.slice(0,3)}</option>)}
                       </select>
@@ -370,7 +403,7 @@ export default function CoachAthletes() {
                             if (data.creative?.media_url) updateEx(ex.id, "video_url", data.creative.media_url);
                           } catch {}
                         }} style={{ padding: "5px", fontSize: 11, flex: 1 }} />
-                        <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "2px 0 0" }}>MP4 or MOV — max 500 MB</p>
+                        <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "2px 0 0" }}>MP4 or MOV — max 50 MB</p>
                         </>
                       )}
                       {ex.video_url && <a href={ex.video_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "var(--blue)", whiteSpace: "nowrap" }}>🔗 {t("preview") || "Preview"}</a>}
@@ -425,6 +458,58 @@ export default function CoachAthletes() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * AthleteTrainingFeed
+ * ─────────────────────────────────────────────────────────
+ * Compact training-events feed shown on a coach's per-athlete overview.
+ * Reads /api/tickets/training-events?user_id= and renders the latest
+ * starts/finishes/plan-completes so the coach can follow up without
+ * leaving the page.
+ */
+function AthleteTrainingFeed({ athleteId, token }: { athleteId: number; token: string | null }) {
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!token) { setLoading(false); return; }
+    fetch(getApiBase() + `/api/tickets/training-events?user_id=${athleteId}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : { events: [] })
+      .then(d => setEvents(d.events || []))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, [athleteId, token]);
+  if (!token) return null;
+  const labels: Record<string, { label: string; icon: string }> = {
+    workout_started:  { label: "Started training",   icon: "🏋️" },
+    workout_finished: { label: "Finished a workout", icon: "✅" },
+    plan_finished:    { label: "Finished the plan",  icon: "🎉" },
+  };
+  return (
+    <div style={{ marginTop: 4, padding: "14px 16px", borderRadius: 14, background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
+      <p style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 10, fontWeight: 700 }}>
+        Training activity
+      </p>
+      {loading ? (
+        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Loading…</p>
+      ) : events.length === 0 ? (
+        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>No training sessions logged yet.</p>
+      ) : (
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+          {events.slice(0, 8).map((e: any) => {
+            const meta = labels[e.event_type] || { label: e.event_type, icon: "•" };
+            return (
+              <li key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 14 }}>{meta.icon}</span>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", flex: 1 }}>{meta.label}</p>
+                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{new Date(e.created_at).toLocaleString()}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
