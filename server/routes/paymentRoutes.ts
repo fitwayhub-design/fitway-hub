@@ -58,6 +58,23 @@ function normalizePhone(v: string | null | undefined): string {
   return String(v || '').trim().replace(/\s+/g, '');
 }
 
+// Auto-cancel any coach subscription still awaiting coach acceptance more
+// than 24h after admin approved the payment. Idempotent — call from any GET
+// path that surfaces pending/active subscriptions so cleanup happens lazily
+// without needing a cron job.
+async function autoExpireStalePendingCoach(): Promise<void> {
+  try {
+    await run(
+      `UPDATE coach_subscriptions
+       SET status = 'cancelled',
+           coach_decision_status = 'auto_expired'
+       WHERE status = 'pending_coach'
+         AND admin_approved_at IS NOT NULL
+         AND admin_approved_at < (NOW() - INTERVAL 24 HOUR)`
+    );
+  } catch { /* best-effort cleanup */ }
+}
+
 function isWalletPhoneValid(walletType: string, phone: string): boolean {
   const clean = normalizePhone(phone);
   if (!/^\d{11}$/.test(clean)) return false;
@@ -597,6 +614,7 @@ router.post('/coach-subscribe', authenticateToken, upload.single('proof'), optim
 router.get('/coach-subscriptions', authenticateToken, async (req: any, res: Response) => {
   if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
   try {
+    await autoExpireStalePendingCoach();
     const statusFilter = req.query.status ? String(req.query.status) : null;
     const subs = await query(
       `SELECT cs.*,
@@ -725,6 +743,7 @@ router.get('/coach-subscription-requests', authenticateToken, async (req: any, r
   }
 
   try {
+    await autoExpireStalePendingCoach();
     const subs = await query(
       `SELECT cs.*, u.name as user_name, u.email as user_email, u.avatar as user_avatar
        FROM coach_subscriptions cs
@@ -746,6 +765,7 @@ router.get('/coach-active-subscriptions', authenticateToken, async (req: any, re
   }
 
   try {
+    await autoExpireStalePendingCoach();
     const subs = await query(
       `SELECT cs.*, u.name as user_name, u.email as user_email, u.avatar as user_avatar
        FROM coach_subscriptions cs
@@ -853,6 +873,7 @@ router.patch('/coach-subscriptions/:id/coach-decline', authenticateToken, async 
 // User: check if subscribed to a coach
 router.get('/coach-subscription-status/:coachId', authenticateToken, async (req: any, res: Response) => {
   try {
+    await autoExpireStalePendingCoach();
     const activeSub = await get(
       `SELECT * FROM coach_subscriptions WHERE user_id = ? AND coach_id = ? AND status = 'active' AND expires_at > NOW() ORDER BY expires_at DESC LIMIT 1`,
       [req.user.id, req.params.coachId]
@@ -880,6 +901,7 @@ router.get('/coach-subscription-status/:coachId', authenticateToken, async (req:
 // User: list my active subscriptions
 router.get('/my-subscriptions', authenticateToken, async (req: any, res: Response) => {
   try {
+    await autoExpireStalePendingCoach();
     const subs = await query(
       `SELECT cs.*, c.name as coach_name, c.avatar as coach_avatar, cp.specialty
        FROM coach_subscriptions cs

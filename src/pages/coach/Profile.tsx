@@ -831,26 +831,6 @@ export default function CoachProfile() {
                   ))}
                 </div>
               </div>
-              {/* Plan Types */}
-              <div>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.07em" }}>{t("plan_type_offered")}</label>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {([
-                    { id: "complete", label: `🏆 ${t("complete_plan")}`, desc: `${t("workout")} + ${t("nutrition")}` },
-                    { id: "workout", label: `💪 ${t("workout_only")}`, desc: t("workout_only_desc") },
-                    { id: "nutrition", label: `🥗 ${t("nutrition_only")}`, desc: t("nutrition_only_desc") },
-                  ] as const).map(plan => (
-                    <button key={plan.id} type="button" onClick={() => setEditProfile(p => ({ ...p, planTypes: plan.id }))} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: "var(--radius-full)", border: `1px solid ${editProfile.planTypes === plan.id ? "var(--accent)" : "var(--border)"}`, background: editProfile.planTypes === plan.id ? "var(--accent-dim)" : "var(--bg-surface)", cursor: "pointer", textAlign: "start" }}>
-                      <div>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: editProfile.planTypes === plan.id ? "var(--accent)" : "var(--text-primary)" }}>{plan.label}</p>
-                        <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{plan.desc}</p>
-                      </div>
-                      {editProfile.planTypes === plan.id && <span style={{ color: "var(--accent)" }}>✓</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Subscription Pricing */}
               <div>
                 <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>{t("monthly_subscription_price")}</label>
