@@ -88,49 +88,40 @@ export default function Coaching() {
       .catch(() => {});
   }, [token]);
 
-  // Package catalogue — full design (icon, badge, headline price line,
-  // included perks, and the per-package monthly ticket allowance). Used
-  // by the subscribe modal and the /app/pricing page so both stay in
-  // sync with the same content.
+  // Package catalogue — three athlete subscription tiers shared with the
+  // /app/pricing page. Freemium has no coach access; Premium and Exclusive
+  // unlock a personal coach with custom plans and a ticket allowance.
   const PACKAGES: {
-    id: string; track: "Community" | "Personal Trainer"; tier: string;
-    emoji: string; tagline: string; badge?: string;
+    id: string; tier: string;
+    tagline: string; badge?: string;
     perks: string[]; tickets: string;
   }[] = [
     {
-      id: "community_freemium", track: "Community", tier: "Freemium",
-      emoji: "🟢", tagline: "Start free with the basics.",
-      perks: ["Calorie calculator"],
+      id: "community_freemium", tier: "Freemium",
+      tagline: "Start free — no coach, just the basics.",
+      perks: ["Calorie calculator", "General programs (Pro split / PPL / Upper & Lower)"],
       tickets: "No coach tickets",
     },
     {
-      id: "community_premium", track: "Community", tier: "Premium", badge: "Popular",
-      emoji: "⭐", tagline: "Everything to follow a plan consistently.",
-      perks: ["General programs (PPL / Upper-Lower / Pro split)", "Nutrition plans + courses", "Community forum + live support", "Weekly training follow-up"],
+      id: "community_premium", tier: "Premium", badge: "Popular",
+      tagline: "Coach-led plan with monthly progress reviews.",
+      perks: [
+        "Customized workout program",
+        "Customized nutrition plans",
+        "Courses, live support, community",
+        "Monthly training follow-up report",
+      ],
       tickets: "10 tickets / month",
     },
     {
-      id: "community_exclusive", track: "Community", tier: "Exclusive",
-      emoji: "💎", tagline: "Community perks + in-person + 1:1 trainer support.",
-      perks: ["All Premium perks", "Monthly follow-up + fitness assessment", "Nutrition facts database", "Hybrid / in-person training"],
-      tickets: "Unlimited tickets",
-    },
-    {
-      id: "pt_basic", track: "Personal Trainer", tier: "Basic",
-      emoji: "🥉", tagline: "Custom plan from a certified coach.",
-      perks: ["Personal fitness program", "Custom nutrition plan", "Monthly follow-up"],
-      tickets: "20 tickets / month",
-    },
-    {
-      id: "pt_premium", track: "Personal Trainer", tier: "Premium", badge: "Most picked",
-      emoji: "🥈", tagline: "Tighter loop + post-plan access.",
-      perks: ["Personal program + nutrition", "Weekly follow-up", "Premium subscription for 3 months after plan ends"],
-      tickets: "50 tickets / month",
-    },
-    {
-      id: "pt_gold", track: "Personal Trainer", tier: "Gold",
-      emoji: "🥇", tagline: "Full personal-training experience with exclusive perks.",
-      perks: ["Continuous follow-up", "Exclusive subscription for 3 months after plan ends", "Additional benefits"],
+      id: "community_exclusive", tier: "Exclusive",
+      tagline: "Full coaching access with weekly reviews and in-person sessions.",
+      perks: [
+        "Everything in Premium",
+        "Weekly training follow-up report",
+        "Nutrition facts for food + fitness assessment",
+        "Hybrid / training in person",
+      ],
       tickets: "Unlimited tickets",
     },
   ];
@@ -1059,8 +1050,8 @@ export default function Coaching() {
    identical across the app.
    ────────────────────────────────────────────────────────────────────────── */
 type PackageDef = {
-  id: string; track: "Community" | "Personal Trainer"; tier: string;
-  emoji: string; tagline: string; badge?: string;
+  id: string; tier: string;
+  tagline: string; badge?: string;
   perks: string[]; tickets: string;
 };
 
@@ -1071,24 +1062,10 @@ export function PackageGrid({ packages, prices, cycle, selectedId, onSelect }: {
   selectedId: string;
   onSelect: (id: string) => void;
 }) {
-  // Group by track so cards within Community/PT visually cluster.
-  const tracks: Record<string, PackageDef[]> = {};
-  for (const p of packages) {
-    (tracks[p.track] = tracks[p.track] || []).push(p);
-  }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {Object.entries(tracks).map(([track, list]) => (
-        <div key={track}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 8, fontFamily: "var(--font-mono, monospace)" }}>
-            {track}
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-            {list.map(p => (
-              <PackageCard key={p.id} pkg={p} price={prices[p.id] ?? 0} cycle={cycle} active={selectedId === p.id} onSelect={() => onSelect(p.id)} />
-            ))}
-          </div>
-        </div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+      {packages.map(p => (
+        <PackageCard key={p.id} pkg={p} price={prices[p.id] ?? 0} cycle={cycle} active={selectedId === p.id} onSelect={() => onSelect(p.id)} />
       ))}
     </div>
   );
@@ -1123,14 +1100,8 @@ export function PackageCard({ pkg, price, cycle, active, onSelect }: {
         }}>{pkg.badge}</span>
       )}
 
-      {/* Header: emoji icon + tier name + (selected) check */}
+      {/* Header: tier name + tagline + (selected) check */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: 10,
-          background: active ? "var(--main)" : "var(--bg-surface)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 20, flexShrink: 0,
-        }}>{pkg.emoji}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: 14, fontWeight: 800, color: active ? "var(--accent)" : "var(--text-primary)", marginBottom: 2 }}>{pkg.tier}</p>
           <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>{pkg.tagline}</p>
@@ -1149,8 +1120,7 @@ export function PackageCard({ pkg, price, cycle, active, onSelect }: {
       </div>
 
       {/* Tickets allowance */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 8, background: "var(--bg-surface)", border: "1px solid var(--border)", width: "fit-content" }}>
-        <span style={{ fontSize: 11 }}>🎫</span>
+      <div style={{ padding: "5px 10px", borderRadius: 8, background: "var(--bg-surface)", border: "1px solid var(--border)", width: "fit-content" }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)" }}>{pkg.tickets}</span>
       </div>
 
@@ -1158,7 +1128,7 @@ export function PackageCard({ pkg, price, cycle, active, onSelect }: {
       <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 5 }}>
         {pkg.perks.slice(0, 4).map(p => (
           <li key={p} style={{ display: "flex", gap: 6, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>
-            <span style={{ color: "var(--green)", flexShrink: 0 }}>✓</span>
+            <span style={{ color: "var(--green)", flexShrink: 0 }}>•</span>
             <span>{p}</span>
           </li>
         ))}

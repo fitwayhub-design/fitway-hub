@@ -1,24 +1,21 @@
 /**
- * Pricing — subscription packages from the May 2026 business plan
- * ─────────────────────────────────────────────────────────
- * Two tracks, three tiers each:
+ * Pricing — three athlete subscription packages.
  *
- *   Community Subscription  → Freemium / Premium / Exclusive
- *   PT (Personal Trainer)   → Basic / Premium / Gold
+ *   Freemium   → no coach, basics only
+ *   Premium    → coach-led with monthly progress reviews
+ *   Exclusive  → coach-led with weekly reviews + in-person extras
  *
- * Tier prices come from admin app_settings (sub_community_*_egp /
- * sub_pt_*_egp). Defaults are placeholders the client will replace —
- * nothing here is hardcoded.
+ * Prices come from admin app_settings (sub_community_*_egp). Defaults below
+ * are placeholders until the client populates the real numbers.
  */
 import { useState, useEffect } from "react";
-import { Check, Crown, ArrowLeft, Sparkles } from "lucide-react";
+import { Check, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useNavigate } from "react-router-dom";
 import { getApiBase } from "@/lib/api";
 import PaymentForm from "@/components/app/PaymentForm";
 
-type Track = "community" | "pt";
 type Step = "plans" | "payment";
 
 interface TierDef {
@@ -29,102 +26,61 @@ interface TierDef {
   features: { label: string; v: string | boolean }[];
 }
 
-// ── Community subscription tiers ─────────────────────────────────────────────
-const COMMUNITY_TIERS: TierDef[] = [
+const TIERS: TierDef[] = [
   {
     id: "freemium",
     name: "Freemium",
-    blurb: "Start free — try the basics with the platform.",
+    blurb: "Start free — for athletes without a coach.",
     features: [
       { label: "Calorie Calculator", v: true },
-      { label: "General Programs (PPL / Upper-Lower / Pro Split)", v: false },
-      { label: "Nutrition Plans", v: false },
+      { label: "General Programs (Pro split / PPL / Upper & Lower)", v: true },
+      { label: "Customized workout program", v: false },
+      { label: "Customized Nutrition Plans", v: false },
       { label: "Courses", v: false },
-      { label: "Live support / emergency", v: false },
-      { label: "Community / Q&A forum", v: false },
+      { label: "Live support", v: false },
+      { label: "Access to Community", v: false },
+      { label: "Coach tickets", v: false },
       { label: "Training follow-up", v: false },
-      { label: "Nutrition facts database", v: false },
-      { label: "Hybrid / in-person training", v: false },
-      { label: "One-to-one chat with trainer", v: false },
-      { label: "Fitness assessment", v: false },
+      { label: "Nutrition Facts for Food", v: false },
+      { label: "Hybrid / Training in person", v: false },
+      { label: "Fitness Assessment", v: false },
     ],
   },
   {
     id: "premium",
     name: "Premium",
-    blurb: "Everything you need to train consistently and follow a plan.",
+    blurb: "Coach-led plan with monthly progress reviews.",
     badge: "Most popular",
     features: [
       { label: "Calorie Calculator", v: true },
-      { label: "General Programs (PPL / Upper-Lower / Pro Split)", v: true },
-      { label: "Nutrition Plans", v: true },
+      { label: "Customized workout program", v: true },
+      { label: "Customized Nutrition Plans", v: true },
       { label: "Courses", v: true },
-      { label: "Live support / emergency", v: true },
-      { label: "Community / Q&A forum", v: true },
-      { label: "Training follow-up", v: "Weekly" },
-      { label: "Nutrition facts database", v: false },
-      { label: "Hybrid / in-person training", v: false },
-      { label: "One-to-one chat with trainer", v: false },
-      { label: "Fitness assessment", v: false },
+      { label: "Live support", v: true },
+      { label: "Access to Community", v: true },
+      { label: "Coach tickets", v: "10 / month" },
+      { label: "Training follow-up", v: "Monthly report" },
+      { label: "Nutrition Facts for Food", v: false },
+      { label: "Hybrid / Training in person", v: false },
+      { label: "Fitness Assessment", v: false },
     ],
   },
   {
     id: "exclusive",
     name: "Exclusive",
-    blurb: "Full community access plus in-person options and 1:1 support.",
+    blurb: "Full coaching access with weekly reviews and in-person sessions.",
     features: [
       { label: "Calorie Calculator", v: true },
-      { label: "General Programs (PPL / Upper-Lower / Pro Split)", v: true },
-      { label: "Nutrition Plans", v: true },
+      { label: "Customized workout program", v: true },
+      { label: "Customized Nutrition Plans", v: true },
       { label: "Courses", v: true },
-      { label: "Live support / emergency", v: true },
-      { label: "Community / Q&A forum", v: true },
-      { label: "Training follow-up", v: "Monthly" },
-      { label: "Nutrition facts database", v: true },
-      { label: "Hybrid / in-person training", v: true },
-      { label: "One-to-one chat with trainer", v: true },
-      { label: "Fitness assessment", v: true },
-    ],
-  },
-];
-
-// ── PT (Personal Trainer) subscription tiers ─────────────────────────────────
-const PT_TIERS: TierDef[] = [
-  {
-    id: "basic",
-    name: "Basic",
-    blurb: "Custom plan from a certified coach with monthly follow-up.",
-    features: [
-      { label: "Customized nutrition plan", v: true },
-      { label: "Personal fitness program", v: true },
-      { label: "Follow-up", v: "Monthly" },
-      { label: "After the plan (3 months)", v: "None" },
-      { label: "Additional benefits", v: false },
-    ],
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    blurb: "Tighter coaching loop with weekly check-ins and post-plan access.",
-    badge: "Most popular",
-    features: [
-      { label: "Customized nutrition plan", v: true },
-      { label: "Personal fitness program", v: true },
-      { label: "Follow-up", v: "Weekly" },
-      { label: "After the plan (3 months)", v: "Premium subscription (limited)" },
-      { label: "Additional benefits", v: false },
-    ],
-  },
-  {
-    id: "gold",
-    name: "Gold",
-    blurb: "The full personal-training experience with exclusive perks.",
-    features: [
-      { label: "Customized nutrition plan", v: true },
-      { label: "Personal fitness program", v: true },
-      { label: "Follow-up", v: "Continuous" },
-      { label: "After the plan (3 months)", v: "Exclusive subscription (limited)" },
-      { label: "Additional benefits", v: true },
+      { label: "Live support", v: true },
+      { label: "Access to Community", v: true },
+      { label: "Coach tickets", v: "Unlimited" },
+      { label: "Training follow-up", v: "Weekly report" },
+      { label: "Nutrition Facts for Food", v: true },
+      { label: "Hybrid / Training in person", v: true },
+      { label: "Fitness Assessment", v: true },
     ],
   },
 ];
@@ -133,9 +89,6 @@ const DEFAULT_PRICES: Record<string, number> = {
   community_freemium: 0,
   community_premium:  149,
   community_exclusive:299,
-  pt_basic:           499,
-  pt_premium:         899,
-  pt_gold:            1499,
 };
 
 export default function Pricing() {
@@ -145,7 +98,6 @@ export default function Pricing() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 860);
   useEffect(() => { const h = () => setIsMobile(window.innerWidth < 860); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
 
-  const [track, setTrack] = useState<Track>("community");
   const [step, setStep] = useState<Step>("plans");
   const [selectedTier, setSelectedTier] = useState<TierDef | null>(null);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
@@ -172,8 +124,7 @@ export default function Pricing() {
   }, [token]);
 
   const priceFor = (tier: TierDef) => {
-    const key = `${track === "community" ? "community" : "pt"}_${tier.id}`;
-    const monthly = prices[key] ?? 0;
+    const monthly = prices[`community_${tier.id}`] ?? 0;
     return billingCycle === "annual" ? monthly * 10 : monthly; // 2 months free on annual
   };
 
@@ -181,8 +132,6 @@ export default function Pricing() {
     updateUser({ isPremium: true });
     navigate("/app/dashboard");
   };
-
-  const tiers = track === "community" ? COMMUNITY_TIERS : PT_TIERS;
 
   if (step === "payment" && selectedTier) {
     const amount = priceFor(selectedTier);
@@ -192,10 +141,9 @@ export default function Pricing() {
           <ArrowLeft size={15} /> Back to plans
         </button>
         <div style={{ backgroundColor: "var(--bg-card)", border: "2px solid var(--accent)", borderRadius: 16, padding: "28px 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-            <Crown size={18} color="var(--accent)" />
+          <div style={{ marginBottom: 4 }}>
             <h2 style={{ fontFamily: "var(--font-en)", fontSize: 20, fontWeight: 700 }}>
-              {track === "community" ? "Community" : "PT"} · {selectedTier.name}
+              {selectedTier.name}
             </h2>
           </div>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>
@@ -232,34 +180,14 @@ export default function Pricing() {
       <div style={{ textAlign: "center", marginBottom: 28 }}>
         <h1 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(22px, 4vw, 34px)", fontWeight: 800, marginBottom: 8 }}>{t("unlock_potential") || "Pick your subscription"}</h1>
         <p style={{ fontSize: 14, color: "var(--text-secondary)", maxWidth: 540, margin: "0 auto" }}>
-          Community subscriptions get you the platform and group support. PT subscriptions add a personal certified coach with a custom plan.
+          Pick a plan that matches how you want to train. Freemium is for athletes
+          without a coach; Premium and Exclusive add a personal coach with custom plans.
         </p>
-      </div>
-
-      {/* Track switcher */}
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
-        <div style={{ display: "inline-flex", gap: 0, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 99, padding: 4 }}>
-          {([
-            { id: "community" as const, label: "Community" },
-            { id: "pt"        as const, label: "Personal Trainer" },
-          ]).map(opt => {
-            const active = track === opt.id;
-            return (
-              <button key={opt.id} onClick={() => setTrack(opt.id)} style={{
-                padding: "9px 22px", borderRadius: 99, border: "none", cursor: "pointer",
-                fontSize: 13, fontWeight: 700,
-                background: active ? "var(--accent)" : "transparent",
-                color: active ? "#0a0a0a" : "var(--text-secondary)",
-                fontFamily: "var(--font-en)", transition: "all 0.15s",
-              }}>{opt.label}</button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Tier cards */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 16 }}>
-        {tiers.map(tier => {
+        {TIERS.map(tier => {
           const monthly = priceFor(tier);
           const highlighted = tier.badge === "Most popular";
           return (
@@ -274,8 +202,7 @@ export default function Pricing() {
               {tier.badge && (
                 <span style={{ position: "absolute", top: -10, insetInlineEnd: 16, fontSize: 10, padding: "4px 10px", borderRadius: 99, background: "var(--accent)", color: "#0a0a0a", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>{tier.badge}</span>
               )}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                {highlighted && <Sparkles size={16} color="var(--accent)" />}
+              <div style={{ marginBottom: 6 }}>
                 <h3 style={{ fontFamily: "var(--font-en)", fontSize: 18, fontWeight: 700 }}>{tier.name}</h3>
               </div>
               <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 18, minHeight: 36 }}>{tier.blurb}</p>
