@@ -120,7 +120,7 @@ export function AdminLayout() {
   });
 
   return (
-    <div className={`app-fwh${isRtl ? " rtl" : ""}`} style={{ minHeight: "100vh", backgroundColor: "var(--bg-primary)", color: "var(--text-primary)", display: "flex", overflow: "hidden" }}>
+    <div className={`app-fwh${isRtl ? " rtl" : ""}`} style={{ minHeight: "100vh", background: "linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-card) 100%)", color: "var(--text-primary)", display: "flex", overflow: "hidden" }}>
       {!isMobile && <DesktopSidebar />}
       <OverlayDrawer />
       {isMobile && <MobileTopBar />}
