@@ -2404,7 +2404,15 @@ html.light .web-fwh .fwh-btn-mini { border-color: rgba(0,0,0,0.12); }
   gap: 6px;
 }
 .web-fwh .fwh-circle-cta:hover { transform: scale(1.06) rotate(-8deg); }
-.web-fwh .fwh-circle-cta .fwh-circle-arr { font-size: 28px; line-height: 1; font-family: var(--fwh-sans); font-weight: 400; }
+.web-fwh .fwh-circle-cta .fwh-circle-arr {
+  font-size: 28px; line-height: 1;
+  font-family: var(--fwh-sans); font-weight: 400;
+  /* Same optical-center nudge as the small arrow chips — the "↗" glyph
+     in most fonts has extra space on the bottom-left of its box. */
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1em; height: 1em;
+  padding-bottom: 0.07em; padding-right: 0.04em;
+}
 
 /* Photo placeholder — for missing images */
 .web-fwh .fwh-photo {
@@ -2823,6 +2831,46 @@ html.light .web-fwh .fwh-huge-text { color: rgba(0,0,0,0.05); }
 /* About page mission split — responsive stack */
 @media (max-width: 880px) {
   .web-fwh .fwh-about-split { grid-template-columns: 1fr !important; gap: 40px !important; }
+}
+
+/* ── Responsive shrink for FWH editorial layout ───────────────────────────
+   On tablets and phones, the desktop-tuned padding/sizes (hero h1 up to
+   184px, header height 96, footer logo 96) get cramped or push CTAs off
+   screen. These rules dial them down without touching the desktop look. */
+@media (max-width: 1140px) {
+  /* Matches the JS hamburger-mode breakpoint in WebsiteLayout so the
+     header shrinks at the same width the centered nav would otherwise
+     start overlapping the right-side action buttons. */
+  .web-fwh .web-header > div { height: 84px !important; }
+  .web-fwh .web-header > div > a img { height: 60px !important; }
+  .web-fwh footer img { height: 76px !important; }
+}
+@media (max-width: 768px) {
+  .web-fwh .web-header > div { height: 72px !important; padding: 0 18px !important; }
+  .web-fwh .web-header > div > a img { height: 48px !important; }
+  .web-fwh footer img { height: 64px !important; }
+  .web-fwh footer > div { padding: 60px 18px 32px !important; }
+  .web-fwh .fwh-hero { padding: 110px 20px 60px; min-height: auto; }
+  .web-fwh .fwh-hero-h1 { font-size: clamp(40px, 12vw, 68px) !important; line-height: 1; padding-top: 4px; margin: 18px 0 24px; }
+  .web-fwh .fwh-hero-sub { font-size: 15px; margin-bottom: 28px; }
+  .web-fwh .fwh-gate { padding: 90px 20px 60px; min-height: auto; }
+  .web-fwh .fwh-gate-h { font-size: clamp(38px, 11vw, 64px) !important; margin-bottom: 36px; }
+  .web-fwh .fwh-gate-buttons { flex-direction: column; align-items: stretch; }
+  .web-fwh .fwh-gate-btn { justify-content: space-between; }
+  .web-fwh .fwh-s-h { font-size: clamp(32px, 9vw, 56px) !important; }
+  .web-fwh .fwh-stat-num { font-size: clamp(42px, 13vw, 64px) !important; }
+  .web-fwh .fwh-stat-cell { padding: 28px 18px; }
+  .web-fwh .fwh-section-meta { font-size: 9px; }
+  .web-fwh .fwh-marq-item { font-size: clamp(40px, 14vw, 64px); padding: 0 28px; }
+  .web-fwh .fwh-circle-cta { width: 160px; height: 160px; }
+  .web-fwh .fwh-circle-cta .fwh-circle-arr { font-size: 22px; }
+}
+@media (max-width: 480px) {
+  .web-fwh .web-header > div > a img { height: 44px !important; }
+  .web-fwh footer img { height: 56px !important; }
+  .web-fwh .fwh-hero-h1 { font-size: clamp(34px, 11vw, 54px) !important; }
+  .web-fwh .fwh-gate-h { font-size: clamp(32px, 10vw, 50px) !important; }
+  .web-fwh .fwh-stats-grid { grid-template-columns: 1fr !important; }
 }
 
 /* Reduced motion */

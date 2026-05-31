@@ -331,7 +331,10 @@ export default function HomePage() {
               <>
                 {cms("hero", "heading", "")}
                 {cms("hero", "headingAccent", "") && (
-                  <> <em className="fwh-italic">{cms("hero", "headingAccent", "")}</em></>
+                  // The accent line ("Empower your mind.") is primary display
+                  // text rendered on its own line UNDER the main heading,
+                  // not appended inline beside it.
+                  <><br /><em className="fwh-italic">{cms("hero", "headingAccent", "")}</em></>
                 )}
               </>
             ) : isAr ? (

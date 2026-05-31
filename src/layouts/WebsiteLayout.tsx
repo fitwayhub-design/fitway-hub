@@ -12,7 +12,10 @@ export function WebsiteLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
+  // Switch to the hamburger menu earlier than 1024 because the desktop
+  // layout (logo + absolutely-centered nav + right-side actions) overlaps
+  // on narrow laptops right around the 1024–1100 mark.
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1140);
   const accountRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -61,7 +64,7 @@ export function WebsiteLayout() {
   }, []);
 
   useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 1024);
+    const onResize = () => setIsMobile(window.innerWidth < 1140);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);

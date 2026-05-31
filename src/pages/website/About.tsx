@@ -272,7 +272,9 @@ export default function AboutPage() {
               <>
                 {cms("hero", "heading", "")}
                 {cms("hero", "headingAccent", "") && (
-                  <> <em className="fwh-italic">{cms("hero", "headingAccent", "")}</em></>
+                  // Accent line renders on its own line under the heading
+                  // so it reads as primary display text, not an inline tag.
+                  <><br /><em className="fwh-italic">{cms("hero", "headingAccent", "")}</em></>
                 )}
               </>
             ) : isAr ? (
