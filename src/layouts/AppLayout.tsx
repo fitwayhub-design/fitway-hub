@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Home, Dumbbell, Activity, Users,
   MessageCircle, Wrench, CreditCard, BarChart2,
-  UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut, Inbox,
+  UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut, Inbox, Trophy,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { CoachSearchIcon } from "@/components/icons/CoachSearchIcon";
@@ -30,9 +30,11 @@ const NAV: BottomNavItem[] = [
 const TOP_NAV = [
   { path: "/app/steps",      icon: Activity,      label: "Activity" },
   { path: "/app/community",  icon: Users,         label: "Community" },
+  // Challenges = group fitness challenges + their group chats. Replaces
+  // the old Groups tab on /app/chat (1:1 chat is gone).
+  { path: "/app/challenges", icon: Trophy,        label: "Challenges" },
   { path: "/app/profile",    icon: User,          label: "Profile" },
-  // 1:1 chat removed (May meeting). Tickets is the only direct contact
-  // channel; challenge/group conversations live inside Community.
+  // Tickets is the only direct contact channel with a coach (May meeting).
   { path: "/app/tickets",    icon: Inbox,         label: "Tickets" },
   { path: "/app/tools",      icon: Wrench,        label: "Tools" },
   { path: "/app/analytics",  icon: BarChart2,     label: "Analytics" },
@@ -99,6 +101,7 @@ export function AppLayout() {
     if (path === "/app/nutrition-plan") return t("nutrition_plan");
     if (path === "/app/steps") return t("activity");
     if (path === "/app/community") return t("nav_community");
+    if (path === "/app/challenges") return "Challenges";
     if (path === "/app/profile") return t("nav_profile");
     if (path === "/app/tickets") return "Tickets";
     if (path === "/app/tools") return t("nav_tools");

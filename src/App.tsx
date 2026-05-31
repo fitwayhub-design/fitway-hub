@@ -121,6 +121,7 @@ const Steps = lazy(() => import("@/pages/app/Steps"));
 const AppNotifications = lazy(() => import("@/pages/app/Notifications"));
 const Tickets = lazy(() => import("@/pages/app/Tickets"));
 const PublicProfile = lazy(() => import("@/pages/app/PublicProfile"));
+const Challenges = lazy(() => import("@/pages/app/Challenges"));
 
 const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const CoachDashboard = lazy(() => import("@/pages/coach/Dashboard"));
@@ -350,6 +351,7 @@ export default function App() {
                 <Route path="/app/notifications" element={<AppNotifications />} />
                 <Route path="/app/tickets" element={<Tickets />} />
                 <Route path="/app/u/:id" element={<PublicProfile />} />
+                <Route path="/app/challenges" element={<Challenges />} />
               </Route>
 
               {/* Coach Routes */}
