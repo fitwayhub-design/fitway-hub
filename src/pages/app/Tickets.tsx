@@ -43,7 +43,6 @@ export default function Tickets() {
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
   const [composeMode, setComposeMode] = useState(!!preselectCoach && !isCoach);
-  const [newSubject, setNewSubject] = useState("");
   const [newBody, setNewBody] = useState("");
   const [newCoachId, setNewCoachId] = useState<number | "">(preselectCoach || "");
   const [coachOptions, setCoachOptions] = useState<{ id: number; name: string }[]>([]);
@@ -51,6 +50,17 @@ export default function Tickets() {
   const [replies, setReplies] = useState<Reply[]>([]);
   const [replyDraft, setReplyDraft] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Cascading subject — athlete picks workout/nutrition, then a day from the
+  // coach plan, then the specific exercise or meal. No free text. Subject is
+  // built from the selection so coaches see exactly what's being asked about.
+  const [ticketKind, setTicketKind] = useState<"workout" | "nutrition">("workout");
+  const [workoutDays, setWorkoutDays] = useState<{ day: string; items: { id: string; name: string }[] }[]>([]);
+  const [nutritionDays, setNutritionDays] = useState<{ day: string; items: { id: string; name: string }[] }[]>([]);
+  const [selectedDay, setSelectedDay] = useState<string>("");
+  const [selectedItemKey, setSelectedItemKey] = useState<string>("");
+  const [selectedItemLabel, setSelectedItemLabel] = useState<string>("");
+  const [planMeta, setPlanMeta] = useState<{ workout_plan_id: number | null; nutrition_plan_id: number | null }>({ workout_plan_id: null, nutrition_plan_id: null });
 
   const api = (path: string, init?: RequestInit) =>
     fetch(getApiBase() + path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } });
@@ -94,13 +104,28 @@ export default function Tickets() {
     } finally { setBusy(false); }
   };
   const createTicket = async () => {
-    if (!newSubject.trim() || !newCoachId) return;
+    if (!newCoachId || !selectedItemKey || !newBody.trim()) return;
     setBusy(true);
     try {
-      const r = await api("/api/tickets", { method: "POST", body: JSON.stringify({ coach_id: newCoachId, subject: newSubject.trim(), body: newBody.trim() }) });
+      const subject = `${ticketKind === "workout" ? "Workout" : "Nutrition"} · ${selectedDay} · ${selectedItemLabel}`;
+      const payload: any = {
+        coach_id: newCoachId,
+        subject,
+        body: newBody.trim(),
+        kind: ticketKind === "workout" ? "workout_question" : "nutrition_question",
+      };
+      if (ticketKind === "workout") {
+        payload.workout_plan_id = planMeta.workout_plan_id;
+        payload.exercise_key = selectedItemKey;
+      } else {
+        payload.nutrition_plan_id = planMeta.nutrition_plan_id;
+        payload.meal_key = selectedItemKey;
+      }
+      const r = await api("/api/tickets", { method: "POST", body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
-        setComposeMode(false); setNewSubject(""); setNewBody(""); setNewCoachId("");
+        setComposeMode(false); setNewBody(""); setNewCoachId("");
+        setSelectedDay(""); setSelectedItemKey(""); setSelectedItemLabel("");
         await loadList();
         if (d.ticket) openTicket(d.ticket);
       }
@@ -123,6 +148,40 @@ export default function Tickets() {
       setCoachOptions(opts.filter((o: any) => !seen.has(o.id) && seen.add(o.id)));
     }).catch(() => {});
   }, [composeMode, isCoach]);
+
+  // When a coach is selected, fetch their workout + nutrition plans assigned
+  // to this athlete and group items by day for the cascading dropdowns.
+  useEffect(() => {
+    if (!composeMode || !newCoachId || isCoach) return;
+    setSelectedDay(""); setSelectedItemKey(""); setSelectedItemLabel("");
+    const groupByDay = (raw: any, itemNameKey: "name" | "meal_name" | "exercise") => {
+      try {
+        const list = typeof raw === "string" ? JSON.parse(raw) : (raw || []);
+        if (!Array.isArray(list)) return [];
+        const map = new Map<string, { id: string; name: string }[]>();
+        list.forEach((it: any, i: number) => {
+          const day = it.day || "Day";
+          const arr = map.get(day) || [];
+          const name = it.name || it.meal_name || it.exercise || `Item ${i + 1}`;
+          arr.push({ id: String(i), name });
+          map.set(day, arr);
+        });
+        return Array.from(map.entries()).map(([day, items]) => ({ day, items }));
+      } catch { return []; }
+    };
+    Promise.all([
+      api("/api/plans/coach-workout-plan").then(r => r.ok ? r.json() : null).catch(() => null),
+      api("/api/plans/coach-nutrition-plan").then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([w, n]) => {
+      setPlanMeta({
+        workout_plan_id: w?.plan?.id ?? null,
+        nutrition_plan_id: n?.plan?.id ?? null,
+      });
+      setWorkoutDays(groupByDay(w?.plan?.exercises, "name"));
+      setNutritionDays(groupByDay(n?.plan?.meals, "meal_name"));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [composeMode, newCoachId, isCoach]);
 
   const grouped = useMemo(() => {
     const open = tickets.filter(t => t.status === "open");
@@ -207,32 +266,89 @@ export default function Tickets() {
         )}
       </div>
 
-      {composeMode && !isCoach && (
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 16, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-          <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Tickets replace direct chat — your coach will be notified and reply here.</p>
-          <select value={newCoachId} onChange={e => setNewCoachId(Number(e.target.value) || "")}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14 }}>
-            <option value="">— Pick a coach —</option>
-            {coachOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          {coachOptions.length === 0 && (
-            <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              You're not subscribed to a coach yet. <a href="/app/coaching" style={{ color: "var(--main)" }}>Find a coach</a>.
-            </p>
-          )}
-          <input value={newSubject} onChange={e => setNewSubject(e.target.value)} placeholder="Subject"
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14 }} />
-          <textarea value={newBody} onChange={e => setNewBody(e.target.value)} placeholder="Tell your coach what's up…" rows={3}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, resize: "vertical" }} />
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button onClick={() => setComposeMode(false)} style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-            <button onClick={createTicket} disabled={busy || !newCoachId || !newSubject.trim()}
-              style={{ padding: "9px 14px", borderRadius: 10, border: "none", background: "var(--main)", color: "#000", fontWeight: 700, fontSize: 12, cursor: "pointer", opacity: (!newCoachId || !newSubject.trim()) ? 0.5 : 1 }}>
-              Send ticket
-            </button>
+      {composeMode && !isCoach && (() => {
+        const days = ticketKind === "workout" ? workoutDays : nutritionDays;
+        const itemsForDay = days.find(d => d.day === selectedDay)?.items || [];
+        const planMissing = !!newCoachId && days.length === 0;
+        return (
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 16, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Tickets reference a specific item in your coach plan — pick what you're asking about and your coach will reply here.</p>
+
+            <select value={newCoachId} onChange={e => setNewCoachId(Number(e.target.value) || "")}
+              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14 }}>
+              <option value="">— Pick a coach —</option>
+              {coachOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            {coachOptions.length === 0 && (
+              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                You're not subscribed to a coach yet. <a href="/app/coaching" style={{ color: "var(--main)" }}>Find a coach</a>.
+              </p>
+            )}
+
+            {!!newCoachId && (
+              <>
+                <div style={{ display: "flex", gap: 6, padding: 4, background: "var(--bg-surface)", borderRadius: 99 }}>
+                  {(["workout", "nutrition"] as const).map(k => (
+                    <button key={k} type="button"
+                      onClick={() => { setTicketKind(k); setSelectedDay(""); setSelectedItemKey(""); setSelectedItemLabel(""); }}
+                      style={{
+                        flex: 1, padding: "8px 10px", borderRadius: 99, border: "none", cursor: "pointer",
+                        fontSize: 12, fontWeight: 700,
+                        background: ticketKind === k ? "var(--main)" : "transparent",
+                        color: ticketKind === k ? "#0a0a0a" : "var(--text-muted)",
+                      }}>
+                      {k === "workout" ? "Workout" : "Nutrition"}
+                    </button>
+                  ))}
+                </div>
+
+                {planMissing ? (
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", padding: "8px 0" }}>
+                    {ticketKind === "workout"
+                      ? "Your coach hasn't assigned a workout plan yet — you can't open a workout ticket until they do."
+                      : "Your coach hasn't assigned a nutrition plan yet — you can't open a nutrition ticket until they do."}
+                  </p>
+                ) : (
+                  <>
+                    <select value={selectedDay}
+                      onChange={e => { setSelectedDay(e.target.value); setSelectedItemKey(""); setSelectedItemLabel(""); }}
+                      style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14 }}>
+                      <option value="">— Pick a day —</option>
+                      {days.map(d => <option key={d.day} value={d.day}>{d.day}</option>)}
+                    </select>
+
+                    {!!selectedDay && (
+                      <select value={selectedItemKey}
+                        onChange={e => {
+                          const key = e.target.value;
+                          const found = itemsForDay.find(it => it.id === key);
+                          setSelectedItemKey(key);
+                          setSelectedItemLabel(found?.name || "");
+                        }}
+                        style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14 }}>
+                        <option value="">— Pick {ticketKind === "workout" ? "an exercise" : "a meal"} —</option>
+                        {itemsForDay.map(it => <option key={it.id} value={it.id}>{it.name}</option>)}
+                      </select>
+                    )}
+
+                    <textarea value={newBody} onChange={e => setNewBody(e.target.value)} placeholder="What's your question?" rows={3}
+                      style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, resize: "vertical" }} />
+                  </>
+                )}
+              </>
+            )}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setComposeMode(false)} style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+              <button onClick={createTicket}
+                disabled={busy || !newCoachId || !selectedItemKey || !newBody.trim() || planMissing}
+                style={{ padding: "9px 14px", borderRadius: 10, border: "none", background: "var(--main)", color: "#000", fontWeight: 700, fontSize: 12, cursor: "pointer", opacity: (!newCoachId || !selectedItemKey || !newBody.trim() || planMissing) ? 0.5 : 1 }}>
+                Send ticket
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {loading ? (
         <p style={{ textAlign: "center", color: "var(--text-muted)", padding: 40 }}>Loading…</p>

@@ -533,9 +533,13 @@ export default function Coaching() {
                     <Calendar size={14} /> Book
                   </button>
                 )}
-                <button onClick={() => { setReviewingCoach(c); setReviewRating(5); setReviewText(""); setReviewMsg(""); fetchReviews(c.id); }} style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "9px 12px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--amber)", cursor: "pointer", flex: isMobile ? "1 1 calc(50% - 4px)" : "0 0 auto" }}>
-                  <Star size={14} />
-                </button>
+                {subscribedCoaches[c.id]?.latestRequest && !subscribedCoaches[c.id]?.subscribed && (
+                  <button onClick={() => { setReviewingCoach(c); setReviewRating(5); setReviewText(""); setReviewMsg(""); fetchReviews(c.id); }}
+                    title="Rate this coach (plan ended)"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "9px 12px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--amber)", cursor: "pointer", flex: isMobile ? "1 1 calc(50% - 4px)" : "0 0 auto" }}>
+                    <Star size={14} />
+                  </button>
+                )}
                 {subscribedCoaches[c.id] && (
                   <button onClick={() => { setGiftCoach(c); setGiftAmount("50"); setGiftMessage(""); setGiftMsg(""); }} style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "9px 12px", borderRadius: "var(--radius-full)", backgroundColor: "rgba(255,214,0,0.06)", border: "1px solid rgba(255,214,0,0.2)", color: "var(--accent)", cursor: "pointer", flex: isMobile ? "1 1 calc(50% - 4px)" : "0 0 auto" }} title="Send Gift">
                     <Gift size={14} />

@@ -152,13 +152,6 @@ export default function Steps() {
               ))}
             </div>
 
-            {/* Distance ↔ Steps equation note */}
-            <p
-              title="Average stride length used to convert step count into distance"
-              style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", marginTop: 14, lineHeight: 1.5 }}
-            >
-              📏 Distance ≈ Steps × 0.762 m  ·  ~1,312 steps per kilometre
-            </p>
           </div>
 
           {/* Mode toggle */}
