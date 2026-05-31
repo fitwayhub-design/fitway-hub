@@ -22,6 +22,17 @@ router.post('/reviews', authenticateToken, async (req, res) => {
     if (rating < 1 || rating > 5)
         return res.status(400).json({ message: 'Rating must be between 1 and 5' });
     try {
+        // Athletes can only rate a coach once their plan with that coach has ended:
+        // a subscription row that's expired/cancelled, or whose expires_at is in
+        // the past. An athlete with an active subscription can't post a review yet.
+        const eligible = await get(`SELECT id FROM coach_subscriptions
+       WHERE user_id = ? AND coach_id = ?
+         AND (status IN ('expired','ended','cancelled')
+              OR (status = 'active' AND expires_at IS NOT NULL AND expires_at <= NOW()))
+       ORDER BY id DESC LIMIT 1`, [req.user.id, coachId]);
+        if (!eligible) {
+            return res.status(403).json({ message: 'You can only rate a coach after your plan with them has ended.' });
+        }
         const existing = await get('SELECT id FROM coach_reviews WHERE coach_id = ? AND user_id = ?', [coachId, req.user.id]);
         if (existing) {
             await run('UPDATE coach_reviews SET rating = ?, text = ?, created_at = NOW() WHERE coach_id = ? AND user_id = ?', [rating, text.trim(), coachId, req.user.id]);

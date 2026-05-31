@@ -53,7 +53,9 @@ async function getTargetedAdsForUser(userId, placementFilter, limit = 20) {
     const viewerLng = viewer?.longitude ? parseFloat(viewer.longitude) : null;
     // Build SQL — ad is shown if viewer matches ALL non-null audience criteria
     let sql = `
-    SELECT a.*, u.name AS coach_name, u.avatar AS coach_avatar, u.email AS coach_email
+    SELECT a.*, u.name AS coach_name, u.avatar AS coach_avatar, u.email AS coach_email,
+           COALESCE((SELECT AVG(rating) FROM coach_reviews WHERE coach_id = u.id), 0) AS coach_rating,
+           COALESCE((SELECT COUNT(*) FROM coach_reviews WHERE coach_id = u.id), 0) AS coach_review_count
     FROM coach_ads a
     INNER JOIN users u ON a.coach_id = u.id AND u.role = 'coach'
     WHERE a.status = 'active'
@@ -270,11 +272,20 @@ async function getTargetedCampaignAdsForUser(userId, placement, limit = 1) {
     params.push(limit);
     return query(sql, params);
 }
+// MySQL's AVG() returns DECIMAL which the driver hands back as a string. Coerce
+// rating/count to JS numbers so the frontend's `typeof === "number"` guards work.
+function normalizeAdCoachMetrics(ads) {
+    return ads.map(ad => ({
+        ...ad,
+        coach_rating: ad.coach_rating == null ? 0 : Number(ad.coach_rating) || 0,
+        coach_review_count: ad.coach_review_count == null ? 0 : Number(ad.coach_review_count) || 0,
+    }));
+}
 router.get('/ads/public', authenticateToken, async (req, res) => {
     try {
         await expireAds();
         const ads = await getTargetedAdsForUser(req.user.id, undefined, 20);
-        res.json({ ads });
+        res.json({ ads: normalizeAdCoachMetrics(ads) });
     }
     catch {
         res.status(500).json({ message: 'Failed to fetch ads' });
@@ -297,7 +308,7 @@ router.get('/ads/public/home', authenticateToken, async (req, res) => {
             ...campaignAds.map((a) => ({ ...a, _src: 'campaign' })),
         ];
         const pick = merged.length ? [merged[Math.floor(Math.random() * merged.length)]] : [];
-        res.json({ ads: pick });
+        res.json({ ads: normalizeAdCoachMetrics(pick) });
     }
     catch {
         res.status(500).json({ message: 'Failed to fetch home ads' });
@@ -317,7 +328,7 @@ router.get('/ads/public/community', authenticateToken, async (req, res) => {
             ...campaignAds.map((a) => ({ ...a, _src: 'campaign' })),
         ];
         const pick = merged.length ? [merged[Math.floor(Math.random() * merged.length)]] : [];
-        res.json({ ads: pick });
+        res.json({ ads: normalizeAdCoachMetrics(pick) });
     }
     catch {
         res.status(500).json({ message: 'Failed to fetch community ads' });

@@ -36,7 +36,23 @@ router.post('/bootstrap-admin', async (req, res) => {
 // ── Users ──────────────────────────────────────────────────────────────────────
 router.get('/users', authenticateToken, adminOnly, async (_req, res) => {
     try {
-        const users = await query('SELECT id, name, email, role, avatar, is_premium, points, steps, step_goal, height, weight, gender, medical_history, medical_file_url, membership_paid, coach_membership_active, created_at FROM users ORDER BY created_at DESC');
+        // LEFT JOIN coach_profiles so the admin edit modal has the coach-specific
+        // fields ready without a second round-trip. Athletes and admins just get
+        // NULLs in the coach_* columns.
+        const users = await query(`
+      SELECT u.id, u.name, u.email, u.role, u.avatar, u.is_premium,
+             u.points, u.steps, u.step_goal, u.height, u.weight, u.gender,
+             u.medical_history, u.medical_file_url,
+             u.membership_paid, u.coach_membership_active, u.created_at,
+             cp.specialty AS coach_specialty,
+             cp.bio       AS coach_bio,
+             cp.location  AS coach_location,
+             cp.available AS coach_available,
+             cp.certified AS coach_certified
+      FROM users u
+      LEFT JOIN coach_profiles cp ON cp.user_id = u.id
+      ORDER BY u.created_at DESC
+    `);
         res.json({ users });
     }
     catch {
@@ -243,7 +259,44 @@ router.put('/users/:id', authenticateToken, adminOnly, async (req, res) => {
             body.step_goal !== undefined && body.step_goal !== '' ? Number(body.step_goal) : Number(existing.step_goal || 10000),
             oldId,
         ]);
-        const updated = await get('SELECT id, name, email, role, avatar, is_premium, points, steps, step_goal, height, weight, gender, medical_history, medical_file_url, membership_paid, coach_membership_active, created_at FROM users WHERE id = ?', [nextId]);
+        // If this account is (or just became) a coach, upsert their coach_profile
+        // so admins can edit specialty/bio/location/pricing/availability inline.
+        // Only fields that were sent on the body get written; the rest stay put.
+        // Subscription pricing isn't per-coach — it's global package pricing set
+        // in app_settings — so the coach_profiles price columns aren't editable
+        // from here. We just sync the descriptive profile fields the admin needs.
+        if (role === 'coach') {
+            const profileFields = {};
+            if (body.coach_specialty !== undefined)
+                profileFields.specialty = String(body.coach_specialty || '').trim();
+            if (body.coach_bio !== undefined)
+                profileFields.bio = String(body.coach_bio || '').trim();
+            if (body.coach_location !== undefined)
+                profileFields.location = String(body.coach_location || '').trim();
+            if (body.coach_available !== undefined)
+                profileFields.available = body.coach_available ? 1 : 0;
+            if (Object.keys(profileFields).length > 0) {
+                const existingProfile = await get('SELECT id FROM coach_profiles WHERE user_id = ?', [nextId]).catch(() => null);
+                if (existingProfile) {
+                    const setSql = Object.keys(profileFields).map(k => `${k} = ?`).join(', ');
+                    await run(`UPDATE coach_profiles SET ${setSql} WHERE user_id = ?`, [...Object.values(profileFields), nextId]);
+                }
+                else {
+                    const cols = ['user_id', ...Object.keys(profileFields)];
+                    const placeholders = cols.map(() => '?').join(', ');
+                    await run(`INSERT INTO coach_profiles (${cols.join(', ')}) VALUES (${placeholders})`, [nextId, ...Object.values(profileFields)]);
+                }
+            }
+        }
+        const updated = await get(`SELECT u.id, u.name, u.email, u.role, u.avatar, u.is_premium,
+              u.points, u.steps, u.step_goal, u.height, u.weight, u.gender,
+              u.medical_history, u.medical_file_url, u.membership_paid,
+              u.coach_membership_active, u.created_at,
+              cp.specialty AS coach_specialty, cp.bio AS coach_bio,
+              cp.location AS coach_location, cp.available AS coach_available,
+              cp.certified AS coach_certified
+       FROM users u LEFT JOIN coach_profiles cp ON cp.user_id = u.id
+       WHERE u.id = ?`, [nextId]);
         res.json({ message: 'User updated', user: updated });
     }
     catch {
@@ -265,6 +318,157 @@ router.get('/gifts', authenticateToken, adminOnly, async (_req, res) => {
     }
     catch {
         res.status(500).json({ message: 'Failed to fetch gifts' });
+    }
+});
+// ── Trainings ──────────────────────────────────────────────────────────────────
+// Trainings are admin-curated buckets that own a set of short + long workout
+// videos. The athlete-facing layout is "browse a training → watch its videos",
+// mirroring how App Images groups by category.
+router.get('/trainings', authenticateToken, adminOnly, async (_req, res) => {
+    try {
+        const trainings = await query(`SELECT t.*,
+              COALESCE(SUM(CASE WHEN wv.is_short = 1 THEN 1 ELSE 0 END), 0) AS short_count,
+              COALESCE(SUM(CASE WHEN wv.is_short = 0 OR wv.is_short IS NULL THEN 1 ELSE 0 END), 0) AS long_count
+       FROM trainings t
+       LEFT JOIN workout_videos wv ON wv.training_id = t.id
+       GROUP BY t.id
+       ORDER BY t.sort_order ASC, t.created_at DESC`);
+        res.json({ trainings });
+    }
+    catch (err) {
+        console.error('List trainings error:', err);
+        res.status(500).json({ message: 'Failed to fetch trainings' });
+    }
+});
+router.post('/trainings', authenticateToken, adminOnly, async (req, res) => {
+    try {
+        const { title, description, cover_image, sort_order } = req.body || {};
+        if (!title || !String(title).trim())
+            return res.status(400).json({ message: 'Title is required' });
+        const { insertId } = await run('INSERT INTO trainings (title, description, cover_image, sort_order) VALUES (?,?,?,?)', [String(title).trim(), description || '', cover_image || null, Number(sort_order) || 0]);
+        const training = await get('SELECT * FROM trainings WHERE id = ?', [insertId]);
+        res.json({ training });
+    }
+    catch (err) {
+        console.error('Create training error:', err);
+        res.status(500).json({ message: 'Failed to create training' });
+    }
+});
+router.patch('/trainings/:id', authenticateToken, adminOnly, async (req, res) => {
+    try {
+        const existing = await get('SELECT * FROM trainings WHERE id = ?', [req.params.id]);
+        if (!existing)
+            return res.status(404).json({ message: 'Training not found' });
+        const { title, description, cover_image, sort_order } = req.body || {};
+        await run('UPDATE trainings SET title=?, description=?, cover_image=?, sort_order=?, updated_at=NOW() WHERE id=?', [
+            title !== undefined ? String(title).trim() || existing.title : existing.title,
+            description !== undefined ? (description || '') : existing.description,
+            cover_image !== undefined ? (cover_image || null) : existing.cover_image,
+            sort_order !== undefined ? (Number(sort_order) || 0) : existing.sort_order,
+            req.params.id,
+        ]);
+        const training = await get('SELECT * FROM trainings WHERE id = ?', [req.params.id]);
+        res.json({ training });
+    }
+    catch (err) {
+        console.error('Update training error:', err);
+        res.status(500).json({ message: 'Failed to update training' });
+    }
+});
+router.delete('/trainings/:id', authenticateToken, adminOnly, async (req, res) => {
+    try {
+        // Detach any videos that belonged to this training so they aren't lost.
+        await run('UPDATE workout_videos SET training_id = NULL WHERE training_id = ?', [req.params.id]);
+        await run('DELETE FROM trainings WHERE id = ?', [req.params.id]);
+        res.json({ message: 'Training deleted' });
+    }
+    catch (err) {
+        console.error('Delete training error:', err);
+        res.status(500).json({ message: 'Failed to delete training' });
+    }
+});
+router.get('/trainings/:id/videos', authenticateToken, adminOnly, async (req, res) => {
+    try {
+        const videos = await query(`SELECT wv.* FROM workout_videos wv
+       WHERE wv.training_id = ?
+       ORDER BY wv.is_short DESC, wv.created_at DESC`, [req.params.id]);
+        res.json({ videos });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to fetch training videos' });
+    }
+});
+// Upload a video file straight into a training. Slim version of POST /videos —
+// the training owns category/grouping so we only ask for what the admin must
+// pick per-video: title, short/long, optional description + thumbnail.
+router.post('/trainings/:id/videos', authenticateToken, adminOnly, uploadVideo.fields([
+    { name: 'video', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 },
+]), validateVideoSize, optimizeImage(), async (req, res) => {
+    try {
+        const training = await get('SELECT * FROM trainings WHERE id = ?', [req.params.id]);
+        if (!training)
+            return res.status(404).json({ message: 'Training not found' });
+        const { title, description, duration, is_premium } = req.body;
+        if (!title)
+            return res.status(400).json({ message: 'Title is required' });
+        const isShort = req.body.is_short === '1' || req.body.is_short === true ? 1 : 0;
+        const files = req.files;
+        const videoFile = files?.video?.[0];
+        const thumbnailFile = files?.thumbnail?.[0];
+        if (!videoFile)
+            return res.status(400).json({ message: 'Video file is required' });
+        const videoUrl = await uploadToR2(videoFile, 'videos');
+        const thumbnailUrl = thumbnailFile ? await uploadToR2(thumbnailFile, 'thumbnails') : null;
+        const durationSeconds = videoFile.size > 0 ? Math.ceil(videoFile.size / (1024 * 1024)) : parseInt(duration || '0');
+        const { insertId } = await run(`INSERT INTO workout_videos
+       (title, description, url, duration, duration_seconds, category, is_premium, thumbnail, is_short, source_type, approval_status, submitted_by, approved_by, approved_at, training_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [
+            title, description || '', videoUrl, duration || '', durationSeconds,
+            training.title, is_premium === '1' || is_premium === true ? 1 : 0,
+            thumbnailUrl || '', isShort, 'upload', 'approved',
+            req.user.id, req.user.id, new Date(), training.id,
+        ]);
+        const video = await get('SELECT * FROM workout_videos WHERE id = ?', [insertId]);
+        res.json({ video, message: 'Video uploaded' });
+    }
+    catch (err) {
+        console.error('Training video upload error:', err);
+        res.status(500).json({ message: 'Failed to upload video' });
+    }
+});
+router.post('/trainings/:id/videos/youtube', authenticateToken, adminOnly, async (req, res) => {
+    try {
+        const training = await get('SELECT * FROM trainings WHERE id = ?', [req.params.id]);
+        if (!training)
+            return res.status(404).json({ message: 'Training not found' });
+        const { title, description, duration, is_premium, is_short, youtube_url } = req.body || {};
+        if (!title)
+            return res.status(400).json({ message: 'Title is required' });
+        if (!youtube_url)
+            return res.status(400).json({ message: 'YouTube URL is required' });
+        const ytRegex = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+        const match = String(youtube_url).match(ytRegex);
+        if (!match)
+            return res.status(400).json({ message: 'Invalid YouTube URL' });
+        const videoId = match[1];
+        const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+        const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        const isShortVal = is_short === '1' || is_short === true ? 1 : 0;
+        const isPremiumVal = is_premium === '1' || is_premium === true ? 1 : 0;
+        const { insertId } = await run(`INSERT INTO workout_videos
+       (title, description, url, youtube_url, source_type, duration, duration_seconds, category, is_premium, thumbnail, is_short, approval_status, submitted_by, approved_by, approved_at, training_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [
+            title, description || '', embedUrl, youtube_url, 'youtube',
+            duration || '', 0, training.title, isPremiumVal, thumbnail, isShortVal,
+            'approved', req.user.id, req.user.id, new Date(), training.id,
+        ]);
+        const video = await get('SELECT * FROM workout_videos WHERE id = ?', [insertId]);
+        res.json({ video, message: 'YouTube video added' });
+    }
+    catch (err) {
+        console.error('Training YouTube video error:', err);
+        res.status(500).json({ message: 'Failed to add YouTube video' });
     }
 });
 // ── Videos ─────────────────────────────────────────────────────────────────────
@@ -1491,6 +1695,70 @@ router.post('/generate-coach-profiles', authenticateToken, adminOnly, async (_re
     }
     catch (err) {
         res.status(500).json({ message: 'Failed to generate coach profiles', error: err?.message || 'Unknown error' });
+    }
+});
+// Remove every fake coach created by /generate-coach-profiles. The marker is
+// the @fitwayhub.coach email domain — real coaches don't get that domain so
+// this can't touch genuine accounts. Mirrors the cleanup table list used by
+// /fake-users so FK constraints don't trip the delete.
+router.post('/remove-fake-coaches', authenticateToken, adminOnly, async (_req, res) => {
+    try {
+        const fakeCoaches = await query(`SELECT id FROM users WHERE role = 'coach' AND email LIKE '%@fitwayhub.coach'`);
+        if (!fakeCoaches.length)
+            return res.json({ removed: 0, message: 'No fake coaches found' });
+        const ids = fakeCoaches.map((u) => Number(u.id)).filter((id) => id > 0);
+        const placeholders = ids.map(() => '?').join(',');
+        await run('SET FOREIGN_KEY_CHECKS = 0');
+        const cleanupTables = [
+            { sql: `DELETE FROM post_likes WHERE user_id IN (${placeholders})` },
+            { sql: `DELETE FROM post_comments WHERE user_id IN (${placeholders})` },
+            { sql: `DELETE FROM posts WHERE user_id IN (${placeholders})` },
+            { sql: `DELETE FROM messages WHERE sender_id IN (${placeholders}) OR receiver_id IN (${placeholders})`, double: true },
+            { sql: `DELETE FROM coach_subscriptions WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+            { sql: `DELETE FROM payments WHERE user_id IN (${placeholders})` },
+            { sql: `DELETE FROM gifts WHERE user_id IN (${placeholders})` },
+            { sql: `DELETE FROM user_follows WHERE follower_id IN (${placeholders}) OR following_id IN (${placeholders})`, double: true },
+            { sql: `DELETE FROM coach_follows WHERE follower_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+            { sql: `DELETE FROM chat_requests WHERE sender_id IN (${placeholders}) OR receiver_id IN (${placeholders})`, double: true },
+            { sql: `DELETE FROM workout_plans WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+            { sql: `DELETE FROM nutrition_plans WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+            { sql: `DELETE FROM notifications WHERE user_id IN (${placeholders})` },
+            { sql: `DELETE FROM credit_transactions WHERE user_id IN (${placeholders})` },
+            { sql: `DELETE FROM coaching_meetings WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+            { sql: `DELETE FROM withdrawal_requests WHERE coach_id IN (${placeholders})` },
+            { sql: `DELETE FROM push_tokens WHERE user_id IN (${placeholders})` },
+            { sql: `DELETE FROM push_log WHERE user_id IN (${placeholders})` },
+            { sql: `DELETE FROM coach_ads WHERE coach_id IN (${placeholders})` },
+            { sql: `DELETE FROM ad_payments WHERE coach_id IN (${placeholders})` },
+            { sql: `DELETE FROM coach_reviews WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+            { sql: `DELETE FROM coach_reports WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+            { sql: `DELETE FROM coaching_bookings WHERE user_id IN (${placeholders}) OR coach_id IN (${placeholders})`, double: true },
+            { sql: `DELETE FROM certification_requests WHERE coach_id IN (${placeholders})` },
+            { sql: `DELETE FROM coach_profiles WHERE user_id IN (${placeholders})` },
+        ];
+        let removed = 0;
+        try {
+            for (const step of cleanupTables) {
+                try {
+                    const params = step.double ? [...ids, ...ids] : ids;
+                    await run(step.sql, params);
+                }
+                catch { /* some optional tables may not exist */ }
+            }
+            const result = await run(`DELETE FROM users WHERE id IN (${placeholders})`, ids);
+            removed = result?.affectedRows ?? ids.length;
+        }
+        finally {
+            await run('SET FOREIGN_KEY_CHECKS = 1');
+        }
+        res.json({ removed, message: `Removed ${removed} fake coach${removed === 1 ? '' : 'es'}` });
+    }
+    catch (err) {
+        try {
+            await run('SET FOREIGN_KEY_CHECKS = 1');
+        }
+        catch { }
+        res.status(500).json({ message: 'Failed to remove fake coaches', error: err?.message || 'Unknown error' });
     }
 });
 // ── Fake Accounts Generator ──────────────────────────────────────────────────

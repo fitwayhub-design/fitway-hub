@@ -1579,6 +1579,25 @@ export async function initDatabase() {
   try { await run("ALTER TABLE workout_videos ADD COLUMN equipment VARCHAR(40) DEFAULT NULL"); } catch {}
   try { await run("ALTER TABLE workout_videos ADD COLUMN level VARCHAR(40) DEFAULT NULL"); } catch {}
 
+  // Trainings are admin-curated buckets that own a set of workout videos
+  // (short + long form). Videos can still exist without a training (legacy
+  // rows keep training_id = NULL) so this is additive.
+  try {
+    await run(`
+      CREATE TABLE IF NOT EXISTS trainings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        cover_image TEXT,
+        sort_order INT DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  } catch {}
+  try { await run("ALTER TABLE workout_videos ADD COLUMN training_id INT DEFAULT NULL"); } catch {}
+  try { await run("ALTER TABLE workout_videos ADD INDEX idx_workout_videos_training (training_id)"); } catch {}
+
   // Avatars are stored inline as base64 data URLs (same approach as branding
   // images), so widen users.avatar from TEXT (64KB) to LONGTEXT.
   try { await run("ALTER TABLE users MODIFY COLUMN avatar LONGTEXT"); } catch {}

@@ -1,11 +1,20 @@
 import { Router } from 'express';
-import { authenticateToken, requireActiveCoachMembershipForDeals } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.js';
 import { get, query, run } from '../config/database.js';
 import { optimizeImage, uploadToR2, uploadVideo, validateVideoSize } from '../middleware/upload.js';
 const router = Router();
 const coachOrAdmin = (req, res, next) => {
     if (req.user?.role !== 'coach' && req.user?.role !== 'admin') {
         return res.status(403).json({ message: 'Coach access required' });
+    }
+    next();
+};
+// Workout videos are now admin-curated only (managed under Trainings). Coaches
+// can still browse the library and view their own historical submissions, but
+// cannot upload new videos.
+const adminOnly = (req, res, next) => {
+    if (req.user?.role !== 'admin') {
+        return res.status(403).json({ message: 'Only admins can add workout videos' });
     }
     next();
 };
@@ -186,7 +195,7 @@ router.get('/shorties/trending', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch trending shorts' });
     }
 });
-router.post('/videos/submissions', authenticateToken, coachOrAdmin, requireActiveCoachMembershipForDeals, uploadVideo.fields([
+router.post('/videos/submissions', authenticateToken, adminOnly, uploadVideo.fields([
     { name: 'video', maxCount: 1 },
     { name: 'thumbnail', maxCount: 1 }
 ]), validateVideoSize, optimizeImage(), async (req, res) => {
@@ -237,7 +246,7 @@ router.post('/videos/submissions', authenticateToken, coachOrAdmin, requireActiv
         res.status(500).json({ message: 'Failed to submit video' });
     }
 });
-router.post('/videos/submissions/youtube', authenticateToken, coachOrAdmin, requireActiveCoachMembershipForDeals, async (req, res) => {
+router.post('/videos/submissions/youtube', authenticateToken, adminOnly, async (req, res) => {
     try {
         const { title, description, duration, category, is_premium, is_short, youtube_url } = req.body;
         if (!title)

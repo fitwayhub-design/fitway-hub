@@ -321,6 +321,170 @@ router.get('/gifts', authenticateToken, adminOnly, async (_req: any, res: Respon
   } catch { res.status(500).json({ message: 'Failed to fetch gifts' }); }
 });
 
+// ── Trainings ──────────────────────────────────────────────────────────────────
+// Trainings are admin-curated buckets that own a set of short + long workout
+// videos. The athlete-facing layout is "browse a training → watch its videos",
+// mirroring how App Images groups by category.
+router.get('/trainings', authenticateToken, adminOnly, async (_req: any, res: Response) => {
+  try {
+    const trainings = await query(
+      `SELECT t.*,
+              COALESCE(SUM(CASE WHEN wv.is_short = 1 THEN 1 ELSE 0 END), 0) AS short_count,
+              COALESCE(SUM(CASE WHEN wv.is_short = 0 OR wv.is_short IS NULL THEN 1 ELSE 0 END), 0) AS long_count
+       FROM trainings t
+       LEFT JOIN workout_videos wv ON wv.training_id = t.id
+       GROUP BY t.id
+       ORDER BY t.sort_order ASC, t.created_at DESC`
+    );
+    res.json({ trainings });
+  } catch (err) {
+    console.error('List trainings error:', err);
+    res.status(500).json({ message: 'Failed to fetch trainings' });
+  }
+});
+
+router.post('/trainings', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    const { title, description, cover_image, sort_order } = req.body || {};
+    if (!title || !String(title).trim()) return res.status(400).json({ message: 'Title is required' });
+    const { insertId } = await run(
+      'INSERT INTO trainings (title, description, cover_image, sort_order) VALUES (?,?,?,?)',
+      [String(title).trim(), description || '', cover_image || null, Number(sort_order) || 0]
+    );
+    const training = await get('SELECT * FROM trainings WHERE id = ?', [insertId]);
+    res.json({ training });
+  } catch (err) {
+    console.error('Create training error:', err);
+    res.status(500).json({ message: 'Failed to create training' });
+  }
+});
+
+router.patch('/trainings/:id', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    const existing = await get<any>('SELECT * FROM trainings WHERE id = ?', [req.params.id]);
+    if (!existing) return res.status(404).json({ message: 'Training not found' });
+    const { title, description, cover_image, sort_order } = req.body || {};
+    await run(
+      'UPDATE trainings SET title=?, description=?, cover_image=?, sort_order=?, updated_at=NOW() WHERE id=?',
+      [
+        title !== undefined ? String(title).trim() || existing.title : existing.title,
+        description !== undefined ? (description || '') : existing.description,
+        cover_image !== undefined ? (cover_image || null) : existing.cover_image,
+        sort_order !== undefined ? (Number(sort_order) || 0) : existing.sort_order,
+        req.params.id,
+      ]
+    );
+    const training = await get('SELECT * FROM trainings WHERE id = ?', [req.params.id]);
+    res.json({ training });
+  } catch (err) {
+    console.error('Update training error:', err);
+    res.status(500).json({ message: 'Failed to update training' });
+  }
+});
+
+router.delete('/trainings/:id', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    // Detach any videos that belonged to this training so they aren't lost.
+    await run('UPDATE workout_videos SET training_id = NULL WHERE training_id = ?', [req.params.id]);
+    await run('DELETE FROM trainings WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Training deleted' });
+  } catch (err) {
+    console.error('Delete training error:', err);
+    res.status(500).json({ message: 'Failed to delete training' });
+  }
+});
+
+router.get('/trainings/:id/videos', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    const videos = await query(
+      `SELECT wv.* FROM workout_videos wv
+       WHERE wv.training_id = ?
+       ORDER BY wv.is_short DESC, wv.created_at DESC`,
+      [req.params.id]
+    );
+    res.json({ videos });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch training videos' });
+  }
+});
+
+// Upload a video file straight into a training. Slim version of POST /videos —
+// the training owns category/grouping so we only ask for what the admin must
+// pick per-video: title, short/long, optional description + thumbnail.
+router.post('/trainings/:id/videos', authenticateToken, adminOnly, uploadVideo.fields([
+  { name: 'video', maxCount: 1 },
+  { name: 'thumbnail', maxCount: 1 },
+]), validateVideoSize, optimizeImage(), async (req: any, res: Response) => {
+  try {
+    const training = await get<any>('SELECT * FROM trainings WHERE id = ?', [req.params.id]);
+    if (!training) return res.status(404).json({ message: 'Training not found' });
+    const { title, description, duration, is_premium } = req.body;
+    if (!title) return res.status(400).json({ message: 'Title is required' });
+    const isShort = req.body.is_short === '1' || req.body.is_short === true ? 1 : 0;
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const videoFile = files?.video?.[0];
+    const thumbnailFile = files?.thumbnail?.[0];
+    if (!videoFile) return res.status(400).json({ message: 'Video file is required' });
+
+    const videoUrl = await uploadToR2(videoFile, 'videos');
+    const thumbnailUrl = thumbnailFile ? await uploadToR2(thumbnailFile, 'thumbnails') : null;
+    const durationSeconds = videoFile.size > 0 ? Math.ceil(videoFile.size / (1024 * 1024)) : parseInt(duration || '0');
+
+    const { insertId } = await run(
+      `INSERT INTO workout_videos
+       (title, description, url, duration, duration_seconds, category, is_premium, thumbnail, is_short, source_type, approval_status, submitted_by, approved_by, approved_at, training_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        title, description || '', videoUrl, duration || '', durationSeconds,
+        training.title, is_premium === '1' || is_premium === true ? 1 : 0,
+        thumbnailUrl || '', isShort, 'upload', 'approved',
+        req.user.id, req.user.id, new Date(), training.id,
+      ]
+    );
+    const video = await get('SELECT * FROM workout_videos WHERE id = ?', [insertId]);
+    res.json({ video, message: 'Video uploaded' });
+  } catch (err) {
+    console.error('Training video upload error:', err);
+    res.status(500).json({ message: 'Failed to upload video' });
+  }
+});
+
+router.post('/trainings/:id/videos/youtube', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    const training = await get<any>('SELECT * FROM trainings WHERE id = ?', [req.params.id]);
+    if (!training) return res.status(404).json({ message: 'Training not found' });
+    const { title, description, duration, is_premium, is_short, youtube_url } = req.body || {};
+    if (!title) return res.status(400).json({ message: 'Title is required' });
+    if (!youtube_url) return res.status(400).json({ message: 'YouTube URL is required' });
+    const ytRegex = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+    const match = String(youtube_url).match(ytRegex);
+    if (!match) return res.status(400).json({ message: 'Invalid YouTube URL' });
+
+    const videoId = match[1];
+    const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+    const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    const isShortVal = is_short === '1' || is_short === true ? 1 : 0;
+    const isPremiumVal = is_premium === '1' || is_premium === true ? 1 : 0;
+
+    const { insertId } = await run(
+      `INSERT INTO workout_videos
+       (title, description, url, youtube_url, source_type, duration, duration_seconds, category, is_premium, thumbnail, is_short, approval_status, submitted_by, approved_by, approved_at, training_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        title, description || '', embedUrl, youtube_url, 'youtube',
+        duration || '', 0, training.title, isPremiumVal, thumbnail, isShortVal,
+        'approved', req.user.id, req.user.id, new Date(), training.id,
+      ]
+    );
+    const video = await get('SELECT * FROM workout_videos WHERE id = ?', [insertId]);
+    res.json({ video, message: 'YouTube video added' });
+  } catch (err) {
+    console.error('Training YouTube video error:', err);
+    res.status(500).json({ message: 'Failed to add YouTube video' });
+  }
+});
+
 // ── Videos ─────────────────────────────────────────────────────────────────────
 router.get('/videos', authenticateToken, adminOnly, async (_req: any, res: Response) => {
   try {
