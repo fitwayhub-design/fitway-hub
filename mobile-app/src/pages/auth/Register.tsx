@@ -5,6 +5,7 @@ import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
 import { getApiBase } from "@/lib/api";
+import { openExternal, isNativeRuntime, fetchWithTimeout } from "@/lib/nativeAuth";
 import { Eye, EyeOff, Mail, Lock, User, Activity, CheckCircle2, Dumbbell, Trophy, Chrome, ArrowLeft, ShieldQuestion, KeyRound } from "lucide-react";
 
 const SECURITY_QUESTIONS = [
@@ -55,15 +56,14 @@ export default function Register() {
 
   const startSocialSignup = (provider: "google") => {
     const base = getApiBase();
-    const cap = (window as any).Capacitor;
-    const isNative = typeof cap?.isNativePlatform === 'function' && cap.isNativePlatform();
-    const qs = isNative ? '?platform=mobile' : '';
-    window.location.href = `${base}/api/auth/oauth/${provider}${qs}`;
+    const isNative = isNativeRuntime();
+    const url = `${base}/api/auth/oauth/${provider}${isNative ? '?platform=mobile' : ''}`;
+    openExternal(url);
   };
 
   const requestOtp = async () => {
     setError(""); setInfo("");
-    const res = await fetch(`${getApiBase()}/api/auth/register/request-otp`, {
+    const res = await fetchWithTimeout(`${getApiBase()}/api/auth/register/request-otp`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),

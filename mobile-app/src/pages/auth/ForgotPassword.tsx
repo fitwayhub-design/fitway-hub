@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, ShieldQuestion, Activity, ArrowLeft, Eye, EyeOff, CheckCircle, KeyRound } from "lucide-react";
 import { getApiBase } from "@/lib/api";
+import { fetchWithTimeout } from "@/lib/nativeAuth";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -45,7 +46,7 @@ export default function ForgotPassword() {
   const localizedQuestion = questionMap[question] || question;
 
   const requestEmailOtp = async () => {
-    const res = await fetch(getApiBase() + "/api/auth/forgot-password/request-otp", {
+    const res = await fetchWithTimeout(getApiBase() + "/api/auth/forgot-password/request-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
