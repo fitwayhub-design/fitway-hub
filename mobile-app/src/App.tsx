@@ -211,7 +211,8 @@ function NativeUrlHandler() {
     if (!cap?.isNativePlatform?.()) return;
 
     let active = true;
-    const listener = CapacitorApp.addListener("appUrlOpen", ({ url }) => {
+
+    const handleUrl = (url: string | null | undefined) => {
       if (!active || !url) return;
 
       try {
@@ -229,6 +230,21 @@ function NativeUrlHandler() {
       } catch (error) {
         console.warn("Failed to parse app URL:", error);
       }
+    };
+
+    // Cold-start path: the OS delivered the launch URL before React
+    // mounted, so addListener("appUrlOpen") below would miss it. Pull
+    // it explicitly from getLaunchUrl() so the OAuth callback still
+    // lands on /auth/social-callback even when the app was killed
+    // when the user tapped "Continue with Google".
+    CapacitorApp.getLaunchUrl()
+      .then((res) => handleUrl(res?.url))
+      .catch(() => {});
+
+    // Warm-start path: app was already running and was foregrounded
+    // via the deep link.
+    const listener = CapacitorApp.addListener("appUrlOpen", ({ url }) => {
+      handleUrl(url);
     });
 
     return () => {
