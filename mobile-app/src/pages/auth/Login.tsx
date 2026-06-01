@@ -5,6 +5,7 @@ import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
 import { getApiBase } from "@/lib/api";
+import { openExternal, isNativeRuntime } from "@/lib/nativeAuth";
 import { Eye, EyeOff, Mail, Lock, Activity, ArrowLeft } from "lucide-react";
 
 export default function Login() {
@@ -44,10 +45,12 @@ export default function Login() {
 
   const startSocialLogin = (provider: "google") => {
     const base = getApiBase();
-    const cap = (window as any).Capacitor;
-    const isNative = typeof cap?.isNativePlatform === 'function' && cap.isNativePlatform();
-    const qs = isNative ? '?platform=mobile' : '';
-    window.location.href = `${base}/api/auth/oauth/${provider}${qs}`;
+    const isNative = isNativeRuntime();
+    const url = `${base}/api/auth/oauth/${provider}${isNative ? '?platform=mobile' : ''}`;
+    // On native, OAuth must run in the system browser. Google rejects the
+    // embedded WebView ("disallowed_useragent") and even if it didn't, the
+    // WebView couldn't process the fitwayhub:// callback the server issues.
+    openExternal(url);
   };
 
   const handleLogin = async (e: FormEvent) => {

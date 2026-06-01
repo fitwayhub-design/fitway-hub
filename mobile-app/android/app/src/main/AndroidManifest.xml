@@ -22,6 +22,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Deep-link / OAuth callback. The server redirects to
+                 fitwayhub://auth/auth/social-callback?token=... after a
+                 successful Google login; without this filter the OS has
+                 nothing to hand the URL to and the user is stranded on
+                 the Google success page. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="fitwayhub" android:host="auth" />
+            </intent-filter>
+
         </activity>
 
         <provider

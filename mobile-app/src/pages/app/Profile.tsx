@@ -1,5 +1,6 @@
 ﻿import type React from "react";
 import { getApiBase } from "@/lib/api";
+import { fetchWithTimeout } from "@/lib/nativeAuth";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import UserLocationPicker from "@/components/app/UserLocationPicker";
 import { useState, useRef, useEffect } from "react";
@@ -230,7 +231,7 @@ export default function Profile() {
     }
     setOtpRequesting(true);
     try {
-      const r = await fetch(`${getApiBase()}/api/auth/change-password/request-otp`, {
+      const r = await fetchWithTimeout(`${getApiBase()}/api/auth/change-password/request-otp`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
