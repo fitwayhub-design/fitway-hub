@@ -3,14 +3,20 @@ import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import { Activity, Flame, MapPin, Clock, Plus, Trash2, Play, CheckCircle } from "lucide-react";
+import { Activity, Flame, MapPin, Clock, Plus, Trash2, Play, CheckCircle, PencilLine } from "lucide-react";
 import { calculateStepsFromDistance, estimateCaloriesBurned, type UserMetrics, type ActivityMode } from "@/lib/stepCalculations";
 import MapTracker from "@/components/app/MapTracker";
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 
 interface Entry { id: number; date: string; steps: number; calories_burned?: number; distance_km?: number; tracking_mode?: string; }
 
-function Ring({ pct, size = 200, stroke = 14, color = "var(--accent)", glow = true, children }: any) {
+function Ring({ pct, size = 200, stroke = 14, color = "var(--main)", glow = true, children }: any) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const dash = (Math.min(pct, 100) / 100) * circ;
@@ -104,136 +110,151 @@ export default function Steps() {
   const secs = elapsed % 60;
   const timerDisplay = liveStart ? `${mins}:${String(secs).padStart(2, "0")}` : `${Math.round(steps / 100)}`;
 
-  return (
-    <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 24 }}>
-      {/* Header */}
-      <div style={{ padding: "16px 16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, fontFamily: "var(--font-heading)" }}>Activity</h1>
-        <div style={{ display: "flex", gap: 1, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
-          {(["today", "history"] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              style={{ padding: "8px 16px", border: "none", cursor: "pointer", fontSize: 13, fontWeight: tab === t ? 700 : 400, background: tab === t ? "var(--accent)" : "transparent", color: tab === t ? "#000000" : "var(--text-muted)", transition: "all 0.15s" }}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
+  const goalReached = pct >= 100;
+  const ringColor = goalReached ? "var(--green)" : "var(--main)";
+  const miniStats = [
+    { icon: Flame, v: `${calories}`, u: "kcal", c: "var(--red)" },
+    { icon: MapPin, v: dist, u: "km", c: "var(--secondary)" },
+    { icon: Clock, v: timerDisplay, u: liveStart ? "elapsed" : "min", c: "var(--amber)" },
+  ];
 
-      {msg && <div style={{ margin: "0 16px 12px", padding: "10px 14px", borderRadius: 12, background: msg.startsWith("✅") ? "rgba(74,222,128,0.1)" : "rgba(251,113,133,0.1)", border: `1px solid ${msg.startsWith("✅") ? "var(--green)" : "var(--red)"}`, fontSize: 13, fontWeight: 600, color: msg.startsWith("✅") ? "var(--green)" : "var(--red)" }}>{msg}</div>}
+  return (
+    <div className="mx-auto w-full max-w-[860px] px-4 pb-4">
+      {/* Header */}
+      <header className="flex items-center justify-between gap-3 pt-1 pb-5">
+        <h1 className="text-[28px] font-bold leading-tight tracking-tight">Activity</h1>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "today" | "history")}>
+          <TabsList>
+            <TabsTrigger value="today">Today</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </header>
+
+      {msg && (
+        <div
+          className="mb-4 rounded-md px-4 py-2.5 text-[13px] font-semibold"
+          style={{
+            backgroundColor: msg.startsWith("✅") ? "color-mix(in srgb, var(--green) 12%, transparent)" : "color-mix(in srgb, var(--red) 12%, transparent)",
+            color: msg.startsWith("✅") ? "var(--green)" : "var(--red)",
+          }}
+        >
+          {msg}
+        </div>
+      )}
 
       {tab === "today" && (
-        <>
+        <div className="space-y-4">
           {/* Big ring */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 16px 24px" }}>
-            <Ring pct={pct} size={200} stroke={14} color={pct >= 100 ? "var(--green)" : "var(--accent)"}>
-              <div style={{ textAlign: "center" }}>
-                <p style={{ fontSize: 40, fontWeight: 900, lineHeight: 1, color: pct >= 100 ? "var(--green)" : "var(--accent)" }}>
+          <Card className="items-center gap-0 p-6">
+            <Ring pct={pct} size={200} stroke={14} color={ringColor}>
+              <div className="text-center">
+                <p className="text-[40px] font-extrabold leading-none tabular-nums" style={{ color: ringColor }}>
                   {steps >= 10000 ? `${(steps/1000).toFixed(1)}k` : steps.toLocaleString()}
                 </p>
-                <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>/ {stepGoal.toLocaleString()} steps</p>
-                {pct >= 100 && <p style={{ fontSize: 12, color: "var(--green)", marginTop: 4, fontWeight: 700 }}>🎉 Goal reached!</p>}
+                <p className="mt-0.5 text-[13px] text-muted-foreground">/ {stepGoal.toLocaleString()} steps</p>
+                {pct >= 100 && <p className="mt-1 text-[12px] font-bold" style={{ color: "var(--green)" }}>🎉 Goal reached!</p>}
               </div>
             </Ring>
 
             {/* Mini stats row */}
-            <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
-              {[
-                { icon: Flame, v: `${calories}`, u: "kcal", c: "#FB7185" },
-                { icon: MapPin, v: dist, u: "km", c: "#60A5FA" },
-                { icon: Clock, v: timerDisplay, u: liveStart ? "elapsed" : "min", c: "#FBBF24" },
-              ].map(({ icon: Icon, v, u, c }) => (
-                <div key={u} style={{ textAlign: "center" }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: `${c}15`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 6px" }}>
-                    <Icon size={18} color={c} />
-                  </div>
-                  <p style={{ fontSize: 16, fontWeight: 800 }}>{v}</p>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{u}</p>
+            <div className="mt-5 flex gap-5">
+              {miniStats.map(({ icon: Icon, v, u, c }) => (
+                <div key={u} className="text-center">
+                  <span className="mx-auto mb-1.5 grid size-10 place-items-center rounded-md" style={{ backgroundColor: `color-mix(in srgb, ${c} 12%, transparent)` }}>
+                    <Icon size={18} color={c} strokeWidth={2} />
+                  </span>
+                  <p className="text-[16px] font-bold tabular-nums">{v}</p>
+                  <p className="text-[11px] text-muted-foreground">{u}</p>
                 </div>
               ))}
             </div>
-
-          </div>
+          </Card>
 
           {/* Mode toggle */}
-          <div style={{ display: "flex", gap: 1, margin: "0 16px 16px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
-            <button onClick={() => setMode("manual")} style={{ flex: 1, padding: "12px", border: "none", cursor: "pointer", fontSize: 13, fontWeight: mode === "manual" ? 700 : 400, background: mode === "manual" ? "var(--accent)" : "transparent", color: mode === "manual" ? "#000000" : "var(--text-muted)", transition: "all 0.15s" }}>
-              ✏️ Manual Entry
-            </button>
-            <button onClick={() => setMode("live")} style={{ flex: 1, padding: "12px", border: "none", cursor: "pointer", fontSize: 13, fontWeight: mode === "live" ? 700 : 400, background: mode === "live" ? "var(--accent)" : "transparent", color: mode === "live" ? "#000000" : "var(--text-muted)", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              📍 GPS Track
-            </button>
-          </div>
+          <Tabs value={mode} onValueChange={(v) => setMode(v as "manual" | "live")}>
+            <TabsList className="w-full">
+              <TabsTrigger value="manual"><PencilLine size={15} /> Manual Entry</TabsTrigger>
+              <TabsTrigger value="live"><MapPin size={15} /> GPS Track</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {mode === "manual" && (
-            <div style={{ margin: "0 16px", padding: "16px", borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Log Today's Steps</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-                {[
-                  { label: "Steps", val: stepsInput, set: setStepsInput, ph: "e.g. 8500" },
-                  { label: "Distance (km)", val: distInput, set: setDistInput, ph: "e.g. 6.5" },
-                ].map(({ label, val, set, ph }) => (
-                  <div key={label}>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 5 }}>{label}</p>
-                    <input type="number" value={val} onChange={e => set(e.target.value)} placeholder={ph}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 15, fontWeight: 700, outline: "none", boxSizing: "border-box" }} />
-                  </div>
-                ))}
+            <Card className="gap-0 p-5">
+              <p className="mb-3.5 text-[15px] font-semibold">Log Today's Steps</p>
+              <div className="mb-3 grid grid-cols-2 gap-2.5">
+                <div className="space-y-1.5">
+                  <Label htmlFor="steps-input" className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Steps</Label>
+                  <Input id="steps-input" type="number" value={stepsInput} onChange={e => setStepsInput(e.target.value)} placeholder="e.g. 8500" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="dist-input" className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Distance (km)</Label>
+                  <Input id="dist-input" type="number" value={distInput} onChange={e => setDistInput(e.target.value)} placeholder="e.g. 6.5" />
+                </div>
               </div>
-              <button onClick={handleSave} disabled={saving || (!stepsInput && !distInput)}
-                style={{ width: "100%", padding: "13px", borderRadius: 12, background: (!stepsInput && !distInput) || saving ? "var(--bg-surface)" : "var(--accent)", border: "none", color: (!stepsInput && !distInput) || saving ? "var(--text-muted)" : "#000000", fontWeight: 700, fontSize: 14, cursor: (!stepsInput && !distInput) || saving ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <Button onClick={handleSave} disabled={saving || (!stepsInput && !distInput)} className="w-full">
                 <Plus size={16} /> {saving ? "Saving…" : "Save Activity"}
-              </button>
-            </div>
+              </Button>
+            </Card>
           )}
 
           {mode === "live" && (
-            <div style={{ margin: "0 16px", borderRadius: 16, overflow: "hidden", border: "1px solid var(--border)" }}>
+            <div className="overflow-hidden rounded-lg shadow-soft-sm">
               <MapTracker />
             </div>
           )}
-        </>
+        </div>
       )}
 
       {tab === "history" && (
-        <div style={{ padding: "0 16px" }}>
-          {loading && <p style={{ textAlign: "center", color: "var(--text-muted)", padding: 30 }}>Loading…</p>}
+        <div>
+          {loading && <p className="py-8 text-center text-[13px] text-muted-foreground">Loading…</p>}
           {!loading && history.length === 0 && (
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <Activity size={48} color="var(--text-muted)" style={{ margin: "0 auto 12px" }} />
-              <p style={{ fontWeight: 600, marginBottom: 4 }}>No activity logged yet</p>
-              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Start tracking your steps!</p>
+            <div className="py-10 text-center">
+              <Activity size={48} className="mx-auto mb-3 text-muted-foreground" strokeWidth={1.75} />
+              <p className="font-semibold">No activity logged yet</p>
+              <p className="mt-1 text-[13px] text-muted-foreground">Start tracking your steps!</p>
             </div>
           )}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="flex flex-col gap-2.5">
             {history.map(e => {
               const d = new Date(e.date); const isToday = e.date === today;
               const epct = Math.min(100, (e.steps / stepGoal) * 100);
+              const entryColor = epct >= 100 ? "var(--green)" : "var(--main)";
               return (
-                <div key={e.id} style={{ padding: "14px 16px", borderRadius: 14, background: "var(--bg-card)", border: `1px solid ${isToday ? "var(--accent)" : "var(--border)"}` }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 700 }}>{isToday ? "Today" : d.toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" })}</p>
-                      <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 1 }}>{e.tracking_mode === "live" ? "📍 GPS" : "✏️ Manual"}</p>
+                <Card key={e.id} className={`gap-0 p-4 ${isToday ? "ring-1 ring-primary/40" : ""}`}>
+                  <div className="mb-2.5 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-bold">{isToday ? "Today" : d.toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" })}</p>
+                      <p className="mt-0.5 inline-flex items-center gap-1 text-[12px] text-muted-foreground">
+                        {e.tracking_mode === "live"
+                          ? <><MapPin size={11} /> GPS</>
+                          : <><PencilLine size={11} /> Manual</>}
+                      </p>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ textAlign: "right" }}>
-                        <p style={{ fontSize: 20, fontWeight: 800, color: epct >= 100 ? "var(--green)" : "var(--accent)" }}>{e.steps.toLocaleString()}</p>
-                        <p style={{ fontSize: 10, color: "var(--text-muted)" }}>steps</p>
+                    <div className="flex items-center gap-2">
+                      <div className="text-end">
+                        <p className="text-[20px] font-bold tabular-nums" style={{ color: entryColor }}>{e.steps.toLocaleString()}</p>
+                        <p className="text-[10px] text-muted-foreground">steps</p>
                       </div>
                       {epct >= 100 && <CheckCircle size={16} color="var(--green)" />}
-                      <button onClick={() => handleDelete(e.id)} style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(251,113,133,0.1)", border: "1px solid rgba(251,113,133,0.2)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Trash2 size={13} color="var(--red)" />
-                      </button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => handleDelete(e.id)}
+                        aria-label="Delete entry"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
                     </div>
                   </div>
-                  <div style={{ height: 4, background: "var(--bg-surface)", borderRadius: 99 }}>
-                    <div style={{ height: "100%", width: `${epct}%`, background: epct >= 100 ? "var(--green)" : "var(--accent)", borderRadius: 99 }} />
+                  <Progress value={epct} className="h-1" />
+                  <div className="mt-2 flex gap-4 text-[11px] text-muted-foreground">
+                    {e.calories_burned ? <span className="inline-flex items-center gap-1"><Flame size={11} />{Math.round(e.calories_burned)} kcal</span> : null}
+                    {e.distance_km ? <span className="inline-flex items-center gap-1"><MapPin size={11} />{Number(e.distance_km).toFixed(2)} km</span> : null}
                   </div>
-                  <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: "var(--text-muted)" }}>
-                    {e.calories_burned && <span><Flame size={11} style={{ display: "inline", marginRight: 3 }} />{Math.round(e.calories_burned)} kcal</span>}
-                    {e.distance_km && <span><MapPin size={11} style={{ display: "inline", marginRight: 3 }} />{Number(e.distance_km).toFixed(2)} km</span>}
-                  </div>
-                </div>
+                </Card>
               );
             })}
           </div>

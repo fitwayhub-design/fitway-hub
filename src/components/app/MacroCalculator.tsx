@@ -1,5 +1,19 @@
 import { useState, useMemo, type CSSProperties } from "react";
-import { Search, ChevronDown, ChevronUp, Utensils, Leaf, Apple, Drumstick, Egg, Fish, Wheat, X, Plus, Minus, PieChart } from "lucide-react";
+import { Search, ChevronDown, Utensils, X, Plus, Minus, PieChart } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+
+/* Soft-shadow surface for the food list / detail panels (no borders). */
+const card: CSSProperties = {
+  background: "var(--bg-card)",
+  borderRadius: 16,
+  boxShadow: "var(--shadow-soft-sm)",
+  padding: 16,
+};
 
 /* ═══════════════════════════════════════════════════════════════
    MEAL DATABASE — 200+ items across 8 categories
@@ -286,54 +300,72 @@ export function MacroCalculator() {
     return { proteinPct: Math.round(p / total * 100), carbsPct: Math.round(c / total * 100), fatPct: Math.round(f / total * 100) };
   };
 
-  /* Styles */
-  const card: CSSProperties = { backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", overflow: "hidden" };
-  const pill = (active: boolean, color = "var(--accent)"): CSSProperties => ({
-    padding: "6px 13px", borderRadius: "var(--radius-full)", fontSize: 11, fontWeight: 600, border: "none",
-    cursor: "pointer", transition: "all 0.2s", whiteSpace: "nowrap",
-    backgroundColor: active ? `${color}` : "var(--bg-surface)",
-    color: active ? (color === "var(--accent)" ? "#000000" : "#fff") : "var(--text-secondary)",
-  });
-
   /* ─────── RENDER ─────── */
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <div className="flex flex-col gap-4">
 
       {/* Search Bar */}
-      <div style={{ position: "relative" }}>
-        <Search size={15} style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-        <input
+      <div className="relative">
+        <Search size={16} strokeWidth={2} className="pointer-events-none absolute top-1/2 start-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
           value={search}
           onChange={e => { setSearch(e.target.value); setShowList(true); setSelected(null); }}
           placeholder="Search 200+ foods… (chicken, quinoa, banana…)"
-          style={{
-            width: "100%", padding: "11px 14px 11px 36px", borderRadius: "var(--radius-full)",
-            backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)",
-            fontSize: 13, color: "var(--text-primary)", outline: "none",
-            fontFamily: "var(--font-en)",
-          }}
+          className="ps-10 pe-10"
+          aria-label="Search foods"
         />
         {search && (
-          <button onClick={() => { setSearch(""); setShowList(true); }} style={{ position: "absolute", insetInlineEnd: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 2 }}>
-            <X size={14} />
-          </button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => { setSearch(""); setShowList(true); }}
+            aria-label="Clear search"
+            className="absolute top-1/2 end-1.5 -translate-y-1/2 text-muted-foreground"
+          >
+            <X size={16} />
+          </Button>
         )}
       </div>
 
       {/* Category pills */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <button onClick={() => { setActiveCategory("all"); setShowList(true); setSelected(null); }} style={pill(activeCategory === "all")}>All</button>
-        {CATEGORIES.map(c => (
-          <button key={c.key} onClick={() => { setActiveCategory(c.key); setShowList(true); setSelected(null); }} style={pill(activeCategory === c.key, c.color)}>
-            <img
-              src={c.img}
-              alt=""
-              loading="lazy"
-              style={{ width: 18, height: 18, borderRadius: "50%", marginInlineEnd: 6, objectFit: "cover", verticalAlign: "middle" }}
-            />
-            {c.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => { setActiveCategory("all"); setShowList(true); setSelected(null); }}
+          aria-pressed={activeCategory === "all"}
+          className={`inline-flex h-9 items-center rounded-full px-3.5 text-[12px] font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+            activeCategory === "all"
+              ? "bg-primary text-primary-foreground shadow-soft-sm"
+              : "bg-muted text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          All
+        </button>
+        {CATEGORIES.map(c => {
+          const active = activeCategory === c.key;
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => { setActiveCategory(c.key); setShowList(true); setSelected(null); }}
+              aria-pressed={active}
+              className={`inline-flex h-9 items-center gap-2 rounded-full ps-1 pe-3.5 text-[12px] font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+                active
+                  ? "bg-card text-foreground shadow-soft-sm ring-1 ring-inset ring-border"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <img
+                src={c.img}
+                alt=""
+                loading="lazy"
+                className="size-7 shrink-0 rounded-full object-cover"
+              />
+              {c.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* ══════ FOOD LIST ══════ */}
