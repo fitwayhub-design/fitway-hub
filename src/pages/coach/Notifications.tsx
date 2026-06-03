@@ -6,6 +6,10 @@ import { useI18n } from "@/context/I18nContext";
 import { Bell, CheckCheck, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { resolveNotificationLink } from "@/lib/notificationLinks";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface Notification {
   id: number;
@@ -18,9 +22,9 @@ interface Notification {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  info: "var(--blue)", success: "var(--green)", warning: "var(--amber)",
-  error: "var(--red)", gift: "#FBBF24", coaching: "var(--cyan)",
-  community: "var(--blue)", ad: "var(--main)", payment: "#10B981",
+  info: "var(--secondary)", success: "var(--green)", warning: "var(--amber)",
+  error: "var(--red)", gift: "var(--amber)", coaching: "var(--secondary)",
+  community: "var(--secondary)", ad: "var(--primary)", payment: "var(--green)",
 };
 
 export default function CoachNotifications() {
@@ -68,81 +72,78 @@ export default function CoachNotifications() {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div style={{ padding: "24px 20px", maxWidth: 700, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Bell size={22} />
-          <h1 style={{ fontSize: 22, fontWeight: 800, fontFamily: "var(--font-heading)" }}>
+    <div className="mx-auto w-full max-w-[700px]">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <Bell size={22} strokeWidth={2} />
+          <h1 className="text-[22px] font-bold tracking-tight">
             {t("notifications") || "Notifications"}
           </h1>
           {unreadCount > 0 && (
-            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: "var(--red)", color: "#fff" }}>
-              {unreadCount}
-            </span>
+            <Badge variant="destructive">{unreadCount}</Badge>
           )}
         </div>
         {unreadCount > 0 && (
-          <button onClick={markAllRead} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px solid var(--border)", borderRadius: 99, padding: "6px 12px", fontSize: 12, color: "var(--text-secondary)", cursor: "pointer", fontWeight: 600 }}>
-            <CheckCheck size={13} /> {t("mark_all_read") || "Mark all read"}
-          </button>
+          <Button onClick={markAllRead} variant="outline" size="sm">
+            <CheckCheck size={14} strokeWidth={2} /> {t("mark_all_read") || "Mark all read"}
+          </Button>
         )}
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Loading…</div>
+        <div className="py-10 text-center text-[14px] text-muted-foreground">Loading…</div>
       ) : notifications.length === 0 ? (
-        <div style={{ padding: 60, textAlign: "center" }}>
-          <Bell size={40} color="var(--text-muted)" style={{ opacity: 0.4, marginBottom: 12 }} />
-          <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+        <div className="py-16 text-center">
+          <Bell size={40} strokeWidth={2} className="mx-auto mb-3 text-muted-foreground opacity-40" />
+          <p className="mb-1.5 text-[15px] font-semibold text-foreground">
             {t("no_notifications") || "No notifications yet"}
           </p>
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>You'll see updates about your coaching activity here</p>
+          <p className="text-[13px] text-muted-foreground">You'll see updates about your coaching activity here</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {notifications.map(n => (
-            <div
-              key={n.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => openNotification(n)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openNotification(n); } }}
-              style={{
-                padding: "14px 16px", borderRadius: 14,
-                background: n.is_read ? "var(--bg-card)" : "rgba(59,139,255,0.06)",
-                border: `1px solid ${n.is_read ? "var(--border)" : "rgba(59,139,255,0.2)"}`,
-                cursor: "pointer", transition: "all 0.15s",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-                  background: `${TYPE_COLORS[n.type] || "var(--blue)"}15`,
-                  border: `1px solid ${TYPE_COLORS[n.type] || "var(--blue)"}30`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <Bell size={16} color={TYPE_COLORS[n.type] || "var(--blue)"} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                    <p style={{ fontSize: 14, fontWeight: n.is_read ? 500 : 700, lineHeight: 1.3 }}>{n.title}</p>
-                    {!n.is_read && <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--blue)", flexShrink: 0 }} />}
-                  </div>
-                  <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 4 }}>{n.body}</p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                      {new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                    {resolveNotificationLink(n) && (
-                      <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--blue)", fontWeight: 600 }}>
-                        View <ExternalLink size={10} />
+        <div className="flex flex-col gap-2">
+          {notifications.map(n => {
+            const color = TYPE_COLORS[n.type] || "var(--secondary)";
+            return (
+              <Card
+                key={n.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openNotification(n)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openNotification(n); } }}
+                className={cn(
+                  "cursor-pointer gap-0 p-4 shadow-soft-sm transition active:scale-[0.99]",
+                  !n.is_read && "ring-1 ring-[color-mix(in_srgb,var(--secondary)_30%,transparent)]",
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <span
+                    className="grid size-9 shrink-0 place-items-center rounded-full"
+                    style={{ background: `color-mix(in srgb, ${color} 15%, transparent)` }}
+                  >
+                    <Bell size={16} strokeWidth={2} style={{ color }} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-0.5 flex items-center gap-2">
+                      <p className={cn("text-[14px] leading-snug", n.is_read ? "font-medium" : "font-bold")}>{n.title}</p>
+                      {!n.is_read && <span className="size-[7px] shrink-0 rounded-full bg-[var(--secondary)]" />}
+                    </div>
+                    <p className="mb-1 text-[13px] leading-relaxed text-muted-foreground">{n.body}</p>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </span>
-                    )}
+                      {resolveNotificationLink(n) && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--secondary)]">
+                          View <ExternalLink size={10} strokeWidth={2} />
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

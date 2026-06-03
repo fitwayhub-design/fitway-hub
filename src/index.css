@@ -105,11 +105,11 @@ html.light {
    use shadow-soft-md / shadow-soft-lg, which are intentionally NOT flattened so
    menus, dialogs and the tab bar keep the elevation that makes them read as
    floating above the page. */
-.app-view :is(.shadow-soft-xs, .shadow-soft-sm, .shadow-soft) {
+.app-fwh :is(.shadow-soft-xs, .shadow-soft-sm, .shadow-soft) {
   box-shadow: none;
 }
 @media (hover: hover) {
-  .app-view :is(.shadow-soft-sm, .shadow-soft):hover {
+  .app-fwh :is(.shadow-soft-sm, .shadow-soft):hover {
     box-shadow: var(--shadow-soft);
   }
 }
