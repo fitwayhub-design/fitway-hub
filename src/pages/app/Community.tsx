@@ -7,10 +7,21 @@ import { useAuth } from "@/context/AuthContext";
 import { getAvatar } from "@/lib/avatar";
 import {
   Heart, MessageCircle, Image as ImageIcon, Plus, Trophy, Calendar, X, Users, Megaphone,
-  ExternalLink, Phone, UserPlus, UserCheck, Send, Hash, TrendingUp, Trash2, Share2, Eye, EyeOff,
-  ChevronDown, Clock, Flame, Award, Target, Sparkles
+  ExternalLink, Phone, UserPlus, UserCheck, Send, Hash, TrendingUp, Trash2, Eye, EyeOff,
+  Clock, Flame, Award, Target, Sparkles, Pin, Star
 } from "lucide-react";
 import VideoPlayer from "@/components/app/VideoPlayer";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 /* ───── Interfaces ───── */
 interface Post {
@@ -230,6 +241,10 @@ export default function Community() {
     } catch {}
   };
 
+  const closeCoachProfile = () => {
+    setViewingCoachId(null); setCoachProfile(null); setCoachPosts([]); setCoachVideos([]); setCoachShorties([]); setCoachPhotos([]);
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setSelectedFile(file);
@@ -252,63 +267,32 @@ export default function Community() {
     feedItems.push({ type: "post", data: p });
   });
 
-  /* ───── Styles ───── */
-  const inputStyle: React.CSSProperties = {
-    backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)",
-    padding: "10px 14px", width: "100%", fontSize: 13, color: "var(--text-primary)",
-    fontFamily: "var(--font-en)", outline: "none", transition: "border-color 0.2s",
-  };
-  const cardStyle: React.CSSProperties = {
-    backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)",
-    overflow: "hidden", transition: "transform 0.2s, box-shadow 0.2s",
-  };
-  const pillBtn = (active: boolean, _color = "var(--accent)"): React.CSSProperties => ({
-    padding: "6px 14px", borderRadius: "var(--radius-full)", fontSize: 12, fontWeight: 600, border: "none",
-    cursor: "pointer", transition: "all 0.2s",
-    backgroundColor: active ? _color : "var(--bg-surface)",
-    color: active ? "#000000" : "var(--text-secondary)",
-    fontFamily: "var(--font-en)",
-  });
+  const firstName = user?.name?.split(" ")[0] || "Athlete";
 
   /* ──────────────────────────── RENDER ──────────────────────────── */
   return (
-    <div style={{ padding: isMobile ? "16px 10px 80px" : "24px 20px 80px", maxWidth: 680, margin: "0 auto" }}>
+    <div className="mx-auto w-full max-w-[680px] px-4 pb-20">
 
       {/* ── Header ── */}
-      <div className="fade-up" style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div>
-            <h1 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(22px, 5vw, 28px)", fontWeight: 800, letterSpacing: "-0.02em" }}>
-              Community
-            </h1>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
-              Share your fitness journey
-            </p>
+      <header className="fade-up mb-6 pt-1">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-[28px] font-bold leading-tight tracking-tight">Community</h1>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">Share your fitness journey</p>
           </div>
-          <div style={{ display: "flex", gap: 6, backgroundColor: "var(--bg-surface)", padding: 4, borderRadius: "var(--radius-full)", border: "1px solid var(--border)" }}>
-            {(["feed", "challenges"] as const).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                padding: "8px 20px", borderRadius: "var(--radius-full)", fontSize: 13, fontWeight: 600, border: "none",
-                cursor: "pointer", transition: "all 0.2s",
-                backgroundColor: activeTab === tab ? "var(--accent)" : "transparent",
-                color: activeTab === tab ? "#000000" : "var(--text-secondary)",
-                fontFamily: "var(--font-en)",
-              }}>
-                {tab === "feed" ? "Feed" : "Challenges"}
-              </button>
-            ))}
-          </div>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "feed" | "challenges")} className="shrink-0">
+            <TabsList>
+              <TabsTrigger value="feed" className="px-4">Feed</TabsTrigger>
+              <TabsTrigger value="challenges" className="px-4">Challenges</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         {/* Admin stats bar */}
         {isAdmin && communityStats && (
-          <div style={{
-            display: "flex", gap: 8, flexWrap: "wrap", padding: "10px 14px", borderRadius: "var(--radius-full)",
-            background: "linear-gradient(135deg, rgba(255,214,0,0.06), rgba(59,139,255,0.06))",
-            border: "1px solid rgba(255,214,0,0.15)",
-          }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 4, marginInlineEnd: 8 }}>
-              <Eye size={11} /> Admin
+          <Card className="flex flex-row flex-wrap items-center gap-3 bg-gradient-to-br from-primary/10 to-[var(--secondary-dim)] p-3 shadow-soft-sm">
+            <span className="me-1 inline-flex items-center gap-1 text-[10px] font-bold tracking-wider text-primary uppercase">
+              <Eye size={11} strokeWidth={2} /> Admin
             </span>
             {[
               { v: communityStats.total_posts, l: "Posts" },
@@ -317,113 +301,150 @@ export default function Community() {
               { v: communityStats.total_challenges, l: "Challenges" },
               { v: communityStats.active_users, l: "Active" },
             ].map(s => (
-              <span key={s.l} style={{ fontSize: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 3 }}>
-                <strong style={{ color: "var(--text-primary)", fontFamily: "var(--font-en)" }}>{s.v || 0}</strong> {s.l}
+              <span key={s.l} className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
+                <strong className="font-bold tabular-nums text-foreground">{s.v || 0}</strong> {s.l}
               </span>
             ))}
-          </div>
+          </Card>
         )}
-      </div>
+      </header>
 
       {/* ── Trending Tags ── */}
       {trendingTags.length > 0 && activeTab === "feed" && (
-        <div className="fade-up-1" style={{ marginBottom: 16, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          <TrendingUp size={13} color="var(--accent)" style={{ flexShrink: 0 }} />
+        <div className="fade-up-1 mb-4 flex flex-wrap items-center gap-2">
+          <TrendingUp size={14} strokeWidth={2} className="shrink-0 text-primary" />
           {activeTag && (
-            <button onClick={() => { setActiveTag(null); }} style={{ ...pillBtn(true), padding: "5px 10px", fontSize: 11 }}>
-              All <X size={10} style={{ marginInlineStart: 2 }} />
+            <button
+              onClick={() => { setActiveTag(null); }}
+              className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground transition active:scale-[0.97]"
+            >
+              All <X size={10} strokeWidth={2.5} className="ms-0.5" />
             </button>
           )}
-          {trendingTags.slice(0, 8).map(t => (
-            <button key={t.tag} onClick={() => handleTagClick(t.tag)} style={{ ...pillBtn(activeTag === t.tag.replace(/^#/, "")), padding: "5px 12px", fontSize: 11 }}>
-              {t.tag}
-            </button>
-          ))}
+          {trendingTags.slice(0, 8).map(t => {
+            const isActive = activeTag === t.tag.replace(/^#/, "");
+            return (
+              <button
+                key={t.tag}
+                onClick={() => handleTagClick(t.tag)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-[11px] font-semibold transition active:scale-[0.97]",
+                  isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t.tag}
+              </button>
+            );
+          })}
         </div>
       )}
 
       {/* ════════════════════ FEED TAB ════════════════════ */}
       {activeTab === "feed" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="flex flex-col gap-4">
 
           {/* ── Compose area ── */}
-          <div className="fade-up-2" style={{ ...cardStyle, padding: showComposer ? "18px" : "12px 18px" }}>
+          <Card className={cn("fade-up-2 gap-0 shadow-soft-sm", showComposer ? "p-[18px]" : "px-[18px] py-3")}>
             {!showComposer ? (
-              <div
+              <button
+                type="button"
                 onClick={() => { setShowComposer(true); setTimeout(() => textareaRef.current?.focus(), 100); }}
-                style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+                className="flex w-full items-center gap-3 text-start"
               >
-                <img src={user?.avatar} alt="Me" style={{ width: 38, height: 38, borderRadius: "50%", border: "2px solid var(--border)", flexShrink: 0 }} />
-                <div style={{ flex: 1, padding: "10px 16px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", fontSize: 13, color: "var(--text-muted)" }}>
-                  What's on your mind, {user?.name?.split(" ")[0] || "Athlete"}?
-                </div>
-                <ImageIcon size={18} color="var(--accent)" />
-              </div>
+                <Avatar className="size-10 shrink-0 ring-2 ring-border">
+                  <AvatarImage src={user?.avatar} alt={user?.name || "Me"} />
+                  <AvatarFallback>{firstName.slice(0, 1)}</AvatarFallback>
+                </Avatar>
+                <span className="flex-1 rounded-full bg-muted px-4 py-2.5 text-[13px] text-muted-foreground">
+                  What's on your mind, {firstName}?
+                </span>
+                <ImageIcon size={18} strokeWidth={2} className="text-primary" />
+              </button>
             ) : (
               <>
-                <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-                  <img src={user?.avatar} alt="Me" style={{ width: 38, height: 38, borderRadius: "50%", border: "2px solid var(--border)", flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{user?.name}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Posting to Community</p>
+                <div className="mb-3 flex items-center gap-3">
+                  <Avatar className="size-10 shrink-0 ring-2 ring-border">
+                    <AvatarImage src={user?.avatar} alt={user?.name || "Me"} />
+                    <AvatarFallback>{firstName.slice(0, 1)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-semibold">{user?.name}</p>
+                    <p className="text-[11px] text-muted-foreground">Posting to Community</p>
                   </div>
-                  <button onClick={() => { setShowComposer(false); setSelectedFile(null); setFilePreview(null); }} style={{ width: 30, height: 30, borderRadius: "var(--radius-full)", background: "var(--bg-surface)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
-                    <X size={14} />
-                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Close composer"
+                    onClick={() => { setShowComposer(false); setSelectedFile(null); setFilePreview(null); }}
+                    className="rounded-full bg-muted text-muted-foreground"
+                  >
+                    <X size={15} strokeWidth={2} />
+                  </Button>
                 </div>
-                <textarea
+                <Textarea
                   ref={textareaRef}
                   value={newPostContent}
                   onChange={(e) => setNewPostContent(e.target.value)}
                   placeholder="Share a workout win, milestone, or tip…"
                   rows={3}
-                  style={{ ...inputStyle, resize: "none", borderRadius: "var(--radius-full)", marginBottom: 10, fontSize: 14, lineHeight: 1.6 }}
+                  className="mb-2.5 min-h-20 resize-none text-[14px] leading-relaxed"
                 />
                 {filePreview && (
-                  <div style={{ position: "relative", marginBottom: 10, borderRadius: "var(--radius-full)", overflow: "hidden", border: "1px solid var(--border)" }}>
-                    <img src={filePreview} alt="Preview" style={{ width: "100%", maxHeight: 200, objectFit: "cover", display: "block" }} />
-                    <button onClick={() => { setSelectedFile(null); setFilePreview(null); }} style={{ position: "absolute", top: 8, insetInlineEnd: 8, width: 28, height: 28, borderRadius: "50%", backgroundColor: "rgba(0,0,0,0.6)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-                      <X size={14} />
-                    </button>
+                  <div className="relative mb-2.5 overflow-hidden rounded-md">
+                    <img src={filePreview} alt="Selected media preview" className="block max-h-[200px] w-full object-cover" />
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Remove media"
+                      onClick={() => { setSelectedFile(null); setFilePreview(null); }}
+                      className="absolute top-2 end-2 rounded-full bg-black/60 text-white hover:bg-black/70 hover:text-white"
+                    >
+                      <X size={14} strokeWidth={2} />
+                    </Button>
                   </div>
                 )}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
-                    <Hash size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                    <input value={newPostHashtags} onChange={e => setNewPostHashtags(e.target.value)} placeholder="#fitness #progress" style={{ ...inputStyle, padding: "7px 10px", borderRadius: "var(--radius-full)", fontSize: 12 }} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <Hash size={14} strokeWidth={2} className="shrink-0 text-muted-foreground" />
+                    <Input
+                      value={newPostHashtags}
+                      onChange={e => setNewPostHashtags(e.target.value)}
+                      placeholder="#fitness #progress"
+                      className="h-9 rounded-full px-3 text-[12px]"
+                    />
                   </div>
-                  <input type="file" ref={fileInputRef} onChange={handleFileSelect} style={{ display: "none" }} accept="image/*,video/*" />
-                  <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Image: JPG/PNG max 5 MB — Video: MP4 max 50 MB</p>
-                  <button onClick={() => fileInputRef.current?.click()} title="Add photo" style={{ width: 36, height: 36, borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: selectedFile ? "var(--accent)" : "var(--text-muted)", transition: "color 0.2s" }}>
-                    <ImageIcon size={16} />
-                  </button>
-                  <button
+                  <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" />
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">Image: JPG/PNG max 5 MB — Video: MP4 max 50 MB</p>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Add photo or video"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn("rounded-full bg-muted", selectedFile ? "text-primary" : "text-muted-foreground")}
+                  >
+                    <ImageIcon size={16} strokeWidth={2} />
+                  </Button>
+                  <Button
                     onClick={createPost}
                     disabled={isPosting || (!newPostContent.trim() && !selectedFile)}
-                    style={{
-                      padding: "8px 20px", borderRadius: "var(--radius-full)", border: "none", cursor: "pointer",
-                      background: (!newPostContent.trim() && !selectedFile) ? "var(--bg-surface)" : "var(--accent)",
-                      color: (!newPostContent.trim() && !selectedFile) ? "var(--text-muted)" : "#000000",
-                      fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 13,
-                      display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s",
-                      opacity: isPosting ? 0.6 : 1,
-                    }}
+                    size="sm"
+                    className="rounded-full"
                   >
-                    {isPosting ? "Posting…" : <><Send size={13} /> Post</>}
-                  </button>
+                    {isPosting ? "Posting…" : <><Send size={13} strokeWidth={2} /> Post</>}
+                  </Button>
                 </div>
               </>
             )}
-          </div>
+          </Card>
 
           {/* ── Empty state ── */}
           {feedItems.length === 0 && (
-            <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--text-muted)" }}>
-              <Sparkles size={32} style={{ marginBottom: 12, opacity: 0.4 }} />
-              <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: "var(--text-secondary)" }}>
+            <div className="px-5 py-12 text-center text-muted-foreground">
+              <Sparkles size={32} strokeWidth={2} className="mx-auto mb-3 opacity-40" />
+              <p className="mb-1 text-[15px] font-semibold text-foreground">
                 {activeTag ? `No posts found for #${activeTag}` : "No posts yet"}
               </p>
-              <p style={{ fontSize: 13 }}>Be the first to share something!</p>
+              <p className="text-[13px]">Be the first to share something!</p>
             </div>
           )}
 
@@ -456,26 +477,19 @@ export default function Community() {
 
       {/* ════════════════════ CHALLENGES TAB ════════════════════ */}
       {activeTab === "challenges" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="flex flex-col gap-4">
           <button
             onClick={() => setIsCreatingChallenge(true)}
-            className="fade-up-1"
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 14,
-              borderRadius: "var(--radius-full)", cursor: "pointer", fontFamily: "var(--font-en)", fontWeight: 700,
-              fontSize: 14, border: "2px dashed rgba(255,214,0,0.3)", color: "var(--accent)",
-              background: "linear-gradient(135deg, rgba(255,214,0,0.04), rgba(255,214,0,0.08))",
-              transition: "all 0.2s",
-            }}
+            className="fade-up-1 flex items-center justify-center gap-2 rounded-lg bg-primary/10 p-3.5 text-[14px] font-bold text-primary shadow-soft-sm transition active:scale-[0.99]"
           >
-            <Plus size={18} /> Start a Challenge
+            <Plus size={18} strokeWidth={2} /> Start a Challenge
           </button>
 
           {challenges.length === 0 && (
-            <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--text-muted)" }}>
-              <Trophy size={32} style={{ marginBottom: 12, opacity: 0.4 }} />
-              <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: "var(--text-secondary)" }}>No challenges yet</p>
-              <p style={{ fontSize: 13 }}>Create the first one and challenge the community!</p>
+            <div className="px-5 py-12 text-center text-muted-foreground">
+              <Trophy size={32} strokeWidth={2} className="mx-auto mb-3 opacity-40" />
+              <p className="mb-1 text-[15px] font-semibold text-foreground">No challenges yet</p>
+              <p className="text-[13px]">Create the first one and challenge the community!</p>
             </div>
           )}
 
@@ -489,253 +503,220 @@ export default function Community() {
             const progress = isActive ? Math.min(100, Math.round(((now - start) / (end - start)) * 100)) : isEnded ? 100 : 0;
 
             return (
-              <div key={ch.id} className={`fade-up-${Math.min(idx + 1, 4)}`} style={{ ...cardStyle, position: "relative" }}>
-                <div style={{
-                  position: "absolute", top: 12, insetInlineEnd: 12, zIndex: 2, padding: "3px 10px", borderRadius: "var(--radius-full)",
-                  fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-                  fontFamily: "var(--font-en)",
-                  backgroundColor: isActive ? "rgba(255,214,0,0.9)" : isUpcoming ? "rgba(59,139,255,0.9)" : "rgba(255,100,100,0.8)",
-                  color: isActive ? "#000000" : "#fff",
-                }}>
-                  {isActive ? "ACTIVE" : isUpcoming ? "UPCOMING" : "ENDED"}
+              <Card key={ch.id} className={`fade-up-${Math.min(idx + 1, 4)} relative gap-0 overflow-hidden p-0 shadow-soft-sm`}>
+                <div className="absolute top-3 end-3 z-[2]">
+                  <Badge variant={isActive ? "default" : isUpcoming ? "accent" : "destructive"} className="tracking-wide">
+                    {isActive ? "ACTIVE" : isUpcoming ? "UPCOMING" : "ENDED"}
+                  </Badge>
                 </div>
                 {ch.image_url && (
-                  <div style={{ height: 140, overflow: "hidden", position: "relative" }}>
-                    <img src={ch.image_url} alt={ch.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(transparent 40%, rgba(0,0,0,0.6))" }} />
+                  <div className="relative h-[140px] overflow-hidden">
+                    <img src={ch.image_url} alt={ch.title} className="size-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   </div>
                 )}
-                <div style={{ padding: "16px 18px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center", background: isActive ? "rgba(255,214,0,0.12)" : "rgba(59,139,255,0.1)" }}>
-                      {isActive ? <Flame size={18} color="var(--accent)" /> : isUpcoming ? <Target size={18} color="var(--blue)" /> : <Award size={18} color="var(--text-muted)" />}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ch.title}</h3>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>by {ch.creator_name}</p>
+                <div className="p-[18px]">
+                  <div className="mb-2.5 flex items-center gap-2.5">
+                    <span className={cn("grid size-9 shrink-0 place-items-center rounded-full", isActive ? "bg-primary/15" : "bg-[var(--secondary-dim)]")}>
+                      {isActive ? <Flame size={18} strokeWidth={2} className="text-primary" /> : isUpcoming ? <Target size={18} strokeWidth={2} className="text-[var(--secondary)]" /> : <Award size={18} strokeWidth={2} className="text-muted-foreground" />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate text-[15px] font-bold">{ch.title}</h3>
+                      <p className="text-[11px] text-muted-foreground">by {ch.creator_name}</p>
                     </div>
                   </div>
-                  <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 12 }}>
+                  <p className="mb-3 text-[13px] leading-relaxed text-muted-foreground">
                     {ch.description && ch.description.length > 120 ? ch.description.slice(0, 120) + "…" : ch.description}
                   </p>
 
                   {(isActive || isEnded) && (
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-muted)", marginBottom: 4 }}>
+                    <div className="mb-3">
+                      <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
                         <span>{new Date(ch.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                        <span>{progress}%</span>
+                        <span className="tabular-nums">{progress}%</span>
                         <span>{new Date(ch.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                       </div>
-                      <div style={{ height: 4, borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${progress}%`, borderRadius: "var(--radius-full)", backgroundColor: isActive ? "var(--accent)" : "var(--text-muted)", transition: "width 0.5s ease" }} />
+                      <div className="h-1 overflow-hidden rounded-full bg-muted">
+                        <div className={cn("h-full rounded-full transition-[width] duration-500", isActive ? "bg-primary" : "bg-muted-foreground")} style={{ width: `${progress}%` }} />
                       </div>
                     </div>
                   )}
 
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--text-muted)" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Users size={13} /> {ch.participant_count}</span>
-                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Calendar size={13} /> {new Date(ch.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-3.5 text-[12px] text-muted-foreground">
+                      <span className="inline-flex items-center gap-1"><Users size={13} strokeWidth={2} /> {ch.participant_count}</span>
+                      <span className="inline-flex items-center gap-1"><Calendar size={13} strokeWidth={2} /> {new Date(ch.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                     </div>
                     {!isEnded && (
-                      <button
+                      <Button
                         onClick={() => joinChallenge(ch.id)}
                         disabled={!!ch.is_joined}
-                        style={{
-                          padding: "8px 18px", borderRadius: "var(--radius-full)", fontFamily: "var(--font-en)",
-                          fontWeight: 700, fontSize: 12, border: "none", cursor: ch.is_joined ? "default" : "pointer",
-                          backgroundColor: ch.is_joined ? "rgba(255,214,0,0.1)" : "var(--accent)",
-                          color: ch.is_joined ? "var(--accent)" : "#000000",
-                          transition: "all 0.2s", display: "flex", alignItems: "center", gap: 5,
-                        }}
+                        size="sm"
+                        variant={ch.is_joined ? "secondary" : "default"}
+                        className="rounded-full disabled:opacity-100"
                       >
-                        {ch.is_joined ? <><UserCheck size={13} /> Joined</> : "Join Challenge"}
-                      </button>
+                        {ch.is_joined ? <><UserCheck size={13} strokeWidth={2} className="text-primary" /> Joined</> : "Join Challenge"}
+                      </Button>
                     )}
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
       )}
 
       {/* ════════════════ CREATE CHALLENGE MODAL ════════════════ */}
-      {isCreatingChallenge && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setIsCreatingChallenge(false); }}>
-          <div style={{ width: "100%", maxWidth: 440, backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "24px", maxHeight: "90dvh", overflowY: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Trophy size={18} color="var(--accent)" />
-                <h4 style={{ fontFamily: "var(--font-en)", fontSize: 17, fontWeight: 700 }}>New Challenge</h4>
+      <Dialog open={isCreatingChallenge} onOpenChange={(o) => { if (!o) setIsCreatingChallenge(false); }}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy size={18} strokeWidth={2} className="text-primary" /> New Challenge
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3.5">
+            {[
+              { key: "title", label: "Challenge Title", type: "text", ph: "30-Day Step Challenge" },
+              { key: "description", label: "Description", type: "textarea", ph: "What's the goal? Rules? Prizes?" },
+              { key: "startDate", label: "Start Date", type: "date", ph: "" },
+              { key: "endDate", label: "End Date", type: "date", ph: "" },
+            ].map(f => (
+              <div key={f.key}>
+                <label className="mb-1.5 block text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{f.label}</label>
+                {f.type === "textarea" ? (
+                  <Textarea rows={3} value={(newChallenge as any)[f.key]} onChange={e => setNewChallenge(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.ph} className="resize-none" />
+                ) : (
+                  <Input type={f.type} value={(newChallenge as any)[f.key]} onChange={e => setNewChallenge(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.ph} />
+                )}
               </div>
-              <button onClick={() => setIsCreatingChallenge(false)} style={{ width: 32, height: 32, borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)" }}>
-                <X size={15} />
-              </button>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[
-                { key: "title", label: "Challenge Title", type: "text", ph: "30-Day Step Challenge" },
-                { key: "description", label: "Description", type: "textarea", ph: "What's the goal? Rules? Prizes?" },
-                { key: "startDate", label: "Start Date", type: "date", ph: "" },
-                { key: "endDate", label: "End Date", type: "date", ph: "" },
-              ].map(f => (
-                <div key={f.key}>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>{f.label}</label>
-                  {f.type === "textarea" ? (
-                    <textarea rows={3} value={(newChallenge as any)[f.key]} onChange={e => setNewChallenge(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.ph} style={{ ...inputStyle, resize: "none", borderRadius: "var(--radius-full)" }} />
-                  ) : (
-                    <input type={f.type} value={(newChallenge as any)[f.key]} onChange={e => setNewChallenge(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.ph} style={{ ...inputStyle, borderRadius: "var(--radius-full)" }} />
-                  )}
-                </div>
-              ))}
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button onClick={() => setIsCreatingChallenge(false)} style={{ flex: 1, padding: 12, borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-secondary)", cursor: "pointer", fontSize: 14, fontWeight: 500 }}>
-                  Cancel
-                </button>
-                <button onClick={createChallenge} style={{ flex: 1, padding: 12, borderRadius: "var(--radius-full)", backgroundColor: "var(--accent)", color: "#000000", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}>
-                  Create
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
-        </div>
-      )}
+          <DialogFooter className="gap-2 sm:justify-stretch">
+            <Button variant="outline" onClick={() => setIsCreatingChallenge(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button onClick={createChallenge} className="flex-1">
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* ════════════════ COACH PROFILE MODAL ════════════════ */}
-      {viewingCoachId !== null && coachProfile && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-          onClick={(e) => { if (e.target === e.currentTarget) { setViewingCoachId(null); setCoachProfile(null); setCoachPosts([]); setCoachVideos([]); setCoachShorties([]); setCoachPhotos([]); } }}>
-          <div style={{ width: "100%", maxWidth: 600, backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "24px 24px 0 0", padding: "24px", maxHeight: "85dvh", overflowY: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-              <h3 style={{ fontFamily: "var(--font-en)", fontSize: 17, fontWeight: 700 }}>Coach Profile</h3>
-              <button onClick={() => { setViewingCoachId(null); setCoachProfile(null); setCoachPosts([]); setCoachVideos([]); setCoachShorties([]); setCoachPhotos([]); }} style={{ width: 32, height: 32, borderRadius: "var(--radius-full)", background: "var(--bg-surface)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
-                <X size={15} />
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 20 }}>
-              <img src={coachProfile.avatar || getAvatar(viewingCoachId, null, null, coachProfile.name)} alt={coachProfile.name} style={{ width: 64, height: 64, borderRadius: "50%", border: "3px solid var(--blue)" }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h4 style={{ fontFamily: "var(--font-en)", fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{coachProfile.name}</h4>
-                <div style={{ display: "flex", gap: 12, fontSize: 12, color: "var(--text-muted)", flexWrap: "wrap" }}>
-                  {coachProfile.followers !== undefined && <span>👥 {coachProfile.followers}</span>}
-                  {coachProfile.posts !== undefined && <span>📝 {coachProfile.posts}</span>}
-                  {coachProfile.athletes !== undefined && <span>🏋️ {coachProfile.athletes}</span>}
-                  {coachProfile.avgRating !== undefined && <span>⭐ {coachProfile.avgRating}</span>}
+      {/* ════════════════ COACH PROFILE SHEET ════════════════ */}
+      <Sheet open={viewingCoachId !== null && !!coachProfile} onOpenChange={(o) => { if (!o) closeCoachProfile(); }}>
+        <SheetContent side="bottom" className="max-h-[85dvh] gap-0 overflow-y-auto p-6 sm:max-w-[600px] sm:mx-auto">
+          {viewingCoachId !== null && coachProfile && (
+            <>
+              <SheetHeader className="p-0">
+                <SheetTitle>Coach Profile</SheetTitle>
+              </SheetHeader>
+              <div className="mt-5 mb-5 flex items-center gap-3.5">
+                <Avatar className="size-16 shrink-0 ring-2 ring-[var(--secondary)]">
+                  <AvatarImage src={coachProfile.avatar || getAvatar(viewingCoachId, null, null, coachProfile.name)} alt={coachProfile.name} />
+                  <AvatarFallback>{(coachProfile.name || "C").slice(0, 1)}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <h4 className="mb-1.5 text-[17px] font-bold">{coachProfile.name}</h4>
+                  <div className="flex flex-wrap gap-3 text-[12px] text-muted-foreground">
+                    {coachProfile.followers !== undefined && <span className="inline-flex items-center gap-1"><Users size={12} strokeWidth={2} /> {coachProfile.followers}</span>}
+                    {coachProfile.posts !== undefined && <span className="inline-flex items-center gap-1"><MessageCircle size={12} strokeWidth={2} /> {coachProfile.posts}</span>}
+                    {coachProfile.athletes !== undefined && <span className="inline-flex items-center gap-1"><Trophy size={12} strokeWidth={2} /> {coachProfile.athletes}</span>}
+                    {coachProfile.avgRating !== undefined && <span className="inline-flex items-center gap-1"><Star size={12} strokeWidth={2} className="text-[var(--amber)]" /> {coachProfile.avgRating}</span>}
+                  </div>
                 </div>
-              </div>
-              <button onClick={() => toggleFollowCoach(viewingCoachId)} style={{
-                display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: "var(--radius-full)",
-                fontWeight: 700, fontSize: 13, cursor: "pointer",
-                border: `2px solid ${followedCoaches.has(viewingCoachId) ? "var(--accent)" : "var(--blue)"}`,
-                background: followedCoaches.has(viewingCoachId) ? "rgba(255,214,0,0.1)" : "rgba(59,139,255,0.1)",
-                color: followedCoaches.has(viewingCoachId) ? "var(--accent)" : "var(--blue)",
-                fontFamily: "var(--font-en)",
-              }}>
-                {followedCoaches.has(viewingCoachId) ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-              {([
-                { key: "posts", label: "Posts" },
-                { key: "videos", label: "Videos" },
-                { key: "shorties", label: "Shorties" },
-                { key: "photos", label: "Photos" },
-              ] as const).map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setProfileTab(tab.key)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: "var(--radius-full)",
-                    border: `1px solid ${profileTab === tab.key ? "var(--blue)" : "var(--border)"}`,
-                    backgroundColor: profileTab === tab.key ? "rgba(59,139,255,0.12)" : "var(--bg-surface)",
-                    color: profileTab === tab.key ? "var(--blue)" : "var(--text-muted)",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    fontFamily: "var(--font-en)",
-                    cursor: "pointer",
-                  }}
+                <Button
+                  onClick={() => toggleFollowCoach(viewingCoachId)}
+                  size="sm"
+                  variant={followedCoaches.has(viewingCoachId) ? "secondary" : "default"}
+                  className="rounded-full"
                 >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+                  {followedCoaches.has(viewingCoachId) ? <><UserCheck size={14} strokeWidth={2} /> Following</> : <><UserPlus size={14} strokeWidth={2} /> Follow</>}
+                </Button>
+              </div>
 
-            {profileTab === "posts" && (
-              coachPosts.length === 0 ? (
-                <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: 32 }}>No posts yet</p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {coachPosts.map(post => (
-                    <div key={post.id} style={{ backgroundColor: "var(--bg-surface)", borderRadius: "var(--radius-full)", overflow: "hidden", border: "1px solid var(--border)" }}>
-                      {post.media_url && <img src={post.media_url} alt="Post" style={{ width: "100%", maxHeight: 200, objectFit: "cover" }} />}
-                      <div style={{ padding: "12px 14px" }}>
-                        <p style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.6, marginBottom: 6 }}>{post.content}</p>
-                        {post.hashtags && <p style={{ fontSize: 11, color: "var(--accent)" }}>{post.hashtags}</p>}
-                        <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 12, color: "var(--text-muted)" }}>
-                          <span>❤️ {post.likes}</span>
-                          <span>{timeAgo(post.created_at)}</span>
+              <Tabs value={profileTab} onValueChange={(v) => setProfileTab(v as typeof profileTab)} className="mb-3.5">
+                <TabsList className="w-full">
+                  <TabsTrigger value="posts">Posts</TabsTrigger>
+                  <TabsTrigger value="videos">Videos</TabsTrigger>
+                  <TabsTrigger value="shorties">Shorties</TabsTrigger>
+                  <TabsTrigger value="photos">Photos</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              {profileTab === "posts" && (
+                coachPosts.length === 0 ? (
+                  <p className="p-8 text-center text-[13px] text-muted-foreground">No posts yet</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {coachPosts.map(post => (
+                      <Card key={post.id} className="gap-0 overflow-hidden p-0 shadow-soft-sm">
+                        {post.media_url && <img src={post.media_url} alt="Coach post media" className="max-h-[200px] w-full object-cover" />}
+                        <div className="p-3.5">
+                          <p className="mb-1.5 text-[13px] leading-relaxed text-foreground">{post.content}</p>
+                          {post.hashtags && <p className="text-[11px] text-primary">{post.hashtags}</p>}
+                          <div className="mt-2 flex gap-3 text-[12px] text-muted-foreground">
+                            <span className="inline-flex items-center gap-1"><Heart size={12} strokeWidth={2} /> {post.likes}</span>
+                            <span>{timeAgo(post.created_at)}</span>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
+                      </Card>
+                    ))}
+                  </div>
+                )
+              )}
 
-            {profileTab === "videos" && (
-              coachVideos.length === 0 ? (
-                <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: 32 }}>No videos yet</p>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-                  {coachVideos.map(v => (
-                    <div key={v.id} style={{ backgroundColor: "var(--bg-surface)", borderRadius: "var(--radius-full)", overflow: "hidden", border: "1px solid var(--border)" }}>
-                      <video src={v.url} controls poster={v.thumbnail || undefined} style={{ width: "100%", height: 140, objectFit: "cover", backgroundColor: "#000" }} />
-                      <div style={{ padding: "10px 12px" }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, fontFamily: "var(--font-en)" }}>{v.title}</p>
-                        {v.description && <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>{v.description}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
+              {profileTab === "videos" && (
+                coachVideos.length === 0 ? (
+                  <p className="p-8 text-center text-[13px] text-muted-foreground">No videos yet</p>
+                ) : (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+                    {coachVideos.map(v => (
+                      <Card key={v.id} className="gap-0 overflow-hidden p-0 shadow-soft-sm">
+                        <video src={v.url} controls poster={v.thumbnail || undefined} className="h-[140px] w-full bg-black object-cover" />
+                        <div className="p-3">
+                          <p className="text-[13px] font-bold">{v.title}</p>
+                          {v.description && <p className="mt-1 text-[11px] text-muted-foreground">{v.description}</p>}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )
+              )}
 
-            {profileTab === "shorties" && (
-              coachShorties.length === 0 ? (
-                <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: 32 }}>No shorties yet</p>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
-                  {coachShorties.map(v => (
-                    <div key={v.id} style={{ backgroundColor: "var(--bg-surface)", borderRadius: "var(--radius-full)", overflow: "hidden", border: "1px solid var(--border)" }}>
-                      <video src={v.url} controls poster={v.thumbnail || undefined} style={{ width: "100%", height: 220, objectFit: "cover", backgroundColor: "#000" }} />
-                      <div style={{ padding: "8px 10px" }}>
-                        <p style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-en)" }}>{v.title}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
+              {profileTab === "shorties" && (
+                coachShorties.length === 0 ? (
+                  <p className="p-8 text-center text-[13px] text-muted-foreground">No shorties yet</p>
+                ) : (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
+                    {coachShorties.map(v => (
+                      <Card key={v.id} className="gap-0 overflow-hidden p-0 shadow-soft-sm">
+                        <video src={v.url} controls poster={v.thumbnail || undefined} className="h-[220px] w-full bg-black object-cover" />
+                        <div className="p-2.5">
+                          <p className="text-[12px] font-bold">{v.title}</p>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )
+              )}
 
-            {profileTab === "photos" && (
-              coachPhotos.length === 0 ? (
-                <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: 32 }}>No photos yet</p>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
-                  {coachPhotos.map((p: any) => (
-                    <div key={p.id} style={{ borderRadius: "var(--radius-full)", overflow: "hidden", border: "1px solid var(--border)", backgroundColor: "var(--bg-surface)" }}>
-                      <img src={p.media_url} alt={p.content || "Photo"} style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }} />
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-          </div>
-        </div>
-      )}
+              {profileTab === "photos" && (
+                coachPhotos.length === 0 ? (
+                  <p className="p-8 text-center text-[13px] text-muted-foreground">No photos yet</p>
+                ) : (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
+                    {coachPhotos.map((p: any) => (
+                      <div key={p.id} className="overflow-hidden rounded-md bg-muted shadow-soft-sm">
+                        <img src={p.media_url} alt={p.content || "Coach photo"} className="block h-[120px] w-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -760,67 +741,48 @@ function SponsoredAdCard({ ad, token }: { ad: SponsoredAd; token: string | null 
     }).catch(() => {});
   };
 
-  const cardStyle: React.CSSProperties = {
-    backgroundColor: "var(--bg-card)",
-    border: "1px solid rgba(59,139,255,0.25)",
-    borderRadius: "var(--radius-full)",
-    overflow: "hidden",
-    position: "relative",
-    color: "inherit",
-    textDecoration: "none",
-    display: "block",
-    cursor: target ? "pointer" : "default",
-  };
-
   // Capped media height so big creatives don't dominate the feed.
   const mediaMaxH = 180;
 
   const inner = (
     <>
-      <div
-        style={{
-          position: "absolute", top: 10, insetInlineEnd: 10, zIndex: 2,
-          backgroundColor: "rgba(59,139,255,0.85)", borderRadius: "var(--radius-full)",
-          padding: "3px 10px", fontSize: 10, fontWeight: 700, color: "#fff",
-          fontFamily: "var(--font-en)", letterSpacing: "0.06em",
-        }}
-      >
+      <span className="absolute top-2.5 end-2.5 z-[2] rounded-full bg-[var(--secondary)] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white">
         SPONSORED
-      </div>
+      </span>
       {(ad.media_type === "video" || ad.media_type === "youtube") && ad.video_url ? (
         <VideoPlayer
           url={ad.video_url}
           mediaType={ad.media_type}
           height={mediaMaxH}
-          style={{ marginBottom: 0 }}
+          style={{ marginBottom: 0, borderRadius: 0 }}
         />
       ) : ad.image_url ? (
         <img
           src={ad.image_url}
           alt={ad.title}
-          style={{ width: "100%", maxHeight: mediaMaxH, objectFit: "cover", display: "block" }}
+          className="block w-full object-cover"
+          style={{ maxHeight: mediaMaxH }}
         />
       ) : null}
-      <div style={{ padding: "14px 16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <img
-            src={ad.coach_avatar || getAvatar(ad.coach_name, null, null, ad.coach_name)}
-            alt={ad.coach_name}
-            style={{ width: 40, height: 40, borderRadius: "50%", backgroundColor: "var(--bg-surface)", border: "2px solid rgba(59,139,255,0.25)" }}
-          />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-en)" }}>{ad.title}</p>
-            <p style={{ fontSize: 12, color: "var(--blue)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+      <div className="p-4">
+        <div className="mb-2.5 flex items-center gap-2.5">
+          <Avatar className="size-10 shrink-0 ring-2 ring-[color-mix(in_srgb,var(--secondary)_25%,transparent)]">
+            <AvatarImage src={ad.coach_avatar || getAvatar(ad.coach_name, null, null, ad.coach_name)} alt={ad.coach_name} />
+            <AvatarFallback>{(ad.coach_name || "C").slice(0, 1)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-bold">{ad.title}</p>
+            <p className="flex flex-wrap items-center gap-1.5 text-[12px] text-[var(--secondary)]">
               <span>{ad.coach_name}</span>
-              <span style={{ color: "var(--text-muted)" }}>·</span>
+              <span className="text-muted-foreground">·</span>
               <span>{ad.specialty}</span>
               {typeof ad.coach_rating === "number" && ad.coach_rating > 0 && (
                 <>
-                  <span style={{ color: "var(--text-muted)" }}>·</span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "var(--amber)" }}>
-                    ★ {ad.coach_rating.toFixed(1)}
+                  <span className="text-muted-foreground">·</span>
+                  <span className="inline-flex items-center gap-0.5 text-[var(--amber)]">
+                    <Star size={11} strokeWidth={2} className="fill-current" /> {ad.coach_rating.toFixed(1)}
                     {typeof ad.coach_review_count === "number" && ad.coach_review_count > 0 && (
-                      <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>({ad.coach_review_count})</span>
+                      <span className="font-medium text-muted-foreground">({ad.coach_review_count})</span>
                     )}
                   </span>
                 </>
@@ -829,42 +791,42 @@ function SponsoredAdCard({ ad, token }: { ad: SponsoredAd; token: string | null 
           </div>
         </div>
         {ad.description && (
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, marginBottom: 12 }}>
+          <p className="mb-3 text-[13px] leading-relaxed text-muted-foreground">
             {ad.description}
           </p>
         )}
         {isCall && ad.coach_id && (
           <Link to={`/app/coaching?coach=${ad.coach_id}`}
             onClick={(e) => e.stopPropagation()}
-            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, color: "var(--blue)", textDecoration: "none", marginBottom: 10 }}>
+            className="mb-2.5 inline-flex items-center gap-1 text-[12px] font-bold text-[var(--secondary)]">
             View Profile →
           </Link>
         )}
         {target && (
           <span
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              padding: "11px 16px", borderRadius: "var(--radius-full)",
-              backgroundColor: isCall ? "#10B981" : "var(--blue)", color: "#fff",
-              fontSize: 13, fontWeight: 700, fontFamily: "var(--font-en)",
-            }}
+            className={cn(
+              "flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-[13px] font-bold text-white",
+              isCall ? "bg-[var(--green)]" : "bg-[var(--secondary)]",
+            )}
           >
-            {isCall ? <Phone size={14} /> : null}
+            {isCall ? <Phone size={14} strokeWidth={2} /> : null}
             {isCall ? "Call Now" : ad.cta || "Subscribe"}
-            {!isCall && <ExternalLink size={13} />}
+            {!isCall && <ExternalLink size={13} strokeWidth={2} />}
           </span>
         )}
       </div>
     </>
   );
 
+  const cardCls = "relative block overflow-hidden rounded-lg bg-card text-card-foreground shadow-soft-sm ring-1 ring-[color-mix(in_srgb,var(--secondary)_25%,transparent)]";
+
   if (!target) {
-    return <div style={cardStyle}>{inner}</div>;
+    return <div className={cardCls}>{inner}</div>;
   }
   return isCall ? (
-    <a href={target} onClick={trackClick} style={cardStyle}>{inner}</a>
+    <a href={target} onClick={trackClick} className={cn(cardCls, "transition active:scale-[0.99]")}>{inner}</a>
   ) : (
-    <Link to={target} onClick={trackClick} style={cardStyle}>{inner}</Link>
+    <Link to={target} onClick={trackClick} className={cn(cardCls, "transition active:scale-[0.99]")}>{inner}</Link>
   );
 }
 
@@ -890,171 +852,175 @@ function PostCard({
   const isHidden = post.is_hidden === 1;
 
   const renderHashtags = (tags: string) => {
-    const parts = tags.match(/#[\w\u0600-\u06FF]+/g) || [];
+    const parts = tags.match(/#[\w؀-ۿ]+/g) || [];
     return parts.map((t, i) => (
-      <button key={i} onClick={() => onTagClick(t)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, color: "var(--accent)", fontWeight: 600, marginInlineEnd: 6 }}>
+      <button key={i} onClick={() => onTagClick(t)} className="me-1.5 text-[12px] font-semibold text-primary">
         {t}
       </button>
     ));
   };
 
+  const openProfile = () => {
+    // Coach → full coach profile sheet (uses subscribed-coach context).
+    // Athlete → limited public profile page (name + posts only).
+    if (isCoach) onViewCoach(post.user_id, post.user_name, post.user_avatar);
+    else window.location.href = `/app/u/${post.user_id}`;
+  };
+
   return (
-    <div className={`fade-up-${Math.min((idx % 5) + 1, 4)}`} style={{
-      backgroundColor: "var(--bg-card)", border: `1px solid ${post.is_announcement ? "rgba(59,139,255,0.3)" : "var(--border)"}`, borderRadius: "var(--radius-full)",
-      overflow: "hidden", opacity: isHidden ? 0.5 : 1, transition: "opacity 0.3s",
-    }}>
-      <div style={{ padding: "16px 18px 10px" }}>
+    <Card className={cn(
+      `fade-up-${Math.min((idx % 5) + 1, 4)} gap-0 overflow-hidden p-0 shadow-soft-sm transition-opacity`,
+      post.is_announcement && "ring-1 ring-[color-mix(in_srgb,var(--secondary)_30%,transparent)]",
+      isHidden && "opacity-50",
+    )}>
+      <div className="px-[18px] pt-4 pb-2.5">
         {/* Pinned / Announcement banner */}
         {(post.is_pinned || post.is_announcement) ? (
-          <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-            {post.is_pinned ? <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: "var(--radius-full)", background: "rgba(255,214,0,0.1)", color: "var(--accent)", fontWeight: 700, border: "1px solid rgba(255,214,0,0.25)" }}>📌 Pinned</span> : null}
-            {post.is_announcement ? <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: "var(--radius-full)", background: "rgba(59,139,255,0.1)", color: "var(--blue)", fontWeight: 700, border: "1px solid rgba(59,139,255,0.25)" }}>📢 Announcement</span> : null}
+          <div className="mb-2.5 flex flex-wrap gap-1.5">
+            {post.is_pinned ? <Badge variant="default" className="gap-1"><Pin size={10} strokeWidth={2} /> Pinned</Badge> : null}
+            {post.is_announcement ? <Badge variant="accent" className="gap-1"><Megaphone size={10} strokeWidth={2} /> Announcement</Badge> : null}
           </div>
         ) : null}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          <img
-            src={post.user_avatar || getAvatar(post.user_id, null, null, post.user_name)} alt={post.user_name}
-            style={{
-              width: 40, height: 40, borderRadius: "50%", cursor: "pointer",
-              border: isCoach ? "2px solid var(--blue)" : "2px solid var(--border)",
-              transition: "transform 0.2s",
-            }}
-            onClick={() => {
-              // Coach → full coach profile modal (uses subscribed-coach context).
-              // Athlete → limited public profile page (name + posts only).
-              if (isCoach) onViewCoach(post.user_id, post.user_name, post.user_avatar);
-              else window.location.href = `/app/u/${post.user_id}`;
-            }}
-          />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <p
-                style={{ fontSize: 14, fontWeight: 700, cursor: "pointer", color: isCoach ? "var(--blue)" : "var(--accent)", fontFamily: "var(--font-en)" }}
-                onClick={() => {
-                  if (isCoach) onViewCoach(post.user_id, post.user_name, post.user_avatar);
-                  else window.location.href = `/app/u/${post.user_id}`;
-                }}
+        <div className="mb-3 flex items-center gap-2.5">
+          <button type="button" onClick={openProfile} aria-label={`View ${post.user_name}'s profile`} className="shrink-0">
+            <Avatar className={cn("size-10", isCoach ? "ring-2 ring-[var(--secondary)]" : "ring-2 ring-border")}>
+              <AvatarImage src={post.user_avatar || getAvatar(post.user_id, null, null, post.user_name)} alt={post.user_name} />
+              <AvatarFallback>{(post.user_name || "U").slice(0, 1)}</AvatarFallback>
+            </Avatar>
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={openProfile}
+                className={cn("text-[14px] font-bold", isCoach ? "text-[var(--secondary)]" : "text-foreground")}
               >
                 {post.user_name}
-              </p>
+              </button>
               {isCoach && (
-                <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: "var(--radius-full)", backgroundColor: "rgba(59,139,255,0.1)", color: "var(--blue)", border: "1px solid rgba(59,139,255,0.15)", fontWeight: 700, letterSpacing: "0.04em" }}>COACH</span>
+                <Badge variant="accent" className="px-2 py-0.5 text-[9px] tracking-wide">COACH</Badge>
               )}
               {isHidden && (
-                <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: "var(--radius-full)", backgroundColor: "rgba(255,100,100,0.1)", color: "#f66", fontWeight: 700 }}>HIDDEN</span>
+                <Badge variant="destructive" className="px-2 py-0.5 text-[9px]">HIDDEN</Badge>
               )}
             </div>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
-              <Clock size={10} /> {timeAgo(post.created_at)}
+            <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Clock size={10} strokeWidth={2} /> {timeAgo(post.created_at)}
             </p>
           </div>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <div className="flex items-center gap-1">
             {isCoach && post.user_id !== user?.id && (
-              <button onClick={() => onFollowCoach(post.user_id)} style={{
-                display: "flex", alignItems: "center", gap: 4, padding: "5px 12px", borderRadius: "var(--radius-full)",
-                fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s",
-                border: `1px solid ${followedCoaches.has(post.user_id) ? "var(--accent)" : "var(--border)"}`,
-                background: followedCoaches.has(post.user_id) ? "rgba(255,214,0,0.1)" : "var(--bg-surface)",
-                color: followedCoaches.has(post.user_id) ? "var(--accent)" : "var(--text-secondary)",
-              }}>
-                {followedCoaches.has(post.user_id) ? <><UserCheck size={11} /></> : <><UserPlus size={11} /> Follow</>}
-              </button>
+              <Button
+                onClick={() => onFollowCoach(post.user_id)}
+                size="sm"
+                variant={followedCoaches.has(post.user_id) ? "secondary" : "outline"}
+                aria-label={followedCoaches.has(post.user_id) ? "Following coach" : "Follow coach"}
+                className="h-8 rounded-full px-3 text-[11px]"
+              >
+                {followedCoaches.has(post.user_id) ? <UserCheck size={11} strokeWidth={2} className="text-primary" /> : <><UserPlus size={11} strokeWidth={2} /> Follow</>}
+              </Button>
             )}
             {canDelete && (
-              <button onClick={onDelete} title={isAdmin && post.user_id !== user?.id ? "Hide post" : "Delete post"} style={{
-                width: 30, height: 30, borderRadius: "var(--radius-full)", background: "none", border: "none",
-                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                color: "var(--text-muted)", transition: "color 0.2s",
-              }}>
-                {isAdmin && post.user_id !== user?.id ? <EyeOff size={14} /> : <Trash2 size={14} />}
-              </button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onDelete}
+                aria-label={isAdmin && post.user_id !== user?.id ? "Hide post" : "Delete post"}
+                className="rounded-full text-muted-foreground"
+              >
+                {isAdmin && post.user_id !== user?.id ? <EyeOff size={14} strokeWidth={2} /> : <Trash2 size={14} strokeWidth={2} />}
+              </Button>
             )}
           </div>
         </div>
 
-        <p style={{ fontSize: 14, color: "var(--text-primary)", lineHeight: 1.7, marginBottom: 6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+        <p className="mb-1.5 text-[14px] leading-relaxed break-words whitespace-pre-wrap text-foreground">
           {post.content}
         </p>
         {post.hashtags && (
-          <div style={{ display: "flex", flexWrap: "wrap", marginBottom: 4 }}>
+          <div className="mb-1 flex flex-wrap">
             {renderHashtags(post.hashtags)}
           </div>
         )}
       </div>
 
       {post.media_url && (
-        <div style={{ overflow: "hidden" }}>
-          <img src={post.media_url} alt="Post media" style={{ width: "100%", maxHeight: 400, objectFit: "cover", display: "block" }} />
+        <div className="overflow-hidden">
+          <img src={post.media_url} alt="Post media" className="block max-h-[400px] w-full object-cover" />
         </div>
       )}
 
-      <div style={{ padding: "8px 18px 10px", display: "flex", gap: 4 }}>
-        <button onClick={onLike} style={{
-          display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
-          color: post.isLiked ? "#f44" : "var(--text-secondary)",
-          background: "none", border: "none", cursor: "pointer", padding: "8px 12px",
-          borderRadius: "var(--radius-full)", transition: "background-color 0.15s",
-        }}>
+      <div className="flex gap-1 px-[18px] pt-2 pb-2.5">
+        <button
+          onClick={onLike}
+          aria-label={post.isLiked ? "Unlike post" : "Like post"}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-semibold transition-colors",
+            post.isLiked ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
           <Heart
             size={18}
-            style={{
-              fill: post.isLiked ? "#f44" : "none",
-              transition: "transform 0.3s",
-              transform: isLikeAnimating ? "scale(1.3)" : "scale(1)",
-            }}
+            strokeWidth={2}
+            className={cn("transition-transform duration-300", post.isLiked && "fill-current", isLikeAnimating ? "scale-[1.3]" : "scale-100")}
           />
           {post.likes > 0 && post.likes}
         </button>
-        <button onClick={onToggleComments} style={{
-          display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
-          color: showComments ? "var(--blue)" : "var(--text-secondary)",
-          background: "none", border: "none", cursor: "pointer", padding: "8px 12px",
-          borderRadius: "var(--radius-full)", transition: "background-color 0.15s",
-        }}>
-          <MessageCircle size={18} style={{ fill: showComments ? "rgba(59,139,255,0.15)" : "none" }} />
+        <button
+          onClick={onToggleComments}
+          aria-label="Toggle comments"
+          className={cn(
+            "flex items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-semibold transition-colors",
+            showComments ? "text-[var(--secondary)]" : "text-muted-foreground",
+          )}
+        >
+          <MessageCircle size={18} strokeWidth={2} className={cn(showComments && "fill-[var(--secondary-dim)]")} />
           {(post.comments?.length || post.comment_count || 0) > 0 && (post.comments?.length || post.comment_count || 0)}
         </button>
       </div>
 
       {showComments && (
-        <div style={{ borderTop: "1px solid var(--border)", padding: "12px 18px 14px" }}>
+        <div className="px-[18px] pb-3.5">
+          <Separator className="mb-1" />
           {(post.comments || []).map(c => (
-            <div key={c.id} style={{ display: "flex", gap: 10, padding: "8px 0" }}>
-              <img src={c.user_avatar || getAvatar(c.user_id, null, null, c.user_name)} alt={c.user_name} style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, border: "1px solid var(--border)" }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 2 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>{c.user_name}</span>
-                  <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{timeAgo(c.created_at)}</span>
+            <div key={c.id} className="flex gap-2.5 py-2">
+              <Avatar className="size-7 shrink-0">
+                <AvatarImage src={c.user_avatar || getAvatar(c.user_id, null, null, c.user_name)} alt={c.user_name} />
+                <AvatarFallback className="text-[10px]">{(c.user_name || "U").slice(0, 1)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <div className="mb-0.5 flex items-baseline gap-1.5">
+                  <span className="text-[12px] font-bold text-primary">{c.user_name}</span>
+                  <span className="text-[10px] text-muted-foreground">{timeAgo(c.created_at)}</span>
                 </div>
-                <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, wordBreak: "break-word" }}>{c.content}</p>
+                <p className="text-[13px] leading-snug break-words text-muted-foreground">{c.content}</p>
               </div>
             </div>
           ))}
-          <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
-            <img src={user?.avatar} alt="Me" style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0, border: "1px solid var(--border)" }} />
-            <input
+          <div className="mt-2 flex items-center gap-2">
+            <Avatar className="size-7 shrink-0">
+              <AvatarImage src={user?.avatar} alt={user?.name || "Me"} />
+              <AvatarFallback className="text-[10px]">{(user?.name || "U").slice(0, 1)}</AvatarFallback>
+            </Avatar>
+            <Input
               value={commentInput}
               onChange={e => onCommentChange(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") onAddComment(); }}
               placeholder="Write a comment…"
-              style={{
-                flex: 1, backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)",
-                borderRadius: "var(--radius-full)", padding: "8px 14px", fontSize: 13, color: "var(--text-primary)",
-                fontFamily: "var(--font-en)", outline: "none",
-              }}
+              className="h-9 flex-1 rounded-full px-3.5 text-[13px]"
             />
-            <button onClick={onAddComment} disabled={!commentInput.trim()} style={{
-              width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              backgroundColor: commentInput.trim() ? "var(--accent)" : "var(--bg-surface)",
-              color: commentInput.trim() ? "#000000" : "var(--text-muted)",
-              transition: "all 0.2s",
-            }}>
-              <Send size={14} />
-            </button>
+            <Button
+              onClick={onAddComment}
+              disabled={!commentInput.trim()}
+              size="icon-sm"
+              aria-label="Send comment"
+              className="rounded-full"
+            >
+              <Send size={14} strokeWidth={2} />
+            </Button>
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
