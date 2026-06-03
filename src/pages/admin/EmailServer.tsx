@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
-import type { CSSProperties, FormEvent } from "react";
+import type { FormEvent } from "react";
 import DOMPurify from "dompurify";
-import { Mail, Plus, Trash2, Send, Inbox, ArrowLeft, RefreshCw, Eye, Settings, CheckCircle, XCircle, Zap } from "lucide-react";
+import { Mail, Plus, Trash2, Send, Inbox, ArrowLeft, RefreshCw, Settings, CheckCircle, XCircle, Zap } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const API = import.meta.env.VITE_API_BASE || "";
 
@@ -240,458 +249,416 @@ export default function EmailServer() {
     setSending(false);
   }
 
-  // ── Styles ──────────────────────────────────────────────────────
-  const card: CSSProperties = {
-    background: "var(--bg-card)", borderRadius: "var(--radius-full)", border: "none",
-    padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-    transition: "box-shadow 0.2s",
-  };
-  const btn = (bg = "var(--accent)", color = "#fff"): CSSProperties => ({
-    background: bg, color, border: "none", borderRadius: "var(--radius-full)", padding: "8px 18px",
-    fontWeight: 600, cursor: "pointer", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6,
-  });
-  const input: CSSProperties = {
-    width: "100%", padding: "10px 14px", borderRadius: "var(--radius-full)", border: "none",
-    background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, outline: "none",
-    boxSizing: "border-box", boxShadow: "inset 0 1px 4px rgba(0,0,0,0.08)",
-  };
-  const th: CSSProperties = {
-    textAlign: "start", padding: "8px 12px", fontSize: 11, textTransform: "uppercase",
-    color: "var(--text-muted)", fontWeight: 700, letterSpacing: "0.05em",
-  };
-  const td: CSSProperties = {
-    padding: "10px 12px", fontSize: 13,
-    color: "var(--text-primary)", verticalAlign: "middle",
-  };
-  const labelStyle: CSSProperties = {
-    fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4,
-  };
-
   // ── Render ──────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto" }}>
+    <div className="space-y-6">
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+      <div className="flex flex-wrap items-center gap-3">
         {!["settings", "accounts"].includes(view) && (
-          <button onClick={() => setView("accounts")} style={btn("var(--bg-surface)", "var(--text-primary)")}>
-            <ArrowLeft size={14} /> Back
-          </button>
+          <Button variant="outline" size="sm" onClick={() => setView("accounts")}>
+            <ArrowLeft size={14} strokeWidth={2} /> Back
+          </Button>
         )}
-        <Mail size={22} style={{ color: "var(--accent)" }} />
-        <h1 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(18px, 4vw, 26px)", fontWeight: 700, margin: 0 }}>
-          Email Server
-        </h1>
-        {domain && (
-          <span style={{ fontSize: 12, color: "var(--text-muted)", background: "var(--bg-surface)", padding: "4px 10px", borderRadius: "var(--radius-full)" }}>
-            @{domain}
-          </span>
-        )}
+        <span className="grid size-11 shrink-0 place-items-center rounded-md bg-primary/15 text-primary">
+          <Mail size={20} strokeWidth={2} />
+        </span>
+        <h1 className="text-[26px] leading-tight font-bold tracking-tight">Email Server</h1>
+        {domain && <Badge variant="muted" className="text-[12px]">@{domain}</Badge>}
       </div>
 
       {/* Tab buttons */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <button onClick={() => setView("settings")} style={btn(view === "settings" ? "var(--accent)" : "var(--bg-surface)", view === "settings" ? "#fff" : "var(--text-primary)")}>
-          <Settings size={14} /> SMTP Settings
-        </button>
-        <button onClick={() => setView("accounts")} style={btn(view === "accounts" ? "var(--accent)" : "var(--bg-surface)", view === "accounts" ? "#fff" : "var(--text-primary)")}>
-          <Mail size={14} /> Accounts
-        </button>
+      <div className="flex gap-2">
+        <Button variant={view === "settings" ? "default" : "outline"} size="sm" onClick={() => setView("settings")}>
+          <Settings size={14} strokeWidth={2} /> SMTP Settings
+        </Button>
+        <Button variant={view === "accounts" ? "default" : "outline"} size="sm" onClick={() => setView("accounts")}>
+          <Mail size={14} strokeWidth={2} /> Accounts
+        </Button>
       </div>
 
       {/* Alerts */}
-      {error && <div style={{ ...card, background: "rgba(255,68,68,0.1)", color: "var(--red)", padding: "10px 16px", fontSize: 13 }}>{error}</div>}
-      {success && <div style={{ ...card, background: "rgba(0,200,120,0.1)", color: "#0c6", padding: "10px 16px", fontSize: 13 }}>{success}</div>}
+      {error && (
+        <div className="flex items-center gap-2 rounded-md bg-destructive/12 px-4 py-2.5 text-[13px] font-semibold text-destructive">
+          <XCircle size={15} strokeWidth={2} /> {error}
+        </div>
+      )}
+      {success && (
+        <div className="flex items-center gap-2 rounded-md bg-[color-mix(in_srgb,var(--green)_14%,transparent)] px-4 py-2.5 text-[13px] font-semibold text-[var(--green)]">
+          <CheckCircle size={15} strokeWidth={2} /> {success}
+        </div>
+      )}
 
       {/* ─── SMTP SETTINGS VIEW ─── */}
       {view === "settings" && (
-        <>
-          <div style={card}>
-            <h3 style={{ fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 15, margin: "0 0 6px" }}>
-              <Settings size={14} style={{ display: "inline", marginRight: 6 }} />
-              SMTP Relay Configuration
+        <div className="space-y-6">
+          <Card className="gap-0 p-5">
+            <h3 className="flex items-center gap-2 text-[15px] font-semibold">
+              <Settings size={15} strokeWidth={2} className="text-muted-foreground" /> SMTP Relay Configuration
             </h3>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 16px" }}>
+            <p className="mt-1.5 mb-4 text-[13px] text-muted-foreground">
               Configure an external SMTP service (Gmail, SendGrid, Mailgun, etc.) to send real emails.
             </p>
-            <form onSubmit={saveSettings} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <div style={{ flex: "2 1 200px" }}>
-                  <label style={labelStyle}>SMTP Host *</label>
-                  <input value={smtp.smtp_host} onChange={(e) => setSmtp({ ...smtp, smtp_host: e.target.value })} placeholder="smtp.gmail.com" style={input} />
+            <form onSubmit={saveSettings} className="flex flex-col gap-3.5">
+              <div className="flex flex-wrap gap-3">
+                <div className="grid flex-[2_1_200px] gap-1.5">
+                  <Label htmlFor="smtp-host" className="text-[12px]">SMTP Host *</Label>
+                  <Input id="smtp-host" value={smtp.smtp_host} onChange={(e) => setSmtp({ ...smtp, smtp_host: e.target.value })} placeholder="smtp.gmail.com" />
                 </div>
-                <div style={{ flex: "1 1 100px" }}>
-                  <label style={labelStyle}>Port *</label>
-                  <input type="number" value={smtp.smtp_port} onChange={(e) => setSmtp({ ...smtp, smtp_port: Number(e.target.value) })} placeholder="587" style={input} />
+                <div className="grid flex-[1_1_100px] gap-1.5">
+                  <Label htmlFor="smtp-port" className="text-[12px]">Port *</Label>
+                  <Input id="smtp-port" type="number" value={smtp.smtp_port} onChange={(e) => setSmtp({ ...smtp, smtp_port: Number(e.target.value) })} placeholder="587" />
                 </div>
-                <div style={{ flex: "1 1 120px" }}>
-                  <label style={labelStyle}>Security</label>
-                  <select value={smtp.smtp_secure} onChange={(e) => setSmtp({ ...smtp, smtp_secure: e.target.value as any })} style={input}>
-                    <option value="starttls">STARTTLS (587)</option>
-                    <option value="tls">TLS/SSL (465)</option>
-                    <option value="none">None (25)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <div style={{ flex: "1 1 200px" }}>
-                  <label style={labelStyle}>Username / Email *</label>
-                  <input value={smtp.smtp_user} onChange={(e) => setSmtp({ ...smtp, smtp_user: e.target.value })} placeholder="your-email@gmail.com" style={input} />
-                </div>
-                <div style={{ flex: "1 1 200px" }}>
-                  <label style={labelStyle}>Password / App Password *</label>
-                  <input type="password" value={smtp.smtp_pass} onChange={(e) => setSmtp({ ...smtp, smtp_pass: e.target.value })} placeholder="••••••••" style={input} />
+                <div className="grid flex-[1_1_120px] gap-1.5">
+                  <Label htmlFor="smtp-secure" className="text-[12px]">Security</Label>
+                  <Select value={smtp.smtp_secure} onValueChange={(v) => setSmtp({ ...smtp, smtp_secure: v as any })}>
+                    <SelectTrigger id="smtp-secure" className="h-11 w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="starttls">STARTTLS (587)</SelectItem>
+                      <SelectItem value="tls">TLS/SSL (465)</SelectItem>
+                      <SelectItem value="none">None (25)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <div style={{ flex: "1 1 200px" }}>
-                  <label style={labelStyle}>From Name</label>
-                  <input value={smtp.from_name} onChange={(e) => setSmtp({ ...smtp, from_name: e.target.value })} placeholder="FitWay Hub" style={input} />
+              <div className="flex flex-wrap gap-3">
+                <div className="grid flex-[1_1_200px] gap-1.5">
+                  <Label htmlFor="smtp-user" className="text-[12px]">Username / Email *</Label>
+                  <Input id="smtp-user" value={smtp.smtp_user} onChange={(e) => setSmtp({ ...smtp, smtp_user: e.target.value })} placeholder="your-email@gmail.com" />
                 </div>
-                <div style={{ flex: "1 1 200px" }}>
-                  <label style={labelStyle}>From Email</label>
-                  <input value={smtp.from_email} onChange={(e) => setSmtp({ ...smtp, from_email: e.target.value })} placeholder="noreply@fitwayhub.com" style={input} />
+                <div className="grid flex-[1_1_200px] gap-1.5">
+                  <Label htmlFor="smtp-pass" className="text-[12px]">Password / App Password *</Label>
+                  <Input id="smtp-pass" type="password" value={smtp.smtp_pass} onChange={(e) => setSmtp({ ...smtp, smtp_pass: e.target.value })} placeholder="••••••••" />
                 </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-                  <input type="checkbox" checked={!!smtp.enabled} onChange={(e) => setSmtp({ ...smtp, enabled: e.target.checked ? 1 : 0 })} />
-                  Enable email sending
-                </label>
+              <div className="flex flex-wrap gap-3">
+                <div className="grid flex-[1_1_200px] gap-1.5">
+                  <Label htmlFor="from-name" className="text-[12px]">From Name</Label>
+                  <Input id="from-name" value={smtp.from_name} onChange={(e) => setSmtp({ ...smtp, from_name: e.target.value })} placeholder="FitWay Hub" />
+                </div>
+                <div className="grid flex-[1_1_200px] gap-1.5">
+                  <Label htmlFor="from-email" className="text-[12px]">From Email</Label>
+                  <Input id="from-email" value={smtp.from_email} onChange={(e) => setSmtp({ ...smtp, from_email: e.target.value })} placeholder="noreply@fitwayhub.com" />
+                </div>
               </div>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="submit" disabled={smtpLoading} style={{ ...btn(), opacity: smtpLoading ? 0.6 : 1 }}>
+              <div className="flex items-center gap-3">
+                <Switch id="smtp-enabled" checked={!!smtp.enabled} onCheckedChange={(c) => setSmtp({ ...smtp, enabled: c ? 1 : 0 })} />
+                <Label htmlFor="smtp-enabled" className="cursor-pointer text-[13px] font-semibold">Enable email sending</Label>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" disabled={smtpLoading}>
                   {smtpLoading ? "Saving..." : "Save Settings"}
-                </button>
-                <button type="button" onClick={testConnection} disabled={smtpTesting} style={{ ...btn("var(--blue)", "#fff"), opacity: smtpTesting ? 0.6 : 1 }}>
-                  <Zap size={13} /> {smtpTesting ? "Testing..." : "Test Connection"}
-                </button>
+                </Button>
+                <Button type="button" variant="outline" onClick={testConnection} disabled={smtpTesting}
+                  className="text-[var(--secondary)] ring-[color-mix(in_srgb,var(--secondary)_40%,transparent)] hover:bg-[color-mix(in_srgb,var(--secondary)_10%,transparent)] hover:text-[var(--secondary)]">
+                  <Zap size={14} strokeWidth={2} /> {smtpTesting ? "Testing..." : "Test Connection"}
+                </Button>
               </div>
             </form>
-          </div>
+          </Card>
 
           {/* Test send */}
-          <div style={card}>
-            <h3 style={{ fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 15, margin: "0 0 6px" }}>
-              <Send size={14} style={{ display: "inline", marginRight: 6 }} />
-              Send Test Email
+          <Card className="gap-0 p-5">
+            <h3 className="flex items-center gap-2 text-[15px] font-semibold">
+              <Send size={15} strokeWidth={2} className="text-muted-foreground" /> Send Test Email
             </h3>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 12px" }}>
+            <p className="mt-1.5 mb-3 text-[13px] text-muted-foreground">
               Send a test email to verify your SMTP settings are working correctly.
             </p>
-            <form onSubmit={sendTestEmail} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 250px" }}>
-                <label style={labelStyle}>Recipient Email</label>
-                <input value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="your-email@gmail.com" style={input} />
+            <form onSubmit={sendTestEmail} className="flex flex-wrap items-end gap-2.5">
+              <div className="grid flex-[1_1_250px] gap-1.5">
+                <Label htmlFor="test-email" className="text-[12px]">Recipient Email</Label>
+                <Input id="test-email" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="your-email@gmail.com" />
               </div>
-              <button type="submit" disabled={testSending} style={{ ...btn("var(--cyan)", "#fff"), opacity: testSending ? 0.6 : 1 }}>
-                <Send size={13} /> {testSending ? "Sending..." : "Send Test"}
-              </button>
+              <Button type="submit" disabled={testSending}
+                className="bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90">
+                <Send size={14} strokeWidth={2} /> {testSending ? "Sending..." : "Send Test"}
+              </Button>
             </form>
-          </div>
+          </Card>
 
           {/* Quick setup guides */}
-          <div style={card}>
-            <h3 style={{ fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, margin: "0 0 10px" }}>Quick Setup Guides</h3>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <Card className="gap-0 p-5">
+            <h3 className="mb-2.5 text-[15px] font-semibold">Quick Setup Guides</h3>
+            <div className="flex flex-wrap gap-3">
               {[
                 { name: "Gmail", host: "smtp.gmail.com", port: 587, secure: "starttls", note: "Use App Password (enable 2FA first)" },
                 { name: "SendGrid", host: "smtp.sendgrid.net", port: 587, secure: "starttls", note: "Username: apikey, Password: your API key" },
                 { name: "Mailgun", host: "smtp.mailgun.org", port: 587, secure: "starttls", note: "Use domain credentials from Mailgun dashboard" },
                 { name: "Outlook", host: "smtp-mail.outlook.com", port: 587, secure: "starttls", note: "Use your Outlook email and password" },
               ].map((p) => (
-                <div key={p.name} style={{
-                  flex: "1 1 180px", padding: 12, borderRadius: "var(--radius-full)", border: "none",
-                  background: "var(--bg-surface)", fontSize: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.07)",
-                  transition: "box-shadow 0.2s",
-                }}
-                  onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.15)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 1px 6px rgba(0,0,0,0.07)")}
-                >
-                  <strong style={{ fontSize: 13 }}>{p.name}</strong>
-                  <p style={{ margin: "4px 0 0", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                <div key={p.name} className="flex-[1_1_180px] rounded-md bg-muted p-3.5 text-[12px] shadow-soft-xs transition-shadow hover:shadow-soft-sm">
+                  <strong className="text-[13px] text-foreground">{p.name}</strong>
+                  <p className="mt-1 leading-relaxed text-muted-foreground">
                     Host: <code>{p.host}</code><br />
                     Port: {p.port} ({p.secure})<br />
                     <em>{p.note}</em>
                   </p>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setSmtp({ ...smtp, smtp_host: p.host, smtp_port: p.port, smtp_secure: p.secure as any })}
-                    style={{ ...btn("var(--bg-card)", "var(--accent)"), padding: "4px 10px", fontSize: 11, marginTop: 6 }}
+                    className="mt-2 h-7 bg-card px-2.5 text-[11px] text-primary"
                   >
                     Use {p.name}
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
-          </div>
-        </>
+          </Card>
+        </div>
       )}
 
       {/* ─── ACCOUNTS VIEW ─── */}
       {view === "accounts" && (
-        <>
+        <div className="space-y-6">
           {/* Create account form */}
-          <div style={card}>
-            <h3 style={{ fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 15, margin: "0 0 14px" }}>
-              <Plus size={14} style={{ display: "inline", marginRight: 6 }} />
-              Create Email Account
+          <Card className="gap-0 p-5">
+            <h3 className="mb-3.5 flex items-center gap-2 text-[15px] font-semibold">
+              <Plus size={15} strokeWidth={2} className="text-muted-foreground" /> Create Email Account
             </h3>
-            <form onSubmit={createAccount} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-              <div style={{ flex: "1 1 180px" }}>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Username</label>
-                <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-                  <input
+            <form onSubmit={createAccount} className="flex flex-wrap items-end gap-2.5">
+              <div className="grid flex-[1_1_180px] gap-1.5">
+                <Label htmlFor="acct-localpart" className="text-[12px]">Username</Label>
+                <div className="flex items-stretch">
+                  <Input
+                    id="acct-localpart"
                     value={localPart}
                     onChange={(e) => setLocalPart(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))}
                     placeholder="support"
-                    style={{ ...input, borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                    className="rounded-e-none"
                   />
-                  <span style={{
-                    padding: "10px 12px", background: "var(--bg-surface)", border: "none",
-                    borderTopRightRadius: 10, borderBottomRightRadius: 10, fontSize: 13, color: "var(--text-muted)",
-                    whiteSpace: "nowrap", boxShadow: "inset 0 1px 4px rgba(0,0,0,0.08)",
-                  }}>
+                  <span className="flex items-center whitespace-nowrap rounded-e-md bg-muted px-3 text-[13px] text-muted-foreground ring-1 ring-inset ring-border">
                     @{domain}
                   </span>
                 </div>
               </div>
-              <div style={{ flex: "1 1 150px" }}>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Display Name</label>
-                <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="FitWay Support" style={input} />
+              <div className="grid flex-[1_1_150px] gap-1.5">
+                <Label htmlFor="acct-displayname" className="text-[12px]">Display Name</Label>
+                <Input id="acct-displayname" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="FitWay Support" />
               </div>
-              <button type="submit" style={btn()}>
-                <Plus size={14} /> Create
-              </button>
+              <Button type="submit">
+                <Plus size={14} strokeWidth={2} /> Create
+              </Button>
             </form>
-          </div>
+          </Card>
 
           {/* Accounts list */}
-          <div style={card}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <h3 style={{ fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 15, margin: 0 }}>
-                Email Accounts ({accounts.length})
-              </h3>
-              <button onClick={fetchAccounts} style={btn("var(--bg-surface)", "var(--text-primary)")}>
-                <RefreshCw size={13} /> Refresh
-              </button>
+          <Card className="gap-0 p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-[15px] font-semibold">Email Accounts ({accounts.length})</h3>
+              <Button variant="outline" size="sm" onClick={fetchAccounts}>
+                <RefreshCw size={14} strokeWidth={2} /> Refresh
+              </Button>
             </div>
 
-            {loading && <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading...</p>}
+            {loading && <p className="text-[13px] text-muted-foreground">Loading...</p>}
             {!loading && accounts.length === 0 && (
-              <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: "24px 0" }}>
+              <p className="py-6 text-center text-[13px] text-muted-foreground">
                 No email accounts yet. Create one above.
               </p>
             )}
 
-            {accounts.map((a) => (
-              <div key={a.id} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
-                borderRadius: "var(--radius-full)", flexWrap: "wrap", marginBottom: 8,
-                transition: "box-shadow 0.2s",
-              }}
-                onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.12)")}
-                onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}
-              >
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <p style={{ fontWeight: 700, fontSize: 14, margin: 0, fontFamily: "var(--font-en)" }}>{a.email}</p>
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 0" }}>{a.display_name}</p>
+            <div className="flex flex-col gap-2">
+              {accounts.map((a) => (
+                <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-md bg-muted px-3.5 py-3 shadow-soft-xs transition-shadow hover:shadow-soft-sm">
+                  <div className="min-w-[160px] flex-1">
+                    <p className="text-[14px] font-bold text-foreground">{a.email}</p>
+                    <p className="mt-0.5 text-[12px] text-muted-foreground">{a.display_name}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button size="sm" variant="outline" onClick={() => openInbox(a)}
+                      className="bg-card text-[var(--secondary)] ring-[color-mix(in_srgb,var(--secondary)_40%,transparent)] hover:bg-[color-mix(in_srgb,var(--secondary)_10%,transparent)] hover:text-[var(--secondary)]">
+                      <Inbox size={13} strokeWidth={2} /> Inbox
+                    </Button>
+                    <Button size="sm" onClick={() => openSent(a)}
+                      className="bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90">
+                      <Send size={13} strokeWidth={2} /> Sent
+                    </Button>
+                    <Button size="sm" onClick={() => openCompose(a)}>
+                      <Send size={13} strokeWidth={2} /> Compose
+                    </Button>
+                    <Button size="icon-sm" variant="destructive" onClick={() => deleteAccount(a.id)} aria-label={`Delete ${a.email}`}>
+                      <Trash2 size={13} strokeWidth={2} />
+                    </Button>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <button onClick={() => openInbox(a)} style={btn("var(--blue)", "#fff")}>
-                    <Inbox size={13} /> Inbox
-                  </button>
-                  <button onClick={() => openSent(a)} style={btn("var(--cyan)", "#fff")}>
-                    <Send size={13} /> Sent
-                  </button>
-                  <button onClick={() => openCompose(a)} style={btn()}>
-                    <Send size={13} /> Compose
-                  </button>
-                  <button onClick={() => deleteAccount(a.id)} style={btn("var(--red)", "#fff")}>
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </Card>
 
           {/* DNS info */}
-          <div style={{ ...card, padding: 16 }}>
-            <h3 style={{ fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, margin: "0 0 10px" }}>DNS Setup Guide</h3>
-            <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.7, margin: 0 }}>
-              To receive emails on <strong>{domain}</strong>, add these DNS records at your domain registrar:
+          <Card className="gap-0 p-5">
+            <h3 className="mb-2.5 text-[15px] font-semibold">DNS Setup Guide</h3>
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              To receive emails on <strong className="text-foreground">{domain}</strong>, add these DNS records at your domain registrar:
             </p>
-            <div style={{ marginTop: 10, overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <div className="mt-2.5 overflow-x-auto rounded-md bg-muted">
+              <table className="w-full border-collapse text-[12px]">
                 <thead>
                   <tr>
-                    <th style={th}>Type</th><th style={th}>Host</th><th style={th}>Value</th><th style={th}>Priority</th>
+                    {["Type", "Host", "Value", "Priority"].map((h) => (
+                      <th key={h} className="px-3 py-2 text-start text-[11px] font-bold tracking-wide text-muted-foreground uppercase">{h}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td style={td}><strong>MX</strong></td>
-                    <td style={td}>@</td>
-                    <td style={{ ...td, fontFamily: "monospace", fontSize: 11 }}>{domain}</td>
-                    <td style={td}>10</td>
+                    <td className="px-3 py-2.5 align-middle text-foreground"><strong>MX</strong></td>
+                    <td className="px-3 py-2.5 align-middle text-foreground">@</td>
+                    <td className="px-3 py-2.5 align-middle font-mono text-[11px] text-foreground">{domain}</td>
+                    <td className="px-3 py-2.5 align-middle text-foreground">10</td>
                   </tr>
                   <tr>
-                    <td style={td}><strong>TXT</strong></td>
-                    <td style={td}>@</td>
-                    <td style={{ ...td, fontFamily: "monospace", fontSize: 11, wordBreak: "break-all" }}>v=spf1 a mx ip4:YOUR_SERVER_IP ~all</td>
-                    <td style={td}>—</td>
+                    <td className="px-3 py-2.5 align-middle text-foreground"><strong>TXT</strong></td>
+                    <td className="px-3 py-2.5 align-middle text-foreground">@</td>
+                    <td className="px-3 py-2.5 align-middle font-mono text-[11px] break-all text-foreground">v=spf1 a mx ip4:YOUR_SERVER_IP ~all</td>
+                    <td className="px-3 py-2.5 align-middle text-foreground">—</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8 }}>
+            <p className="mt-2 text-[11px] text-muted-foreground">
               SMTP port: <strong>{2525}</strong> (configurable via <code>SMTP_PORT</code> env var).
               For production, set up a reverse proxy or use port 25.
             </p>
-          </div>
-        </>
+          </Card>
+        </div>
       )}
 
       {/* ─── INBOX / SENT VIEW ─── */}
       {(view === "inbox" || view === "sent") && selectedAccount && (
-        <div style={card}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
-            <h3 style={{ fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 15, margin: 0 }}>
-              {view === "inbox" ? <><Inbox size={15} style={{ display: "inline", marginRight: 6 }} />Inbox</> : <><Send size={15} style={{ display: "inline", marginRight: 6 }} />Sent</>}
-              <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 400, marginLeft: 8 }}>{selectedAccount.email}</span>
+        <Card className="gap-0 p-5">
+          <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-[15px] font-semibold">
+              {view === "inbox" ? <><Inbox size={15} strokeWidth={2} className="text-muted-foreground" />Inbox</> : <><Send size={15} strokeWidth={2} className="text-muted-foreground" />Sent</>}
+              <span className="text-[12px] font-normal text-muted-foreground">{selectedAccount.email}</span>
             </h3>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => view === "inbox" ? openSent(selectedAccount) : openInbox(selectedAccount)} style={btn("var(--bg-surface)", "var(--text-primary)")}>
-                {view === "inbox" ? <><Send size={13} /> Sent</> : <><Inbox size={13} /> Inbox</>}
-              </button>
-              <button onClick={() => openCompose(selectedAccount)} style={btn()}>
-                <Send size={13} /> Compose
-              </button>
-              <button onClick={() => fetchEmails(selectedAccount.id, view === "inbox" ? "inbound" : "outbound")} style={btn("var(--bg-surface)", "var(--text-primary)")}>
-                <RefreshCw size={13} />
-              </button>
+            <div className="flex gap-1.5">
+              <Button variant="outline" size="sm" onClick={() => view === "inbox" ? openSent(selectedAccount) : openInbox(selectedAccount)}>
+                {view === "inbox" ? <><Send size={13} strokeWidth={2} /> Sent</> : <><Inbox size={13} strokeWidth={2} /> Inbox</>}
+              </Button>
+              <Button size="sm" onClick={() => openCompose(selectedAccount)}>
+                <Send size={13} strokeWidth={2} /> Compose
+              </Button>
+              <Button variant="outline" size="icon-sm" onClick={() => fetchEmails(selectedAccount.id, view === "inbox" ? "inbound" : "outbound")} aria-label="Refresh emails">
+                <RefreshCw size={13} strokeWidth={2} />
+              </Button>
             </div>
           </div>
 
-          {loading && <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading...</p>}
+          {loading && <p className="text-[13px] text-muted-foreground">Loading...</p>}
           {!loading && emails.length === 0 && (
-            <p style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: "24px 0" }}>
+            <p className="py-6 text-center text-[13px] text-muted-foreground">
               No emails yet.
             </p>
           )}
 
-          {emails.map((em) => (
-            <div
-              key={em.id}
-              onClick={() => openEmail(em)}
-              style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-                borderRadius: "var(--radius-full)", cursor: "pointer",
-                background: em.is_read ? "transparent" : "rgba(99,102,241,0.06)",
-                transition: "box-shadow 0.2s, background 0.15s", marginBottom: 4,
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.12)"; e.currentTarget.style.background = "var(--bg-surface)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.background = em.is_read ? "transparent" : "rgba(99,102,241,0.06)"; }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{
-                  fontWeight: em.is_read ? 400 : 700, fontSize: 13, margin: 0, overflow: "hidden",
-                  textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>
-                  {em.subject || "(no subject)"}
-                </p>
-                <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "2px 0 0" }}>
-                  {view === "inbox" ? `From: ${em.sender}` : `To: ${em.recipient}`}
-                </p>
-              </div>
-              <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-                {new Date(em.created_at).toLocaleString()}
-              </span>
-              <button
-                onClick={(e) => { e.stopPropagation(); deleteEmail(em.id); }}
-                style={{ ...btn("transparent", "var(--red)"), padding: "4px 6px" }}
+          <div className="flex flex-col gap-1">
+            {emails.map((em) => (
+              <div
+                key={em.id}
+                onClick={() => openEmail(em)}
+                className={`flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2.5 transition-all hover:bg-muted hover:shadow-soft-sm ${em.is_read ? "" : "bg-primary/10"}`}
               >
-                <Trash2 size={13} />
-              </button>
-            </div>
-          ))}
-        </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`truncate text-[13px] ${em.is_read ? "font-normal" : "font-bold"} text-foreground`}>
+                    {em.subject || "(no subject)"}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {view === "inbox" ? `From: ${em.sender}` : `To: ${em.recipient}`}
+                  </p>
+                </div>
+                <span className="whitespace-nowrap text-[11px] text-muted-foreground">
+                  {new Date(em.created_at).toLocaleString()}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={(e) => { e.stopPropagation(); deleteEmail(em.id); }}
+                  aria-label="Delete email"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 size={13} strokeWidth={2} />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
 
       {/* ─── READ VIEW ─── */}
       {view === "read" && selectedEmail && (
-        <div style={card}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <Card className="gap-0 p-5">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h3 style={{ fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 16, margin: "0 0 4px" }}>
+              <h3 className="mb-1 text-[16px] font-semibold">
                 {selectedEmail.subject || "(no subject)"}
               </h3>
-              <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
+              <p className="text-[12px] leading-relaxed text-muted-foreground">
                 <strong>From:</strong> {selectedEmail.sender}<br />
                 <strong>To:</strong> {selectedEmail.recipient}<br />
                 <strong>Date:</strong> {new Date(selectedEmail.created_at).toLocaleString()}
               </p>
             </div>
-            <button onClick={() => deleteEmail(selectedEmail.id)} style={btn("var(--red)", "#fff")}>
-              <Trash2 size={13} /> Delete
-            </button>
+            <Button variant="destructive" size="sm" onClick={() => deleteEmail(selectedEmail.id)}>
+              <Trash2 size={13} strokeWidth={2} /> Delete
+            </Button>
           </div>
-          <hr style={{ border: "none", height: 1, background: "rgba(128,128,128,0.12)", margin: "12px 0" }} />
+          <Separator className="my-3" />
           {selectedEmail.html_body ? (
             <div
-              style={{ fontSize: 14, lineHeight: 1.7, color: "var(--text-primary)", overflowX: "auto" }}
+              className="overflow-x-auto text-[14px] leading-relaxed text-foreground"
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedEmail.html_body) }}
             />
           ) : (
-            <pre style={{
-              fontSize: 13, lineHeight: 1.7, color: "var(--text-primary)", whiteSpace: "pre-wrap",
-              wordBreak: "break-word", fontFamily: "inherit", margin: 0,
-            }}>
+            <pre className="m-0 font-sans text-[13px] leading-relaxed break-words whitespace-pre-wrap text-foreground">
               {selectedEmail.text_body || "(empty)"}
             </pre>
           )}
-        </div>
+        </Card>
       )}
 
       {/* ─── COMPOSE VIEW ─── */}
       {view === "compose" && selectedAccount && (
-        <div style={card}>
-          <h3 style={{ fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 15, margin: "0 0 14px" }}>
-            <Send size={14} style={{ display: "inline", marginRight: 6 }} />
-            Compose — from {selectedAccount.email}
+        <Card className="gap-0 p-5">
+          <h3 className="mb-3.5 flex items-center gap-2 text-[15px] font-semibold">
+            <Send size={15} strokeWidth={2} className="text-muted-foreground" /> Compose — from {selectedAccount.email}
           </h3>
-          <form onSubmit={handleSend} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>To</label>
-              <input value={composeTo} onChange={(e) => setComposeTo(e.target.value)} placeholder="recipient@example.com" style={input} required />
+          <form onSubmit={handleSend} className="flex flex-col gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="compose-to" className="text-[12px]">To</Label>
+              <Input id="compose-to" value={composeTo} onChange={(e) => setComposeTo(e.target.value)} placeholder="recipient@example.com" required />
             </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Subject</label>
-              <input value={composeSubject} onChange={(e) => setComposeSubject(e.target.value)} placeholder="Subject" style={input} required />
+            <div className="grid gap-1.5">
+              <Label htmlFor="compose-subject" className="text-[12px]">Subject</Label>
+              <Input id="compose-subject" value={composeSubject} onChange={(e) => setComposeSubject(e.target.value)} placeholder="Subject" required />
             </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Message</label>
-              <textarea
+            <div className="grid gap-1.5">
+              <Label htmlFor="compose-body" className="text-[12px]">Message</Label>
+              <Textarea
+                id="compose-body"
                 value={composeBody}
                 onChange={(e) => setComposeBody(e.target.value)}
                 placeholder="Type your message..."
                 rows={8}
-                style={{ ...input, resize: "vertical", minHeight: 120 }}
+                className="min-h-[120px] resize-y"
               />
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="submit" disabled={sending} style={{ ...btn(), opacity: sending ? 0.6 : 1 }}>
-                <Send size={14} /> {sending ? "Sending..." : "Send Email"}
-              </button>
-              <button type="button" onClick={() => setView("inbox")} style={btn("var(--bg-surface)", "var(--text-primary)")}>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={sending}>
+                <Send size={14} strokeWidth={2} /> {sending ? "Sending..." : "Send Email"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setView("inbox")}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
       )}
     </div>
   );
