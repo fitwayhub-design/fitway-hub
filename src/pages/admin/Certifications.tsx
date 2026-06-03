@@ -65,13 +65,21 @@ export default function AdminCertifications() {
     };
     const s = map[status] || map.pending;
     const Icon = s.icon;
-    return <Badge variant={s.variant as any}><Icon size={12} /> {s.label}</Badge>;
+    return <Badge variant={s.variant as any}><Icon size={12} strokeWidth={2} /> {s.label}</Badge>;
   };
 
   return (
-    <div className="mx-auto w-full max-w-[900px]">
-      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[26px] font-bold tracking-tight">Coach Requests</h1>
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-md bg-primary/15 text-primary">
+            <FileText size={20} strokeWidth={2} />
+          </span>
+          <div>
+            <h1 className="text-[26px] leading-tight font-bold tracking-tight">Coach Requests</h1>
+            <p className="text-[13px] text-muted-foreground">Review and approve coach certification submissions</p>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {(["pending", "all", "approved", "rejected"] as const).map(f => (
             <Button
@@ -90,10 +98,10 @@ export default function AdminCertifications() {
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-44 w-full rounded-lg" />)}</div>
       ) : filtered.length === 0 ? (
-        <div className="py-14 text-center text-muted-foreground">
-          <FileText size={40} className="mx-auto mb-3 opacity-30" />
+        <Card className="items-center py-14 text-center text-muted-foreground">
+          <FileText size={40} strokeWidth={2} className="mb-3 opacity-30" />
           <p className="text-[14px]">No {filter === "all" ? "" : filter} certification requests</p>
-        </div>
+        </Card>
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((req: any) => (
@@ -119,10 +127,10 @@ export default function AdminCertifications() {
               {/* Documents */}
               <div className="flex flex-wrap items-center gap-2.5">
                 <Button variant="secondary" size="sm" onClick={() => setPreviewUrl(req.national_id_url)} className="gap-1.5 text-[var(--secondary)]">
-                  <Eye size={14} /> View National ID
+                  <Eye size={14} strokeWidth={2} /> View National ID
                 </Button>
                 <Button variant="secondary" size="sm" onClick={() => setPreviewUrl(req.certification_url)} className="gap-1.5 text-[var(--secondary)]">
-                  <Eye size={14} /> View Certification
+                  <Eye size={14} strokeWidth={2} /> View Certification
                 </Button>
                 <span className="text-[12px] text-muted-foreground">Paid: {req.amount_paid} EGP</span>
               </div>
@@ -138,10 +146,10 @@ export default function AdminCertifications() {
                   />
                   <div className="flex gap-2">
                     <Button onClick={() => handleAction(req.id, "approve")} disabled={actionLoading === req.id} className="flex-1 gap-1.5">
-                      <CheckCircle size={15} /> {actionLoading === req.id ? "Processing…" : "Approve"}
+                      <CheckCircle size={15} strokeWidth={2} /> {actionLoading === req.id ? "Processing…" : "Approve"}
                     </Button>
                     <Button variant="destructive" onClick={() => handleAction(req.id, "reject")} disabled={actionLoading === req.id} className="flex-1 gap-1.5">
-                      <XCircle size={15} /> {actionLoading === req.id ? "Processing…" : "Reject & Refund"}
+                      <XCircle size={15} strokeWidth={2} /> {actionLoading === req.id ? "Processing…" : "Reject & Refund"}
                     </Button>
                   </div>
                 </div>
