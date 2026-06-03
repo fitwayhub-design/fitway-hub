@@ -2,9 +2,9 @@ import { getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect, useRef } from "react";
 import {
-  Star, MapPin, Edit3, Save, X, Wallet, ArrowUpCircle,
+  Star, MapPin, Edit3, Save, Wallet, ArrowUpCircle,
   Image as ImageIcon, Play, Upload, FileText, Camera, BadgeCheck,
-  Smartphone, CreditCard, Mail, Zap,
+  Smartphone, CreditCard, Zap,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";

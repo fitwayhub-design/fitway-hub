@@ -1,7 +1,8 @@
 import { App as CapacitorApp } from "@capacitor/app";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
-import { ThemeProvider } from "@/context/ThemeContext";
+import { ThemeProvider, useTheme } from "@/context/ThemeContext";
+import { ConfigProvider, theme as antdTheme } from "antd";
 import { I18nProvider } from '@/context/I18nContext';
 import { BrandingProvider, useBranding } from "@/context/BrandingContext";
 import { AppImagesProvider } from "@/context/AppImagesContext";
@@ -264,6 +265,37 @@ function NativeUrlHandler() {
   return null;
 }
 
+// ── Antd theme bridge ─────────────────────────────────────────────────────────
+// A handful of admin/coach "ads" pages still use Ant Design. Theme it to the
+// FitWay tokens (dark-first, yellow primary, 12px radius, no heavy shadows) so
+// those pages match the redesigned panels without rewriting their tables/forms.
+function AntdConfig({ children }: { children: ReactNode }) {
+  const { isDark } = useTheme();
+  return (
+    <ConfigProvider
+      theme={{
+        algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+        token: {
+          colorPrimary: "#FFD600",
+          colorLink: "#3B8BFF",
+          colorInfo: "#3B8BFF",
+          borderRadius: 12,
+          fontFamily: "var(--font-en)",
+          colorBgBase: isDark ? "#0a0a0a" : "#f8f8f8",
+        },
+        components: {
+          Button: { primaryColor: "#0a0a0a", primaryShadow: "none", defaultShadow: "none", dangerShadow: "none" },
+          Card: { borderRadiusLG: 16 },
+          Modal: { borderRadiusLG: 16 },
+          Table: { headerBg: "transparent", borderColor: "transparent" },
+        },
+      }}
+    >
+      {children}
+    </ConfigProvider>
+  );
+}
+
 export default function App() {
   function SplashGate() {
     const { isReady } = useBranding();
@@ -297,6 +329,7 @@ export default function App() {
           <AppImagesProvider>
           <SplashGate />
           <PushBanner />
+          <AntdConfig>
           <BrowserRouter>
             <NativeUrlHandler />
             <ErrorBoundary>
@@ -426,6 +459,7 @@ export default function App() {
             </Suspense></LazyErrorBoundary>
             </ErrorBoundary>
           </BrowserRouter>
+          </AntdConfig>
           </AppImagesProvider>
           </BrandingProvider>
         </I18nProvider>
