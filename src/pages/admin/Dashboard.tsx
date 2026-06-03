@@ -3,12 +3,23 @@ import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import WebsiteCMS from "@/pages/admin/WebsiteCMS";
 // 1:1 chat removed. Admin chat lives at /admin/chat as a dedicated page.
-import { Users, Dumbbell, DollarSign, Activity, TrendingUp, Trash2, Shield, UserCheck, Gift, Sun, Moon, Plus, X, Search, Video, Megaphone, Star, CheckCircle, Clock, CreditCard, Play, Lock, Unlock, Edit3 } from "lucide-react";
+import { Users, DollarSign, TrendingUp, Trash2, Shield, UserCheck, Gift, Sun, Moon, Plus, X, Search, Megaphone, CheckCircle, Clock, CreditCard, Play, Edit3, Paperclip, RefreshCw, Pin, EyeOff, Check } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useI18n } from "@/context/I18nContext";
 import { useLocation } from "react-router-dom";
 import { getAvatar } from "@/lib/avatar";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 interface AdminUser { id: number; name: string; email: string; role: string; is_premium?: boolean; membership_paid?: boolean; coach_membership_active?: boolean; points: number; steps: number; step_goal?: number; height?: number; weight?: number; gender?: string; medical_history?: string; medical_file_url?: string; created_at: string; avatar: string;
   coach_specialty?: string; coach_bio?: string; coach_location?: string; coach_available?: number | boolean; coach_certified?: number | boolean;
@@ -36,7 +47,14 @@ interface TrainingVideo {
 interface AdPayment { amount: number; duration_minutes: number; payment_status: string; payment_proof?: string; paid_amount: number; paid_minutes: number; }
 
 type Tab = "overview" | "users" | "coaches" | "payments" | "videos" | "ads" | "gifts" | "community" | "website" | "subscriptions" | "withdrawals" | "chat";
-const roleColor = (role: string) => role === "admin" ? "var(--red)" : role === "coach" ? "var(--cyan)" : role === "moderator" ? "var(--amber)" : "var(--text-secondary)";
+
+/* Role → a token color used for the inline role indicator. */
+const roleColor = (role: string) => role === "admin" ? "var(--red)" : role === "coach" ? "var(--cyan)" : role === "moderator" ? "var(--amber)" : "var(--muted-foreground)";
+
+/* Small uppercase label used above stat numerics. */
+function StatLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{children}</p>;
+}
 
 export default function AdminDashboard() {
   const { token, user, updateUser } = useAuth();
@@ -515,150 +533,202 @@ export default function AdminDashboard() {
     { id: "website", label: `🌐 ${t("website_config")}` },
   ];
 
+  /* Status → Badge variant, used by payment / subscription / withdrawal rows. */
+  const payStatusVariant = (status: string): "success" | "warning" | "destructive" =>
+    status === "completed" || status === "active" || status === "approved" ? "success"
+      : status === "pending" || status.includes("pending") ? "warning"
+      : "destructive";
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+    <div className="space-y-6">
+      {/* ═══════ HEADER ═══════════════════════════ */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(18px,4vw,24px)", fontWeight: 700 }}>{t("admin_dashboard")}</h1>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>{t("manage_platform")}</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("admin_dashboard")}</h1>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">{t("manage_platform")}</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={toggleTheme} style={{ width: 36, height: 36, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text-secondary)" }}>
-            {isDark ? <Sun size={15} /> : <Moon size={15} />}
-          </button>
-          <div style={{ padding: "6px 12px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.1)", border: "1px solid var(--red)", fontSize: 12, color: "var(--red)", fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
-            <Shield size={12} /> {t("admin")}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ overflowX: "auto", paddingBottom: 4 }}>
-        <div style={{ display: "flex", gap: 4, backgroundColor: "var(--bg-surface)", borderRadius: "var(--radius-full)", padding: 4, border: "1px solid var(--border)", width: "max-content", minWidth: "100%" }}>
-          {tabDef.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "7px 14px", borderRadius: "var(--radius-full)", border: "none", cursor: "pointer", background: tab === t.id ? "var(--bg-card)" : "none", color: tab === t.id ? "var(--text-primary)" : "var(--text-muted)", fontSize: 12, fontWeight: tab === t.id ? 600 : 400, fontFamily: "var(--font-en)", boxShadow: tab === t.id ? "0 1px 4px var(--shadow)" : "none", whiteSpace: "nowrap", transition: "all 0.15s" }}>{t.label}{t.id === "ads" && ads.filter(a => a.status === "pending").length > 0 ? ` (${ads.filter(a => a.status === "pending").length})` : ""}</button>
-          ))}
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"} className="bg-card text-muted-foreground shadow-soft-sm">
+            {isDark ? <Sun size={18} strokeWidth={2} /> : <Moon size={18} strokeWidth={2} />}
+          </Button>
+          <Badge variant="destructive" className="h-8 gap-1.5 px-3 text-[12px]">
+            <Shield size={12} strokeWidth={2} /> {t("admin")}
+          </Badge>
         </div>
       </div>
 
-      {message && <div style={{ padding: "10px 16px", backgroundColor: "var(--accent-dim)", border: "1px solid var(--accent)", borderRadius: "var(--radius-full)", fontSize: 13, color: "var(--accent)" }}>{message}</div>}
+      {/* ═══════ TAB BAR ═══════════════════════════ */}
+      <div className="scroll-x -mx-1 overflow-x-auto px-1 pb-1">
+        <div className="flex w-max min-w-full gap-1 rounded-md bg-muted p-1">
+          {tabDef.map(td => {
+            const active = tab === td.id;
+            const pendingAds = td.id === "ads" ? ads.filter(a => a.status === "pending").length : 0;
+            return (
+              <button
+                key={td.id}
+                onClick={() => setTab(td.id)}
+                aria-pressed={active}
+                className={`whitespace-nowrap rounded-[8px] px-3.5 py-2 text-[13px] font-semibold transition-all ${active ? "bg-card text-foreground shadow-soft-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {td.label}{pendingAds > 0 ? ` (${pendingAds})` : ""}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-      {/* OVERVIEW */}
+      {message && (
+        <div className="rounded-md bg-primary/15 px-4 py-2.5 text-[13px] font-medium text-primary">{message}</div>
+      )}
+
+      {/* ═══════ OVERVIEW ═══════════════════════════ */}
       {tab === "overview" && (
-        <>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {[
               { title: t("total_users"), value: stats.totalUsers, icon: Users, color: "var(--blue)" },
               { title: t("coaches"), value: stats.coaches, icon: UserCheck, color: "var(--cyan)" },
               { title: t("total_revenue"), value: `${stats.revenue.toFixed(0)} EGP`, icon: DollarSign, color: "var(--amber)" },
             ].map(s => (
-              <div key={s.title} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 18 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{s.title}</p>
-                  <s.icon size={16} color={s.color} />
+              <Card key={s.title} className="gap-0 p-5">
+                <div className="mb-2 flex items-center justify-between">
+                  <StatLabel>{s.title}</StatLabel>
+                  <s.icon size={18} strokeWidth={2} style={{ color: s.color }} />
                 </div>
-                <p style={{ fontFamily: "var(--font-en)", fontSize: 28, fontWeight: 700, color: s.color }}>{s.value}</p>
-              </div>
+                <p className="text-[28px] font-bold leading-none tabular-nums tracking-tight">{s.value}</p>
+              </Card>
             ))}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
-            <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "20px 22px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700 }}>{t("recent_users")}</p>
-                <TrendingUp size={16} color="var(--red)" />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Card className="gap-0 p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <p className="text-[15px] font-semibold">{t("recent_users")}</p>
+                <TrendingUp size={18} strokeWidth={2} className="text-muted-foreground" />
               </div>
-              {users.length === 0 ? <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("no_users_yet")}</p> : users.slice(0, 5).map((u, i) => (
-                <div key={u.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < 4 ? "1px solid var(--border)" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <img src={u.avatar || getAvatar(u.email, null, u.gender, u.name)} alt={u.name} style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", border: "1px solid var(--border)" }} />
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600 }}>{u.name}</p>
-                      <p style={{ fontSize: 11, color: roleColor(u.role), marginTop: 1, textTransform: "capitalize" }}>{u.role}</p>
+              {users.length === 0 ? <p className="text-[13px] text-muted-foreground">{t("no_users_yet")}</p> : (
+                <div className="flex flex-col">
+                  {users.slice(0, 5).map((u, i, arr) => (
+                    <div key={u.id}>
+                      <div className="flex items-center justify-between gap-3 py-2.5">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Avatar className="size-9">
+                            <AvatarImage src={u.avatar || getAvatar(u.email, null, u.gender, u.name)} alt={u.name} />
+                            <AvatarFallback>{(u.name || "U").slice(0, 1)}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-semibold">{u.name}</p>
+                            <p className="text-[11px] capitalize" style={{ color: roleColor(u.role) }}>{u.role}</p>
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">{u.role}</span>
+                      </div>
+                      {i < arr.length - 1 && <Separator />}
                     </div>
-                  </div>
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{u.role}</span>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "20px 22px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700 }}>{t("recent_payments")}</p>
-                <CreditCard size={16} color="var(--accent)" />
+              )}
+            </Card>
+            <Card className="gap-0 p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <p className="text-[15px] font-semibold">{t("recent_payments")}</p>
+                <CreditCard size={18} strokeWidth={2} className="text-primary" />
               </div>
-              {payments.length === 0 ? <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("no_payments_yet")}</p> : payments.slice(0, 5).map((p, i) => (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < 4 ? "1px solid var(--border)" : "none" }}>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 600 }}>{p.user_name}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.plan} · ****{p.card_last4}</p>
-                  </div>
-                  <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>{p.amount.toFixed(0)} EGP</p>
+              {payments.length === 0 ? <p className="text-[13px] text-muted-foreground">{t("no_payments_yet")}</p> : (
+                <div className="flex flex-col">
+                  {payments.slice(0, 5).map((p, i, arr) => (
+                    <div key={p.id}>
+                      <div className="flex items-center justify-between gap-3 py-2.5">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold">{p.user_name}</p>
+                          <p className="text-[11px] text-muted-foreground">{p.plan} · ****{p.card_last4}</p>
+                        </div>
+                        <p className="text-[14px] font-bold tabular-nums text-primary">{p.amount.toFixed(0)} EGP</p>
+                      </div>
+                      {i < arr.length - 1 && <Separator />}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </Card>
           </div>
-        </>
+        </div>
       )}
 
-      {/* USERS */}
+      {/* ═══════ USERS ═══════════════════════════ */}
       {tab === "users" && (
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", overflow: "hidden" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
-              <Search size={14} style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-              <input className="input-base" value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search_users")} style={{ paddingInlineStart: 34, padding: "8px 12px 8px 34px" }} />
+        <Card className="gap-0 p-0">
+          <div className="flex flex-wrap items-center gap-3 p-5">
+            <div className="relative min-w-[200px] flex-1">
+              <Search size={16} strokeWidth={2} className="pointer-events-none absolute top-1/2 start-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search_users")} className="ps-10" />
             </div>
-            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            <span className="text-[12px] text-muted-foreground">
               {t("users_admins_count", { users: users.filter(u => u.role === "user").length, admins: users.filter(u => u.role === "admin").length })}
             </span>
           </div>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px] border-collapse text-start">
               <thead>
-                <tr style={{ backgroundColor: "var(--bg-surface)" }}>
+                <tr className="bg-muted">
                   {[t("table_user"), t("role_label"), t("coach_member"), t("points"), t("steps"), t("actions")].map(h => (
-                    <th key={h} style={{ padding: "10px 16px", textAlign: "start", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", borderBottom: "1px solid var(--border)" }}>{h}</th>
+                    <th key={h} className="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((u, i) => (
-                  <tr key={u.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : "none" }}>
-                    <td style={{ padding: "12px 16px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <img src={u.avatar || getAvatar(u.email, null, u.gender, u.name)} alt={u.name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
-                        <div>
-                          <p style={{ fontSize: 13, fontWeight: 600 }}>{u.name}</p>
-                          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{u.email}</p>
+                  <tr key={u.id}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="size-8">
+                          <AvatarImage src={u.avatar || getAvatar(u.email, null, u.gender, u.name)} alt={u.name} />
+                          <AvatarFallback>{(u.name || "U").slice(0, 1)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-semibold">{u.name}</p>
+                          <p className="text-[11px] text-muted-foreground">{u.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <select value={u.role} onChange={e => updateUserRole(u.id, e.target.value)} style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "4px 8px", fontSize: 12, color: roleColor(u.role), cursor: "pointer", outline: "none" }}>
-                        <option value="user">{t("role_user")}</option>
-                        <option value="coach">{t("role_coach")}</option>
-                        <option value="moderator">{t("role_moderator")}</option>
-                        <option value="admin">{t("role_admin")}</option>
-                      </select>
+                    <td className="px-4 py-3">
+                      <Select value={u.role} onValueChange={v => updateUserRole(u.id, v)}>
+                        <SelectTrigger size="sm" className="w-[130px]" style={{ color: roleColor(u.role) }}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="user">{t("role_user")}</SelectItem>
+                          <SelectItem value="coach">{t("role_coach")}</SelectItem>
+                          <SelectItem value="moderator">{t("role_moderator")}</SelectItem>
+                          <SelectItem value="admin">{t("role_admin")}</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </td>
-                    <td style={{ padding: "12px 16px" }}>
+                    <td className="px-4 py-3">
                       {u.role === "coach" ? (
-                        <button onClick={async () => { const paid = !(u as any).membership_paid; await api(`/api/admin/users/${u.id}/coach-membership`, { method: "PATCH", body: JSON.stringify({ membership_paid: paid }) }); fetchAll(); showMsg(paid ? t("coach_membership_activated") : t("coach_membership_revoked")); }} style={{ padding: "4px 10px", borderRadius: "var(--radius-full)", fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1px solid ${(u as any).membership_paid ? "var(--cyan)" : "rgba(255,68,68,0.4)"}`, background: (u as any).membership_paid ? "rgba(6,182,212,0.1)" : "rgba(255,68,68,0.08)", color: (u as any).membership_paid ? "var(--cyan)" : "var(--red)" }}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => { const paid = !(u as any).membership_paid; await api(`/api/admin/users/${u.id}/coach-membership`, { method: "PATCH", body: JSON.stringify({ membership_paid: paid }) }); fetchAll(); showMsg(paid ? t("coach_membership_activated") : t("coach_membership_revoked")); }}
+                          className="h-7 px-2.5"
+                          style={{ color: (u as any).membership_paid ? "var(--cyan)" : "var(--red)" }}
+                        >
                           {(u as any).membership_paid ? `✓ ${t("active")}` : `✗ ${t("inactive")}`}
-                        </button>
-                      ) : <span style={{ fontSize: 11, color: "var(--text-muted)" }}>—</span>}
+                        </Button>
+                      ) : <span className="text-[11px] text-muted-foreground">—</span>}
                     </td>
-                    <td style={{ padding: "12px 16px", fontSize: 13, fontFamily: "var(--font-en)", fontWeight: 600 }}>{u.points?.toLocaleString()}</td>
-                    <td style={{ padding: "12px 16px", fontSize: 13 }}>{u.steps?.toLocaleString()}</td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => openEditUser(u)} title={t("edit_user")} style={{ padding: 0, borderRadius: "var(--radius-full)", background: "rgba(59,139,255,0.12)", border: "1px solid var(--blue)", color: "var(--blue)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28 }}>
-                          <Edit3 size={13} />
-                        </button>
-                        <button onClick={() => { setGiftForm(f => ({ ...f, user_id: u.id })); setShowGiftModal(true); setTab("gifts"); }} style={{ padding: 0, borderRadius: "var(--radius-full)", background: "rgba(255,179,64,0.1)", border: "1px solid var(--amber)", color: "var(--amber)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28 }}>
-                          <Gift size={13} />
-                        </button>
-                        <button onClick={() => deleteUser(u.id)} style={{ padding: 0, borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.1)", border: "1px solid var(--red)", color: "var(--red)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28 }}>
-                          <Trash2 size={13} />
-                        </button>
+                    <td className="px-4 py-3 text-[13px] font-semibold tabular-nums">{u.points?.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-[13px] tabular-nums">{u.steps?.toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1.5">
+                        <Button variant="ghost" size="icon-sm" onClick={() => openEditUser(u)} aria-label={t("edit_user")} title={t("edit_user")} className="bg-[var(--secondary-dim)] text-[var(--secondary)]">
+                          <Edit3 size={16} strokeWidth={2} />
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" onClick={() => { setGiftForm(f => ({ ...f, user_id: u.id })); setShowGiftModal(true); setTab("gifts"); }} aria-label="Send gift" className="bg-[color-mix(in_srgb,var(--amber)_16%,transparent)] text-[var(--amber)]">
+                          <Gift size={16} strokeWidth={2} />
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" onClick={() => deleteUser(u.id)} aria-label="Delete user" className="bg-destructive/12 text-destructive">
+                          <Trash2 size={16} strokeWidth={2} />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -666,252 +736,254 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* COACHES */}
+      {/* ═══════ COACHES ═══════════════════════════ */}
       {tab === "coaches" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700 }}>{t("manage_coaches")}</p>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xl font-semibold tracking-tight">{t("manage_coaches")}</p>
             {/* Fake-coach generator moved to admin Settings (May meeting) so all
                 testing helpers live in one place. */}
           </div>
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            Need fake demo coaches? Generate them from <a href="/admin/settings" style={{ color: "var(--accent)" }}>Settings → System</a>.
+          <p className="text-[13px] text-muted-foreground">
+            Need fake demo coaches? Generate them from <a href="/admin/settings" className="font-semibold text-primary hover:underline">Settings → System</a>.
           </p>
           {coaches.length === 0 ? (
-            <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
+            <Card className="items-center p-10 text-center text-[14px] text-muted-foreground">
               {t("no_coaches_yet_hint")}
-            </div>
+            </Card>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {coaches.map(c => (
-                <div key={c.id} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 20 }}>
-                  <div style={{ display: "flex", gap: 14, marginBottom: 14 }}>
-                    <img src={c.avatar || getAvatar(c.email, null, c.gender, c.name)} alt={c.name} style={{ width: 52, height: 52, borderRadius: "50%", backgroundColor: "var(--bg-surface)" }} />
-                    <div style={{ flex: 1 }}>
-                      <h3 style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{c.name}</h3>
-                      <p style={{ fontSize: 12, color: "var(--cyan)", marginTop: 2 }}>{c.email}</p>
-                      <p style={{ fontSize: 11, color: "var(--accent)", marginTop: 4 }}>⚡ {c.points?.toLocaleString()} {t("points_short")}</p>
+                <Card key={c.id} className="gap-0 p-5">
+                  <div className="mb-4 flex gap-3.5">
+                    <Avatar className="size-13 size-[52px]">
+                      <AvatarImage src={c.avatar || getAvatar(c.email, null, c.gender, c.name)} alt={c.name} />
+                      <AvatarFallback>{(c.name || "C").slice(0, 1)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate text-[15px] font-semibold">{c.name}</h3>
+                      <p className="mt-0.5 truncate text-[12px] text-[var(--cyan)]">{c.email}</p>
+                      <p className="mt-1 text-[11px] text-primary">⚡ {c.points?.toLocaleString()} {t("points_short")}</p>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button onClick={async () => {
-                      const paid = !(c as any).membership_paid;
-                      await api(`/api/admin/users/${c.id}/coach-membership`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ membership_paid: paid }) });
-                      fetchAll();
-                      showMsg(paid ? t("coach_membership_activated") : t("coach_membership_deactivated"));
-                    }} style={{ flex: 1, padding: "7px", borderRadius: "var(--radius-full)", background: (c as any).membership_paid ? "rgba(6,182,212,0.1)" : "rgba(255,68,68,0.08)", border: `1px solid ${(c as any).membership_paid ? "var(--cyan)" : "rgba(255,68,68,0.4)"}`, color: (c as any).membership_paid ? "var(--cyan)" : "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        const paid = !(c as any).membership_paid;
+                        await api(`/api/admin/users/${c.id}/coach-membership`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ membership_paid: paid }) });
+                        fetchAll();
+                        showMsg(paid ? t("coach_membership_activated") : t("coach_membership_deactivated"));
+                      }}
+                      className="flex-1"
+                      style={{ color: (c as any).membership_paid ? "var(--cyan)" : "var(--red)" }}
+                    >
                       {(c as any).membership_paid ? `✓ ${t("active")}` : `✗ ${t("inactive")}`}
-                    </button>
-                    <span style={{ flex: 1, padding: "7px", borderRadius: "var(--radius-full)", fontSize: 12, color: "var(--text-muted)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>—</span>
-                    <button onClick={() => updateUserRole(c.id, "user")} style={{ padding: "7px 12px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.1)", border: "1px solid var(--red)", color: "var(--red)", cursor: "pointer", fontSize: 12 }}>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => updateUserRole(c.id, "user")} className="text-destructive">
                       {t("demote")}
-                    </button>
+                    </Button>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* PAYMENTS */}
+      {/* ═══════ PAYMENTS ═══════════════════════════ */}
       {tab === "payments" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { label: t("total_revenue"), value: `${payments.filter(p => p.status === "completed").reduce((s, p) => s + p.amount, 0).toFixed(0)} EGP`, color: "var(--accent)" },
+              { label: t("total_revenue"), value: `${payments.filter(p => p.status === "completed").reduce((s, p) => s + p.amount, 0).toFixed(0)} EGP`, color: "var(--primary)" },
               { label: t("transactions"), value: payments.length, color: "var(--cyan)" },
               { label: t("table_type"), value: payments.filter(p => p.type === "premium").length, color: "var(--amber)" },
               { label: t("coach_members"), value: payments.filter(p => p.type === "coach_membership").length, color: "var(--blue)" },
             ].map(s => (
-              <div key={s.label} style={{ flex: 1, minWidth: 120, backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 18 }}>
-                <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{s.label}</p>
-                <p style={{ fontFamily: "var(--font-en)", fontSize: 26, fontWeight: 700, color: s.color }}>{s.value}</p>
-              </div>
+              <Card key={s.label} className="gap-0 p-5">
+                <StatLabel>{s.label}</StatLabel>
+                <p className="mt-1.5 text-[26px] font-bold leading-none tabular-nums tracking-tight" style={{ color: s.color }}>{s.value}</p>
+              </Card>
             ))}
           </div>
+
           {/* Pending e-wallet approvals */}
           {payments.filter(p => p.status === "pending" && p.payment_method === "ewallet").length > 0 && (
-            <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid rgba(255,179,64,0.35)", borderRadius: "var(--radius-full)", overflow: "hidden" }}>
-              <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,179,64,0.2)", backgroundColor: "rgba(255,179,64,0.05)", display: "flex", alignItems: "center", gap: 10 }}>
-                <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, color: "var(--amber)" }}>
-                  ⏳ Pending E-Wallet Approvals
-                </p>
-                <span style={{ padding: "2px 10px", borderRadius: "var(--radius-full)", backgroundColor: "rgba(255,179,64,0.15)", color: "var(--amber)", fontSize: 12, fontWeight: 700 }}>
-                  {payments.filter(p => p.status === "pending" && p.payment_method === "ewallet").length}
-                </span>
+            <Card className="gap-0 overflow-hidden p-0 ring-1 ring-[color-mix(in_srgb,var(--amber)_35%,transparent)]">
+              <div className="flex items-center gap-2.5 bg-[color-mix(in_srgb,var(--amber)_8%,transparent)] px-5 py-3.5">
+                <p className="text-[14px] font-bold text-[var(--amber)]">⏳ Pending E-Wallet Approvals</p>
+                <Badge variant="warning">{payments.filter(p => p.status === "pending" && p.payment_method === "ewallet").length}</Badge>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              <div className="flex flex-col">
                 {payments.filter(p => p.status === "pending" && p.payment_method === "ewallet").map((p, i, arr) => (
-                  <div key={p.id} style={{ padding: "16px 20px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600 }}>{p.user_name}</p>
-                      <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{p.user_email}</p>
-                      <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 3 }}>
-                        {p.type === "premium" ? "User Plan" : t("coach_membership")} · {p.plan} · <strong style={{ color: "var(--accent)" }}>{p.amount?.toFixed(0)} EGP</strong>
-                      </p>
-                      {p.proof_url && (
-                        <a href={p.proof_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 6, fontSize: 11, color: "var(--blue)", textDecoration: "none", padding: "3px 8px", borderRadius: "var(--radius-full)", border: "1px solid rgba(59,139,255,0.3)", backgroundColor: "rgba(59,139,255,0.07)" }}>
-                          📎 View Payment Proof
-                        </a>
-                      )}
+                  <div key={p.id}>
+                    <div className="flex flex-wrap items-center gap-3.5 px-5 py-4">
+                      <div className="min-w-[200px] flex-1">
+                        <p className="text-[13px] font-semibold">{p.user_name}</p>
+                        <p className="text-[12px] text-muted-foreground">{p.user_email}</p>
+                        <p className="mt-1 text-[12px] text-muted-foreground">
+                          {p.type === "premium" ? "User Plan" : t("coach_membership")} · {p.plan} · <strong className="text-primary">{p.amount?.toFixed(0)} EGP</strong>
+                        </p>
+                        {p.proof_url && (
+                          <a href={p.proof_url} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1.5 rounded-sm bg-[var(--secondary-dim)] px-2 py-1 text-[11px] text-[var(--secondary)]">
+                            <Paperclip size={12} strokeWidth={2} /> View Payment Proof
+                          </a>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const r = await api(`/api/payments/approve/${p.id}`, { method: "PATCH" });
+                              if (r.ok) {
+                                setPayments(prev => prev.map(x => x.id === p.id ? { ...x, status: "completed" } : x));
+                              }
+                            } catch {}
+                          }}
+                        >
+                          ✓ Approve
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const r = await api(`/api/payments/reject/${p.id}`, { method: "PATCH" });
+                              if (r.ok) {
+                                setPayments(prev => prev.map(x => x.id === p.id ? { ...x, status: "rejected" } : x));
+                              }
+                            } catch {}
+                          }}
+                        >
+                          ✗ Reject
+                        </Button>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                      <button
-                        onClick={async () => {
-                          try {
-                            const r = await api(`/api/payments/approve/${p.id}`, { method: "PATCH" });
-                            if (r.ok) {
-                              setPayments(prev => prev.map(x => x.id === p.id ? { ...x, status: "completed" } : x));
-                            }
-                          } catch {}
-                        }}
-                        style={{ padding: "7px 16px", borderRadius: "var(--radius-full)", background: "rgba(255,214,0,0.1)", border: "1px solid rgba(255,214,0,0.3)", color: "var(--accent)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}
-                      >
-                        ✓ Approve
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            const r = await api(`/api/payments/reject/${p.id}`, { method: "PATCH" });
-                            if (r.ok) {
-                              setPayments(prev => prev.map(x => x.id === p.id ? { ...x, status: "rejected" } : x));
-                            }
-                          } catch {}
-                        }}
-                        style={{ padding: "7px 14px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.25)", color: "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}
-                      >
-                        ✗ Reject
-                      </button>
-                    </div>
+                    {i < arr.length - 1 && <Separator />}
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
 
-          <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", overflow: "hidden" }}>
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)" }}>
-              <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700 }}>{t("payment_transactions")}</p>
+          <Card className="gap-0 overflow-hidden p-0">
+            <div className="px-5 py-3.5">
+              <p className="text-[15px] font-semibold">{t("payment_transactions")}</p>
             </div>
             {payments.length === 0 ? (
-              <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>{t("no_payments_recorded")}</div>
+              <div className="p-10 text-center text-[14px] text-muted-foreground">{t("no_payments_recorded")}</div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[600px] border-collapse">
                   <thead>
-                    <tr style={{ backgroundColor: "var(--bg-surface)" }}>
+                    <tr className="bg-muted">
                       {[t("table_user"), t("table_type"), t("table_method"), t("table_amount"), t("table_status"), t("table_date")].map(h => (
-                        <th key={h} style={{ padding: "10px 16px", textAlign: "start", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", borderBottom: "1px solid var(--border)" }}>{h}</th>
+                        <th key={h} className="px-4 py-2.5 text-start text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {payments.map((p, i) => (
-                      <tr key={p.id} style={{ borderBottom: i < payments.length - 1 ? "1px solid var(--border)" : "none" }}>
-                        <td style={{ padding: "12px 16px" }}>
-                          <p style={{ fontSize: 13, fontWeight: 600 }}>{p.user_name}</p>
-                          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.user_email}</p>
+                      <tr key={p.id} className={i < payments.length - 1 ? "[&>td]:border-b-0" : ""}>
+                        <td className="px-4 py-3">
+                          <p className="text-[13px] font-semibold">{p.user_name}</p>
+                          <p className="text-[11px] text-muted-foreground">{p.user_email}</p>
                         </td>
-                        <td style={{ padding: "12px 16px", fontSize: 12, color: p.type === "premium" ? "var(--accent)" : "var(--cyan)" }}>{p.type === "premium" ? "User Plan" : t("coach_member")}</td>
-                        <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary)", textTransform: "capitalize" }}>{p.payment_method || "card"}</td>
-                        <td style={{ padding: "12px 16px", fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>{p.amount?.toFixed(0)} EGP</td>
-                        <td style={{ padding: "12px 16px" }}>
-                          <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: "var(--radius-full)", fontWeight: 600,
-                            background: p.status === "completed" ? "rgba(255,214,0,0.08)" : p.status === "pending" ? "rgba(255,179,64,0.1)" : "rgba(255,68,68,0.08)",
-                            color: p.status === "completed" ? "var(--accent)" : p.status === "pending" ? "var(--amber)" : "var(--red)",
-                            border: `1px solid ${p.status === "completed" ? "rgba(255,214,0,0.2)" : p.status === "pending" ? "rgba(255,179,64,0.3)" : "rgba(255,68,68,0.2)"}`,
-                          }}>
+                        <td className="px-4 py-3 text-[12px]" style={{ color: p.type === "premium" ? "var(--primary)" : "var(--cyan)" }}>{p.type === "premium" ? "User Plan" : t("coach_member")}</td>
+                        <td className="px-4 py-3 text-[12px] capitalize text-muted-foreground">{p.payment_method || "card"}</td>
+                        <td className="px-4 py-3 text-[14px] font-bold tabular-nums text-primary">{p.amount?.toFixed(0)} EGP</td>
+                        <td className="px-4 py-3">
+                          <Badge variant={payStatusVariant(p.status)}>
                             {p.status === "completed" ? `✓ ${t("paid")}` : p.status === "pending" ? `⏳ ${t("pending")}` : `✗ ${t("rejected")}`}
-                          </span>
+                          </Badge>
                         </td>
-                        <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-muted)" }}>{new Date(p.created_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-[12px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
-          </div>
+          </Card>
         </div>
       )}
 
-      {/* VIDEOS */}
+      {/* ═══════ VIDEOS ═══════════════════════════ */}
       {tab === "videos" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700 }}>{t("training_videos")}</p>
-            <button onClick={() => setShowVideoModal(true)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: "var(--radius-full)", background: "var(--red)", border: "none", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-en)" }}>
-              <Plus size={14} /> {t("add_video")}
-            </button>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xl font-semibold tracking-tight">{t("training_videos")}</p>
+            <Button variant="destructive" size="sm" onClick={() => setShowVideoModal(true)}>
+              <Plus size={16} strokeWidth={2} /> {t("add_video")}
+            </Button>
           </div>
           {videos.length === 0 && !loading && (
-            <div style={{ textAlign: "center", padding: "40px 20px", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", color: "var(--text-muted)", fontSize: 14 }}>
+            <Card className="items-center p-10 text-center text-[14px] text-muted-foreground">
               {t("no_videos_uploaded")}
-            </div>
+            </Card>
           )}
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
-            {videos.map(v => (
-              <div key={v.id} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", overflow: "hidden" }}>
-                <div style={{ height: 140, backgroundColor: "var(--bg-surface)", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <div style={{ width: 50, height: 50, borderRadius: "50%", backgroundColor: "rgba(255,68,68,0.15)", border: "1px solid var(--red)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Play size={20} color="var(--red)" style={{ marginInlineStart: 3 }} />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {videos.map(v => {
+              const vStatus = v.approval_status || "approved";
+              const vVariant = vStatus === "approved" ? "success" : vStatus === "rejected" ? "destructive" : "warning";
+              return (
+                <Card key={v.id} className="gap-0 overflow-hidden p-0">
+                  <div className="relative grid h-[140px] place-items-center bg-muted">
+                    <span className="grid size-12 place-items-center rounded-full bg-destructive/15">
+                      <Play size={20} strokeWidth={2} className="ms-0.5 text-destructive" />
+                    </span>
+                    <div className="absolute bottom-2 start-3 flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Clock size={11} strokeWidth={2} /> {v.duration}
+                    </div>
+                    <Badge variant={vVariant} className="absolute top-2 start-3 capitalize">{vStatus}</Badge>
                   </div>
-                  <div style={{ position: "absolute", bottom: 8, insetInlineStart: 10, fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
-                    <Clock size={11} /> {v.duration}
-                  </div>
-                  <div style={{ position: "absolute", top: 8, insetInlineStart: 10, fontSize: 10, padding: "3px 8px", borderRadius: "var(--radius-full)", fontWeight: 700,
-                    background: v.approval_status === "approved" ? "rgba(255,214,0,0.1)" : v.approval_status === "rejected" ? "rgba(255,68,68,0.1)" : "rgba(255,179,64,0.12)",
-                    color: v.approval_status === "approved" ? "var(--accent)" : v.approval_status === "rejected" ? "var(--red)" : "var(--amber)",
-                    border: `1px solid ${v.approval_status === "approved" ? "rgba(255,214,0,0.2)" : v.approval_status === "rejected" ? "rgba(255,68,68,0.24)" : "rgba(255,179,64,0.25)"}` }}>
-                    {v.approval_status || "approved"}
-                  </div>
-                </div>
-                <div style={{ padding: "14px 16px" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6 }}>
-                    <h3 style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{v.title}</h3>
-                    <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: "var(--radius-full)", background: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)", whiteSpace: "nowrap", marginInlineStart: 8 }}>{v.category}</span>
-                  </div>
-                  <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 12 }}>{v.description}</p>
-                  {v.submitted_by_name && (
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
-                      Submitted by: {v.submitted_by_name}
-                    </p>
-                  )}
-                  {v.approval_status === "rejected" && v.rejection_reason && (
-                    <p style={{ fontSize: 11, color: "var(--red)", marginBottom: 8 }}>Reason: {v.rejection_reason}</p>
-                  )}
-                  {v.training_id != null && (
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
-                      Training: {trainings.find(tr => tr.id === v.training_id)?.title || `#${v.training_id}`}
-                    </p>
-                  )}
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {v.approval_status !== "approved" && (
-                      <button onClick={() => reviewVideo(v.id, "approved")} style={{ padding: "7px 12px", borderRadius: "var(--radius-full)", background: "rgba(255,214,0,0.12)", border: "1px solid rgba(255,214,0,0.3)", color: "var(--accent)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-                        <CheckCircle size={13} style={{ marginInlineEnd: 4 }} />Approve
-                      </button>
+                  <div className="p-4">
+                    <div className="mb-1.5 flex items-start justify-between gap-2">
+                      <h3 className="text-[14px] font-semibold leading-snug">{v.title}</h3>
+                      <Badge variant="muted" className="shrink-0">{v.category}</Badge>
+                    </div>
+                    <p className="mb-3 text-[12px] leading-normal text-muted-foreground">{v.description}</p>
+                    {v.submitted_by_name && (
+                      <p className="mb-2 text-[11px] text-muted-foreground">Submitted by: {v.submitted_by_name}</p>
                     )}
-                    {v.approval_status !== "rejected" && (
-                      <button onClick={() => reviewVideo(v.id, "rejected")} style={{ padding: "7px 12px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.3)", color: "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-                        <X size={13} style={{ marginInlineEnd: 4 }} />Reject
-                      </button>
+                    {v.approval_status === "rejected" && v.rejection_reason && (
+                      <p className="mb-2 text-[11px] text-destructive">Reason: {v.rejection_reason}</p>
                     )}
-                    <button onClick={() => deleteVideo(v.id)} style={{ padding: "7px 12px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.1)", border: "1px solid var(--red)", color: "var(--red)", cursor: "pointer" }}>
-                      <Trash2 size={13} />
-                    </button>
+                    {v.training_id != null && (
+                      <p className="mb-2 text-[11px] text-muted-foreground">
+                        Training: {trainings.find(tr => tr.id === v.training_id)?.title || `#${v.training_id}`}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {v.approval_status !== "approved" && (
+                        <Button variant="ghost" size="sm" onClick={() => reviewVideo(v.id, "approved")} className="bg-[color-mix(in_srgb,var(--green)_16%,transparent)] text-[var(--green)]">
+                          <CheckCircle size={16} strokeWidth={2} /> Approve
+                        </Button>
+                      )}
+                      {v.approval_status !== "rejected" && (
+                        <Button variant="ghost" size="sm" onClick={() => reviewVideo(v.id, "rejected")} className="bg-destructive/12 text-destructive">
+                          <X size={16} strokeWidth={2} /> Reject
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon-sm" onClick={() => deleteVideo(v.id)} aria-label="Delete video" className="bg-destructive/12 text-destructive">
+                        <Trash2 size={16} strokeWidth={2} />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* ADS */}
+      {/* ═══════ ADS ═══════════════════════════ */}
       {tab === "ads" && (() => {
         const adFilter = (search || "").startsWith("ads:") ? search.replace("ads:", "").trim() : "";
         const statusFilters = ["all", "pending", "active", "rejected", "expired"] as const;
@@ -930,40 +1002,50 @@ export default function AdminDashboard() {
         };
         const ctr = adStatsLocal.impressions > 0 ? ((adStatsLocal.clicks / adStatsLocal.impressions) * 100).toFixed(1) : "0";
         return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="space-y-4">
           {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700 }}>📢 Ad Manager</p>
-              <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Rate: <strong>4 EGP/min</strong> · Review payment proof before activation</p>
+              <p className="text-xl font-semibold tracking-tight">📢 Ad Manager</p>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">Rate: <strong>4 EGP/min</strong> · Review payment proof before activation</p>
             </div>
           </div>
 
           {/* Analytics Cards */}
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fit, minmax(120px, 1fr))", gap: 10 }}>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {[
-              { label: "Revenue", value: `${adStatsLocal.revenue} EGP`, color: "var(--accent)" },
+              { label: "Revenue", value: `${adStatsLocal.revenue} EGP`, color: "var(--primary)" },
               { label: "Pending $", value: `${adStatsLocal.pendingRevenue} EGP`, color: "var(--amber)" },
               { label: "Impressions", value: adStatsLocal.impressions.toLocaleString(), color: "var(--blue)" },
               { label: "Clicks", value: adStatsLocal.clicks.toLocaleString(), color: "var(--cyan)" },
-              { label: "CTR", value: `${ctr}%`, color: "var(--accent)" },
+              { label: "CTR", value: `${ctr}%`, color: "var(--primary)" },
             ].map(s => (
-              <div key={s.label} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px" }}>
-                <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{s.label}</p>
-                <p style={{ fontFamily: "var(--font-en)", fontSize: 18, fontWeight: 700, color: s.color }}>{s.value}</p>
-              </div>
+              <Card key={s.label} className="gap-0 p-4">
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{s.label}</p>
+                <p className="text-[18px] font-bold tabular-nums" style={{ color: s.color }}>{s.value}</p>
+              </Card>
             ))}
           </div>
 
           {/* Status Filter Tabs */}
-          <div style={{ display: "flex", gap: 4, backgroundColor: "var(--bg-surface)", borderRadius: "var(--radius-full)", padding: 3, border: "1px solid var(--border)", overflowX: "auto" }}>
+          <div className="scroll-x flex gap-1 overflow-x-auto rounded-md bg-muted p-1">
             {statusFilters.map(f => {
               const count = f === "all" ? ads.length : ads.filter(a => a.status === f).length;
               const isActive = currentFilter === f;
               return (
-                <button key={f} onClick={() => setSearch(f === "all" ? "" : `ads:${f}`)} style={{ padding: "7px 14px", borderRadius: "var(--radius-full)", border: "none", cursor: "pointer", background: isActive ? "var(--bg-card)" : "transparent", color: isActive ? "var(--text-primary)" : "var(--text-muted)", fontSize: 12, fontWeight: isActive ? 700 : 400, fontFamily: "var(--font-en)", boxShadow: isActive ? "0 1px 4px var(--shadow)" : "none", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
+                <button
+                  key={f}
+                  onClick={() => setSearch(f === "all" ? "" : `ads:${f}`)}
+                  aria-pressed={isActive}
+                  className={`flex items-center gap-1.5 whitespace-nowrap rounded-[8px] px-3.5 py-2 text-[12px] font-semibold transition-all ${isActive ? "bg-card text-foreground shadow-soft-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
                   {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
-                  {count > 0 && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: "var(--radius-full)", background: f === "pending" ? "rgba(255,179,64,0.2)" : f === "active" ? "rgba(255,214,0,0.2)" : "var(--bg-surface)", color: f === "pending" ? "var(--amber)" : f === "active" ? "var(--accent)" : "var(--text-muted)", fontWeight: 700 }}>{count}</span>}
+                  {count > 0 && (
+                    <span className="rounded-full px-1.5 text-[10px] font-bold" style={{
+                      background: f === "pending" ? "color-mix(in srgb, var(--amber) 20%, transparent)" : f === "active" ? "var(--primary)" : "var(--muted)",
+                      color: f === "pending" ? "var(--amber)" : f === "active" ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                    }}>{count}</span>
+                  )}
                 </button>
               );
             })}
@@ -971,14 +1053,14 @@ export default function AdminDashboard() {
 
           {/* Ads List */}
           {filteredAds.length === 0 ? (
-            <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
+            <Card className="items-center p-10 text-center text-[14px] text-muted-foreground">
               {ads.length === 0 ? t("no_ads_submitted_yet") : `${t("no_label")} ${currentFilter} ${t("ads")}.`}
-            </div>
+            </Card>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="space-y-4">
               {filteredAds.map(ad => {
-                const borderColor = ad.status === "active" ? "rgba(255,214,0,0.25)" : ad.status === "pending" ? "rgba(255,179,64,0.25)" : ad.status === "expired" ? "rgba(128,128,128,0.25)" : "rgba(255,68,68,0.25)";
-                const statusColor = ad.status === "active" ? "var(--accent)" : ad.status === "pending" ? "var(--amber)" : ad.status === "expired" ? "var(--text-muted)" : "var(--red)";
+                const statusColor = ad.status === "active" ? "var(--primary)" : ad.status === "pending" ? "var(--amber)" : ad.status === "expired" ? "var(--muted-foreground)" : "var(--red)";
+                const statusVariant = ad.status === "active" ? "default" : ad.status === "pending" ? "warning" : ad.status === "expired" ? "muted" : "destructive";
                 const adCtr = (ad.impressions || 0) > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(1) : "0";
                 const boostEnd = ad.boost_end ? new Date(ad.boost_end) : null;
                 const boostStart = ad.boost_start ? new Date(ad.boost_start) : null;
@@ -989,72 +1071,69 @@ export default function AdminDashboard() {
                 const remainingH = remainingHours % 24;
 
                 return (
-                  <div key={ad.id} style={{ backgroundColor: "var(--bg-card)", border: `1px solid ${borderColor}`, borderRadius: "var(--radius-full)", padding: 20, opacity: ad.status === "expired" ? 0.75 : 1 }}>
-                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                  <Card key={ad.id} className="gap-0 p-5" style={{ opacity: ad.status === "expired" ? 0.75 : 1 }}>
+                    <div className="flex flex-wrap gap-3.5">
                       {/* Coach avatar */}
-                      <img src={ad.coach_avatar || getAvatar(ad.coach_email, null, ad.coach_gender, ad.coach_name)} alt={ad.coach_name} style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: "var(--bg-surface)", flexShrink: 0, border: `2px solid ${statusColor}` }} />
-                      <div style={{ flex: 1, minWidth: 200 }}>
+                      <Avatar className="size-12 shrink-0 ring-2" style={{ "--tw-ring-color": statusColor } as React.CSSProperties}>
+                        <AvatarImage src={ad.coach_avatar || getAvatar(ad.coach_email, null, ad.coach_gender, ad.coach_name)} alt={ad.coach_name} />
+                        <AvatarFallback>{(ad.coach_name || "C").slice(0, 1)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-[200px] flex-1">
                         {/* Top row: title + status */}
-                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
+                        <div className="mb-1 flex flex-wrap items-start justify-between gap-2">
                           <div>
-                            <h3 style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{ad.title}</h3>
-                            <p style={{ fontSize: 12, color: "var(--cyan)", marginTop: 2 }}>{ad.coach_name} · <span style={{ color: "var(--text-muted)" }}>{ad.coach_email}</span></p>
+                            <h3 className="text-[15px] font-semibold">{ad.title}</h3>
+                            <p className="mt-0.5 text-[12px] text-[var(--cyan)]">{ad.coach_name} · <span className="text-muted-foreground">{ad.coach_email}</span></p>
                           </div>
-                          <span style={{ fontSize: 11, padding: "4px 10px", borderRadius: "var(--radius-full)", fontWeight: 700, background: "transparent", color: statusColor, border: `1px solid ${statusColor}` }}>
+                          <Badge variant={statusVariant}>
                             {ad.status === "active" ? "✓ ACTIVE" : ad.status === "pending" ? "⏳ PENDING" : ad.status === "expired" ? "⌛ EXPIRED" : "✗ REJECTED"}
-                          </span>
+                          </Badge>
                         </div>
 
                         {/* Tags row */}
-                        <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
-                            {ad.ad_type === "home_banner" ? "🏠 Banner" : "📱 Community"}
-                          </span>
-                          <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
-                            {ad.objective === "coaching" ? "🎯 Booking" : "👁 Awareness"}
-                          </span>
-                          <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
-                            {ad.media_type === "video" ? "🎬 Video" : "🖼 Image"} · {ad.specialty}
-                          </span>
+                        <div className="mb-2 flex flex-wrap gap-1.5">
+                          <Badge variant="muted">{ad.ad_type === "home_banner" ? "🏠 Banner" : "📱 Community"}</Badge>
+                          <Badge variant="muted">{ad.objective === "coaching" ? "🎯 Booking" : "👁 Awareness"}</Badge>
+                          <Badge variant="muted">{ad.media_type === "video" ? "🎬 Video" : "🖼 Image"} · {ad.specialty}</Badge>
                         </div>
 
-                        <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 8 }}>{ad.description.length > 160 ? ad.description.slice(0, 160) + "…" : ad.description}</p>
+                        <p className="mb-2 text-[13px] leading-normal text-muted-foreground">{ad.description.length > 160 ? ad.description.slice(0, 160) + "…" : ad.description}</p>
 
                         {/* Media preview */}
                         {(ad.image_url || ad.video_url) && (
-                          <div style={{ marginBottom: 10, borderRadius: "var(--radius-full)", overflow: "hidden", maxHeight: 120, border: "1px solid var(--border)" }}>
+                          <div className="mb-2.5 max-h-[120px] overflow-hidden rounded-md">
                             {ad.media_type === "video" && ad.video_url
-                              ? <video src={ad.video_url} style={{ width: "100%", maxHeight: 120, objectFit: "cover", display: "block" }} />
-                              : ad.image_url ? <img src={ad.image_url} alt={ad.title} style={{ width: "100%", maxHeight: 120, objectFit: "cover", display: "block" }} /> : null}
+                              ? <video src={ad.video_url} className="block max-h-[120px] w-full object-cover" />
+                              : ad.image_url ? <img src={ad.image_url} alt={ad.title} className="block max-h-[120px] w-full object-cover" /> : null}
                           </div>
                         )}
 
                         {/* Payment + Schedule Info */}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                        <div className="mb-2.5 grid grid-cols-2 gap-2">
                           {/* Payment */}
-                          <div style={{ padding: "10px 12px", borderRadius: "var(--radius-full)", background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                            <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>💳 Payment</p>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 12 }}>
-                              <span>{t("table_amount")}: <strong style={{ color: "var(--amber)" }}>{ad.paid_amount || 0} EGP</strong></span>
-                              <span>Duration: <strong style={{ color: "var(--accent)" }}>{ad.paid_minutes || 0} min</strong></span>
-                              <span>{t("table_status")}: <strong style={{ color: ad.payment_status === "approved" ? "var(--accent)" : ad.payment_status === "pending" ? "var(--amber)" : "var(--red)" }}>{ad.payment_status || t("unpaid")}</strong></span>
-                              {ad.payment_phone && <span style={{ fontSize: 11, color: "var(--text-muted)" }}>📱 {ad.payment_phone}</span>}
+                          <div className="rounded-md bg-muted p-3">
+                            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">💳 Payment</p>
+                            <div className="flex flex-col gap-0.5 text-[12px]">
+                              <span>{t("table_amount")}: <strong className="text-[var(--amber)]">{ad.paid_amount || 0} EGP</strong></span>
+                              <span>Duration: <strong className="text-primary">{ad.paid_minutes || 0} min</strong></span>
+                              <span>{t("table_status")}: <strong style={{ color: ad.payment_status === "approved" ? "var(--primary)" : ad.payment_status === "pending" ? "var(--amber)" : "var(--red)" }}>{ad.payment_status || t("unpaid")}</strong></span>
+                              {ad.payment_phone && <span className="text-[11px] text-muted-foreground">📱 {ad.payment_phone}</span>}
                             </div>
                             {ad.payment_proof && (
-                              <a href={ad.payment_proof} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 11, color: "var(--blue)", textDecoration: "underline" }}>
-                                📎 View proof
+                              <a href={ad.payment_proof} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[11px] text-[var(--secondary)] underline">
+                                <Paperclip size={12} strokeWidth={2} /> View proof
                               </a>
                             )}
                           </div>
                           {/* Schedule + Analytics */}
-                          <div style={{ padding: "10px 12px", borderRadius: "var(--radius-full)", background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                            <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>📊 Performance</p>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 12 }}>
+                          <div className="rounded-md bg-muted p-3">
+                            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">📊 Performance</p>
+                            <div className="flex flex-col gap-0.5 text-[12px]">
                               <span>👁 {(ad.impressions || 0).toLocaleString()} impressions</span>
-                              <span>🖱 {ad.clicks || 0} clicks · <strong style={{ color: "var(--blue)" }}>{adCtr}% CTR</strong></span>
-                              {boostStart && <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Start: {boostStart.toLocaleDateString()}</span>}
+                              <span>🖱 {ad.clicks || 0} clicks · <strong className="text-[var(--blue)]">{adCtr}% CTR</strong></span>
+                              {boostStart && <span className="text-[11px] text-muted-foreground">Start: {boostStart.toLocaleDateString()}</span>}
                               {boostEnd && (
-                                <span style={{ fontSize: 11, color: isExpired ? "var(--red)" : "var(--accent)" }}>
+                                <span className="text-[11px]" style={{ color: isExpired ? "var(--red)" : "var(--primary)" }}>
                                   {isExpired ? `Ended: ${boostEnd.toLocaleDateString()}` : `⏱ ${remainingDays > 0 ? `${remainingDays}d ` : ""}${remainingH}h left`}
                                 </span>
                               )}
@@ -1064,55 +1143,55 @@ export default function AdminDashboard() {
 
                         {/* Admin note */}
                         {ad.admin_note && (
-                          <div style={{ padding: "8px 12px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.05)", border: "1px solid rgba(255,68,68,0.2)", marginBottom: 10, fontSize: 12, color: "var(--text-secondary)" }}>
-                            <strong style={{ color: "var(--red)" }}>Admin note:</strong> {ad.admin_note}
+                          <div className="mb-2.5 rounded-md bg-destructive/8 p-2.5 text-[12px] text-muted-foreground">
+                            <strong className="text-destructive">Admin note:</strong> {ad.admin_note}
                           </div>
                         )}
 
                         {/* Action buttons */}
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div className="flex flex-wrap gap-2">
                           {ad.status !== "active" && (
-                            <button onClick={() => updateAdStatus(ad.id, "active")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: "var(--radius-full)", background: "rgba(255,214,0,0.1)", border: "1px solid rgba(255,214,0,0.3)", color: "var(--accent)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                              <CheckCircle size={13} /> Activate
-                            </button>
+                            <Button variant="ghost" size="sm" onClick={() => updateAdStatus(ad.id, "active")} className="bg-primary/15 text-primary">
+                              <CheckCircle size={16} strokeWidth={2} /> Activate
+                            </Button>
                           )}
                           {ad.status === "active" && (
-                            <button onClick={() => updateAdStatus(ad.id, "expired")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: "var(--radius-full)", background: "rgba(128,128,128,0.1)", border: "1px solid rgba(128,128,128,0.3)", color: "var(--text-muted)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                              <Clock size={13} /> Expire
-                            </button>
+                            <Button variant="ghost" size="sm" onClick={() => updateAdStatus(ad.id, "expired")} className="bg-muted text-muted-foreground">
+                              <Clock size={16} strokeWidth={2} /> Expire
+                            </Button>
                           )}
                           {ad.status === "pending" && (
-                            <button onClick={async () => {
+                            <Button variant="ghost" size="sm" onClick={async () => {
                               const note = prompt("Rejection reason (optional):") || "";
                               const res = await api(`/api/admin/ads/${ad.id}/status`, { method: "PATCH", body: JSON.stringify({ status: "rejected", admin_note: note }) });
                               if (res.ok) { showMsg("Ad rejected"); fetchAll(); }
-                            }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.3)", color: "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                              <X size={13} /> Reject
-                            </button>
+                            }} className="bg-destructive/12 text-destructive">
+                              <X size={16} strokeWidth={2} /> Reject
+                            </Button>
                           )}
                           {ad.payment_status === "pending" && (
                             <>
-                              <button onClick={async () => {
+                              <Button variant="ghost" size="sm" onClick={async () => {
                                 const res = await api(`/api/admin/ads/${ad.id}/payment`, { method: "PATCH", body: JSON.stringify({ payment_status: "approved" }) });
                                 if (res.ok) { showMsg("✅ Payment approved & ad activated!"); fetchAll(); }
-                              }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: "var(--radius-full)", background: "rgba(59,139,255,0.1)", border: "1px solid rgba(59,139,255,0.3)", color: "var(--blue)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                                <CreditCard size={13} /> Approve Payment
-                              </button>
-                              <button onClick={async () => {
+                              }} className="bg-[var(--secondary-dim)] text-[var(--secondary)]">
+                                <CreditCard size={16} strokeWidth={2} /> Approve Payment
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={async () => {
                                 const res = await api(`/api/admin/ads/${ad.id}/payment`, { method: "PATCH", body: JSON.stringify({ payment_status: "rejected" }) });
                                 if (res.ok) { showMsg("Payment rejected"); fetchAll(); }
-                              }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.2)", color: "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                                <X size={13} /> Reject Payment
-                              </button>
+                              }} className="bg-destructive/12 text-destructive">
+                                <X size={16} strokeWidth={2} /> Reject Payment
+                              </Button>
                             </>
                           )}
-                          <button onClick={() => deleteAd(ad.id)} style={{ padding: "7px 10px", borderRadius: "var(--radius-full)", background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-muted)", cursor: "pointer" }}>
-                            <Trash2 size={13} />
-                          </button>
+                          <Button variant="ghost" size="icon-sm" onClick={() => deleteAd(ad.id)} aria-label="Delete ad" className="bg-muted text-muted-foreground">
+                            <Trash2 size={16} strokeWidth={2} />
+                          </Button>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </Card>
                 );
               })}
             </div>
@@ -1120,232 +1199,234 @@ export default function AdminDashboard() {
         </div>);
       })()}
 
-      {/* GIFTS */}
+      {/* ═══════ GIFTS ═══════════════════════════ */}
       {tab === "gifts" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700 }}>Gift System</p>
-            <button onClick={() => setShowGiftModal(true)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: "var(--radius-full)", background: "var(--red)", border: "none", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-en)" }}>
-              <Plus size={14} /> Send Gift
-            </button>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xl font-semibold tracking-tight">Gift System</p>
+            <Button variant="destructive" size="sm" onClick={() => setShowGiftModal(true)}>
+              <Plus size={16} strokeWidth={2} /> Send Gift
+            </Button>
           </div>
           {gifts.length === 0 ? (
-            <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 40, textAlign: "center", color: "var(--text-muted)" }}>
-              <Gift size={40} strokeWidth={1} style={{ margin: "0 auto 12px" }} />
-              <p style={{ fontFamily: "var(--font-en)" }}>{t("no_gifts_sent_yet")}</p>
-              <p style={{ fontSize: 13, marginTop: 4 }}>Send points to athletes</p>
-            </div>
+            <Card className="items-center p-10 text-center text-muted-foreground">
+              <Gift size={40} strokeWidth={1} className="mb-3" />
+              <p>{t("no_gifts_sent_yet")}</p>
+              <p className="mt-1 text-[13px]">Send points to athletes</p>
+            </Card>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {gifts.map(g => (
-                <div key={g.id} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 18 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: "var(--radius-full)", background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Gift size={15} color="var(--accent)" />
-                      </div>
+                <Card key={g.id} className="gap-0 p-5">
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="grid size-8 place-items-center rounded-full bg-primary/15">
+                        <Gift size={16} strokeWidth={2} className="text-primary" />
+                      </span>
                       <div>
-                        <p style={{ fontSize: 13, fontWeight: 700 }}>{g.title}</p>
-                        <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{g.type} · {g.value}</p>
+                        <p className="text-[13px] font-semibold">{g.title}</p>
+                        <p className="text-[11px] text-muted-foreground">{g.type} · {g.value}</p>
                       </div>
                     </div>
-                    <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: "var(--radius-full)", background: "var(--accent-dim)", color: "var(--accent)", fontWeight: 600 }}>{g.type}</span>
+                    <Badge variant="default">{g.type}</Badge>
                   </div>
-                  {g.description && <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 8 }}>{g.description}</p>}
-                  <p style={{ fontSize: 11, color: "var(--text-muted)" }}>To: {g.user_name || `User #${g.user_id}`} · {new Date(g.created_at).toLocaleDateString()}</p>
-                </div>
+                  {g.description && <p className="mb-2 text-[12px] text-muted-foreground">{g.description}</p>}
+                  <p className="text-[11px] text-muted-foreground">To: {g.user_name || `User #${g.user_id}`} · {new Date(g.created_at).toLocaleDateString()}</p>
+                </Card>
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* COMMUNITY MODERATION */}
+      {/* ═══════ COMMUNITY MODERATION ═══════════════════════════ */}
       {tab === "community" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="space-y-4">
 
           {/* ── Header ── */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p style={{ fontFamily: "var(--font-heading)", fontSize: 16, fontWeight: 700 }}>🛡 Community Management</p>
-              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Moderate posts, manage challenges, review comments</p>
+              <p className="text-xl font-semibold tracking-tight">🛡 Community Management</p>
+              <p className="text-[13px] text-muted-foreground">Moderate posts, manage challenges, review comments</p>
             </div>
-            <button onClick={fetchCommunityAll} style={{ padding: "8px 16px", borderRadius: "var(--radius-full)", background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>🔄 Refresh All</button>
+            <Button variant="outline" size="sm" onClick={fetchCommunityAll}>
+              <RefreshCw size={16} strokeWidth={2} /> Refresh All
+            </Button>
           </div>
 
           {/* ── Stats Bar ── */}
           {communityStats && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px,1fr))", gap: 10 }}>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {[
-                { label: "Total Posts",     value: communityStats.totalPosts,     color: "var(--accent)" },
+                { label: "Total Posts",     value: communityStats.totalPosts,     color: "var(--primary)" },
                 { label: "Hidden Posts",    value: communityStats.hiddenPosts,    color: "var(--red)" },
                 { label: "Comments",        value: communityStats.totalComments,  color: "var(--blue)" },
-                { label: "Challenges",      value: communityStats.totalChallenges,color: "var(--secondary)" },
+                { label: "Challenges",      value: communityStats.totalChallenges, color: "var(--secondary)" },
                 { label: "Active Now",      value: communityStats.activeChallenges, color: "var(--green)" },
                 { label: "Total Likes",     value: communityStats.totalLikes,     color: "var(--amber)" },
               ].map(s => (
-                <div key={s.label} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px" }}>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>{s.label}</p>
-                  <p style={{ fontSize: 20, fontWeight: 700, color: s.color, fontFamily: "var(--font-heading)" }}>{s.value ?? "—"}</p>
-                </div>
+                <Card key={s.label} className="gap-0 p-4">
+                  <p className="mb-1 text-[11px] text-muted-foreground">{s.label}</p>
+                  <p className="text-[20px] font-bold tabular-nums" style={{ color: s.color }}>{s.value ?? "—"}</p>
+                </Card>
               ))}
             </div>
           )}
           {!communityStats && communityPosts.length === 0 && (
-            <div style={{ textAlign: "center", padding: 24 }}>
-              <button onClick={fetchCommunityAll} style={{ padding: "10px 28px", borderRadius: "var(--radius-full)", background: "var(--accent)", color: "#000000", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>Load Community Data</button>
+            <div className="py-6 text-center">
+              <Button onClick={fetchCommunityAll}>Load Community Data</Button>
             </div>
           )}
 
           {/* ── Announcement Form ── */}
-          <div style={{ background: "var(--bg-card)", border: "2px solid rgba(59,139,255,0.25)", borderRadius: 16, padding: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(59,139,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Megaphone size={16} color="var(--blue)" />
-              </div>
+          <Card className="gap-0 p-5 ring-1 ring-[color-mix(in_srgb,var(--secondary)_25%,transparent)]">
+            <div className="mb-3.5 flex items-center gap-2">
+              <span className="grid size-8 place-items-center rounded-[10px] bg-[var(--secondary-dim)]">
+                <Megaphone size={16} strokeWidth={2} className="text-[var(--secondary)]" />
+              </span>
               <div>
-                <p style={{ fontSize: 14, fontWeight: 700 }}>📢 Post Announcement</p>
-                <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Pinned at the top with an Announcement badge</p>
+                <p className="text-[14px] font-semibold">📢 Post Announcement</p>
+                <p className="text-[11px] text-muted-foreground">Pinned at the top with an Announcement badge</p>
               </div>
             </div>
-            <textarea value={announcementContent} onChange={e => setAnnouncementContent(e.target.value)} placeholder="Write your announcement..." rows={2}
-              style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid var(--border)", backgroundColor: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13, resize: "vertical", outline: "none", fontFamily: "inherit", lineHeight: 1.6 }} />
-            <div style={{ display: "flex", gap: 10, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <input value={announcementHashtags} onChange={e => setAnnouncementHashtags(e.target.value)} placeholder="#hashtags (optional)"
-                style={{ flex: 1, minWidth: 160, padding: "8px 12px", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", backgroundColor: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 12, outline: "none" }} />
-              <button onClick={postAnnouncement} disabled={announcementPosting || !announcementContent.trim()}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 20px", borderRadius: "var(--radius-full)", background: !announcementContent.trim() ? "var(--bg-surface)" : "var(--blue)", color: !announcementContent.trim() ? "var(--text-muted)" : "#fff", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
-                <Megaphone size={14} /> {announcementPosting ? "Posting…" : "Post Announcement"}
-              </button>
+            <Textarea value={announcementContent} onChange={e => setAnnouncementContent(e.target.value)} placeholder="Write your announcement..." rows={2} />
+            <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
+              <Input value={announcementHashtags} onChange={e => setAnnouncementHashtags(e.target.value)} placeholder="#hashtags (optional)" className="h-9 min-w-[160px] flex-1 text-[13px]" />
+              <Button onClick={postAnnouncement} disabled={announcementPosting || !announcementContent.trim()} className="bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90">
+                <Megaphone size={16} strokeWidth={2} /> {announcementPosting ? "Posting…" : "Post Announcement"}
+              </Button>
             </div>
-          </div>
+          </Card>
 
           {/* ── Sub-tabs ── */}
-          <div style={{ display: "flex", gap: 4, background: "var(--bg-surface)", borderRadius: "var(--radius-full)", padding: 4, border: "1px solid var(--border)", width: "max-content" }}>
-            {([["posts","📝 Posts"], ["challenges","🏆 Challenges"], ["comments","💬 Comments"]] as const).map(([id, label]) => (
-              <button key={id} onClick={() => setCommunitySubTab(id)}
-                style={{ padding: "7px 16px", borderRadius: "var(--radius-full)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: communitySubTab === id ? 700 : 400, background: communitySubTab === id ? "var(--bg-card)" : "none", color: communitySubTab === id ? "var(--text-primary)" : "var(--text-muted)", boxShadow: communitySubTab === id ? "0 1px 4px var(--shadow)" : "none", whiteSpace: "nowrap" }}>
-                {label} {id === "posts" ? `(${communityPosts.length})` : id === "challenges" ? `(${communityChallenges.length})` : `(${communityComments.length})`}
-              </button>
-            ))}
+          <div className="flex w-max gap-1 rounded-md bg-muted p-1">
+            {([["posts","📝 Posts"], ["challenges","🏆 Challenges"], ["comments","💬 Comments"]] as const).map(([id, label]) => {
+              const active = communitySubTab === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setCommunitySubTab(id)}
+                  aria-pressed={active}
+                  className={`whitespace-nowrap rounded-[8px] px-4 py-2 text-[12px] font-semibold transition-all ${active ? "bg-card text-foreground shadow-soft-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {label} {id === "posts" ? `(${communityPosts.length})` : id === "challenges" ? `(${communityChallenges.length})` : `(${communityComments.length})`}
+                </button>
+              );
+            })}
           </div>
 
           {/* ── Search ── */}
-          <input value={communitySearch} onChange={e => setCommunitySearch(e.target.value)}
-            placeholder={`Search ${communitySubTab}…`}
-            style={{ padding: "10px 14px", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13, outline: "none" }} />
+          <Input value={communitySearch} onChange={e => setCommunitySearch(e.target.value)} placeholder={`Search ${communitySubTab}…`} />
 
           {/* ── POSTS ── */}
           {communitySubTab === "posts" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="flex flex-col gap-2.5">
               {communityPosts.filter(p => !communitySearch || p.content?.toLowerCase().includes(communitySearch.toLowerCase()) || p.user_name?.toLowerCase().includes(communitySearch.toLowerCase())).map((post: any) => (
-                <div key={post.id} style={{ background: "var(--bg-card)", border: `1px solid ${post.is_announcement ? "rgba(59,139,255,0.3)" : post.is_hidden ? "rgba(248,113,133,0.3)" : "var(--border)"}`, borderRadius: 14, padding: "14px 16px", opacity: post.is_hidden ? 0.75 : 1 }}>
-                  <div style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
-                    <img src={post.user_avatar || getAvatar(post.user_email, null, post.user_gender, post.user_name)} alt="" style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{post.user_name}</span>
-                        <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: "var(--radius-full)", background: post.user_role === "coach" ? "rgba(6,182,212,0.1)" : "var(--bg-surface)", color: post.user_role === "coach" ? "var(--cyan)" : "var(--text-muted)", border: "1px solid var(--border)" }}>{String(post.user_role || "").replace(/_/g, " ")}</span>
-                        {post.is_pinned && <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: "var(--radius-full)", background: "rgba(255,214,0,0.12)", color: "var(--accent)", border: "1px solid rgba(255,214,0,0.25)" }}>📌 Pinned</span>}
-                        {post.is_announcement && <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: "var(--radius-full)", background: "rgba(59,139,255,0.12)", color: "var(--blue)", border: "1px solid rgba(59,139,255,0.25)" }}>📢 Announcement</span>}
-                        {post.is_hidden && <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: "var(--radius-full)", background: "rgba(248,113,133,0.12)", color: "var(--red)", border: "1px solid rgba(248,113,133,0.25)" }}>🚫 Hidden</span>}
-                        <span style={{ fontSize: 11, color: "var(--text-muted)", marginInlineStart: "auto" }}>{new Date(post.created_at).toLocaleDateString()}</span>
+                <Card key={post.id} className="gap-0 p-4" style={{ opacity: post.is_hidden ? 0.75 : 1 }}>
+                  <div className="mb-2 flex items-start gap-2.5">
+                    <Avatar className="size-9 shrink-0">
+                      <AvatarImage src={post.user_avatar || getAvatar(post.user_email, null, post.user_gender, post.user_name)} alt="" />
+                      <AvatarFallback>{(post.user_name || "U").slice(0, 1)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[13px] font-semibold">{post.user_name}</span>
+                        <Badge variant={post.user_role === "coach" ? "accent" : "muted"} className="capitalize">{String(post.user_role || "").replace(/_/g, " ")}</Badge>
+                        {post.is_pinned && <Badge variant="default">📌 Pinned</Badge>}
+                        {post.is_announcement && <Badge variant="accent">📢 Announcement</Badge>}
+                        {post.is_hidden && <Badge variant="destructive">🚫 Hidden</Badge>}
+                        <span className="ms-auto text-[11px] text-muted-foreground">{new Date(post.created_at).toLocaleDateString()}</span>
                       </div>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{post.user_email}</p>
+                      <p className="text-[11px] text-muted-foreground">{post.user_email}</p>
                     </div>
                   </div>
-                  <p style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 6 }}>{post.content}</p>
-                  {post.hashtags && <p style={{ fontSize: 12, color: "var(--accent)", marginBottom: 6 }}>{post.hashtags}</p>}
-                  {post.media_url && <img src={post.media_url} alt="" style={{ width: "100%", maxHeight: 140, objectFit: "cover", borderRadius: 10, marginBottom: 8 }} />}
-                  <div style={{ display: "flex", gap: 8, fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>
+                  <p className="mb-1.5 text-[13px] leading-relaxed">{post.content}</p>
+                  {post.hashtags && <p className="mb-1.5 text-[12px] text-primary">{post.hashtags}</p>}
+                  {post.media_url && <img src={post.media_url} alt="" className="mb-2 max-h-[140px] w-full rounded-md object-cover" />}
+                  <div className="mb-2.5 flex gap-2 text-[12px] text-muted-foreground">
                     <span>❤️ {post.likes || 0}</span>
                     <span>💬 {post.comment_count || 0}</span>
-                    {post.moderation_reason && <span style={{ color: "var(--red)" }}>Reason: {post.moderation_reason}</span>}
+                    {post.moderation_reason && <span className="text-destructive">Reason: {post.moderation_reason}</span>}
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button onClick={() => togglePin(post.id)}
-                      style={{ padding: "5px 12px", borderRadius: "var(--radius-full)", background: post.is_pinned ? "rgba(255,214,0,0.1)" : "var(--bg-surface)", border: `1px solid ${post.is_pinned ? "rgba(255,214,0,0.3)" : "var(--border)"}`, color: post.is_pinned ? "var(--accent)" : "var(--text-secondary)", cursor: "pointer", fontSize: 12 }}>
-                      📌 {post.is_pinned ? "Unpin" : "Pin"}
-                    </button>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button variant="ghost" size="sm" onClick={() => togglePin(post.id)} className={post.is_pinned ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}>
+                      <Pin size={16} strokeWidth={2} /> {post.is_pinned ? "Unpin" : "Pin"}
+                    </Button>
                     {post.is_hidden ? (
-                      <button onClick={async () => { await api(`/api/admin/community/posts/${post.id}/restore`, { method: "PATCH" }); fetchCommunityPosts(); showMsg("✅ Post restored"); }}
-                        style={{ padding: "5px 12px", borderRadius: "var(--radius-full)", background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.3)", color: "var(--green)", cursor: "pointer", fontSize: 12 }}>
-                        ✓ Restore
-                      </button>
+                      <Button variant="ghost" size="sm" onClick={async () => { await api(`/api/admin/community/posts/${post.id}/restore`, { method: "PATCH" }); fetchCommunityPosts(); showMsg("✅ Post restored"); }} className="bg-[color-mix(in_srgb,var(--green)_16%,transparent)] text-[var(--green)]">
+                        <Check size={16} strokeWidth={2} /> Restore
+                      </Button>
                     ) : (
-                      <button onClick={async () => { const reason = prompt("Reason (optional):") || "Policy violation"; await api(`/api/admin/community/posts/${post.id}/hide`, { method: "PATCH", body: JSON.stringify({ reason }) }); fetchCommunityPosts(); showMsg("Post hidden"); }}
-                        style={{ padding: "5px 12px", borderRadius: "var(--radius-full)", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)", color: "var(--amber)", cursor: "pointer", fontSize: 12 }}>
-                        🙈 Hide
-                      </button>
+                      <Button variant="ghost" size="sm" onClick={async () => { const reason = prompt("Reason (optional):") || "Policy violation"; await api(`/api/admin/community/posts/${post.id}/hide`, { method: "PATCH", body: JSON.stringify({ reason }) }); fetchCommunityPosts(); showMsg("Post hidden"); }} className="bg-[color-mix(in_srgb,var(--amber)_16%,transparent)] text-[var(--amber)]">
+                        <EyeOff size={16} strokeWidth={2} /> Hide
+                      </Button>
                     )}
-                    <button onClick={async () => { if (!confirm("Delete this post permanently?")) return; await api(`/api/admin/community/posts/${post.id}`, { method: "DELETE" }); fetchCommunityPosts(); showMsg("Post deleted"); }}
-                      style={{ padding: "5px 10px", borderRadius: "var(--radius-full)", background: "rgba(248,113,133,0.1)", border: "1px solid rgba(248,113,133,0.3)", color: "var(--red)", cursor: "pointer", fontSize: 12 }}>
-                      🗑 Delete
-                    </button>
+                    <Button variant="ghost" size="sm" onClick={async () => { if (!confirm("Delete this post permanently?")) return; await api(`/api/admin/community/posts/${post.id}`, { method: "DELETE" }); fetchCommunityPosts(); showMsg("Post deleted"); }} className="bg-destructive/12 text-destructive">
+                      <Trash2 size={16} strokeWidth={2} /> Delete
+                    </Button>
                   </div>
-                </div>
+                </Card>
               ))}
-              {communityPosts.length === 0 && <p style={{ textAlign: "center", color: "var(--text-muted)", padding: 30, fontSize: 13 }}>No posts yet — click Refresh All above.</p>}
+              {communityPosts.length === 0 && <p className="py-8 text-center text-[13px] text-muted-foreground">No posts yet — click Refresh All above.</p>}
             </div>
           )}
 
           {/* ── CHALLENGES ── */}
           {communitySubTab === "challenges" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="flex flex-col gap-2.5">
               {communityChallenges.filter(c => !communitySearch || c.title?.toLowerCase().includes(communitySearch.toLowerCase())).map((ch: any) => {
                 const isActive = new Date(ch.end_date) >= new Date();
                 return (
-                  <div key={ch.id} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px 16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                          <span style={{ fontSize: 14, fontWeight: 700 }}>{ch.title}</span>
-                          <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", background: isActive ? "rgba(74,222,128,0.12)" : "rgba(148,163,184,0.12)", color: isActive ? "var(--green)" : "var(--text-muted)", border: `1px solid ${isActive ? "rgba(74,222,128,0.3)" : "var(--border)"}` }}>
-                            {isActive ? "🟢 Active" : "⚫ Ended"}
-                          </span>
+                  <Card key={ch.id} className="gap-0 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-2.5">
+                      <div className="flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <span className="text-[14px] font-semibold">{ch.title}</span>
+                          <Badge variant={isActive ? "success" : "muted"}>{isActive ? "🟢 Active" : "⚫ Ended"}</Badge>
                         </div>
-                        <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>{ch.description}</p>
-                        <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--text-muted)" }}>
+                        <p className="mb-1.5 text-[12px] text-muted-foreground">{ch.description}</p>
+                        <div className="flex flex-wrap gap-4 text-[12px] text-muted-foreground">
                           <span>👤 {ch.creator_name || "Unknown"}</span>
                           <span>👥 {ch.participant_count} participants</span>
                           <span>📅 {ch.start_date} → {ch.end_date}</span>
                         </div>
                       </div>
-                      <button onClick={async () => { if (!confirm("Delete this challenge?")) return; await api(`/api/admin/community/challenges/${ch.id}`, { method: "DELETE" }); setCommunityChallenges(prev => prev.filter(x => x.id !== ch.id)); showMsg("Challenge deleted"); }}
-                        style={{ padding: "6px 12px", borderRadius: "var(--radius-full)", background: "rgba(248,113,133,0.1)", border: "1px solid rgba(248,113,133,0.3)", color: "var(--red)", cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>
-                        🗑 Delete
-                      </button>
+                      <Button variant="ghost" size="sm" onClick={async () => { if (!confirm("Delete this challenge?")) return; await api(`/api/admin/community/challenges/${ch.id}`, { method: "DELETE" }); setCommunityChallenges(prev => prev.filter(x => x.id !== ch.id)); showMsg("Challenge deleted"); }} className="bg-destructive/12 text-destructive">
+                        <Trash2 size={16} strokeWidth={2} /> Delete
+                      </Button>
                     </div>
-                  </div>
+                  </Card>
                 );
               })}
-              {communityChallenges.length === 0 && <p style={{ textAlign: "center", color: "var(--text-muted)", padding: 30, fontSize: 13 }}>No challenges yet.</p>}
+              {communityChallenges.length === 0 && <p className="py-8 text-center text-[13px] text-muted-foreground">No challenges yet.</p>}
             </div>
           )}
 
           {/* ── COMMENTS ── */}
           {communitySubTab === "comments" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="flex flex-col gap-2">
               {communityComments.filter(c => !communitySearch || c.content?.toLowerCase().includes(communitySearch.toLowerCase()) || c.user_name?.toLowerCase().includes(communitySearch.toLowerCase())).map((c: any) => (
-                <div key={c.id} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <img src={c.user_avatar} alt="" style={{ width: 26, height: 26, borderRadius: "50%" }} />
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{c.user_name}</span>
-                        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{new Date(c.created_at).toLocaleDateString()}</span>
+                <Card key={c.id} className="gap-0 p-4">
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex-1">
+                      <div className="mb-1 flex items-center gap-2">
+                        <Avatar className="size-6.5 size-[26px]">
+                          <AvatarImage src={c.user_avatar} alt="" />
+                          <AvatarFallback>{(c.user_name || "U").slice(0, 1)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-[13px] font-semibold">{c.user_name}</span>
+                        <span className="text-[11px] text-muted-foreground">{new Date(c.created_at).toLocaleDateString()}</span>
                       </div>
-                      <p style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 4 }}>{c.content}</p>
-                      {c.post_preview && <p style={{ fontSize: 11, color: "var(--text-muted)" }}>On post: "{String(c.post_preview).slice(0, 60)}…"</p>}
+                      <p className="mb-1 text-[13px] leading-normal">{c.content}</p>
+                      {c.post_preview && <p className="text-[11px] text-muted-foreground">On post: "{String(c.post_preview).slice(0, 60)}…"</p>}
                     </div>
-                    <button onClick={async () => { if (!confirm("Delete this comment?")) return; await api(`/api/admin/community/comments/${c.id}`, { method: "DELETE" }); setCommunityComments(prev => prev.filter(x => x.id !== c.id)); showMsg("Comment deleted"); }}
-                      style={{ padding: "5px 10px", borderRadius: "var(--radius-full)", background: "rgba(248,113,133,0.1)", border: "1px solid rgba(248,113,133,0.3)", color: "var(--red)", cursor: "pointer", fontSize: 12, flexShrink: 0 }}>
-                      🗑
-                    </button>
+                    <Button variant="ghost" size="icon-sm" onClick={async () => { if (!confirm("Delete this comment?")) return; await api(`/api/admin/community/comments/${c.id}`, { method: "DELETE" }); setCommunityComments(prev => prev.filter(x => x.id !== c.id)); showMsg("Comment deleted"); }} aria-label="Delete comment" className="shrink-0 bg-destructive/12 text-destructive">
+                      <Trash2 size={16} strokeWidth={2} />
+                    </Button>
                   </div>
-                </div>
+                </Card>
               ))}
-              {communityComments.length === 0 && <p style={{ textAlign: "center", color: "var(--text-muted)", padding: 30, fontSize: 13 }}>No comments yet.</p>}
+              {communityComments.length === 0 && <p className="py-8 text-center text-[13px] text-muted-foreground">No comments yet.</p>}
             </div>
           )}
 
@@ -1353,19 +1434,21 @@ export default function AdminDashboard() {
       )}
 
 
-      {/* WEBSITE & CONFIG */}
+      {/* ═══════ WEBSITE & CONFIG ═══════════════════════════ */}
       {tab === "website" && (
         <WebsiteCMS token={token} showMsg={showMsg} />
       )}
 
-      {/* SUBSCRIPTIONS */}
+      {/* ═══════ SUBSCRIPTIONS ═══════════════════════════ */}
       {tab === "subscriptions" && (
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "20px 22px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{t("coach_subscriptions")}</p>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t("pending_count_label", { n: coachSubscriptions.filter(s => s.status === "pending" || s.status === "pending_admin").length })}</span>
-              <button
+        <Card className="gap-0 p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[15px] font-semibold">{t("coach_subscriptions")}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[12px] text-muted-foreground">{t("pending_count_label", { n: coachSubscriptions.filter(s => s.status === "pending" || s.status === "pending_admin").length })}</span>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={async () => {
                   try {
                     const r = await api("/api/payments/coach-subscriptions/approve-all", { method: "PATCH" });
@@ -1380,44 +1463,42 @@ export default function AdminDashboard() {
                     showMsg("❌ Failed to verify all subscriptions");
                   }
                 }}
-                style={{ padding: "7px 12px", borderRadius: "var(--radius-full)", border: "1px solid rgba(255,214,0,0.3)", background: "rgba(255,214,0,0.1)", color: "var(--accent)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}
+                className="bg-primary/15 text-primary"
               >
                 ✓ Verify All Payments
-              </button>
+              </Button>
             </div>
           </div>
           {coachSubscriptions.length === 0 ? (
-            <p style={{ textAlign: "center", color: "var(--text-muted)", padding: 30, fontSize: 13 }}>{t("no_coach_subscriptions")}</p>
+            <p className="py-8 text-center text-[13px] text-muted-foreground">{t("no_coach_subscriptions")}</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="flex flex-col gap-2.5">
               {coachSubscriptions.map((sub: any) => (
-                <div key={sub.id} style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "14px 16px" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                <div key={sub.id} className="rounded-md bg-muted p-4">
+                  <div className="mb-2.5 flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p style={{ fontSize: 13, fontWeight: 600 }}>{sub.user_name || "Unknown User"} → {sub.coach_name || "Unknown Coach"}</p>
-                      <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "rgba(59,130,246,0.1)", color: "var(--blue)", border: "1px solid rgba(59,130,246,0.2)" }}>
+                      <p className="text-[13px] font-semibold">{sub.user_name || "Unknown User"} → {sub.coach_name || "Unknown Coach"}</p>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        <Badge variant="accent">
                           {sub.plan_type === "workout" ? "💪 Workout" : sub.plan_type === "nutrition" ? "🥗 Nutrition" : "🏆 Complete"}
-                        </span>
-                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "rgba(255,214,0,0.08)", color: "var(--accent)", border: "1px solid rgba(255,214,0,0.2)" }}>
-                          {sub.plan_cycle} · {sub.amount} EGP
-                        </span>
+                        </Badge>
+                        <Badge variant="default">{sub.plan_cycle} · {sub.amount} EGP</Badge>
                       </div>
                     </div>
-                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: "var(--radius-full)", fontWeight: 600, background: sub.status === "active" ? "rgba(255,214,0,0.1)" : String(sub.status).includes("rejected") || sub.status === "refunded" ? "rgba(255,68,68,0.1)" : "rgba(255,179,64,0.1)", color: sub.status === "active" ? "var(--accent)" : String(sub.status).includes("rejected") || sub.status === "refunded" ? "var(--red)" : "var(--amber)", border: `1px solid ${sub.status === "active" ? "rgba(255,214,0,0.25)" : String(sub.status).includes("rejected") || sub.status === "refunded" ? "rgba(255,68,68,0.25)" : "rgba(255,179,64,0.25)"}` }}>
+                    <Badge variant={payStatusVariant(String(sub.status))} className="capitalize">
                       {String(sub.status || "").replace(/_/g, " ")}
-                    </span>
+                    </Badge>
                   </div>
                   {sub.payment_proof && (
-                    <div style={{ marginBottom: 10 }}>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>{t("payment_proof")}</p>
-                      <img src={sub.payment_proof.startsWith("http") ? sub.payment_proof : getApiBase() + `/uploads/${sub.payment_proof}`} alt="proof" style={{ maxHeight: 120, borderRadius: "var(--radius-full)", border: "1px solid var(--border)" }} />
+                    <div className="mb-2.5">
+                      <p className="mb-1 text-[11px] text-muted-foreground">{t("payment_proof")}</p>
+                      <img src={sub.payment_proof.startsWith("http") ? sub.payment_proof : getApiBase() + `/uploads/${sub.payment_proof}`} alt="proof" className="max-h-[120px] rounded-md" />
                     </div>
                   )}
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>{t("created_on")}: {new Date(sub.created_at).toLocaleDateString()}</p>
+                  <p className="mb-2 text-[11px] text-muted-foreground">{t("created_on")}: {new Date(sub.created_at).toLocaleDateString()}</p>
                   {(sub.status === "pending_admin" || sub.status === "pending") && (
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={async () => {
+                    <div className="flex gap-2">
+                      <Button size="sm" className="flex-1" onClick={async () => {
                         try {
                           const r = await api(`/api/payments/coach-subscriptions/${sub.id}/approve`, { method: "PATCH" });
                           if (r.ok) {
@@ -1425,10 +1506,10 @@ export default function AdminDashboard() {
                             showMsg(t("payment_verified_waiting_coach"));
                           }
                         } catch {}
-                      }} style={{ flex: 1, padding: "8px 14px", borderRadius: "var(--radius-full)", background: "var(--accent)", border: "none", color: "#000000", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-en)" }}>
+                      }}>
                         ✓ {t("verify_payment")}
-                      </button>
-                      <button onClick={async () => {
+                      </Button>
+                      <Button variant="destructive" size="sm" className="flex-1" onClick={async () => {
                         try {
                           const r = await api(`/api/payments/coach-subscriptions/${sub.id}/reject`, { method: "PATCH" });
                           if (r.ok) {
@@ -1436,54 +1517,54 @@ export default function AdminDashboard() {
                             showMsg(t("payment_rejected_refunded"));
                           }
                         } catch {}
-                      }} style={{ flex: 1, padding: "8px 14px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.1)", border: "1px solid var(--red)", color: "var(--red)", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                      }}>
                         ✗ {t("reject_refund")}
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Card>
       )}
 
-      {/* WITHDRAWALS */}
+      {/* ═══════ WITHDRAWALS ═══════════════════════════ */}
       {tab === "withdrawals" && (
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "20px 22px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{t("coach_withdrawal_requests")}</p>
-            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t("pending_count_label", { n: withdrawalRequests.filter(w => w.status === "pending").length })}</span>
+        <Card className="gap-0 p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[15px] font-semibold">{t("coach_withdrawal_requests")}</p>
+            <span className="text-[12px] text-muted-foreground">{t("pending_count_label", { n: withdrawalRequests.filter(w => w.status === "pending").length })}</span>
           </div>
           {withdrawalRequests.length === 0 ? (
-            <p style={{ textAlign: "center", color: "var(--text-muted)", padding: 30, fontSize: 13 }}>{t("no_withdrawal_requests")}</p>
+            <p className="py-8 text-center text-[13px] text-muted-foreground">{t("no_withdrawal_requests")}</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="flex flex-col gap-2.5">
               {withdrawalRequests.map((wd: any) => (
-                <div key={wd.id} style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "14px 16px" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                <div key={wd.id} className="rounded-md bg-muted p-4">
+                  <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p style={{ fontSize: 13, fontWeight: 600 }}>{wd.coach_name || `Coach #${wd.coach_id}`}</p>
-                      <p style={{ fontFamily: "var(--font-en)", fontSize: 20, fontWeight: 700, color: "var(--accent)", marginTop: 4 }}>{wd.amount} <span style={{ fontSize: 12, fontWeight: 400 }}>EGP</span></p>
+                      <p className="text-[13px] font-semibold">{wd.coach_name || `Coach #${wd.coach_id}`}</p>
+                      <p className="mt-1 text-[20px] font-bold tabular-nums text-primary">{wd.amount} <span className="text-[12px] font-normal">EGP</span></p>
                     </div>
-                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: "var(--radius-full)", fontWeight: 600, background: wd.status === "approved" ? "rgba(255,214,0,0.1)" : wd.status === "rejected" ? "rgba(255,68,68,0.1)" : "rgba(255,179,64,0.1)", color: wd.status === "approved" ? "var(--accent)" : wd.status === "rejected" ? "var(--red)" : "var(--amber)", border: `1px solid ${wd.status === "approved" ? "rgba(255,214,0,0.25)" : wd.status === "rejected" ? "rgba(255,68,68,0.25)" : "rgba(255,179,64,0.25)"}` }}>
+                    <Badge variant={payStatusVariant(String(wd.status))} className="capitalize">
                       {String(wd.status || "").replace(/_/g, " ")}
-                    </span>
+                    </Badge>
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 8 }}>
+                  <div className="mb-2 text-[12px] text-muted-foreground">
                     {(() => {
                       const mtype = wd.payment_method_type || "ewallet";
-                      if (mtype === "ewallet") return <p>📱 {wd.wallet_type ? wd.wallet_type.charAt(0).toUpperCase() + wd.wallet_type.slice(1) : "E-Wallet"}: <strong>{wd.payment_phone || "N/A"}</strong></p>;
-                      if (mtype === "paypal") return <p>🅿️ PayPal: <strong>{wd.paypal_email || "N/A"}</strong></p>;
-                      if (mtype === "credit_card") return <p>💳 Card: <strong>{wd.card_holder_name || "N/A"}</strong> — {wd.card_number || "N/A"}</p>;
-                      if (mtype === "instapay") return <p>⚡ InstaPay: <strong>{wd.instapay_handle || "N/A"}</strong></p>;
+                      if (mtype === "ewallet") return <p>📱 {wd.wallet_type ? wd.wallet_type.charAt(0).toUpperCase() + wd.wallet_type.slice(1) : "E-Wallet"}: <strong className="text-foreground">{wd.payment_phone || "N/A"}</strong></p>;
+                      if (mtype === "paypal") return <p>🅿️ PayPal: <strong className="text-foreground">{wd.paypal_email || "N/A"}</strong></p>;
+                      if (mtype === "credit_card") return <p>💳 Card: <strong className="text-foreground">{wd.card_holder_name || "N/A"}</strong> — {wd.card_number || "N/A"}</p>;
+                      if (mtype === "instapay") return <p>⚡ InstaPay: <strong className="text-foreground">{wd.instapay_handle || "N/A"}</strong></p>;
                       return <p>📱 {wd.wallet_type || "Vodafone"}: {wd.payment_phone || "N/A"}</p>;
                     })()}
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>{t("requested_on")}: {new Date(wd.created_at).toLocaleDateString()}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">{t("requested_on")}: {new Date(wd.created_at).toLocaleDateString()}</p>
                   </div>
                   {wd.status === "pending" && (
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={async () => {
+                    <div className="flex gap-2">
+                      <Button size="sm" className="flex-1" onClick={async () => {
                         try {
                           const r = await api(`/api/payments/withdrawals/${wd.id}/approve`, { method: "PATCH" });
                           if (r.ok) {
@@ -1491,10 +1572,10 @@ export default function AdminDashboard() {
                             showMsg(t("withdrawal_approved_pay_coach"));
                           }
                         } catch {}
-                      }} style={{ flex: 1, padding: "8px 14px", borderRadius: "var(--radius-full)", background: "var(--accent)", border: "none", color: "#000000", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-en)" }}>
+                      }}>
                         ✓ {t("approve_pay")}
-                      </button>
-                      <button onClick={async () => {
+                      </Button>
+                      <Button variant="destructive" size="sm" className="flex-1" onClick={async () => {
                         try {
                           const r = await api(`/api/payments/withdrawals/${wd.id}/reject`, { method: "PATCH" });
                           if (r.ok) {
@@ -1502,289 +1583,333 @@ export default function AdminDashboard() {
                             showMsg(t("withdrawal_rejected_refunded"));
                           }
                         } catch {}
-                      }} style={{ flex: 1, padding: "8px 14px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.1)", border: "1px solid var(--red)", color: "var(--red)", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                      }}>
                         ✗ {t("reject_refund")}
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Card>
       )}
 
+      {/* ═══════ CHAT (moved) ═══════════════════════════ */}
       {tab === "chat" && (
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 32, textAlign: "center" }}>
-          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Chat moved</p>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+        <Card className="p-8 text-center">
+          <p className="mb-2 text-[15px] font-semibold">Chat moved</p>
+          <p className="text-[13px] text-muted-foreground">
             1:1 chat was removed. Read & post in groups from{" "}
-            <a href="/admin/chat" style={{ color: "var(--main)" }}>Admin → Chat</a>. Direct contact lives in{" "}
-            <a href="/admin/tickets" style={{ color: "var(--main)" }}>Tickets</a>.
+            <a href="/admin/chat" className="font-semibold text-primary hover:underline">Admin → Chat</a>. Direct contact lives in{" "}
+            <a href="/admin/tickets" className="font-semibold text-primary hover:underline">Tickets</a>.
           </p>
-        </div>
+        </Card>
       )}
 
-      {/* Gift Modal */}
-      {showUserEditModal && (() => {
+      {/* ═══════ USER EDIT MODAL ═══════════════════════════ */}
+      {(() => {
         // Coaches don't track steps, weight/height, or have a medical file —
         // those are athlete-only fields. Hide them so the coach edit form is
         // focused on what an admin actually needs to manage for a coach.
         const isCoachRow = userEditForm.role === "coach";
         return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1100, backgroundColor: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 24, width: "100%", maxWidth: 760, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <p style={{ fontFamily: "var(--font-en)", fontSize: 17, fontWeight: 700 }}>Edit {isCoachRow ? "Coach" : userEditForm.role === "admin" ? "Admin" : userEditForm.role === "moderator" ? "Moderator" : "User"}</p>
-              <button onClick={() => setShowUserEditModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}><X size={20} /></button>
-            </div>
+        <Dialog open={showUserEditModal} onOpenChange={setShowUserEditModal}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[760px]">
+            <DialogHeader>
+              <DialogTitle>Edit {isCoachRow ? "Coach" : userEditForm.role === "admin" ? "Admin" : userEditForm.role === "moderator" ? "Moderator" : "User"}</DialogTitle>
+            </DialogHeader>
 
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>ID</label><input className="input-base" type="number" value={userEditForm.id} onChange={e => setUserEditForm((f: any) => ({ ...f, id: e.target.value }))} /></div>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Name</label><input className="input-base" value={userEditForm.name} onChange={e => setUserEditForm((f: any) => ({ ...f, name: e.target.value }))} /></div>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Email</label><input className="input-base" type="email" value={userEditForm.email} onChange={e => setUserEditForm((f: any) => ({ ...f, email: e.target.value }))} /></div>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Password (leave blank to keep)</label><input className="input-base" type="password" value={userEditForm.password} onChange={e => setUserEditForm((f: any) => ({ ...f, password: e.target.value }))} /></div>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Role</label><select className="input-base" value={userEditForm.role} onChange={e => setUserEditForm((f: any) => ({ ...f, role: e.target.value }))}><option value="user">User</option><option value="coach">Coach</option><option value="moderator">Moderator</option><option value="admin">Admin</option></select></div>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Avatar URL</label><input className="input-base" value={userEditForm.avatar} onChange={e => setUserEditForm((f: any) => ({ ...f, avatar: e.target.value }))} /></div>
-              <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Gender</label><input className="input-base" value={userEditForm.gender} onChange={e => setUserEditForm((f: any) => ({ ...f, gender: e.target.value }))} /></div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">ID</Label><Input type="number" value={userEditForm.id} onChange={e => setUserEditForm((f: any) => ({ ...f, id: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Name</Label><Input value={userEditForm.name} onChange={e => setUserEditForm((f: any) => ({ ...f, name: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Email</Label><Input type="email" value={userEditForm.email} onChange={e => setUserEditForm((f: any) => ({ ...f, email: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Password (leave blank to keep)</Label><Input type="password" value={userEditForm.password} onChange={e => setUserEditForm((f: any) => ({ ...f, password: e.target.value }))} /></div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-muted-foreground">Role</Label>
+                <Select value={userEditForm.role} onValueChange={v => setUserEditForm((f: any) => ({ ...f, role: v }))}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="coach">Coach</SelectItem>
+                    <SelectItem value="moderator">Moderator</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Avatar URL</Label><Input value={userEditForm.avatar} onChange={e => setUserEditForm((f: any) => ({ ...f, avatar: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Gender</Label><Input value={userEditForm.gender} onChange={e => setUserEditForm((f: any) => ({ ...f, gender: e.target.value }))} /></div>
               {!isCoachRow && <>
-                <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Points</label><input className="input-base" type="number" value={userEditForm.points} onChange={e => setUserEditForm((f: any) => ({ ...f, points: e.target.value }))} /></div>
-                <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Steps</label><input className="input-base" type="number" value={userEditForm.steps} onChange={e => setUserEditForm((f: any) => ({ ...f, steps: e.target.value }))} /></div>
-                <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Step Goal</label><input className="input-base" type="number" value={userEditForm.step_goal} onChange={e => setUserEditForm((f: any) => ({ ...f, step_goal: e.target.value }))} /></div>
-                <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Height</label><input className="input-base" type="number" value={userEditForm.height} onChange={e => setUserEditForm((f: any) => ({ ...f, height: e.target.value }))} /></div>
-                <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Weight</label><input className="input-base" type="number" value={userEditForm.weight} onChange={e => setUserEditForm((f: any) => ({ ...f, weight: e.target.value }))} /></div>
+                <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Points</Label><Input type="number" value={userEditForm.points} onChange={e => setUserEditForm((f: any) => ({ ...f, points: e.target.value }))} /></div>
+                <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Steps</Label><Input type="number" value={userEditForm.steps} onChange={e => setUserEditForm((f: any) => ({ ...f, steps: e.target.value }))} /></div>
+                <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Step Goal</Label><Input type="number" value={userEditForm.step_goal} onChange={e => setUserEditForm((f: any) => ({ ...f, step_goal: e.target.value }))} /></div>
+                <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Height</Label><Input type="number" value={userEditForm.height} onChange={e => setUserEditForm((f: any) => ({ ...f, height: e.target.value }))} /></div>
+                <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Weight</Label><Input type="number" value={userEditForm.weight} onChange={e => setUserEditForm((f: any) => ({ ...f, weight: e.target.value }))} /></div>
               </>}
             </div>
 
             {!isCoachRow && <>
-              <div style={{ marginTop: 12 }}>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Medical History</label>
-                <textarea className="input-base" rows={3} value={userEditForm.medical_history} onChange={e => setUserEditForm((f: any) => ({ ...f, medical_history: e.target.value }))} style={{ resize: "vertical" }} />
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-muted-foreground">Medical History</Label>
+                <Textarea rows={3} value={userEditForm.medical_history} onChange={e => setUserEditForm((f: any) => ({ ...f, medical_history: e.target.value }))} />
               </div>
 
-              <div style={{ marginTop: 10 }}>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Medical File URL</label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <input className="input-base" value={userEditForm.medical_file_url} onChange={e => setUserEditForm((f: any) => ({ ...f, medical_file_url: e.target.value }))} style={{ flex: 1, minWidth: 220 }} />
-                  <label style={{ padding: "10px 12px", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", background: "var(--bg-surface)", cursor: medicalUploading ? "not-allowed" : "pointer", color: "var(--text-secondary)", fontSize: 12, whiteSpace: "nowrap" }}>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-muted-foreground">Medical File URL</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Input value={userEditForm.medical_file_url} onChange={e => setUserEditForm((f: any) => ({ ...f, medical_file_url: e.target.value }))} className="min-w-[220px] flex-1" />
+                  <label className="inline-flex h-11 items-center rounded-md bg-muted px-3 text-[12px] whitespace-nowrap text-muted-foreground ring-1 ring-inset ring-border" style={{ cursor: medicalUploading ? "not-allowed" : "pointer" }}>
                     {medicalUploading ? "Uploading..." : "Upload Medical File"}
                     <input type="file" hidden accept="image/*" disabled={medicalUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadMedicalForUser(f); }} />
                   </label>
                 </div>
-                <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>JPG, PNG — max 5 MB</p>
+                <p className="text-[10px] text-muted-foreground">JPG, PNG — max 5 MB</p>
               </div>
             </>}
 
-            <div style={{ display: "flex", gap: 14, marginTop: 14, flexWrap: "wrap" }}>
+            <div className="flex flex-wrap gap-4">
               {!isCoachRow && (
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}><input type="checkbox" checked={!!userEditForm.membership_paid} onChange={e => setUserEditForm((f: any) => ({ ...f, membership_paid: e.target.checked }))} /> Membership Paid</label>
+                <div className="flex items-center gap-2">
+                  <Switch checked={!!userEditForm.membership_paid} onCheckedChange={v => setUserEditForm((f: any) => ({ ...f, membership_paid: v }))} id="membership_paid" />
+                  <Label htmlFor="membership_paid" className="text-[13px]">Membership Paid</Label>
+                </div>
               )}
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}><input type="checkbox" checked={!!userEditForm.coach_membership_active} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_membership_active: e.target.checked }))} /> {t("coach_membership")} {t("active")}</label>
+              <div className="flex items-center gap-2">
+                <Switch checked={!!userEditForm.coach_membership_active} onCheckedChange={v => setUserEditForm((f: any) => ({ ...f, coach_membership_active: v }))} id="coach_membership_active" />
+                <Label htmlFor="coach_membership_active" className="text-[13px]">{t("coach_membership")} {t("active")}</Label>
+              </div>
             </div>
 
             {isCoachRow && (
-              <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px dashed var(--border)" }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12 }}>Coach profile</p>
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-                  <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Specialty</label><input className="input-base" value={userEditForm.coach_specialty} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_specialty: e.target.value }))} placeholder="e.g. Strength Training" /></div>
-                  <div><label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Location</label><input className="input-base" value={userEditForm.coach_location} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_location: e.target.value }))} placeholder="e.g. Cairo" /></div>
+              <div className="space-y-3 pt-4">
+                <Separator />
+                <p className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground">Coach profile</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Specialty</Label><Input value={userEditForm.coach_specialty} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_specialty: e.target.value }))} placeholder="e.g. Strength Training" /></div>
+                  <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Location</Label><Input value={userEditForm.coach_location} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_location: e.target.value }))} placeholder="e.g. Cairo" /></div>
                 </div>
-                <div style={{ marginTop: 12 }}>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Bio</label>
-                  <textarea className="input-base" rows={3} value={userEditForm.coach_bio} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_bio: e.target.value }))} placeholder="Short bio shown on the coach's profile" style={{ resize: "vertical" }} />
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-muted-foreground">Bio</Label>
+                  <Textarea rows={3} value={userEditForm.coach_bio} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_bio: e.target.value }))} placeholder="Short bio shown on the coach's profile" />
                 </div>
-                <div style={{ display: "flex", gap: 14, marginTop: 12, flexWrap: "wrap" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}><input type="checkbox" checked={!!userEditForm.coach_available} onChange={e => setUserEditForm((f: any) => ({ ...f, coach_available: e.target.checked }))} /> Available for clients</label>
-                  <span style={{ fontSize: 13, color: userEditForm.coach_certified ? "var(--green)" : "var(--text-muted)" }}>{userEditForm.coach_certified ? "✓ Certified" : "Not certified"}</span>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={!!userEditForm.coach_available} onCheckedChange={v => setUserEditForm((f: any) => ({ ...f, coach_available: v }))} id="coach_available" />
+                    <Label htmlFor="coach_available" className="text-[13px]">Available for clients</Label>
+                  </div>
+                  <span className="text-[13px]" style={{ color: userEditForm.coach_certified ? "var(--green)" : "var(--muted-foreground)" }}>{userEditForm.coach_certified ? "✓ Certified" : "Not certified"}</span>
                 </div>
-                <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10, lineHeight: 1.5 }}>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
                   Subscription prices are set globally on the Settings page. Certification is managed from the Certifications page.
                 </p>
               </div>
             )}
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
-              <button onClick={() => setShowUserEditModal(false)} style={{ padding: "10px 14px", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-secondary)", cursor: "pointer" }}>Cancel</button>
-              <button onClick={saveUserEdit} disabled={userEditSaving} style={{ padding: "10px 14px", borderRadius: "var(--radius-full)", border: "none", background: userEditSaving ? "var(--bg-surface)" : "var(--accent)", color: userEditSaving ? "var(--text-muted)" : "#000000", cursor: userEditSaving ? "not-allowed" : "pointer", fontFamily: "var(--font-en)", fontWeight: 700 }}>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowUserEditModal(false)}>Cancel</Button>
+              <Button onClick={saveUserEdit} disabled={userEditSaving}>
                 {userEditSaving ? "Saving..." : "Save User"}
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         );
       })()}
 
-      {/* Gift Modal */}
-      {showGiftModal && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1000, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 28, width: "100%", maxWidth: 440 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-              <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700 }}>🎁 Send Gift</p>
-              <button onClick={() => setShowGiftModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}><X size={20} /></button>
+      {/* ═══════ GIFT MODAL ═══════════════════════════ */}
+      <Dialog open={showGiftModal} onOpenChange={setShowGiftModal}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>🎁 Send Gift</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Recipient</Label>
+              <Select value={String(giftForm.user_id)} onValueChange={v => setGiftForm(f => ({ ...f, user_id: Number(v) }))}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Select user..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Select user...</SelectItem>
+                  {users.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.name} ({u.email})</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Recipient</label>
-                <select className="input-base" value={giftForm.user_id} onChange={e => setGiftForm(f => ({ ...f, user_id: Number(e.target.value) }))}>
-                  <option value={0}>Select user...</option>
-                  {users.map(u => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Gift Title</label>
-                <input className="input-base" value={giftForm.title} onChange={e => setGiftForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Welcome Bonus" />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>{t("table_type")}</label>
-                  <select className="input-base" value={giftForm.type} onChange={e => setGiftForm(f => ({ ...f, type: e.target.value }))}>
-                    <option value="points">Points</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Value</label>
-                  <input className="input-base" type="number" value={giftForm.value} onChange={e => setGiftForm(f => ({ ...f, value: Number(e.target.value) }))} min={0} />
-                </div>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Message (optional)</label>
-                <textarea className="input-base" value={giftForm.description} onChange={e => setGiftForm(f => ({ ...f, description: e.target.value }))} placeholder="Personal message..." rows={2} style={{ resize: "none" }} />
-              </div>
-              <button onClick={sendGift} style={{ padding: "12px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent)", color: "#000000", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                <Gift size={15} /> Send Gift
-              </button>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Gift Title</Label>
+              <Input value={giftForm.title} onChange={e => setGiftForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Welcome Bonus" />
             </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{t("table_type")}</Label>
+                <Select value={giftForm.type} onValueChange={v => setGiftForm(f => ({ ...f, type: v }))}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="points">Points</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Value</Label>
+                <Input type="number" value={giftForm.value} onChange={e => setGiftForm(f => ({ ...f, value: Number(e.target.value) }))} min={0} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Message (optional)</Label>
+              <Textarea value={giftForm.description} onChange={e => setGiftForm(f => ({ ...f, description: e.target.value }))} placeholder="Personal message..." rows={2} className="resize-none" />
+            </div>
+            <Button onClick={sendGift} className="w-full">
+              <Gift size={16} strokeWidth={2} /> Send Gift
+            </Button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
-      {/* Video Modal */}
-      {showVideoModal && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1000, backgroundColor: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 28, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-              <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700 }}>🎬 Upload Training Video</p>
-              <button onClick={() => setShowVideoModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}><X size={20} /></button>
+      {/* ═══════ VIDEO MODAL ═══════════════════════════ */}
+      <Dialog open={showVideoModal} onOpenChange={setShowVideoModal}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>🎬 Upload Training Video</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3.5">
+
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Title *</Label>
+              <Input value={videoForm.title} onChange={e => setVideoForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Full Body HIIT Blast" />
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-              <div>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Title *</label>
-                <input className="input-base" value={videoForm.title} onChange={e => setVideoForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Full Body HIIT Blast" />
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Training *</Label>
+              <Select value={videoForm.training_id || "none"} onValueChange={v => setVideoForm(f => ({ ...f, training_id: v === "none" ? "" : v }))}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="— Select training —" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Select training —</SelectItem>
+                  {trainings.map(tr => <SelectItem key={tr.id} value={String(tr.id)}>{tr.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-1.5">
+                <Input value={newTrainingTitle} onChange={e => setNewTrainingTitle(e.target.value)} placeholder="Or create a new training…" className="h-9 flex-1 text-[12px]" />
+                <Button size="sm" onClick={createInlineTraining} disabled={!newTrainingTitle.trim()}>+ Add</Button>
               </div>
-
-              <div>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Training *</label>
-                <select className="input-base" value={videoForm.training_id} onChange={e => setVideoForm(f => ({ ...f, training_id: e.target.value }))}>
-                  <option value="">— Select training —</option>
-                  {trainings.map(tr => <option key={tr.id} value={String(tr.id)}>{tr.title}</option>)}
-                </select>
-                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                  <input className="input-base" value={newTrainingTitle} onChange={e => setNewTrainingTitle(e.target.value)} placeholder="Or create a new training…" style={{ flex: 1, fontSize: 12 }} />
-                  <button onClick={createInlineTraining} disabled={!newTrainingTitle.trim()} style={{ padding: "8px 12px", borderRadius: "var(--radius-full)", background: newTrainingTitle.trim() ? "var(--accent)" : "var(--bg-surface)", border: "none", color: newTrainingTitle.trim() ? "#000" : "var(--text-muted)", cursor: newTrainingTitle.trim() ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 700 }}>+ Add</button>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Video File * (.mp4, .mov, .webm — max 50MB)</label>
-                <div style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius-full)", padding: "18px 14px", textAlign: "center", cursor: "pointer", backgroundColor: videoFile ? "rgba(16,185,129,0.07)" : "var(--bg-surface)" }}
-                  onClick={() => document.getElementById("videoFileInput")?.click()}>
-                  {videoFile ? (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-                      <Play size={18} color="var(--accent)" />
-                      <span style={{ fontSize: 13, color: "var(--accent)", fontWeight: 600 }}>{videoFile.name}</span>
-                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>({(videoFile.size / 1024 / 1024).toFixed(1)} MB{videoForm.duration ? ` · ${videoForm.duration}` : ""})</span>
-                    </div>
-                  ) : (
-                    <div>
-                      <Play size={28} color="var(--text-muted)" style={{ marginBottom: 6 }} />
-                      <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Click to select video file</p>
-                      <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>MP4 or MOV — max 50 MB · duration auto-detected</p>
-                    </div>
-                  )}
-                </div>
-                <input id="videoFileInput" type="file" accept="video/*" style={{ display: "none" }} onChange={e => handleVideoFilePicked(e.target.files?.[0] || null)} />
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Thumbnail Image (optional)</label>
-                <div style={{ border: "1px dashed var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px", textAlign: "center", cursor: "pointer", backgroundColor: "var(--bg-surface)" }}
-                  onClick={() => document.getElementById("thumbFileInput")?.click()}>
-                  {thumbnailFile ? <span style={{ fontSize: 13, color: "var(--accent)" }}>✅ {thumbnailFile.name}</span>
-                    : <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Click to select thumbnail</span>}
-                </div>
-                <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>JPG or PNG — recommended 1280×720px (16:9)</p>
-                <input id="thumbFileInput" type="file" accept="image/*" style={{ display: "none" }} onChange={e => setThumbnailFile(e.target.files?.[0] || null)} />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Description</label>
-                <textarea className="input-base" value={videoForm.description} onChange={e => setVideoForm(f => ({ ...f, description: e.target.value }))} rows={2} style={{ resize: "none" }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Category</label>
-                <select className="input-base" value={videoForm.category} onChange={e => setVideoForm(f => ({ ...f, category: e.target.value }))}>
-                  {["HIIT", "Strength", "Yoga", "Cardio", "Nutrition", "General"].map(c => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Goal</label>
-                  <select className="input-base" value={videoForm.goal} onChange={e => setVideoForm(f => ({ ...f, goal: e.target.value }))}>
-                    <option value="">— Any —</option>
-                    <option value="fat_loss">Fat loss</option>
-                    <option value="muscle_gain">Muscle gain</option>
-                    <option value="mobility">Mobility</option>
-                    <option value="endurance">Endurance</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Body Area</label>
-                  <select className="input-base" value={videoForm.body_area} onChange={e => setVideoForm(f => ({ ...f, body_area: e.target.value }))}>
-                    <option value="">— Any —</option>
-                    <option value="full_body">Full body</option>
-                    <option value="legs">Legs</option>
-                    <option value="core">Core</option>
-                    <option value="upper_body">Upper body</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Equipment</label>
-                  <select className="input-base" value={videoForm.equipment} onChange={e => setVideoForm(f => ({ ...f, equipment: e.target.value }))}>
-                    <option value="">— Any —</option>
-                    <option value="none">No equipment</option>
-                    <option value="dumbbells">Dumbbells</option>
-                    <option value="bands">Bands</option>
-                    <option value="gym">Gym</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>Level</label>
-                  <select className="input-base" value={videoForm.level} onChange={e => setVideoForm(f => ({ ...f, level: e.target.value }))}>
-                    <option value="">— Any —</option>
-                    <option value="beginner">Beginner</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 20 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
-                  <input type="checkbox" checked={videoForm.is_short} onChange={e => setVideoForm(f => ({ ...f, is_short: e.target.checked }))} style={{ width: 16, height: 16, accentColor: "var(--accent)" }} />
-                  <span style={{ color: "var(--text-secondary)" }}>Shorty (&lt; 2 min)</span>
-                </label>
-              </div>
-              {videoUploadProgress && (
-                <div style={{ padding: "10px 14px", borderRadius: "var(--radius-full)", backgroundColor: "rgba(16,185,129,0.1)", border: "1px solid var(--accent)", textAlign: "center", fontSize: 13, color: "var(--accent)" }}>
-                  ⏳ {videoUploadProgress}
-                </div>
-              )}
-              <button onClick={addVideo} disabled={!!videoUploadProgress} style={{ padding: "13px", borderRadius: "var(--radius-full)", backgroundColor: videoUploadProgress ? "var(--bg-surface)" : "var(--red)", color: videoUploadProgress ? "var(--text-muted)" : "#fff", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, border: "none", cursor: videoUploadProgress ? "not-allowed" : "pointer" }}>
-                {videoUploadProgress ? "Saving..." : "Upload Video"}
-              </button>
             </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Video File * (.mp4, .mov, .webm — max 50MB)</Label>
+              <div
+                className="cursor-pointer rounded-md p-[18px] text-center ring-1 ring-inset ring-border"
+                style={{ backgroundColor: videoFile ? "color-mix(in srgb, var(--green) 8%, var(--muted))" : "var(--muted)" }}
+                onClick={() => document.getElementById("videoFileInput")?.click()}
+              >
+                {videoFile ? (
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Play size={18} strokeWidth={2} className="text-[var(--green)]" />
+                    <span className="text-[13px] font-semibold text-[var(--green)]">{videoFile.name}</span>
+                    <span className="text-[11px] text-muted-foreground">({(videoFile.size / 1024 / 1024).toFixed(1)} MB{videoForm.duration ? ` · ${videoForm.duration}` : ""})</span>
+                  </div>
+                ) : (
+                  <div>
+                    <Play size={28} strokeWidth={2} className="mx-auto mb-1.5 text-muted-foreground" />
+                    <p className="text-[13px] text-muted-foreground">Click to select video file</p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">MP4 or MOV — max 50 MB · duration auto-detected</p>
+                  </div>
+                )}
+              </div>
+              <input id="videoFileInput" type="file" accept="video/*" className="hidden" onChange={e => handleVideoFilePicked(e.target.files?.[0] || null)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Thumbnail Image (optional)</Label>
+              <div
+                className="cursor-pointer rounded-md bg-muted p-3 text-center ring-1 ring-inset ring-border"
+                onClick={() => document.getElementById("thumbFileInput")?.click()}
+              >
+                {thumbnailFile ? <span className="text-[13px] text-[var(--green)]">✅ {thumbnailFile.name}</span>
+                  : <span className="text-[12px] text-muted-foreground">Click to select thumbnail</span>}
+              </div>
+              <p className="text-[10px] text-muted-foreground">JPG or PNG — recommended 1280×720px (16:9)</p>
+              <input id="thumbFileInput" type="file" accept="image/*" className="hidden" onChange={e => setThumbnailFile(e.target.files?.[0] || null)} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Description</Label>
+              <Textarea value={videoForm.description} onChange={e => setVideoForm(f => ({ ...f, description: e.target.value }))} rows={2} className="resize-none" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Category</Label>
+              <Select value={videoForm.category} onValueChange={v => setVideoForm(f => ({ ...f, category: v }))}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["HIIT", "Strength", "Yoga", "Cardio", "Nutrition", "General"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Goal</Label>
+                <Select value={videoForm.goal || "any"} onValueChange={v => setVideoForm(f => ({ ...f, goal: v === "any" ? "" : v }))}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="— Any —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">— Any —</SelectItem>
+                    <SelectItem value="fat_loss">Fat loss</SelectItem>
+                    <SelectItem value="muscle_gain">Muscle gain</SelectItem>
+                    <SelectItem value="mobility">Mobility</SelectItem>
+                    <SelectItem value="endurance">Endurance</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Body Area</Label>
+                <Select value={videoForm.body_area || "any"} onValueChange={v => setVideoForm(f => ({ ...f, body_area: v === "any" ? "" : v }))}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="— Any —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">— Any —</SelectItem>
+                    <SelectItem value="full_body">Full body</SelectItem>
+                    <SelectItem value="legs">Legs</SelectItem>
+                    <SelectItem value="core">Core</SelectItem>
+                    <SelectItem value="upper_body">Upper body</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Equipment</Label>
+                <Select value={videoForm.equipment || "any"} onValueChange={v => setVideoForm(f => ({ ...f, equipment: v === "any" ? "" : v }))}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="— Any —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">— Any —</SelectItem>
+                    <SelectItem value="none">No equipment</SelectItem>
+                    <SelectItem value="dumbbells">Dumbbells</SelectItem>
+                    <SelectItem value="bands">Bands</SelectItem>
+                    <SelectItem value="gym">Gym</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Level</Label>
+                <Select value={videoForm.level || "any"} onValueChange={v => setVideoForm(f => ({ ...f, level: v === "any" ? "" : v }))}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="— Any —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">— Any —</SelectItem>
+                    <SelectItem value="beginner">Beginner</SelectItem>
+                    <SelectItem value="intermediate">Intermediate</SelectItem>
+                    <SelectItem value="advanced">Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex gap-5">
+              <div className="flex items-center gap-2.5">
+                <Switch checked={videoForm.is_short} onCheckedChange={v => setVideoForm(f => ({ ...f, is_short: v }))} id="is_short" />
+                <Label htmlFor="is_short" className="text-[14px] text-muted-foreground">Shorty (&lt; 2 min)</Label>
+              </div>
+            </div>
+            {videoUploadProgress && (
+              <div className="rounded-md bg-[color-mix(in_srgb,var(--green)_10%,transparent)] px-3.5 py-2.5 text-center text-[13px] text-[var(--green)]">
+                ⏳ {videoUploadProgress}
+              </div>
+            )}
+            <Button variant="destructive" onClick={addVideo} disabled={!!videoUploadProgress} className="h-12">
+              {videoUploadProgress ? "Saving..." : "Upload Video"}
+            </Button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,12 +1,17 @@
 import { getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
-import { Users, TrendingUp, Activity, CheckCircle, Clock, DollarSign, Star, MessageSquare, ClipboardList, BookOpen, ArrowRight } from "lucide-react";
+import { Users, TrendingUp, Star, ClipboardList, BookOpen, ArrowRight, DollarSign, Heart, MessageSquare } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { Link } from "react-router-dom";
 import { fetchPublicBlogs, resolveMediaUrl, type BlogPost } from "@/lib/blogs";
-import { getAvatar } from "@/lib/avatar";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 
 interface CoachStats {
   athletes: number;
@@ -73,11 +78,23 @@ interface HomeFeed {
   recentTransactions: HomeTransaction[];
 }
 
+/* Section header with optional "see all" link. */
+function SectionHeader({ title, linkTo, viewAll }: { title: string; linkTo?: string; viewAll?: string }) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
+      {linkTo && (
+        <Link to={linkTo} className="inline-flex shrink-0 items-center gap-0.5 text-[13px] font-semibold text-primary transition-opacity hover:opacity-75">
+          {viewAll} <ArrowRight size={14} strokeWidth={2} />
+        </Link>
+      )}
+    </div>
+  );
+}
+
 export default function CoachHome() {
   const { user, token } = useAuth();
   const { t, lang } = useI18n();
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
-  useEffect(() => { const h = () => setIsMobile(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
   const [stats, setStats] = useState<CoachStats | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,324 +172,297 @@ export default function CoachHome() {
 
   const getActivityIcon = (item: ActivityItem) => {
     if (item.type === "booking") return { icon: ClipboardList, color: "var(--amber)", text: item.status === "pending" ? t("new_coaching_request_from").replace("{name}", item.actor_name) : t("booking_status_for").replace("{status}", item.status || "").replace("{name}", item.actor_name) };
-    if (item.type === "message") return { icon: MessageSquare, color: "var(--blue)", text: t("sent_you_message").replace("{name}", item.actor_name) };
+    if (item.type === "message") return { icon: MessageSquare, color: "var(--secondary)", text: t("sent_you_message").replace("{name}", item.actor_name) };
     if (item.type === "review") return { icon: Star, color: "var(--amber)", text: t("new_review_from").replace("{rating}", String(item.rating || 0)).replace("{name}", item.actor_name) };
-    return { icon: CheckCircle, color: "var(--accent)", text: t("activity") };
+    return { icon: TrendingUp, color: "var(--green)", text: t("activity") };
   };
+
+  const statusColor = (status?: string) =>
+    status === "active" ? "text-[var(--green)]" : status?.includes("reject") ? "text-destructive" : "text-[var(--amber)]";
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "50vh", color: "var(--text-muted)", fontSize: 14 }}>
-        {t("loading_dashboard")}
+      <div className="mx-auto w-full max-w-[880px] px-4 pb-4">
+        <div className="space-y-6 pt-1">
+          <Skeleton className="h-12 w-64 rounded-md" />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+          </div>
+          <Skeleton className="h-48 rounded-lg" />
+        </div>
       </div>
     );
   }
 
+  const statCards = [
+    { label: t("my_athletes"), value: stats?.athletes ?? 0, icon: Users, link: "/coach/athletes" },
+    { label: t("pending_requests"), value: stats?.pendingRequests ?? 0, icon: ClipboardList, link: "/coach/requests" },
+    { label: t("monthly_revenue"), value: `${(stats?.monthlyRevenue ?? 0).toFixed(0)} ${t('currency_egp')}`, icon: DollarSign, link: "/coach/ads" },
+    { label: t("avg_rating"), value: `${stats?.avgRating ?? "—"}★`, icon: Star, link: "/coach/profile" },
+    { label: t("completion_rate"), value: `${stats?.completionRate ?? 0}%`, icon: TrendingUp, link: "/coach/athletes" },
+  ];
+
+  const weeklyTotal = (stats?.weekly || []).reduce((sum, d) => sum + (Number(d.revenue) || 0), 0);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 style={{ fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", fontSize: "clamp(28px,5vw,44px)", fontWeight: 300, letterSpacing: "-0.02em", lineHeight: 1.0, textTransform: "uppercase" }}>
-            {t("welcome_back_name").replace("{name}", user?.name?.split(" ")[0] || "")}
-          </h1>
-          <p style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 11, color: "var(--text-muted)", marginTop: 6, letterSpacing: "0.18em", textTransform: "uppercase" }}>— {t("coach_overview_week")}</p>
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <Link to="/coach/requests" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: "var(--radius-full)", backgroundColor: "var(--main)", color: "#0a0a0a", fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontWeight: 600, fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", textDecoration: "none" }}>
-            <ClipboardList size={13} /> {t("requests")}
-            {(stats?.pendingRequests || 0) > 0 && (
-              <span style={{ minWidth: 18, height: 18, padding: "0 5px", borderRadius: "var(--radius-full)", backgroundColor: "#0a0a0a", color: "var(--main)", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{stats?.pendingRequests}</span>
-            )}
-          </Link>
-          <Link to="/coach/profile" style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 18px", borderRadius: "var(--radius-full)", backgroundColor: "transparent", border: "1px solid var(--border)", color: "var(--text-primary)", fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontWeight: 600, fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", textDecoration: "none" }}>
-            {t("view_profile")}
-          </Link>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-[880px] px-4 pb-4">
+      <div className="space-y-6">
 
-      {/* Stats Row */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
-        {[
-          { label: t("my_athletes"), value: stats?.athletes ?? 0, icon: Users, color: "var(--blue)", link: "/coach/athletes" },
-          { label: t("pending_requests"), value: stats?.pendingRequests ?? 0, icon: ClipboardList, color: "var(--amber)", link: "/coach/requests" },
-          { label: t("monthly_revenue"), value: `${(stats?.monthlyRevenue ?? 0).toFixed(0)} ${t('currency_egp')}`, icon: DollarSign, color: "var(--cyan)", link: "/coach/ads" },
-          { label: t("avg_rating"), value: `${stats?.avgRating ?? "—"}★`, icon: Star, color: "var(--amber)", link: "/coach/profile" },
-          { label: t("completion_rate"), value: `${stats?.completionRate ?? 0}%`, icon: TrendingUp, color: "var(--accent)", link: "/coach/athletes" },
-        ].map((s) => (
-          <Link key={s.label} to={s.link} style={{ textDecoration: "none", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 18, display: "block" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <p style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.2em" }}>{s.label}</p>
-              <s.icon size={14} color="var(--main)" />
-            </div>
-            <p style={{ fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", fontSize: 32, fontWeight: 300, letterSpacing: "-0.02em", lineHeight: 1.0, color: "var(--text-primary)" }}>{s.value}</p>
-          </Link>
-        ))}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))", gap: 12 }}>
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "18px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <p style={{ fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", fontSize: 18, fontWeight: 300, letterSpacing: "-0.01em", textTransform: "uppercase" }}>{t("my_athletes")}</p>
-            <Link to="/coach/athletes" style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 10, color: "var(--main)", textDecoration: "none", fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase" }}>{t("view_all")}</Link>
+        {/* ═══════ HEADER ═══════════════════════════ */}
+        <header className="flex flex-wrap items-end justify-between gap-3 pt-1">
+          <div className="min-w-0">
+            <h1 className="text-[28px] leading-tight font-bold tracking-tight">
+              {t("welcome_back_name").replace("{name}", user?.name?.split(" ")[0] || "")}
+            </h1>
+            <p className="mt-1 text-[13px] text-muted-foreground">{t("coach_overview_week")}</p>
           </div>
-          {homeFeed.athletes.length === 0 ? (
-            <p style={{ fontSize: 12, color: "var(--text-muted)", padding: "8px 0" }}>{lang === "ar" ? "لسه مفيش لاعيبة." : "No athletes yet."}</p>
-          ) : homeFeed.athletes.map((athlete) => (
-            <div key={athlete.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                <img src={athlete.avatar || getAvatar(athlete.email || "", null, null, athlete.name)} alt={athlete.name} style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border)", objectFit: "cover" }} />
-                <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{athlete.name}</span>
-              </div>
-              <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{athlete.plan_type || "plan"}</span>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "18px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <p style={{ fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", fontSize: 18, fontWeight: 300, letterSpacing: "-0.01em", textTransform: "uppercase" }}>{lang === "ar" ? "أحدث الطلبات" : "Recent Requests"}</p>
-            <Link to="/coach/requests" style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 10, color: "var(--main)", textDecoration: "none", fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase" }}>{t("view_all")}</Link>
-          </div>
-          {homeFeed.recentRequests.length === 0 ? (
-            <p style={{ fontSize: 12, color: "var(--text-muted)", padding: "8px 0" }}>{lang === "ar" ? "مفيش طلبات جديدة." : "No recent requests."}</p>
-          ) : homeFeed.recentRequests.map((request) => (
-            <div key={request.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                <img src={request.user_avatar || getAvatar("", null, null, request.user_name)} alt={request.user_name || "Athlete"} style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border)", objectFit: "cover" }} />
-                <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{request.user_name || (lang === "ar" ? "لاعب" : "Athlete")}</span>
-              </div>
-              <span style={{ fontSize: 10, color: request.status === "pending" ? "var(--amber)" : "var(--text-muted)", fontWeight: 700 }}>{String(request.status || "pending").replace(/_/g, " ")}</span>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "18px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <p style={{ fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", fontSize: 18, fontWeight: 300, letterSpacing: "-0.01em", textTransform: "uppercase" }}>{lang === "ar" ? "أحدث منشورات المجتمع" : "Recent Community Posts"}</p>
-            <Link to="/coach/community" style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 10, color: "var(--main)", textDecoration: "none", fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase" }}>{t("view_all")}</Link>
-          </div>
-          {homeFeed.recentPosts.length === 0 ? (
-            <p style={{ fontSize: 12, color: "var(--text-muted)", padding: "8px 0" }}>{lang === "ar" ? "لسه مفيش منشورات." : "No recent community posts."}</p>
-          ) : homeFeed.recentPosts.map((post) => (
-            <div key={post.id} style={{ display: "flex", flexDirection: "column", gap: 3, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-              <p style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.content || (lang === "ar" ? "منشور بدون نص" : "Post")}</p>
-              <div style={{ fontSize: 10, color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span>{post.author_name || "User"}</span>
-                <span>{post.likes || 0} ❤ · {post.comments || 0} 💬</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "18px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <p style={{ fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", fontSize: 18, fontWeight: 300, letterSpacing: "-0.01em", textTransform: "uppercase" }}>{t("recent_transactions")}</p>
-            <Link to="/coach/requests" style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 10, color: "var(--main)", textDecoration: "none", fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase" }}>{t("view_all")}</Link>
-          </div>
-          {homeFeed.recentTransactions.length === 0 ? (
-            <p style={{ fontSize: 12, color: "var(--text-muted)", padding: "8px 0" }}>{lang === "ar" ? "مفيش معاملات لسه." : "No recent transactions."}</p>
-          ) : homeFeed.recentTransactions.map((tx) => (
-            <div key={tx.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.user_name || (lang === "ar" ? "عميل" : "Client")}</p>
-                <p style={{ fontSize: 10, color: "var(--text-muted)" }}>{formatDate(tx.created_at)}</p>
-              </div>
-              <div style={{ textAlign: "end" }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>{Number(tx.credited_amount ?? tx.amount ?? 0).toFixed(0)} {t("currency_egp")}</p>
-                <p style={{ fontSize: 10, color: tx.status === "active" ? "var(--accent)" : tx.status?.includes("reject") ? "var(--red)" : "var(--amber)" }}>{tx.status || "pending"}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Mid Row: Weekly Revenue */}
-      <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "22px 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <p style={{ fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", fontSize: 20, fontWeight: 300, letterSpacing: "-0.01em", textTransform: "uppercase" }}>{t("weekly_revenue") || "Weekly Revenue"}</p>
-          <span style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 11, color: "var(--main)", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>{((stats?.weekly || []).reduce((sum, d) => sum + (Number(d.revenue) || 0), 0)).toFixed(0)} {t('currency_egp')}</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-          {(stats?.weekly || []).map((d) => (
-            <div key={d.day} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "transparent", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px" }}>
-              <span style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 10, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase" }}>{d.day}</span>
-              <span style={{ fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", fontSize: 18, color: "var(--main)", fontWeight: 300, letterSpacing: "-0.01em" }}>{(Number(d.revenue) || 0).toFixed(0)} {t('currency_egp')}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "22px 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <p style={{ fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", fontSize: 20, fontWeight: 300, letterSpacing: "-0.01em", textTransform: "uppercase" }}>{t("recent_activity")}</p>
-          <span style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.18em", textTransform: "uppercase" }}>● {t("live")}</span>
-        </div>
-        {activity.length === 0 ? (
-          <p style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", paddingTop: 12 }}>{t("no_recent_activity")}</p>
-        ) : activity.map((a, i) => {
-          const { icon: Icon, color, text } = getActivityIcon(a);
-          return (
-            <div key={`${a.type}-${a.id}`} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: i < activity.length - 1 ? "1px solid var(--border)" : "none" }}>
-              <div style={{ width: 36, height: 36, borderRadius: "var(--radius-full)", border: "1px solid var(--border)", backgroundColor: "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Icon size={16} color="var(--main)" />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{text}</p>
-                {a.type === "message" && a.content && (
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.content}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link to="/coach/requests">
+                <ClipboardList size={16} strokeWidth={2} /> {t("requests")}
+                {(stats?.pendingRequests || 0) > 0 && (
+                  <Badge variant="secondary" className="ms-0.5 bg-primary-foreground/20 px-1.5 py-0 text-primary-foreground tabular-nums">{stats?.pendingRequests}</Badge>
                 )}
-              </div>
-              <span style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0 }}>{formatTime(a.created_at)}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Recent Blogs Section */}
-      {recentBlogs.length > 0 && (
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "22px 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <BookOpen size={16} color="var(--blue)" />
-              <p style={{ fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", fontSize: 20, fontWeight: 300, letterSpacing: "-0.01em", textTransform: "uppercase" }}>
-                {t("recent_articles") || (lang === "ar" ? "أحدث المقالات" : "Recent Articles")}
-              </p>
-            </div>
-            <Link to="/coach/blogs" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
-              {t("view_all") || (lang === "ar" ? "عرض الكل" : "View All")} <ArrowRight size={12} />
-            </Link>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
-            {recentBlogs.map((blog) => (
-              <Link
-                key={blog.id}
-                to={`/coach/blogs/${blog.slug}`}
-                style={{
-                  backgroundColor: "var(--bg-surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius-full)",
-                  overflow: "hidden",
-                  display: "flex",
-                  flexDirection: "column",
-                  textDecoration: "none",
-                  transition: "transform 0.2s, box-shadow 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              >
-                {/* Blog Image */}
-                <div style={{ 
-                  width: "100%", 
-                  height: 120, 
-                  background: blog.header_image_url 
-                    ? `url(${resolveMediaUrl(blog.header_image_url)})` 
-                    : "linear-gradient(135deg, var(--blue) 0%, var(--bg-surface) 100%)",
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  position: "relative"
-                }}>
-                  <div style={{ 
-                    position: "absolute", 
-                    top: 6, 
-                    left: lang === "ar" ? "auto" : 6,
-                    right: lang === "ar" ? 6 : "auto",
-                    padding: "2px 6px", 
-                    borderRadius: "var(--radius-full)",
-                    background: "rgba(0, 0, 0, 0.6)",
-                    color: "#fff",
-                    fontSize: 9,
-                    fontWeight: 600
-                  }}>
-                    {blog.language === "ar" ? "🇸🇦 AR" : "🇬🇧 EN"}
-                  </div>
-                </div>
-
-                {/* Blog Content */}
-                <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
-                  <h4 style={{ 
-                    margin: 0, 
-                    fontSize: 14, 
-                    fontWeight: 700,
-                    color: "var(--text-primary)", 
-                    lineHeight: 1.3,
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden"
-                  }}>
-                    {blog.title}
-                  </h4>
-
-                  {blog.excerpt && (
-                    <p style={{
-                      margin: 0,
-                      fontSize: 12,
-                      color: "var(--text-secondary)",
-                      lineHeight: 1.4,
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden"
-                    }}>
-                      {blog.excerpt}
-                    </p>
-                  )}
-
-                  {/* Meta */}
-                  <div style={{ 
-                    marginTop: "auto",
-                    paddingTop: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 11,
-                    color: "var(--text-muted)"
-                  }}>
-                    {blog.author_avatar ? (
-                      <img 
-                        src={resolveMediaUrl(blog.author_avatar)} 
-                        alt={blog.author_name || ""} 
-                        style={{ 
-                          width: 18, 
-                          height: 18, 
-                          borderRadius: "50%",
-                          objectFit: "cover" 
-                        }} 
-                      />
-                    ) : (
-                      <div style={{ 
-                        width: 18, 
-                        height: 18, 
-                        borderRadius: "50%", 
-                        background: "var(--blue)",
-                        color: "#fff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 9,
-                        fontWeight: 700
-                      }}>
-                        {(blog.author_name || "U")[0].toUpperCase()}
-                      </div>
-                    )}
-                    <span style={{ fontWeight: 500, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {blog.author_name || (lang === "ar" ? "غير معروف" : "Unknown")}
-                    </span>
-                  </div>
-                </div>
               </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/coach/profile">{t("view_profile")}</Link>
+            </Button>
+          </div>
+        </header>
+
+        {/* ═══════ STATS ROW ═══════════════════════════ */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {statCards.map((s) => {
+            const Icon = s.icon;
+            return (
+              <Card key={s.label} asChild className="gap-0 p-4 shadow-soft-sm transition active:scale-[0.98]">
+                <Link to={s.link}>
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{s.label}</p>
+                    <Icon size={16} strokeWidth={2} className="text-primary" />
+                  </div>
+                  <p className="text-2xl leading-none font-bold tabular-nums tracking-tight">{s.value}</p>
+                </Link>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* ═══════ FEED GRID ═══════════════════════════ */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {/* My athletes */}
+          <Card className="gap-0 p-5 shadow-soft-sm">
+            <SectionHeader title={t("my_athletes")} linkTo="/coach/athletes" viewAll={t("view_all")} />
+            {homeFeed.athletes.length === 0 ? (
+              <p className="py-2 text-[13px] text-muted-foreground">{lang === "ar" ? "لسه مفيش لاعيبة." : "No athletes yet."}</p>
+            ) : (
+              <div className="flex flex-col">
+                {homeFeed.athletes.map((athlete, i, arr) => (
+                  <div key={athlete.id}>
+                    <div className="flex items-center justify-between gap-2 py-2.5">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Avatar className="size-8">
+                          <AvatarImage src={athlete.avatar} alt={athlete.name} />
+                          <AvatarFallback>{(athlete.name || "A").slice(0, 1)}</AvatarFallback>
+                        </Avatar>
+                        <span className="truncate text-[13px] font-semibold">{athlete.name}</span>
+                      </div>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">{athlete.plan_type || "plan"}</span>
+                    </div>
+                    {i < arr.length - 1 && <Separator />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Recent requests */}
+          <Card className="gap-0 p-5 shadow-soft-sm">
+            <SectionHeader title={lang === "ar" ? "أحدث الطلبات" : "Recent Requests"} linkTo="/coach/requests" viewAll={t("view_all")} />
+            {homeFeed.recentRequests.length === 0 ? (
+              <p className="py-2 text-[13px] text-muted-foreground">{lang === "ar" ? "مفيش طلبات جديدة." : "No recent requests."}</p>
+            ) : (
+              <div className="flex flex-col">
+                {homeFeed.recentRequests.map((request, i, arr) => (
+                  <div key={request.id}>
+                    <div className="flex items-center justify-between gap-2 py-2.5">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Avatar className="size-8">
+                          <AvatarImage src={request.user_avatar} alt={request.user_name || "Athlete"} />
+                          <AvatarFallback>{(request.user_name || "A").slice(0, 1)}</AvatarFallback>
+                        </Avatar>
+                        <span className="truncate text-[13px] font-semibold">{request.user_name || (lang === "ar" ? "لاعب" : "Athlete")}</span>
+                      </div>
+                      <span className={`shrink-0 text-[11px] font-semibold capitalize ${request.status === "pending" ? "text-[var(--amber)]" : "text-muted-foreground"}`}>{String(request.status || "pending").replace(/_/g, " ")}</span>
+                    </div>
+                    {i < arr.length - 1 && <Separator />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Recent community posts */}
+          <Card className="gap-0 p-5 shadow-soft-sm">
+            <SectionHeader title={lang === "ar" ? "أحدث منشورات المجتمع" : "Recent Community Posts"} linkTo="/coach/community" viewAll={t("view_all")} />
+            {homeFeed.recentPosts.length === 0 ? (
+              <p className="py-2 text-[13px] text-muted-foreground">{lang === "ar" ? "لسه مفيش منشورات." : "No recent community posts."}</p>
+            ) : (
+              <div className="flex flex-col">
+                {homeFeed.recentPosts.map((post, i, arr) => (
+                  <div key={post.id}>
+                    <div className="flex flex-col gap-1 py-2.5">
+                      <p className="truncate text-[13px] font-semibold">{post.content || (lang === "ar" ? "منشور بدون نص" : "Post")}</p>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>{post.author_name || "User"}</span>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1"><Heart size={11} strokeWidth={2} /> {post.likes || 0}</span>
+                          <span className="inline-flex items-center gap-1"><MessageSquare size={11} strokeWidth={2} /> {post.comments || 0}</span>
+                        </span>
+                      </div>
+                    </div>
+                    {i < arr.length - 1 && <Separator />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Recent transactions */}
+          <Card className="gap-0 p-5 shadow-soft-sm">
+            <SectionHeader title={t("recent_transactions")} linkTo="/coach/requests" viewAll={t("view_all")} />
+            {homeFeed.recentTransactions.length === 0 ? (
+              <p className="py-2 text-[13px] text-muted-foreground">{lang === "ar" ? "مفيش معاملات لسه." : "No recent transactions."}</p>
+            ) : (
+              <div className="flex flex-col">
+                {homeFeed.recentTransactions.map((tx, i, arr) => (
+                  <div key={tx.id}>
+                    <div className="flex items-center justify-between gap-2 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold">{tx.user_name || (lang === "ar" ? "عميل" : "Client")}</p>
+                        <p className="text-[11px] text-muted-foreground">{formatDate(tx.created_at)}</p>
+                      </div>
+                      <div className="text-end">
+                        <p className="text-[13px] font-bold text-primary tabular-nums">{Number(tx.credited_amount ?? tx.amount ?? 0).toFixed(0)} {t("currency_egp")}</p>
+                        <p className={`text-[11px] capitalize ${statusColor(tx.status)}`}>{tx.status || "pending"}</p>
+                      </div>
+                    </div>
+                    {i < arr.length - 1 && <Separator />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* ═══════ WEEKLY REVENUE ═══════════════════════════ */}
+        <Card className="gap-0 p-5 shadow-soft-sm">
+          <div className="mb-3.5 flex items-center justify-between gap-3">
+            <h2 className="text-[15px] font-semibold tracking-tight">{t("weekly_revenue") || "Weekly Revenue"}</h2>
+            <span className="text-[13px] font-bold text-primary tabular-nums">{weeklyTotal.toFixed(0)} {t('currency_egp')}</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(stats?.weekly || []).map((d) => (
+              <div key={d.day} className="flex items-center justify-between rounded-md bg-muted px-3.5 py-3">
+                <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{d.day}</span>
+                <span className="text-[15px] font-bold tabular-nums">{(Number(d.revenue) || 0).toFixed(0)} {t('currency_egp')}</span>
+              </div>
             ))}
           </div>
-        </div>
-      )}
+        </Card>
+
+        {/* ═══════ RECENT ACTIVITY ═══════════════════════════ */}
+        <Card className="gap-0 p-5 shadow-soft-sm">
+          <div className="mb-3.5 flex items-center justify-between gap-3">
+            <h2 className="text-[15px] font-semibold tracking-tight">{t("recent_activity")}</h2>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[var(--green)]">
+              <span className="size-1.5 rounded-full bg-[var(--green)]" /> {t("live")}
+            </span>
+          </div>
+          {activity.length === 0 ? (
+            <p className="py-2 text-center text-[13px] text-muted-foreground">{t("no_recent_activity")}</p>
+          ) : (
+            <div className="flex flex-col">
+              {activity.map((a, i) => {
+                const { icon: Icon, color, text } = getActivityIcon(a);
+                return (
+                  <div key={`${a.type}-${a.id}`}>
+                    <div className="flex items-center gap-3 py-3">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-muted">
+                        <Icon size={16} strokeWidth={2} style={{ color }} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-medium">{text}</p>
+                        {a.type === "message" && a.content && (
+                          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{a.content}</p>
+                        )}
+                      </div>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">{formatTime(a.created_at)}</span>
+                    </div>
+                    {i < activity.length - 1 && <Separator />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        {/* ═══════ RECENT BLOGS ═══════════════════════════ */}
+        {recentBlogs.length > 0 && (
+          <Card className="gap-0 p-5 shadow-soft-sm">
+            <div className="mb-3.5 flex items-center justify-between gap-3">
+              <h2 className="inline-flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+                <BookOpen size={16} strokeWidth={2} className="text-[var(--secondary)]" />
+                {t("recent_articles") || (lang === "ar" ? "أحدث المقالات" : "Recent Articles")}
+              </h2>
+              <Link to="/coach/blogs" className="inline-flex shrink-0 items-center gap-0.5 text-[13px] font-semibold text-primary transition-opacity hover:opacity-75">
+                {t("view_all") || (lang === "ar" ? "عرض الكل" : "View All")} <ArrowRight size={14} strokeWidth={2} />
+              </Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {recentBlogs.map((blog) => (
+                <Link
+                  key={blog.id}
+                  to={`/coach/blogs/${blog.slug}`}
+                  className="flex flex-col overflow-hidden rounded-md bg-muted shadow-soft-xs transition active:scale-[0.98]"
+                >
+                  {/* Blog Image */}
+                  <div
+                    className="relative h-[120px] w-full bg-cover bg-center"
+                    style={{
+                      backgroundImage: blog.header_image_url
+                        ? `url(${resolveMediaUrl(blog.header_image_url)})`
+                        : "linear-gradient(135deg, var(--secondary) 0%, var(--card) 100%)",
+                    }}
+                  >
+                    <span className="absolute top-1.5 start-1.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                      {blog.language === "ar" ? "🇸🇦 AR" : "🇬🇧 EN"}
+                    </span>
+                  </div>
+
+                  {/* Blog Content */}
+                  <div className="flex flex-1 flex-col gap-1.5 p-3">
+                    <h3 className="line-clamp-2 text-[14px] leading-snug font-bold text-foreground">{blog.title}</h3>
+                    {blog.excerpt && (
+                      <p className="line-clamp-2 text-[12px] leading-snug text-muted-foreground">{blog.excerpt}</p>
+                    )}
+                    <div className="mt-auto flex items-center gap-1.5 pt-1.5 text-[11px] text-muted-foreground">
+                      <Avatar className="size-[18px]">
+                        <AvatarImage src={blog.author_avatar ? resolveMediaUrl(blog.author_avatar) : undefined} alt={blog.author_name || ""} />
+                        <AvatarFallback className="text-[8px]">{(blog.author_name || "U")[0].toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <span className="flex-1 truncate font-medium">
+                        {blog.author_name || (lang === "ar" ? "غير معروف" : "Unknown")}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

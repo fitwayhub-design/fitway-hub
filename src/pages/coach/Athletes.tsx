@@ -1,10 +1,21 @@
 import { getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
-import { Users, Activity, Dumbbell, Plus, X, Save, Trash2, ChevronRight, Search, Target, Check } from "lucide-react";
+import { Users, Activity, Dumbbell, Plus, Save, Trash2, ChevronRight, Search, Target, Check, X, ArrowLeft, Zap, CheckCircle2, PartyPopper } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import { getAvatar } from "@/lib/avatar";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 interface Athlete {
   id: number; name: string; email: string; avatar: string;
@@ -158,148 +169,155 @@ export default function CoachAthletes() {
 
   const bmi = selected?.height && selected?.weight ? (selected.weight / ((selected.height / 100) ** 2)).toFixed(1) : null;
 
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-  const showAthleteList = !isMobile || !selected;
-  const showAthleteDetail = !isMobile || !!selected;
-
   return (
-    <div style={{ display: "flex", gap: 20, minHeight: "calc(100dvh - 100px)", flexDirection: isMobile ? "column" : "row" }}>
-      <div style={{ width: isMobile ? "100%" : 260, flexShrink: 0, display: showAthleteList ? "block" : "none" }}>
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", overflow: "hidden", position: "sticky", top: 20 }}>
-          <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, marginBottom: 10 }}>{t("my_athletes")}</p>
-            <div style={{ position: "relative" }}>
-              <Search size={13} style={{ position: "absolute", insetInlineStart: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-              <input className="input-base" value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search_placeholder")} style={{ paddingInlineStart: 30, padding: "7px 10px 7px 30px", fontSize: 12 }} />
+    <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-5 px-4 pb-4 md:flex-row">
+      {/* Athletes list — hidden on phones once an athlete is selected */}
+      <div className={`w-full shrink-0 md:block md:w-[260px] ${selected ? "hidden md:block" : "block"}`}>
+        <Card className="sticky top-4 gap-0 overflow-hidden p-0 shadow-soft-sm">
+          <div className="p-4">
+            <p className="mb-2.5 text-[15px] font-semibold">{t("my_athletes")}</p>
+            <div className="relative">
+              <Search size={14} strokeWidth={2} className="pointer-events-none absolute top-1/2 start-3 -translate-y-1/2 text-muted-foreground" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search_placeholder")} className="h-9 ps-9 text-[13px]" aria-label={t("search_placeholder")} />
             </div>
           </div>
-          <div style={{ maxHeight: "calc(100dvh - 260px)", overflowY: "auto" }}>
+          <Separator />
+          <div className="max-h-[calc(100dvh-260px)] overflow-y-auto">
             {loading ? (
-              <p style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>{t("coach_athletes_loading")}</p>
+              <div className="flex flex-col gap-2 p-3">
+                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-md" />)}
+              </div>
             ) : filtered.length === 0 ? (
-              <p style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>{t("coach_athletes_none")}</p>
-            ) : filtered.map(a => (
-              <button key={a.id} onClick={() => selectAthlete(a)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid var(--border)", background: selected?.id === a.id ? "var(--accent-dim)" : "none", border: "none", cursor: "pointer", textAlign: "start", borderInlineStart: selected?.id === a.id ? "3px solid var(--blue)" : "3px solid transparent", transition: "all 0.15s" }}>
-                <img src={a.avatar || getAvatar(a.email, null, a.gender, a.name)} alt={a.name} style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover" }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</p>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>{a.steps?.toLocaleString() || 0} {t("steps")}</p>
-                </div>
-                <ChevronRight size={13} color="var(--text-muted)" />
-              </button>
+              <p className="p-5 text-center text-[13px] text-muted-foreground">{t("coach_athletes_none")}</p>
+            ) : filtered.map((a, i, arr) => (
+              <div key={a.id}>
+                <button
+                  onClick={() => selectAthlete(a)}
+                  className={`flex w-full items-center gap-2.5 px-4 py-3 text-start transition-colors ${selected?.id === a.id ? "bg-[var(--secondary-dim)]" : "hover:bg-muted/60"}`}
+                >
+                  <Avatar className="size-9 shrink-0">
+                    <AvatarImage src={a.avatar} alt={a.name} />
+                    <AvatarFallback>{(a.name || "A").slice(0, 1)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold">{a.name}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{a.steps?.toLocaleString() || 0} {t("steps")}</p>
+                  </div>
+                  <ChevronRight size={14} strokeWidth={2} className="shrink-0 text-muted-foreground rtl:rotate-180" />
+                </button>
+                {i < arr.length - 1 && <Separator />}
+              </div>
             ))}
           </div>
-        </div>
+        </Card>
       </div>
 
-      <div style={{ flex: 1, minWidth: 0, display: showAthleteDetail ? "block" : "none" }}>
+      {/* Detail pane */}
+      <div className={`min-w-0 flex-1 md:block ${selected ? "block" : "hidden md:block"}`}>
         {!selected ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, flexDirection: "column", gap: 12, color: "var(--text-muted)" }}>
-            <Users size={48} strokeWidth={1} />
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 15 }}>{t("select_athlete")}</p>
+          <div className="flex h-[300px] flex-col items-center justify-center gap-3 text-muted-foreground">
+            <Users size={48} strokeWidth={1.5} />
+            <p className="text-[15px]">{t("select_athlete")}</p>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "18px 22px" }}>
-              {isMobile && (
-                <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: "0 0 12px 0", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>← {t("coach_athletes_back")}</button>
-              )}
-              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                <img src={selected.avatar || getAvatar(selected.email, null, selected.gender, selected.name)} alt={selected.name} style={{ width: 56, height: 56, borderRadius: "50%", border: "2px solid var(--blue)" }} />
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontFamily: "var(--font-en)", fontSize: 18, fontWeight: 700 }}>{selected.name}</p>
-                  <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>{selected.email}</p>
+          <div className="flex flex-col gap-4">
+            <Card className="gap-0 p-5 shadow-soft-sm">
+              <button onClick={() => setSelected(null)} className="mb-3 inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-opacity hover:opacity-75 md:hidden">
+                <ArrowLeft size={15} strokeWidth={2} className="rtl:rotate-180" /> {t("coach_athletes_back")}
+              </button>
+              <div className="flex flex-wrap items-center gap-3.5">
+                <Avatar className="size-14 shrink-0 ring-2 ring-[var(--secondary)]">
+                  <AvatarImage src={selected.avatar} alt={selected.name} />
+                  <AvatarFallback>{(selected.name || "A").slice(0, 1)}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[18px] font-bold tracking-tight">{selected.name}</p>
+                  <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{selected.email}</p>
                 </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {(["overview","workout","nutrition"] as const).map(tabKey => (
-                    <button key={tabKey} onClick={() => setTab(tabKey)} style={{ padding: "7px 14px", borderRadius: "var(--radius-full)", border: `1px solid ${tab === tabKey ? "var(--blue)" : "var(--border)"}`, background: tab === tabKey ? "rgba(59,139,255,0.12)" : "var(--bg-surface)", color: tab === tabKey ? "var(--blue)" : "var(--text-secondary)", fontSize: 12, fontWeight: tab === tabKey ? 600 : 400, cursor: "pointer", textTransform: "capitalize", fontFamily: "var(--font-en)" }}>{tabKey === "overview" ? t("overview") : tabKey === "workout" ? t("workout") : t("nutrition")}</button>
-                  ))}
-                </div>
+                <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+                  <TabsList>
+                    <TabsTrigger value="overview" className="px-3 capitalize">{t("overview")}</TabsTrigger>
+                    <TabsTrigger value="workout" className="px-3 capitalize">{t("workout")}</TabsTrigger>
+                    <TabsTrigger value="nutrition" className="px-3 capitalize">{t("nutrition")}</TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
-            </div>
+            </Card>
 
-            {message && <div style={{ padding: "10px 16px", backgroundColor: message.startsWith("✅") ? "var(--accent-dim)" : "rgba(255,68,68,0.08)", border: `1px solid ${message.startsWith("✅") ? "var(--accent)" : "var(--red)"}`, borderRadius: "var(--radius-full)", fontSize: 13, color: message.startsWith("✅") ? "var(--accent)" : "var(--red)" }}>{message}</div>}
+            {message && (
+              <div className={`rounded-md px-3.5 py-2.5 text-[13px] font-semibold ${message.startsWith("✅") ? "bg-[color-mix(in_srgb,var(--green)_14%,transparent)] text-[var(--green)]" : "bg-[color-mix(in_srgb,var(--red)_14%,transparent)] text-[var(--red)]"}`}>{message}</div>
+            )}
 
             {tab === "overview" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12 }}>
+              <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {[
-                    { label: t("height_label"), value: selected.height ? `${selected.height} cm` : "—", color: "var(--blue)" },
-                    { label: t("weight_label"), value: selected.weight ? `${selected.weight} kg` : "—", color: "var(--amber)" },
-                    { label: t('bmi_label'), value: bmi || "—", color: "var(--cyan)" },
-                    { label: t("gender"), value: selected.gender || "—", color: "var(--text-primary)" },
-                    { label: t("date_of_birth"), value: selected.date_of_birth ? new Date(selected.date_of_birth).toLocaleDateString() : "—", color: "var(--text-primary)" },
-                    { label: t("coach_requests_steps_today"), value: (selected.steps || 0).toLocaleString(), color: "var(--accent)" },
+                    { label: t("height_label"), value: selected.height ? `${selected.height} cm` : "—" },
+                    { label: t("weight_label"), value: selected.weight ? `${selected.weight} kg` : "—" },
+                    { label: t('bmi_label'), value: bmi || "—" },
+                    { label: t("gender"), value: selected.gender || "—" },
+                    { label: t("date_of_birth"), value: selected.date_of_birth ? new Date(selected.date_of_birth).toLocaleDateString() : "—" },
+                    { label: t("coach_requests_steps_today"), value: (selected.steps || 0).toLocaleString() },
                   ].map(s => (
-                    <div key={s.label} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "14px 16px" }}>
-                      <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{s.label}</p>
-                      <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700, color: s.color }}>{s.value}</p>
-                    </div>
+                    <Card key={s.label} className="gap-0 p-4 shadow-soft-sm">
+                      <p className="mb-1.5 text-[11px] tracking-wide text-muted-foreground uppercase">{s.label}</p>
+                      <p className="text-[16px] font-bold capitalize">{s.value}</p>
+                    </Card>
                   ))}
                 </div>
 
-                <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "16px 18px" }}>
-                  <p style={{ fontFamily: "var(--font-en)", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>{t("onboarding_data")}</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-                    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px" }}>
-                      <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{t("main_goal")}</p>
-                      <p style={{ fontSize: 13, fontWeight: 600 }}>{selected.fitness_goal || "—"}</p>
-                    </div>
-                    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px" }}>
-                      <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{t("activity_level")}</p>
-                      <p style={{ fontSize: 13, fontWeight: 600 }}>{selected.activity_level || "—"}</p>
-                    </div>
-                    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px" }}>
-                      <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{t("computed_activity")}</p>
-                      <p style={{ fontSize: 13, fontWeight: 600 }}>{selected.computed_activity_level || "—"}</p>
-                    </div>
-                    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px" }}>
-                      <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{t("target_weight")}</p>
-                      <p style={{ fontSize: 13, fontWeight: 600 }}>{selected.target_weight ? `${selected.target_weight} kg` : "—"}</p>
-                    </div>
-                    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px" }}>
-                      <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{t("weekly_goal")}</p>
-                      <p style={{ fontSize: 13, fontWeight: 600 }}>{selected.weekly_goal ? `${selected.weekly_goal} kg` : "—"}</p>
-                    </div>
-                    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px" }}>
-                      <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{t("location")}</p>
-                      <p style={{ fontSize: 13, fontWeight: 600 }}>{[selected.city, selected.country].filter(Boolean).join(", ") || "—"}</p>
-                    </div>
+                <Card className="gap-0 p-5 shadow-soft-sm">
+                  <p className="mb-3 text-[13px] font-semibold">{t("onboarding_data")}</p>
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    {[
+                      { label: t("main_goal"), value: selected.fitness_goal || "—" },
+                      { label: t("activity_level"), value: selected.activity_level || "—" },
+                      { label: t("computed_activity"), value: selected.computed_activity_level || "—" },
+                      { label: t("target_weight"), value: selected.target_weight ? `${selected.target_weight} kg` : "—" },
+                      { label: t("weekly_goal"), value: selected.weekly_goal ? `${selected.weekly_goal} kg` : "—" },
+                      { label: t("location"), value: [selected.city, selected.country].filter(Boolean).join(", ") || "—" },
+                    ].map(row => (
+                      <div key={row.label} className="rounded-md bg-muted px-3 py-2.5">
+                        <p className="mb-1 text-[10px] tracking-wide text-muted-foreground uppercase">{row.label}</p>
+                        <p className="text-[13px] font-semibold">{row.value}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{ marginTop: 10, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px" }}>
-                    <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{t("medical_history_short")}</p>
-                    <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{selected.medical_history || "—"}</p>
+                  <div className="mt-2.5 rounded-md bg-muted px-3 py-2.5">
+                    <p className="mb-1 text-[10px] tracking-wide text-muted-foreground uppercase">{t("medical_history_short")}</p>
+                    <p className="text-[13px] leading-relaxed text-muted-foreground">{selected.medical_history || "—"}</p>
                     {selected.medical_file_url && (
-                      <a href={selected.medical_file_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 12, color: "var(--blue)", textDecoration: "none", fontWeight: 600 }}>
+                      <a href={selected.medical_file_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-[12px] font-semibold text-[var(--secondary)] transition-opacity hover:opacity-75">
                         {t("view_medical_file")}
                       </a>
                     )}
                   </div>
-                </div>
+                </Card>
 
                 {/* Step Goal Editor */}
-                <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "16px 18px" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <Target size={15} color="var(--accent)" />
-                      <p style={{ fontFamily: "var(--font-en)", fontSize: 13, fontWeight: 700 }}>{t("step_goal_label")}</p>
+                <Card className="gap-0 p-5 shadow-soft-sm">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Target size={15} strokeWidth={2} className="text-primary" />
+                      <p className="text-[13px] font-semibold">{t("step_goal_label")}</p>
                     </div>
                     {!editingStepGoal && (
-                      <button onClick={() => { setStepGoalInput(String(selected.step_goal || 10000)); setEditingStepGoal(true); }} style={{ fontSize: 11, color: "var(--blue)", background: "rgba(59,139,255,0.1)", border: "1px solid rgba(59,139,255,0.2)", borderRadius: "var(--radius-full)", padding: "3px 10px", cursor: "pointer", fontWeight: 600 }}>
+                      <Button variant="outline" size="sm" onClick={() => { setStepGoalInput(String(selected.step_goal || 10000)); setEditingStepGoal(true); }}>
                         {t("edit")}
-                      </button>
+                      </Button>
                     )}
                   </div>
                   {editingStepGoal ? (
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <input
+                    <div className="flex items-center gap-2">
+                      <Input
                         type="number"
                         value={stepGoalInput}
                         onChange={e => setStepGoalInput(e.target.value)}
-                        style={{ flex: 1, padding: "8px 12px", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, fontFamily: "var(--font-en)", outline: "none" }}
+                        className="flex-1"
                         min={500} max={100000}
+                        aria-label={t("step_goal_label")}
                       />
-                      <button onClick={async () => {
+                      <Button size="icon" aria-label={t("coach_athletes_step_goal_updated")} onClick={async () => {
                         const val = parseInt(stepGoalInput);
                         if (!val) return;
                         try {
@@ -311,30 +329,37 @@ export default function CoachAthletes() {
                             showMsg(t("coach_athletes_step_goal_updated"));
                           }
                         } catch { showMsg(t("coach_athletes_step_goal_failed")); }
-                      }} style={{ width: 34, height: 34, borderRadius: "var(--radius-full)", background: "var(--accent)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Check size={15} color="#000000" />
-                      </button>
-                      <button onClick={() => setEditingStepGoal(false)} style={{ width: 34, height: 34, borderRadius: "var(--radius-full)", background: "var(--bg-surface)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <X size={15} color="var(--text-muted)" />
-                      </button>
+                      }}>
+                        <Check size={16} strokeWidth={2.5} />
+                      </Button>
+                      <Button variant="secondary" size="icon" aria-label={t("cancel")} onClick={() => setEditingStepGoal(false)}>
+                        <X size={16} strokeWidth={2} />
+                      </Button>
                     </div>
                   ) : (
-                    <p style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700, color: "var(--accent)" }}>
-                      {(selected.step_goal || 10000).toLocaleString()} <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)" }}>{t("coach_athletes_steps_per_day")}</span>
+                    <p className="text-[22px] font-bold text-primary tabular-nums">
+                      {(selected.step_goal || 10000).toLocaleString()} <span className="text-[13px] font-normal text-muted-foreground">{t("coach_athletes_steps_per_day")}</span>
                     </p>
                   )}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  {[{ label: t("workout_plan"), tab: "workout" as const, color: "var(--accent)", bg: "var(--accent-dim)", border: "rgba(255,214,0,0.2)" }, { label: t("nutrition_plan_label"), tab: "nutrition" as const, color: "var(--blue)", bg: "rgba(59,139,255,0.1)", border: "rgba(59,139,255,0.25)" }].map(p => (
-                    <div key={p.label} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "16px 18px" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                        <p style={{ fontFamily: "var(--font-en)", fontSize: 13, fontWeight: 700 }}>{p.label}</p>
-                        {p.tab === "workout" ? <Dumbbell size={14} color={p.color} /> : <Activity size={14} color={p.color} />}
-                      </div>
-                      <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>{p.tab === "workout" ? `${workoutPlan.exercises.length} ${t("exercises")}` : `${nutritionPlan.daily_calories} ${t('kcal_per_day')}`}</p>
-                      <button onClick={() => setTab(p.tab)} style={{ width: "100%", padding: "7px", borderRadius: "var(--radius-full)", background: p.bg, border: `1px solid ${p.border}`, color: p.color, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>{t("manage_plan")}</button>
-                    </div>
-                  ))}
+                </Card>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: t("workout_plan"), tab: "workout" as const, icon: Dumbbell, sub: `${workoutPlan.exercises.length} ${t("exercises")}` },
+                    { label: t("nutrition_plan_label"), tab: "nutrition" as const, icon: Activity, sub: `${nutritionPlan.daily_calories} ${t('kcal_per_day')}` },
+                  ].map(p => {
+                    const Icon = p.icon;
+                    return (
+                      <Card key={p.label} className="gap-0 p-5 shadow-soft-sm">
+                        <div className="mb-2.5 flex items-center justify-between">
+                          <p className="text-[13px] font-semibold">{p.label}</p>
+                          <Icon size={14} strokeWidth={2} className="text-primary" />
+                        </div>
+                        <p className="mb-2.5 text-[12px] text-muted-foreground">{p.sub}</p>
+                        <Button variant="secondary" size="sm" className="w-full" onClick={() => setTab(p.tab)}>{t("manage_plan")}</Button>
+                      </Card>
+                    );
+                  })}
                 </div>
 
                 {/* Training activity feed — plan progress this coach can
@@ -345,115 +370,139 @@ export default function CoachAthletes() {
             )}
 
             {tab === "workout" && (
-              <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <p style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{t("workout_plan")}</p>
-                  <button onClick={saveWorkout} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: "var(--radius-full)", background: "var(--accent)", border: "none", color: "#000000", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-en)" }}>
-                    <Save size={13} /> {saving ? t("saving") : t("save_plan")}
-                  </button>
+              <Card className="gap-0 p-5 shadow-soft-sm">
+                <div className="mb-3.5 flex items-center justify-between">
+                  <p className="text-[15px] font-semibold">{t("workout_plan")}</p>
+                  <Button size="sm" onClick={saveWorkout} disabled={saving}>
+                    <Save size={14} strokeWidth={2} /> {saving ? t("saving") : t("save_plan")}
+                  </Button>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>{t("coach_athletes_plan_title")}</label>
-                    <input className="input-base" value={workoutPlan.title} onChange={e => setWorkoutPlan(p => ({ ...p, title: e.target.value }))} />
+                <div className="mb-3.5 grid gap-3 sm:grid-cols-[2fr_1fr]">
+                  <div className="grid gap-2">
+                    <Label htmlFor="wp-title">{t("coach_athletes_plan_title")}</Label>
+                    <Input id="wp-title" value={workoutPlan.title} onChange={e => setWorkoutPlan(p => ({ ...p, title: e.target.value }))} />
                   </div>
-                  <div>
-                    <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>{t("coach_athletes_days_week")}</label>
-                    <select className="input-base" value={workoutPlan.days_per_week} onChange={e => setWorkoutPlan(p => ({ ...p, days_per_week: Number(e.target.value) }))}>
-                      {[2,3,4,5,6].map(n => <option key={n} value={n}>{t('n_days', { n })}</option>)}
-                    </select>
+                  <div className="grid gap-2">
+                    <Label htmlFor="wp-days">{t("coach_athletes_days_week")}</Label>
+                    <Select value={String(workoutPlan.days_per_week)} onValueChange={v => setWorkoutPlan(p => ({ ...p, days_per_week: Number(v) }))}>
+                      <SelectTrigger id="wp-days" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[2,3,4,5,6].map(n => <SelectItem key={n} value={String(n)}>{t('n_days', { n })}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <p style={{ fontSize: 13, fontWeight: 600 }}>{t("exercises")} ({workoutPlan.exercises.length})</p>
-                  <button onClick={addExercise} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: "var(--radius-full)", background: "var(--accent-dim)", border: "1px solid rgba(255,214,0,0.25)", color: "var(--accent)", fontSize: 12, cursor: "pointer", fontWeight: 600 }}><Plus size={13} /> {t("coach_athletes_add_exercise")}</button>
+                <div className="mb-3.5 flex items-center justify-between">
+                  <p className="text-[13px] font-semibold">{t("exercises")} ({workoutPlan.exercises.length})</p>
+                  <Button size="sm" variant="outline" onClick={addExercise}><Plus size={14} strokeWidth={2} /> {t("coach_athletes_add_exercise")}</Button>
                 </div>
-                {workoutPlan.exercises.length === 0 && <p style={{ textAlign: "center", padding: "24px 0", color: "var(--text-muted)", fontSize: 13 }}>{t("coach_athletes_no_exercises")}</p>}
+                {workoutPlan.exercises.length === 0 && <p className="py-6 text-center text-[13px] text-muted-foreground">{t("coach_athletes_no_exercises")}</p>}
                 <datalist id="coach-exercise-names">
                   {EXERCISE_LIBRARY.map(name => <option key={name} value={name} />)}
                 </datalist>
-                {workoutPlan.exercises.map(ex => (
-                  <div key={ex.id} style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 70px 70px 70px auto", gap: 8, alignItems: "center" }}>
-                      <input className="input-base" list="coach-exercise-names" value={ex.name} onChange={e => updateEx(ex.id, "name", e.target.value)} placeholder={t('exercise_name')} style={{ padding: "7px 10px" }} />
-                      <select className="input-base" value={ex.day} onChange={e => updateEx(ex.id, "day", e.target.value)} style={{ padding: "7px 8px", fontSize: 12 }}>
-                        {DAYS.map(d => <option key={d} value={d}>{d.slice(0,3)}</option>)}
-                      </select>
-                      <input className="input-base" type="number" value={ex.sets} onChange={e => updateEx(ex.id, "sets", Number(e.target.value))} placeholder={t('sets_label')} style={{ padding: "7px 8px" }} min={1} />
-                      <input className="input-base" value={ex.reps} onChange={e => updateEx(ex.id, "reps", e.target.value)} placeholder={t('reps_label')} style={{ padding: "7px 8px" }} />
-                      <input className="input-base" type="number" value={ex.rest_seconds} onChange={e => updateEx(ex.id, "rest_seconds", Number(e.target.value))} placeholder={t('rest_label')} style={{ padding: "7px 8px" }} min={0} />
-                      <button onClick={() => removeEx(ex.id)} style={{ background: "rgba(255,68,68,0.1)", border: "1px solid var(--red)", borderRadius: "var(--radius-full)", padding: "7px", cursor: "pointer", color: "var(--red)" }}><Trash2 size={13} /></button>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
-                      <select className="input-base" value={ex.video_type || "youtube"} onChange={e => updateEx(ex.id, "video_type", e.target.value)} style={{ padding: "6px 8px", fontSize: 11, width: 110, flexShrink: 0 }}>
-                        <option value="youtube">▶ YouTube</option>
-                        <option value="upload">📁 {t("upload") || "Upload"}</option>
-                      </select>
-                      {(ex.video_type || "youtube") === "youtube" ? (
-                        <input className="input-base" value={ex.video_url || ""} onChange={e => updateEx(ex.id, "video_url", e.target.value)} placeholder={t("youtube_url_placeholder") || "https://youtube.com/watch?v=..."} style={{ padding: "6px 10px", fontSize: 12, flex: 1 }} />
-                      ) : (
-                        <>
-                        <input className="input-base" type="file" accept="video/*" onChange={async e => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const fd = new FormData(); fd.append("file", file);
-                          try {
-                            const r = await api("/api/ads/creatives/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
-                            const data = await r.json();
-                            if (data.creative?.media_url) updateEx(ex.id, "video_url", data.creative.media_url);
-                          } catch {}
-                        }} style={{ padding: "5px", fontSize: 11, flex: 1 }} />
-                        <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "2px 0 0" }}>MP4 or MOV — max 50 MB</p>
-                        </>
-                      )}
-                      {ex.video_url && <a href={ex.video_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "var(--blue)", whiteSpace: "nowrap" }}>🔗 {t("preview") || "Preview"}</a>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {tab === "nutrition" && (
-              <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <p style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{t("nutrition_plan_label")}</p>
-                  <button onClick={saveNutrition} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: "var(--radius-full)", background: "var(--accent)", border: "none", color: "#000000", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-en)" }}>
-                    <Save size={13} /> {saving ? t("saving") : t("save_plan")}
-                  </button>
-                </div>
-                <input className="input-base" value={nutritionPlan.title} onChange={e => setNutritionPlan(p => ({ ...p, title: e.target.value }))} placeholder={t("coach_athletes_plan_title")} />
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 10 }}>
-                  {[{ label: t('calories_nutrition'), field: "daily_calories" as const, unit: t('kcal_unit'), color: "var(--amber)" }, { label: t('protein_label'), field: "protein_g" as const, unit: t('g_unit'), color: "var(--accent)" }, { label: t('carbs_label'), field: "carbs_g" as const, unit: t('g_unit'), color: "var(--blue)" }, { label: t('fat_label'), field: "fat_g" as const, unit: t('g_unit'), color: "var(--red)" }].map(m => (
-                    <div key={m.field} style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px" }}>
-                      <p style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase" }}>{m.label}</p>
-                      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                        <input type="number" value={nutritionPlan[m.field]} onChange={e => setNutritionPlan(p => ({ ...p, [m.field]: Number(e.target.value) }))} style={{ background: "none", border: "none", outline: "none", width: "60px", fontSize: 18, fontFamily: "var(--font-en)", fontWeight: 700, color: m.color }} />
-                        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{m.unit}</span>
+                <div className="flex flex-col gap-3">
+                  {workoutPlan.exercises.map(ex => (
+                    <div key={ex.id} className="rounded-md bg-muted p-3.5">
+                      <div className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[2fr_1fr_70px_70px_70px_auto]">
+                        <Input list="coach-exercise-names" value={ex.name} onChange={e => updateEx(ex.id, "name", e.target.value)} placeholder={t('exercise_name')} className="h-9 bg-card text-[13px]" aria-label={t('exercise_name')} />
+                        <Select value={ex.day} onValueChange={v => updateEx(ex.id, "day", v)}>
+                          <SelectTrigger size="sm" className="w-full bg-card text-[12px]" aria-label={t("coach_athletes_days_week")}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DAYS.map(d => <SelectItem key={d} value={d}>{d.slice(0,3)}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Input type="number" value={ex.sets} onChange={e => updateEx(ex.id, "sets", Number(e.target.value))} placeholder={t('sets_label')} className="h-9 bg-card text-[13px]" min={1} aria-label={t('sets_label')} />
+                        <Input value={ex.reps} onChange={e => updateEx(ex.id, "reps", e.target.value)} placeholder={t('reps_label')} className="h-9 bg-card text-[13px]" aria-label={t('reps_label')} />
+                        <Input type="number" value={ex.rest_seconds} onChange={e => updateEx(ex.id, "rest_seconds", Number(e.target.value))} placeholder={t('rest_label')} className="h-9 bg-card text-[13px]" min={0} aria-label={t('rest_label')} />
+                        <Button variant="outline" size="icon-sm" className="text-destructive" onClick={() => removeEx(ex.id)} aria-label={t("coach_athletes_add_exercise")}><Trash2 size={14} strokeWidth={2} /></Button>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Select value={ex.video_type || "youtube"} onValueChange={v => updateEx(ex.id, "video_type", v)}>
+                          <SelectTrigger size="sm" className="w-[120px] shrink-0 bg-card text-[11px]" aria-label="Video type">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="youtube">▶ YouTube</SelectItem>
+                            <SelectItem value="upload">📁 {t("upload") || "Upload"}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {(ex.video_type || "youtube") === "youtube" ? (
+                          <Input value={ex.video_url || ""} onChange={e => updateEx(ex.id, "video_url", e.target.value)} placeholder={t("youtube_url_placeholder") || "https://youtube.com/watch?v=..."} className="h-9 flex-1 bg-card text-[12px]" aria-label="YouTube URL" />
+                        ) : (
+                          <div className="flex-1">
+                            <Input type="file" accept="video/*" className="h-9 bg-card text-[11px]" aria-label="Upload video" onChange={async e => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const fd = new FormData(); fd.append("file", file);
+                              try {
+                                const r = await api("/api/ads/creatives/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+                                const data = await r.json();
+                                if (data.creative?.media_url) updateEx(ex.id, "video_url", data.creative.media_url);
+                              } catch {}
+                            }} />
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">MP4 or MOV — max 50 MB</p>
+                          </div>
+                        )}
+                        {ex.video_url && <a href={ex.video_url} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap text-[11px] text-[var(--secondary)]">🔗 {t("preview") || "Preview"}</a>}
                       </div>
                     </div>
                   ))}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <p style={{ fontSize: 13, fontWeight: 600 }}>{t("coach_athletes_meals")} ({nutritionPlan.meals.length})</p>
-                  <button onClick={addMeal} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: "var(--radius-full)", background: "rgba(59,139,255,0.1)", border: "1px solid rgba(59,139,255,0.25)", color: "var(--blue)", fontSize: 12, cursor: "pointer", fontWeight: 600 }}><Plus size={13} /> {t("coach_athletes_add_meal")}</button>
+              </Card>
+            )}
+
+            {tab === "nutrition" && (
+              <Card className="gap-0 p-5 shadow-soft-sm">
+                <div className="mb-3.5 flex items-center justify-between">
+                  <p className="text-[15px] font-semibold">{t("nutrition_plan_label")}</p>
+                  <Button size="sm" onClick={saveNutrition} disabled={saving}>
+                    <Save size={14} strokeWidth={2} /> {saving ? t("saving") : t("save_plan")}
+                  </Button>
                 </div>
-                {nutritionPlan.meals.length === 0 && <p style={{ textAlign: "center", padding: "24px 0", color: "var(--text-muted)", fontSize: 13 }}>{t("coach_athletes_no_meals")}</p>}
-                {nutritionPlan.meals.map(m => (
-                  <div key={m.id} style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 100px auto", gap: 8, alignItems: "center" }}>
-                      <input className="input-base" value={m.name} onChange={e => updateMeal(m.id, "name", e.target.value)} placeholder={t('meal_name')} style={{ padding: "7px 10px" }} />
-                      <input className="input-base" type="time" value={m.time} onChange={e => updateMeal(m.id, "time", e.target.value)} style={{ padding: "7px 8px" }} />
-                      <input className="input-base" type="number" value={m.calories} onChange={e => updateMeal(m.id, "calories", Number(e.target.value))} placeholder={t('kcal_unit')} style={{ padding: "7px 8px" }} min={0} />
-                      <button onClick={() => removeMeal(m.id)} style={{ background: "rgba(255,68,68,0.1)", border: "1px solid var(--red)", borderRadius: "var(--radius-full)", padding: "7px", cursor: "pointer", color: "var(--red)" }}><Trash2 size={13} /></button>
+                <Input value={nutritionPlan.title} onChange={e => setNutritionPlan(p => ({ ...p, title: e.target.value }))} placeholder={t("coach_athletes_plan_title")} className="mb-3.5" aria-label={t("coach_athletes_plan_title")} />
+                <div className="mb-3.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                  {[
+                    { label: t('calories_nutrition'), field: "daily_calories" as const, unit: t('kcal_unit') },
+                    { label: t('protein_label'), field: "protein_g" as const, unit: t('g_unit') },
+                    { label: t('carbs_label'), field: "carbs_g" as const, unit: t('g_unit') },
+                    { label: t('fat_label'), field: "fat_g" as const, unit: t('g_unit') },
+                  ].map(m => (
+                    <div key={m.field} className="rounded-md bg-muted px-3.5 py-3">
+                      <p className="mb-1.5 text-[10px] tracking-wide text-muted-foreground uppercase">{m.label}</p>
+                      <div className="flex items-baseline gap-1">
+                        <input type="number" value={nutritionPlan[m.field]} onChange={e => setNutritionPlan(p => ({ ...p, [m.field]: Number(e.target.value) }))} className="w-16 bg-transparent text-[18px] font-bold tabular-nums outline-none" aria-label={m.label} />
+                        <span className="text-[11px] text-muted-foreground">{m.unit}</span>
+                      </div>
                     </div>
-                    <input className="input-base" value={m.foods} onChange={e => updateMeal(m.id, "foods", e.target.value)} placeholder={t('foods_placeholder')} style={{ padding: "7px 10px" }} />
-                  </div>
-                ))}
-                <div>
-                  <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.07em" }}>{t("coach_athletes_notes")}</label>
-                  <textarea className="input-base" value={nutritionPlan.notes} onChange={e => setNutritionPlan(p => ({ ...p, notes: e.target.value }))} placeholder={t("coach_athletes_notes_placeholder")} rows={3} style={{ resize: "none" }} />
+                  ))}
                 </div>
-              </div>
+                <div className="mb-3.5 flex items-center justify-between">
+                  <p className="text-[13px] font-semibold">{t("coach_athletes_meals")} ({nutritionPlan.meals.length})</p>
+                  <Button size="sm" variant="outline" onClick={addMeal}><Plus size={14} strokeWidth={2} /> {t("coach_athletes_add_meal")}</Button>
+                </div>
+                {nutritionPlan.meals.length === 0 && <p className="py-6 text-center text-[13px] text-muted-foreground">{t("coach_athletes_no_meals")}</p>}
+                <div className="flex flex-col gap-3">
+                  {nutritionPlan.meals.map(m => (
+                    <div key={m.id} className="flex flex-col gap-2 rounded-md bg-muted p-3.5">
+                      <div className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[2fr_1fr_100px_auto]">
+                        <Input value={m.name} onChange={e => updateMeal(m.id, "name", e.target.value)} placeholder={t('meal_name')} className="h-9 bg-card text-[13px]" aria-label={t('meal_name')} />
+                        <Input type="time" value={m.time} onChange={e => updateMeal(m.id, "time", e.target.value)} className="h-9 bg-card text-[13px]" aria-label={t("coach_requests_time")} />
+                        <Input type="number" value={m.calories} onChange={e => updateMeal(m.id, "calories", Number(e.target.value))} placeholder={t('kcal_unit')} className="h-9 bg-card text-[13px]" min={0} aria-label={t('kcal_unit')} />
+                        <Button variant="outline" size="icon-sm" className="text-destructive" onClick={() => removeMeal(m.id)} aria-label={t("coach_athletes_add_meal")}><Trash2 size={14} strokeWidth={2} /></Button>
+                      </div>
+                      <Input value={m.foods} onChange={e => updateMeal(m.id, "foods", e.target.value)} placeholder={t('foods_placeholder')} className="h-9 bg-card text-[13px]" aria-label={t('foods_placeholder')} />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3.5 grid gap-2">
+                  <Label htmlFor="np-notes">{t("coach_athletes_notes")}</Label>
+                  <Textarea id="np-notes" value={nutritionPlan.notes} onChange={e => setNutritionPlan(p => ({ ...p, notes: e.target.value }))} placeholder={t("coach_athletes_notes_placeholder")} rows={3} className="resize-none" />
+                </div>
+              </Card>
             )}
           </div>
         )}
@@ -482,34 +531,39 @@ function AthleteTrainingFeed({ athleteId, token }: { athleteId: number; token: s
       .finally(() => setLoading(false));
   }, [athleteId, token]);
   if (!token) return null;
-  const labels: Record<string, { label: string; icon: string }> = {
-    workout_started:  { label: "Started training",   icon: "🏋️" },
-    workout_finished: { label: "Finished a workout", icon: "✅" },
-    plan_finished:    { label: "Finished the plan",  icon: "🎉" },
+  const labels: Record<string, { label: string; icon: any }> = {
+    workout_started:  { label: "Started training",   icon: Dumbbell },
+    workout_finished: { label: "Finished a workout", icon: CheckCircle2 },
+    plan_finished:    { label: "Finished the plan",  icon: PartyPopper },
   };
   return (
-    <div style={{ marginTop: 4, padding: "14px 16px", borderRadius: 14, background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-      <p style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 10, fontWeight: 700 }}>
+    <Card className="gap-0 p-5 shadow-soft-sm">
+      <p className="mb-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
         Training activity
       </p>
       {loading ? (
-        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Loading…</p>
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-9 rounded-md" />)}
+        </div>
       ) : events.length === 0 ? (
-        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>No training sessions logged yet.</p>
+        <p className="text-[12px] text-muted-foreground">No training sessions logged yet.</p>
       ) : (
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+        <ul className="flex flex-col gap-2">
           {events.slice(0, 8).map((e: any) => {
-            const meta = labels[e.event_type] || { label: e.event_type, icon: "•" };
+            const meta = labels[e.event_type] || { label: e.event_type, icon: Zap };
+            const MetaIcon = meta.icon;
             return (
-              <li key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                <span style={{ fontSize: 14 }}>{meta.icon}</span>
-                <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", flex: 1 }}>{meta.label}</p>
-                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{new Date(e.created_at).toLocaleString()}</span>
+              <li key={e.id} className="flex items-center gap-2.5 rounded-md bg-muted px-2.5 py-2">
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-card text-muted-foreground">
+                  <MetaIcon size={16} strokeWidth={2} />
+                </span>
+                <p className="flex-1 text-[12px] font-semibold">{meta.label}</p>
+                <span className="shrink-0 text-[10px] text-muted-foreground">{new Date(e.created_at).toLocaleString()}</span>
               </li>
             );
           })}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }
