@@ -6,8 +6,20 @@ import PlanCommentsThread from "@/components/app/PlanCommentsThread";
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Circle, Dumbbell, Calendar, Flame, Trophy, RefreshCw, UserCheck, User as UserIcon,
-  Lock, Pencil,
+  Lock, Pencil, Play, Ticket, ArrowRight,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 interface Exercise {
   id: number;
@@ -254,494 +266,475 @@ export default function WorkoutPlan() {
   const trainingDays = displayedPlan.filter(d => d.focus !== "Rest").length;
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 32 }}>
+    <div className="mx-auto w-full max-w-[880px] px-4 pb-4">
 
       {/* Flash */}
       {flash && (
-        <div style={{
-          position: "fixed", top: 70, left: "50%", transform: "translateX(-50%)",
-          zIndex: 999, background: "var(--bg-card)", border: "1px solid var(--border)",
-          borderRadius: 12, padding: "10px 20px", fontSize: 13, fontWeight: 600,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.3)", color: "var(--text-primary)",
-          whiteSpace: "nowrap",
-        }}>
+        <div className="fixed start-1/2 top-[70px] z-[999] -translate-x-1/2 whitespace-nowrap rounded-md bg-card px-5 py-2.5 text-[13px] font-semibold text-foreground shadow-soft-lg">
           {flash}
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ padding: "16px 16px 8px" }}>
-        <h1 style={{ fontFamily: "var(--font-heading)", fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 4 }}>
-          Workout Plan
-        </h1>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-          {tab === "coach"
-            ? (hasSubscription && coachPlanData
-                ? `Assigned by ${coachName}`
-                : "Subscribe to a coach to receive a personalised plan")
-            : "Your weekly training schedule"}
-        </p>
-      </div>
+      <div className="space-y-4">
 
-      {/* Tabs: My Plan / Coach Plan (Coach tab is locked without an active subscription) */}
-      <div style={{ display: "flex", gap: 8, padding: "8px 16px 12px" }}>
-        <button
-          onClick={() => setTab("self")}
-          style={{
-            flex: 1, padding: "10px 14px", borderRadius: 12,
-            border: `1px solid ${tab === "self" ? "var(--main)" : "var(--border)"}`,
-            background: tab === "self" ? "var(--main-dim)" : "var(--bg-card)",
-            color: tab === "self" ? "var(--main)" : "var(--text-secondary)",
-            fontWeight: tab === "self" ? 700 : 500, fontSize: 13, cursor: "pointer",
-            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-          }}
-        >
-          <UserIcon size={14} /> My Plan
-        </button>
-        <button
-          onClick={() => setTab("coach")}
-          disabled={!hasSubscription}
-          aria-disabled={!hasSubscription}
-          style={{
-            flex: 1, padding: "10px 14px", borderRadius: 12,
-            border: `1px solid ${tab === "coach" ? "#3B82F6" : "var(--border)"}`,
-            background: tab === "coach" ? "rgba(59,130,246,0.12)" : "var(--bg-card)",
-            color: !hasSubscription ? "var(--text-muted)" : tab === "coach" ? "#3B82F6" : "var(--text-secondary)",
-            fontWeight: tab === "coach" ? 700 : 500, fontSize: 13,
-            cursor: hasSubscription ? "pointer" : "not-allowed",
-            opacity: hasSubscription ? 1 : 0.6,
-            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-          }}
-        >
-          {hasSubscription ? <UserCheck size={14} /> : <Lock size={14} />} Coach Plan
-        </button>
-      </div>
-
-      {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, padding: "8px 16px 16px" }}>
-        {[
-          { icon: Calendar, label: "Training Days", value: trainingDays, color: "#FFD600" },
-          { icon: Dumbbell, label: "Exercises", value: totalExercises, color: "#60A5FA" },
-          { icon: CheckCircle2, label: "Completed", value: `${doneExercises}/${totalExercises}`, color: "#4ADE80" },
-        ].map(({ icon: Icon, label, value, color }) => (
-          <div key={label} style={{
-            background: "var(--bg-card)", borderRadius: 14, padding: "12px 10px",
-            border: "1px solid var(--border)", textAlign: "center",
-          }}>
-            <div style={{ width: 32, height: 32, borderRadius: 10, background: `${color}22`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 6px" }}>
-              <Icon size={16} color={color} strokeWidth={2} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>{value}</div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 500, marginTop: 1 }}>{label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Coach tab: locked card when no active subscription */}
-      {tab === "coach" && !hasSubscription && (
-        <div style={{ margin: "0 16px 24px", padding: "28px 22px", borderRadius: 18, border: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "center" }}>
-          <div style={{ width: 56, height: 56, borderRadius: 18, background: "rgba(59,130,246,0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-            <Lock size={22} color="#3B82F6" />
-          </div>
-          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Subscribe to a coach to unlock</p>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.55, marginBottom: 16 }}>
-            Once you subscribe, your coach can publish a custom workout plan that appears here.
+        {/* Header */}
+        <header className="pt-1">
+          <h1 className="text-[28px] font-bold leading-tight tracking-tight">Workout Plan</h1>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            {tab === "coach"
+              ? (hasSubscription && coachPlanData
+                  ? `Assigned by ${coachName}`
+                  : "Subscribe to a coach to receive a personalised plan")
+              : "Your weekly training schedule"}
           </p>
+        </header>
+
+        {/* Tabs: My Plan / Coach Plan (Coach tab is locked without an active subscription) */}
+        <div role="tablist" className="flex gap-1 rounded-md bg-muted p-1">
           <button
-            onClick={() => navigate("/app/coaching")}
-            style={{ padding: "11px 22px", borderRadius: 12, border: "none", background: "#3B82F6", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+            role="tab"
+            aria-selected={tab === "self"}
+            onClick={() => setTab("self")}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1.5 rounded-[8px] px-3 py-2.5 text-[13px] font-semibold transition-all",
+              tab === "self"
+                ? "bg-card text-foreground shadow-soft-sm"
+                : "text-muted-foreground",
+            )}
           >
-            Find a coach
+            <UserIcon size={15} strokeWidth={2} /> My Plan
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === "coach"}
+            onClick={() => setTab("coach")}
+            disabled={!hasSubscription}
+            aria-disabled={!hasSubscription}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1.5 rounded-[8px] px-3 py-2.5 text-[13px] font-semibold transition-all",
+              tab === "coach"
+                ? "bg-card text-[var(--secondary)] shadow-soft-sm"
+                : "text-muted-foreground",
+              !hasSubscription && "cursor-not-allowed opacity-50",
+            )}
+          >
+            {hasSubscription ? <UserCheck size={15} strokeWidth={2} /> : <Lock size={15} strokeWidth={2} />} Coach Plan
           </button>
         </div>
-      )}
 
-      {/* Coach tab: subscribed but coach hasn't pushed a plan yet */}
-      {tab === "coach" && hasSubscription && !coachPlanData && (
-        <div style={{ margin: "0 16px 24px", padding: "28px 22px", borderRadius: 18, border: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "center" }}>
-          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>No plan from your coach yet</p>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.55 }}>
-            Your coach will push a workout plan here as soon as it's ready.
-          </p>
-        </div>
-      )}
-
-      {/* My Plan: Add / Edit toggle */}
-      {tab === "self" && (
-        <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 16px 12px" }}>
-          <button
-            onClick={() => setEditingMyPlan(v => !v)}
-            style={{
-              padding: "8px 14px", borderRadius: 10,
-              border: editingMyPlan ? "1px solid var(--main)" : "1px solid var(--border)",
-              background: editingMyPlan ? "var(--main-dim)" : "var(--bg-card)",
-              color: editingMyPlan ? "var(--main)" : "var(--text-secondary)",
-              fontWeight: 600, fontSize: 12, cursor: "pointer",
-              display: "inline-flex", alignItems: "center", gap: 6,
-            }}
-          >
-            {editingMyPlan ? <CheckCircle2 size={14} /> : (hasMyPlan ? <Pencil size={14} /> : <Plus size={14} />)}
-            {editingMyPlan ? "Done" : (hasMyPlan ? "Edit" : "Add")}
-          </button>
-        </div>
-      )}
-
-      {/* Day cards */}
-      {(tab === "self" || (tab === "coach" && coachPlanData)) && (
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 16px" }}>
-        {displayedPlan.map(day => {
-          const color = FOCUS_COLORS[day.focus] || "#FFD600";
-          const isToday = day.day === todayDayName;
-          const doneCount = day.exercises.filter(e => e.done).length;
-          const total = day.exercises.length;
-          const allDone = total > 0 && doneCount === total;
-
-          return (
-            <div
-              key={day.id}
-              style={{
-                background: "var(--bg-card)", borderRadius: 16,
-                border: `1px solid ${isToday ? "var(--main)" : "var(--border)"}`,
-                overflow: "hidden",
-                boxShadow: isToday ? "0 0 0 1px var(--main-glow)" : "none",
-              }}
-            >
-              {/* Day header */}
-              <button
-                onClick={() => toggleDay(day.id)}
-                style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 12,
-                  padding: "14px 16px", background: "transparent", border: "none",
-                  cursor: "pointer", textAlign: "start",
-                }}
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { icon: Calendar, label: "Training Days", value: trainingDays, color: "var(--main)" },
+            { icon: Dumbbell, label: "Exercises", value: totalExercises, color: "var(--secondary)" },
+            { icon: CheckCircle2, label: "Completed", value: `${doneExercises}/${totalExercises}`, color: "var(--green)" },
+          ].map(({ icon: Icon, label, value, color }) => (
+            <Card key={label} className="items-center gap-0 p-4 text-center shadow-soft-sm">
+              <span
+                className="mx-auto mb-1.5 grid size-9 place-items-center rounded-md"
+                style={{ background: `color-mix(in srgb, ${color} 15%, transparent)` }}
               >
-                {/* Focus dot */}
-                <div style={{
-                  width: 36, height: 36, borderRadius: 11, flexShrink: 0,
-                  background: `${color}22`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  {allDone
-                    ? <Trophy size={16} color={color} strokeWidth={2} />
-                    : <Flame size={16} color={color} strokeWidth={2} />
-                  }
-                </div>
+                <Icon size={17} strokeWidth={2} style={{ color }} />
+              </span>
+              <div className="text-2xl font-bold tabular-nums tracking-tight">{value}</div>
+              <div className="mt-0.5 text-[11px] font-medium text-muted-foreground">{label}</div>
+            </Card>
+          ))}
+        </div>
 
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{day.day}</span>
-                    {isToday && (
-                      <span style={{
-                        fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-                        background: "var(--main)", color: "#fff",
-                        padding: "2px 6px", borderRadius: 20, textTransform: "uppercase",
-                      }}>Today</span>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{
-                      fontSize: 11, fontWeight: 600,
-                      color, background: `${color}18`,
-                      padding: "2px 8px", borderRadius: 20,
-                    }}>{day.focus}</span>
-                    {total > 0 && (
-                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                        {doneCount}/{total} done
-                      </span>
-                    )}
-                  </div>
-                </div>
+        {/* Coach tab: locked card when no active subscription */}
+        {tab === "coach" && !hasSubscription && (
+          <Card className="items-center p-7 text-center shadow-soft-sm">
+            <span className="mb-3.5 grid size-14 place-items-center rounded-lg bg-[var(--secondary-dim)]">
+              <Lock size={22} strokeWidth={2} className="text-[var(--secondary)]" />
+            </span>
+            <p className="text-[15px] font-semibold">Subscribe to a coach to unlock</p>
+            <p className="mt-1.5 max-w-[340px] text-[13px] leading-relaxed text-muted-foreground">
+              Once you subscribe, your coach can publish a custom workout plan that appears here.
+            </p>
+            <Button
+              onClick={() => navigate("/app/coaching")}
+              className="mt-4 bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90"
+            >
+              Find a coach <ArrowRight size={16} />
+            </Button>
+          </Card>
+        )}
 
-                {/* Progress + chevron */}
-                {total > 0 && (
-                  <div style={{ width: 32, height: 32, position: "relative", flexShrink: 0 }}>
-                    <svg width="32" height="32" viewBox="0 0 32 32">
-                      <circle cx="16" cy="16" r="13" fill="none" stroke="var(--border)" strokeWidth="3" />
-                      <circle
-                        cx="16" cy="16" r="13" fill="none"
-                        stroke={color} strokeWidth="3"
-                        strokeDasharray={`${2 * Math.PI * 13}`}
-                        strokeDashoffset={`${2 * Math.PI * 13 * (1 - doneCount / total)}`}
-                        strokeLinecap="round"
-                        style={{ transform: "rotate(-90deg)", transformOrigin: "center", transition: "stroke-dashoffset 0.4s" }}
-                      />
-                    </svg>
-                  </div>
+        {/* Coach tab: subscribed but coach hasn't pushed a plan yet */}
+        {tab === "coach" && hasSubscription && !coachPlanData && (
+          <Card className="items-center p-7 text-center shadow-soft-sm">
+            <p className="text-[15px] font-semibold">No plan from your coach yet</p>
+            <p className="mt-1.5 max-w-[340px] text-[13px] leading-relaxed text-muted-foreground">
+              Your coach will push a workout plan here as soon as it's ready.
+            </p>
+          </Card>
+        )}
+
+        {/* My Plan: Add / Edit toggle */}
+        {tab === "self" && (
+          <div className="flex justify-end">
+            <Button
+              variant={editingMyPlan ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEditingMyPlan(v => !v)}
+            >
+              {editingMyPlan ? <CheckCircle2 size={15} /> : (hasMyPlan ? <Pencil size={15} /> : <Plus size={15} />)}
+              {editingMyPlan ? "Done" : (hasMyPlan ? "Edit" : "Add")}
+            </Button>
+          </div>
+        )}
+
+        {/* Day cards */}
+        {(tab === "self" || (tab === "coach" && coachPlanData)) && (
+        <div className="flex flex-col gap-2">
+          {displayedPlan.map(day => {
+            const color = FOCUS_COLORS[day.focus] || "#FFD600";
+            const isToday = day.day === todayDayName;
+            const doneCount = day.exercises.filter(e => e.done).length;
+            const total = day.exercises.length;
+            const allDone = total > 0 && doneCount === total;
+            const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+
+            return (
+              <Card
+                key={day.id}
+                className={cn(
+                  "gap-0 overflow-hidden p-0 shadow-soft-sm",
+                  isToday && "ring-1 ring-primary/60",
                 )}
-                {day.expanded
-                  ? <ChevronUp size={16} color="var(--text-muted)" />
-                  : <ChevronDown size={16} color="var(--text-muted)" />
-                }
-              </button>
+              >
+                {/* Day header */}
+                <button
+                  onClick={() => toggleDay(day.id)}
+                  aria-expanded={day.expanded}
+                  className="flex w-full items-center gap-3 p-4 text-start transition active:scale-[0.99]"
+                >
+                  {/* Focus icon */}
+                  <span
+                    className="grid size-9 shrink-0 place-items-center rounded-md"
+                    style={{ background: `color-mix(in srgb, ${color} 14%, transparent)` }}
+                  >
+                    {allDone
+                      ? <Trophy size={16} strokeWidth={2} style={{ color }} />
+                      : <Flame size={16} strokeWidth={2} style={{ color }} />
+                    }
+                  </span>
 
-              {/* Expanded content */}
-              {day.expanded && (
-                <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px 16px" }}>
-
-                  {/* Focus selector — only when editing my own plan */}
-                  {tab === "self" && editingMyPlan && (
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                    {FOCUS_OPTIONS.map(f => (
-                      <button
-                        key={f}
-                        onClick={() => changeFocus(day.id, f)}
-                        style={{
-                          padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
-                          border: "none", cursor: "pointer",
-                          background: day.focus === f ? (FOCUS_COLORS[f] || "var(--main)") : "var(--bg-surface)",
-                          color: day.focus === f ? "#fff" : "var(--text-secondary)",
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {f}
-                      </button>
-                    ))}
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="text-[15px] font-semibold">{day.day}</span>
+                      {isToday && (
+                        <Badge className="px-2 py-0 text-[10px] uppercase tracking-wide">Today</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                        style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}
+                      >{day.focus}</span>
+                      {total > 0 && (
+                        <span className="text-[11px] text-muted-foreground">
+                          {doneCount}/{total} done
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Progress + chevron */}
+                  {total > 0 && (
+                    <span className="text-[12px] font-bold tabular-nums" style={{ color }}>{pct}%</span>
                   )}
+                  {day.expanded
+                    ? <ChevronUp size={18} className="shrink-0 text-muted-foreground" />
+                    : <ChevronDown size={18} className="shrink-0 text-muted-foreground" />
+                  }
+                </button>
 
-                  {/* Exercises */}
-                  {day.exercises.length === 0 && day.focus === "Rest" ? (
-                    <div style={{ textAlign: "center", padding: "20px 0", color: "var(--text-muted)", fontSize: 13 }}>
-                      😴 Rest day — recovery is part of training
-                    </div>
-                  ) : day.exercises.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "16px 0", color: "var(--text-muted)", fontSize: 13 }}>
-                      No exercises yet. Add one below.
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
-                      {day.exercises.map((ex, idx) => (
-                        <div
-                          key={ex.id}
-                          style={{
-                            padding: "10px 12px", borderRadius: 12,
-                            background: ex.done ? `${color}12` : "var(--bg-surface)",
-                            border: `1px solid ${ex.done ? color + "44" : "var(--border)"}`,
-                            transition: "all 0.2s",
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <button
-                              onClick={() => toggleExercise(day.id, ex.id)}
-                              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}
-                            >
-                              {ex.done
-                                ? <CheckCircle2 size={20} color={color} strokeWidth={2} />
-                                : <Circle size={20} color="var(--text-muted)" strokeWidth={1.8} />
-                              }
-                            </button>
+                {total > 0 && (
+                  <Progress
+                    value={pct}
+                    className="h-1 rounded-none"
+                    style={{ ["--primary" as any]: color }}
+                  />
+                )}
 
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{
-                                fontSize: 13, fontWeight: 600,
-                                color: ex.done ? "var(--text-muted)" : "var(--text-primary)",
-                                textDecoration: ex.done ? "line-through" : "none",
-                              }}>
-                                {idx + 1}. {ex.name}
+                {/* Expanded content */}
+                {day.expanded && (
+                  <div className="px-4 pt-3 pb-4">
+                    <Separator className="mb-3" />
+
+                    {/* Focus selector — only when editing my own plan */}
+                    {tab === "self" && editingMyPlan && (
+                    <div className="mb-3.5 flex flex-wrap gap-1.5">
+                      {FOCUS_OPTIONS.map(f => {
+                        const active = day.focus === f;
+                        const fColor = FOCUS_COLORS[f] || "var(--main)";
+                        return (
+                          <button
+                            key={f}
+                            onClick={() => changeFocus(day.id, f)}
+                            className={cn(
+                              "rounded-full px-2.5 py-1 text-[11px] font-semibold transition",
+                              !active && "bg-muted text-muted-foreground",
+                            )}
+                            style={active ? { background: fColor, color: "#fff" } : undefined}
+                          >
+                            {f}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    )}
+
+                    {/* Exercises */}
+                    {day.exercises.length === 0 && day.focus === "Rest" ? (
+                      <div className="py-5 text-center text-[13px] text-muted-foreground">
+                        😴 Rest day — recovery is part of training
+                      </div>
+                    ) : day.exercises.length === 0 ? (
+                      <div className="py-4 text-center text-[13px] text-muted-foreground">
+                        No exercises yet. Add one below.
+                      </div>
+                    ) : (
+                      <div className="mb-3 flex flex-col gap-1.5">
+                        {day.exercises.map((ex, idx) => (
+                          <div
+                            key={ex.id}
+                            className="rounded-md p-3 transition"
+                            style={{
+                              background: ex.done
+                                ? `color-mix(in srgb, ${color} 10%, transparent)`
+                                : "var(--color-muted)",
+                            }}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <button
+                                onClick={() => toggleExercise(day.id, ex.id)}
+                                className="shrink-0 transition active:scale-90"
+                                aria-label={ex.done ? "Mark exercise not done" : "Mark exercise done"}
+                                aria-pressed={!!ex.done}
+                              >
+                                {ex.done
+                                  ? <CheckCircle2 size={20} strokeWidth={2} style={{ color }} />
+                                  : <Circle size={20} strokeWidth={1.8} className="text-muted-foreground" />
+                                }
+                              </button>
+
+                              <div className="min-w-0 flex-1">
+                                <div
+                                  className={cn(
+                                    "text-[13px] font-semibold",
+                                    ex.done ? "text-muted-foreground line-through" : "text-foreground",
+                                  )}
+                                >
+                                  {idx + 1}. {ex.name}
+                                </div>
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  <Badge variant="muted" className="px-2 py-0 text-[10px]">{ex.sets} sets</Badge>
+                                  <Badge variant="muted" className="px-2 py-0 text-[10px]">{ex.reps} reps</Badge>
+                                  <span className="text-[11px] text-muted-foreground">rest {ex.rest}</span>
+                                </div>
                               </div>
-                              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                                {ex.sets} sets × {ex.reps} reps · rest {ex.rest}
-                              </div>
+
+                              {/* Linked workout video (when coach attached one) */}
+                              {ex.video_url && (
+                                <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5 text-[11px]">
+                                  <a
+                                    href={ex.video_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Watch reference video"
+                                  >
+                                    <Play size={12} fill="currentColor" /> Video
+                                  </a>
+                                </Button>
+                              )}
+
+                              {/* Ask coach about THIS exercise — only place the
+                                  ticket button lives now (May meeting).
+                                  Requires a coach plan + a real coach. */}
+                              {tab === "coach" && coachPlanId && coachUserId && (
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  className="h-8 gap-1 px-2.5 text-[11px]"
+                                  title="Ask your coach about this exercise"
+                                  onClick={() => { setTicketModal({ ex }); setTicketSubject(`Question about: ${ex.name}`); setTicketBody(""); setTicketMsg(""); }}
+                                >
+                                  <Ticket size={12} /> Ticket
+                                </Button>
+                              )}
+
+                              {tab === "self" && editingMyPlan && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => removeExercise(day.id, ex.id)}
+                                  className="shrink-0 text-muted-foreground"
+                                  aria-label="Remove exercise"
+                                >
+                                  <Trash2 size={15} />
+                                </Button>
+                              )}
                             </div>
 
-                            {/* Linked workout video (when coach attached one) */}
-                            {ex.video_url && (
-                              <a
-                                href={ex.video_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="Watch reference video"
-                                style={{ background: "var(--accent-dim)", border: "1px solid var(--accent)", borderRadius: 8, padding: "4px 8px", color: "var(--accent)", fontSize: 11, cursor: "pointer", whiteSpace: "nowrap", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}
-                              >
-                                ▶ Video
-                              </a>
+                            {/* Asana-style comments thread (coach plan only — own
+                                plan doesn't have a coach yet, so nothing to
+                                discuss). Mounted compact so users opt in. */}
+                            {tab === "coach" && coachPlanId && (
+                              <PlanCommentsThread workoutPlanId={coachPlanId} exerciseKey={String(ex.id) + "::" + ex.name} compact />
                             )}
-
-                            {/* Ask coach about THIS exercise — only place the
-                                ticket button lives now (May meeting).
-                                Requires a coach plan + a real coach. */}
-                            {tab === "coach" && coachPlanId && coachUserId && (
-                              <button
-                                title="Ask your coach about this exercise"
-                                onClick={() => { setTicketModal({ ex }); setTicketSubject(`Question about: ${ex.name}`); setTicketBody(""); setTicketMsg(""); }}
-                                style={{ background: "var(--main-dim)", border: "1px solid var(--main)", borderRadius: 8, padding: "4px 10px", color: "var(--main)", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}
-                              >
-                                🎫 Ticket
-                              </button>
-                            )}
-
-                            {tab === "self" && editingMyPlan && (
-                              <button
-                                onClick={() => removeExercise(day.id, ex.id)}
-                                style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", flexShrink: 0 }}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Asana-style comments thread (coach plan only — own
-                              plan doesn't have a coach yet, so nothing to
-                              discuss). Mounted compact so users opt in. */}
-                          {tab === "coach" && coachPlanId && (
-                            <PlanCommentsThread workoutPlanId={coachPlanId} exerciseKey={String(ex.id) + "::" + ex.name} compact />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Add exercise form */}
-                  {tab === "self" && editingMyPlan && addingExercise === day.id ? (
-                    <div style={{ background: "var(--bg-surface)", borderRadius: 12, padding: 12, border: "1px solid var(--border)", marginBottom: 10 }}>
-                      <input
-                        className="input-base"
-                        placeholder="Exercise name (e.g. Bench Press)"
-                        value={newEx.name}
-                        onChange={e => setNewEx(v => ({ ...v, name: e.target.value }))}
-                        style={{ marginBottom: 8, fontSize: 13 }}
-                        autoFocus
-                        onKeyDown={e => e.key === "Enter" && addExercise(day.id)}
-                      />
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
-                        {[
-                          { key: "sets", label: "Sets", placeholder: "3" },
-                          { key: "reps", label: "Reps", placeholder: "10" },
-                          { key: "rest", label: "Rest", placeholder: "60s" },
-                        ].map(({ key, label, placeholder }) => (
-                          <div key={key}>
-                            <label style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 4 }}>
-                              {label}
-                            </label>
-                            <input
-                              className="input-base"
-                              placeholder={placeholder}
-                              value={(newEx as any)[key]}
-                              onChange={e => setNewEx(v => ({ ...v, [key]: e.target.value }))}
-                              style={{ fontSize: 13, padding: "8px 10px" }}
-                            />
                           </div>
                         ))}
                       </div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button
-                          onClick={() => addExercise(day.id)}
-                          style={{
-                            flex: 1, padding: "9px", borderRadius: 10, border: "none",
-                            background: "var(--main)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer",
-                          }}
-                        >
-                          Add
-                        </button>
-                        <button
-                          onClick={() => setAddingExercise(null)}
-                          style={{
-                            flex: 1, padding: "9px", borderRadius: 10,
-                            border: "1px solid var(--border)", background: "transparent",
-                            color: "var(--text-secondary)", fontWeight: 600, fontSize: 13, cursor: "pointer",
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
+                    )}
 
-                  {/* Actions row — Add Exercise only while editing My Plan; Reset is always available so users can reset coach-plan check-offs too. */}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {tab === "self" && editingMyPlan && addingExercise !== day.id && (
-                      <button
-                        onClick={() => setAddingExercise(day.id)}
-                        style={{
-                          flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                          padding: "9px", borderRadius: 10, border: "1px dashed var(--border)",
-                          background: "transparent", color: "var(--text-secondary)",
-                          fontWeight: 600, fontSize: 12, cursor: "pointer",
-                        }}
-                      >
-                        <Plus size={14} /> Add Exercise
-                      </button>
-                    )}
-                    {day.exercises.length > 0 && (
-                      <button
-                        onClick={() => resetDay(day.id)}
-                        style={{
-                          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                          padding: "9px 14px", borderRadius: 10,
-                          border: "1px solid var(--border)", background: "transparent",
-                          color: "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                        }}
-                      >
-                        <RefreshCw size={13} /> Reset
-                      </button>
-                    )}
+                    {/* Add exercise form */}
+                    {tab === "self" && editingMyPlan && addingExercise === day.id ? (
+                      <Card className="mb-2.5 gap-0 bg-muted p-3 shadow-none">
+                        <Input
+                          placeholder="Exercise name (e.g. Bench Press)"
+                          value={newEx.name}
+                          onChange={e => setNewEx(v => ({ ...v, name: e.target.value }))}
+                          className="mb-2 bg-card"
+                          autoFocus
+                          onKeyDown={e => e.key === "Enter" && addExercise(day.id)}
+                        />
+                        <div className="mb-2.5 grid grid-cols-3 gap-2">
+                          {[
+                            { key: "sets", label: "Sets", placeholder: "3" },
+                            { key: "reps", label: "Reps", placeholder: "10" },
+                            { key: "rest", label: "Rest", placeholder: "60s" },
+                          ].map(({ key, label, placeholder }) => (
+                            <div key={key}>
+                              <Label className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {label}
+                              </Label>
+                              <Input
+                                placeholder={placeholder}
+                                value={(newEx as any)[key]}
+                                onChange={e => setNewEx(v => ({ ...v, [key]: e.target.value }))}
+                                className="h-10 bg-card text-[13px]"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button onClick={() => addExercise(day.id)} className="flex-1">Add</Button>
+                          <Button variant="outline" onClick={() => setAddingExercise(null)} className="flex-1">Cancel</Button>
+                        </div>
+                      </Card>
+                    ) : null}
+
+                    {/* Actions row — Add Exercise only while editing My Plan; Reset is always available so users can reset coach-plan check-offs too. */}
+                    <div className="flex gap-2">
+                      {tab === "self" && editingMyPlan && addingExercise !== day.id && (
+                        <Button
+                          variant="outline"
+                          onClick={() => setAddingExercise(day.id)}
+                          className="flex-1 border-dashed text-muted-foreground"
+                        >
+                          <Plus size={15} /> Add Exercise
+                        </Button>
+                      )}
+                      {day.exercises.length > 0 && (
+                        <Button
+                          variant="outline"
+                          onClick={() => resetDay(day.id)}
+                          className="text-muted-foreground"
+                        >
+                          <RefreshCw size={14} /> Reset
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                )}
+              </Card>
+            );
+          })}
+        </div>
+        )}
       </div>
-      )}
 
       {/* Ticket modal — only path to file an athlete→coach ticket. Scoped to
           the current exercise so the coach knows what the question's about. */}
-      {ticketModal && (
-        <div onClick={() => !ticketBusy && setTicketModal(null)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 9999 }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "20px 22px", width: "100%", maxWidth: 460 }}>
-            <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>Ask {coachName}</h3>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>About: <strong>{ticketModal.ex.name}</strong></p>
-            <label style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>Subject</label>
-            <input value={ticketSubject} onChange={e => setTicketSubject(e.target.value)}
-              style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, marginBottom: 12 }} />
-            <label style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>Your question</label>
-            <textarea value={ticketBody} onChange={e => setTicketBody(e.target.value)} rows={4} placeholder="What's confusing you about this exercise?"
-              style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, marginBottom: 12, resize: "vertical" }} />
-            {ticketMsg && <p style={{ fontSize: 12, color: ticketMsg.startsWith("✅") ? "var(--green)" : "var(--red)", marginBottom: 10 }}>{ticketMsg}</p>}
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setTicketModal(null)} disabled={ticketBusy}
-                style={{ padding: "9px 16px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                Cancel
-              </button>
-              <button disabled={ticketBusy || !ticketSubject.trim() || !coachUserId || !coachPlanId}
-                onClick={async () => {
-                  if (!coachUserId || !coachPlanId || !ticketModal) return;
-                  setTicketBusy(true); setTicketMsg("");
-                  try {
-                    const r = await fetch(getApiBase() + "/api/tickets", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                      body: JSON.stringify({
-                        coach_id: coachUserId,
-                        subject: ticketSubject.trim(),
-                        body: ticketBody.trim(),
-                        kind: "workout_question",
-                        workout_plan_id: coachPlanId,
-                        exercise_key: `${ticketModal.ex.id}::${ticketModal.ex.name}`,
-                      }),
-                    });
-                    const d = await r.json().catch(() => ({}));
-                    if (r.ok) {
-                      setTicketMsg("✅ Sent — your coach will reply in your tickets inbox.");
-                      setTimeout(() => { setTicketModal(null); setTicketMsg(""); }, 1300);
-                    } else {
-                      setTicketMsg(d.message || "Couldn't send ticket.");
-                    }
-                  } catch { setTicketMsg("Couldn't send ticket."); }
-                  finally { setTicketBusy(false); }
-                }}
-                style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: "var(--main)", color: "#0a0a0a", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: (ticketBusy || !ticketSubject.trim()) ? 0.5 : 1 }}>
-                {ticketBusy ? "Sending…" : "Send ticket"}
-              </button>
-            </div>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>
-              You can also see + reply to all your tickets at <a href="/app/tickets" style={{ color: "var(--accent)" }}>Tickets</a>.
-            </p>
-          </div>
-        </div>
-      )}
+      <Dialog open={!!ticketModal} onOpenChange={(o) => { if (!o && !ticketBusy) setTicketModal(null); }}>
+        <DialogContent className="sm:max-w-[460px]">
+          {ticketModal && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Ask {coachName}</DialogTitle>
+                <DialogDescription>
+                  About: <strong className="text-foreground">{ticketModal.ex.name}</strong>
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                <div>
+                  <Label className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Subject</Label>
+                  <Input value={ticketSubject} onChange={e => setTicketSubject(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Your question</Label>
+                  <Textarea
+                    value={ticketBody}
+                    onChange={e => setTicketBody(e.target.value)}
+                    rows={4}
+                    placeholder="What's confusing you about this exercise?"
+                  />
+                </div>
+                {ticketMsg && (
+                  <p className={cn("text-[12px]", ticketMsg.startsWith("✅") ? "text-[var(--green)]" : "text-destructive")}>
+                    {ticketMsg}
+                  </p>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setTicketModal(null)} disabled={ticketBusy}>
+                  Cancel
+                </Button>
+                <Button
+                  disabled={ticketBusy || !ticketSubject.trim() || !coachUserId || !coachPlanId}
+                  onClick={async () => {
+                    if (!coachUserId || !coachPlanId || !ticketModal) return;
+                    setTicketBusy(true); setTicketMsg("");
+                    try {
+                      const r = await fetch(getApiBase() + "/api/tickets", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({
+                          coach_id: coachUserId,
+                          subject: ticketSubject.trim(),
+                          body: ticketBody.trim(),
+                          kind: "workout_question",
+                          workout_plan_id: coachPlanId,
+                          exercise_key: `${ticketModal.ex.id}::${ticketModal.ex.name}`,
+                        }),
+                      });
+                      const d = await r.json().catch(() => ({}));
+                      if (r.ok) {
+                        setTicketMsg("✅ Sent — your coach will reply in your tickets inbox.");
+                        setTimeout(() => { setTicketModal(null); setTicketMsg(""); }, 1300);
+                      } else {
+                        setTicketMsg(d.message || "Couldn't send ticket.");
+                      }
+                    } catch { setTicketMsg("Couldn't send ticket."); }
+                    finally { setTicketBusy(false); }
+                  }}
+                >
+                  {ticketBusy ? "Sending…" : "Send ticket"}
+                </Button>
+              </DialogFooter>
+
+              <p className="text-[11px] text-muted-foreground">
+                You can also see + reply to all your tickets at <a href="/app/tickets" className="text-primary hover:underline">Tickets</a>.
+              </p>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

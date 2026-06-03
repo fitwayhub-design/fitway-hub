@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Crosshair, Check } from "lucide-react";
 import { getApiBase } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   token: string | null;
@@ -136,56 +137,72 @@ export default function UserLocationPicker({ token, savedLat, savedCity, onSaved
   return (
     <div>
       {/* Summary row */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{width:34,height:34,borderRadius:10,background:"rgba(255,214,0,0.1)",border:"1px solid rgba(255,214,0,0.3)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-            <MapPin size={17} color="#FFD600"/>
+      <div className="flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="grid size-9 shrink-0 place-items-center rounded-md bg-primary/15">
+            <MapPin size={17} strokeWidth={2} className="text-primary" />
           </div>
           <div>
-            <p style={{fontSize:14,fontWeight:600,color:"var(--text-primary)"}}>My Location</p>
-            <p style={{fontSize:11,color:"var(--text-muted)",marginTop:1}}>
-              {status==="saved" ? "✅ Saved!" :
-               pinCity ? `📍 ${pinCity}` :
+            <p className="text-[14px] font-semibold text-foreground">My Location</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {status==="saved" ? "Saved!" :
+               pinCity ? `${pinCity}` :
                "Used to show nearby coaches & relevant ads"}
             </p>
           </div>
         </div>
-        <button onClick={()=>setOpen(o=>!o)} style={{padding:"8px 16px",borderRadius:10,border:"1px solid #FFD600",background:open?"rgba(255,214,0,0.12)":"transparent",color:"#FFD600",fontWeight:600,fontSize:12,cursor:"pointer"}}>
+        <Button
+          variant={open ? "secondary" : "outline"}
+          size="sm"
+          onClick={()=>setOpen(o=>!o)}
+        >
           {open ? "Close" : pinCity ? "Update" : "Set location"}
-        </button>
+        </Button>
       </div>
 
       {open && (
-        <div style={{marginTop:12,borderRadius:14,overflow:"hidden",border:"1px solid var(--border)",boxShadow:"0 4px 20px rgba(0,0,0,0.12)"}}>
+        <div className="mt-3 overflow-hidden rounded-lg bg-card shadow-soft">
           {/* Toolbar */}
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"var(--bg-card)",borderBottom:"1px solid var(--border)",flexWrap:"wrap",gap:8}}>
-            <span style={{fontSize:12,color:"var(--text-secondary)"}}>
-              {pinLat!=null ? <><strong style={{color:"#FFD600"}}>📍</strong> {pinCity||"Custom location"} ({pinLat.toFixed(3)}, {(pinLng??0).toFixed(3)})</> : "Click the map or use GPS to set your location"}
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-card p-3 ps-4">
+            <span className="text-[12px] text-muted-foreground">
+              {pinLat!=null ? <><span className="font-semibold text-primary">Pinned:</span> {pinCity||"Custom location"} ({pinLat.toFixed(3)}, {(pinLng??0).toFixed(3)})</> : "Click the map or use GPS to set your location"}
             </span>
-            <button onClick={useGPS} disabled={status==="saving"} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 12px",borderRadius:8,background:"rgba(255,214,0,0.1)",border:"1px solid #FFD600",color:"#FFD600",cursor:"pointer",fontSize:12,fontWeight:600}}>
-              <Crosshair size={13}/> Use GPS
-            </button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={useGPS}
+              disabled={status==="saving"}
+              className="text-primary"
+            >
+              <Crosshair size={14} strokeWidth={2}/> Use GPS
+            </Button>
           </div>
 
           {/* Map */}
-          <div style={{position:"relative"}}>
+          <div className="relative">
             <div ref={mapDiv} style={{height:300,width:"100%"}}/>
             {!ready&&(
-              <div style={{position:"absolute",inset:0,zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg-surface)",flexDirection:"column",gap:10}}>
+              <div className="absolute inset-0 z-[1000] flex flex-col items-center justify-center gap-2.5 bg-muted">
                 <div style={{width:28,height:28,borderRadius:"50%",border:"3px solid var(--border)",borderTopColor:"#FFD600",animation:"spin 0.7s linear infinite"}}/>
-                <span style={{fontSize:12,color:"var(--text-muted)"}}>Loading map…</span>
+                <span className="text-[12px] text-muted-foreground">Loading map…</span>
               </div>
             )}
           </div>
 
           {/* Save bar */}
-          <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:"var(--bg-card)",borderTop:"1px solid var(--border)"}}>
-            <p style={{flex:1,fontSize:11,color:"var(--text-muted)",margin:0}}>🖱️ Click map to pin · Drag to adjust</p>
-            <button onClick={save} disabled={pinLat==null||status==="saving"||status==="saved"} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 18px",borderRadius:10,background:status==="saved"?"rgba(0,200,100,0.15)":pinLat!=null?"#FFD600":"var(--bg-surface)",border:`1px solid ${status==="saved"?"rgba(0,200,100,0.4)":pinLat!=null?"#FFD600":"var(--border)"}`,color:status==="saved"?"#00C864":pinLat!=null?"#000":"var(--text-muted)",fontWeight:700,fontSize:13,cursor:pinLat!=null?"pointer":"not-allowed"}}>
-              {status==="saved"?<><Check size={14}/>Saved!</>:status==="saving"?"Saving…":"Save location"}
-            </button>
+          <div className="flex items-center gap-2.5 bg-card p-3 ps-4">
+            <p className="m-0 flex-1 text-[11px] text-muted-foreground">Click map to pin · Drag to adjust</p>
+            <Button
+              onClick={save}
+              disabled={pinLat==null||status==="saving"||status==="saved"}
+              variant={status==="saved" ? "secondary" : "default"}
+              size="sm"
+              className={status==="saved" ? "text-[var(--green)]" : undefined}
+            >
+              {status==="saved"?<><Check size={14} strokeWidth={2}/>Saved!</>:status==="saving"?"Saving…":"Save location"}
+            </Button>
           </div>
-          {status==="error"&&<div style={{padding:"6px 14px",background:"rgba(255,68,68,0.08)",fontSize:12,color:"var(--red,#FF4444)"}}>❌ Failed to save. Try again.</div>}
+          {status==="error"&&<div className="bg-destructive/10 px-4 py-1.5 text-[12px] text-destructive">Failed to save. Try again.</div>}
         </div>
       )}
     </div>

@@ -19,6 +19,9 @@ import {
   Trash2,
   Upload,
   Eye,
+  Check,
+  X,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
@@ -32,6 +35,22 @@ import {
   resolveMediaUrl,
   saveBlog,
 } from "@/lib/blogs";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 interface BlogExperienceProps {
   mode: "website" | "app" | "coach" | "admin";
@@ -181,7 +200,7 @@ export default function BlogExperience({ mode, heading, subheading, allowWriting
     () => `fitway_blog_draft_en_${mode}_${user?.id || "guest"}`,
     [mode, user?.id]
   );
-  
+
   const draftKeyAr = useMemo(
     () => `fitway_blog_draft_ar_${mode}_${user?.id || "guest"}`,
     [mode, user?.id]
@@ -226,17 +245,17 @@ export default function BlogExperience({ mode, heading, subheading, allowWriting
     try {
       const rawEn = localStorage.getItem(draftKeyEn);
       const rawAr = localStorage.getItem(draftKeyAr);
-      
+
       if (rawEn) {
         const parsedEn = JSON.parse(rawEn);
         setDraftEn({ ...defaultDraft, ...parsedEn });
       }
-      
+
       if (rawAr) {
         const parsedAr = JSON.parse(rawAr);
         setDraftAr({ ...defaultDraft, ...parsedAr });
       }
-      
+
       // Load the draft for the current language
       if (language === "en" && rawEn) {
         const parsedEn = JSON.parse(rawEn);
@@ -287,12 +306,12 @@ export default function BlogExperience({ mode, heading, subheading, allowWriting
     setEditingPost(null);
     setLanguage("en");
     setRelatedBlogId(null);
-    
+
     // Load saved drafts from localStorage
     try {
       const rawEn = localStorage.getItem(draftKeyEn);
       const rawAr = localStorage.getItem(draftKeyAr);
-      
+
       if (rawEn) {
         const parsedEn = JSON.parse(rawEn);
         setDraftEn({ ...defaultDraft, ...parsedEn });
@@ -301,7 +320,7 @@ export default function BlogExperience({ mode, heading, subheading, allowWriting
         setDraftEn(defaultDraft);
         setDraft(defaultDraft);
       }
-      
+
       if (rawAr) {
         const parsedAr = JSON.parse(rawAr);
         setDraftAr({ ...defaultDraft, ...parsedAr });
@@ -313,7 +332,7 @@ export default function BlogExperience({ mode, heading, subheading, allowWriting
       setDraftAr(defaultDraft);
       setDraft(defaultDraft);
     }
-    
+
     setHeaderFile(null);
     setVideoFile(null);
     setVideoDuration(null);
@@ -450,9 +469,10 @@ export default function BlogExperience({ mode, heading, subheading, allowWriting
   const words = draft.content.trim().split(/\s+/).filter(Boolean).length;
   const readMinutes = estimateReadMinutes(draft.content);
 
-  return (
-    <section style={{ padding: mode === "website" ? "140px 24px 56px" : 20, display: "grid", gap: 24, maxWidth: mode === "website" ? 1400 : undefined, margin: mode === "website" ? "0 auto" : undefined, borderBottom: mode === "website" ? "1px solid var(--border)" : undefined }}>
-      {mode === "website" ? (
+  /* ── Website mode keeps the public-site design language (untouched) ── */
+  if (mode === "website") {
+    return (
+      <section style={{ padding: "140px 24px 56px", display: "grid", gap: 24, maxWidth: 1400, margin: "0 auto", borderBottom: "1px solid var(--border)" }}>
         <header style={{ display: "grid", gap: 18 }}>
           <div className="fwh-section-meta">
             <span>{lang === "ar" ? "المدونة · ٢٠٢٦" : "JOURNAL · V.2026"}</span>
@@ -464,439 +484,536 @@ export default function BlogExperience({ mode, heading, subheading, allowWriting
           </h1>
           <p className="fwh-hero-sub" style={{ margin: 0, maxWidth: 720 }}>{subheading}</p>
         </header>
-      ) : (
-        <header style={{ display: "grid", gap: 8 }}>
-          <h1 style={{ fontFamily: "var(--font-heading)", fontSize: "clamp(24px,3vw,34px)", margin: 0 }}>{heading}</h1>
-          <p style={{ margin: 0, color: "var(--text-secondary)" }}>{subheading}</p>
-        </header>
-      )}
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          background: "var(--bg-card)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-full)",
-          padding: "10px 12px",
-          minWidth: 260,
-          flex: 1,
-        }}>
-          <Search size={16} color="var(--text-secondary)" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("search_placeholder") || (lang === "ar" ? "ابحث في المقالات" : "Search blogs")}
-            style={{ border: "none", background: "transparent", color: "var(--text-primary)", width: "100%", outline: "none" }}
-          />
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-full)",
+            padding: "10px 12px",
+            minWidth: 260,
+            flex: 1,
+          }}>
+            <Search size={16} color="var(--text-secondary)" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("search_placeholder") || (lang === "ar" ? "ابحث في المقالات" : "Search blogs")}
+              style={{ border: "none", background: "transparent", color: "var(--text-primary)", width: "100%", outline: "none" }}
+            />
+          </div>
         </div>
 
-        {canWrite && (
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() => setActiveTab("feed")}
-              style={{
-                borderRadius: "var(--radius-full)",
-                border: "1px solid var(--border)",
-                background: activeTab === "feed" ? "var(--accent-dim)" : "var(--bg-card)",
-                color: activeTab === "feed" ? "var(--accent)" : "var(--text-secondary)",
-                padding: "10px 12px",
-                cursor: "pointer",
-              }}
-            >
-              {blogText.readerView}
-            </button>
-            <button
-              onClick={() => setActiveTab("manage")}
-              style={{
-                borderRadius: "var(--radius-full)",
-                border: "1px solid var(--border)",
-                background: activeTab === "manage" ? "var(--blue)" : "var(--bg-card)",
-                color: activeTab === "manage" ? "#fff" : "var(--text-secondary)",
-                padding: "10px 12px",
-                cursor: "pointer",
-              }}
-            >
-              {blogText.writerStudio}
-            </button>
-            <button
-              onClick={openNewEditor}
-              style={{
-                borderRadius: "var(--radius-full)",
-                border: "none",
-                background: "var(--accent)",
-                color: "#111",
-                padding: "10px 14px",
-                fontWeight: 700,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <PenSquare size={16} /> {blogText.newPost}
-            </button>
+        {error && (
+          <div style={{ background: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.35)", color: "#ff8f8f", borderRadius: "var(--radius-full)", padding: "10px 12px" }}>
+            {error}
           </div>
         )}
-      </div>
 
-      {error && (
-        <div style={{ background: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.35)", color: "#ff8f8f", borderRadius: "var(--radius-full)", padding: "10px 12px" }}>
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div style={{ 
-          background: "var(--bg-card)", 
-          border: "1px solid var(--border)", 
-          borderRadius: "var(--radius-full)", 
-          padding: 60, 
-          color: "var(--text-secondary)",
-          textAlign: "center" 
-        }}>
-          {blogText.loadingPosts}
-        </div>
-      ) : posts.length === 0 ? (
-        <div style={{ 
-          background: "var(--bg-card)", 
-          border: "1px solid var(--border)", 
-          borderRadius: "var(--radius-full)", 
-          padding: 60, 
-          color: "var(--text-secondary)",
-          textAlign: "center" 
-        }}>
-          {blogText.noPosts}
-        </div>
-      ) : (
-        <div style={{ 
-          display: "grid", 
-          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", 
-          gap: 20 
-        }}>
-          {posts.map((post) => {
-            const blogUrl = mode === "website" 
-              ? `/blogs/${post.slug}` 
-              : mode === "app" 
-              ? `/app/blogs/${post.slug}`
-              : mode === "coach"
-              ? `/coach/blogs/${post.slug}`
-              : `/admin/blogs/${post.slug}`;
-
-            return (
-              <div
-                key={post.id}
-                style={{
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius-full)",
-                  overflow: "hidden",
-                  cursor: "pointer",
-                  transition: "transform 0.2s, box-shadow 0.2s",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-4px)";
-                  e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.12)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-                onClick={() => {
-                  if (canWrite && activeTab === "manage") {
-                    setSelectedId(post.id);
-                    openEditEditor(post);
-                  } else {
-                    window.location.href = blogUrl;
-                  }
-                }}
-              >
-                {/* Featured Image */}
-                <div style={{ 
-                  width: "100%", 
-                  height: 200, 
-                  background: post.header_image_url 
-                    ? `url(${resolveMediaUrl(post.header_image_url)})` 
-                    : "linear-gradient(135deg, var(--accent-dim) 0%, var(--bg-surface) 100%)",
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  position: "relative"
-                }}>
-                  {/* Status Badge */}
-                  {canWrite && activeTab === "manage" && (
-                    <div style={{ 
-                      position: "absolute", 
-                      top: 10, 
-                      right: lang === "ar" ? "auto" : 10,
-                      left: lang === "ar" ? 10 : "auto",
-                      padding: "4px 10px", 
-                      borderRadius: "var(--radius-full)",
-                      background: post.status === "published" 
-                        ? "rgba(34, 197, 94, 0.9)" 
-                        : post.status === "pending_review"
-                        ? "rgba(59, 130, 246, 0.9)"
-                        : "rgba(251, 146, 60, 0.9)",
-                      color: "#fff",
-                      fontSize: 12,
-                      fontWeight: 700
-                    }}>
-                      {post.status === "published" 
-                        ? (lang === "ar" ? "منشور" : "Published")
-                        : post.status === "pending_review"
-                        ? (lang === "ar" ? "قيد المراجعة" : "Pending Review")
-                        : (lang === "ar" ? "مسودة" : "Draft")}
-                    </div>
-                  )}
-                  
-                  {/* Language Badge */}
-                  <div style={{ 
-                    position: "absolute", 
-                    top: 10, 
-                    left: lang === "ar" ? "auto" : 10,
-                    right: lang === "ar" ? 10 : "auto",
-                    padding: "4px 10px", 
+        {loading ? (
+          <div style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-full)",
+            padding: 60,
+            color: "var(--text-secondary)",
+            textAlign: "center"
+          }}>
+            {blogText.loadingPosts}
+          </div>
+        ) : posts.length === 0 ? (
+          <div style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-full)",
+            padding: 60,
+            color: "var(--text-secondary)",
+            textAlign: "center"
+          }}>
+            {blogText.noPosts}
+          </div>
+        ) : (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+            gap: 20
+          }}>
+            {posts.map((post) => {
+              const blogUrl = `/blogs/${post.slug}`;
+              return (
+                <div
+                  key={post.id}
+                  style={{
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border)",
                     borderRadius: "var(--radius-full)",
-                    background: "rgba(0, 0, 0, 0.6)",
-                    color: "#fff",
-                    fontSize: 11,
-                    fontWeight: 600
+                    overflow: "hidden",
+                    cursor: "pointer",
+                    transition: "transform 0.2s, box-shadow 0.2s",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-4px)";
+                    e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.12)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                  onClick={() => {
+                    window.location.href = blogUrl;
+                  }}
+                >
+                  <div style={{
+                    width: "100%",
+                    height: 200,
+                    background: post.header_image_url
+                      ? `url(${resolveMediaUrl(post.header_image_url)})`
+                      : "linear-gradient(135deg, var(--accent-dim) 0%, var(--bg-surface) 100%)",
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    position: "relative"
                   }}>
-                    {post.language === "ar" ? "🇸🇦 AR" : "🇬🇧 EN"}
+                    <div style={{
+                      position: "absolute",
+                      top: 10,
+                      left: lang === "ar" ? "auto" : 10,
+                      right: lang === "ar" ? 10 : "auto",
+                      padding: "4px 10px",
+                      borderRadius: "var(--radius-full)",
+                      background: "rgba(0, 0, 0, 0.6)",
+                      color: "#fff",
+                      fontSize: 11,
+                      fontWeight: 600
+                    }}>
+                      {post.language === "ar" ? "🇸🇦 AR" : "🇬🇧 EN"}
+                    </div>
                   </div>
-                </div>
 
-                {/* Card Content */}
-                <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
-                  {/* Title */}
-                  <h3 style={{ 
-                    margin: 0, 
-                    fontSize: 18, 
-                    fontWeight: 700,
-                    color: "var(--text-primary)", 
-                    lineHeight: 1.3,
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden"
-                  }}>
-                    {post.title}
-                  </h3>
-
-                  {/* Excerpt */}
-                  {post.excerpt && (
-                    <p style={{
+                  <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+                    <h3 style={{
                       margin: 0,
-                      fontSize: 14,
-                      color: "var(--text-secondary)",
-                      lineHeight: 1.5,
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: "var(--text-primary)",
+                      lineHeight: 1.3,
                       display: "-webkit-box",
                       WebkitLineClamp: 2,
                       WebkitBoxOrient: "vertical",
                       overflow: "hidden"
                     }}>
-                      {post.excerpt}
-                    </p>
-                  )}
+                      {post.title}
+                    </h3>
 
-                  {/* Meta Info */}
-                  <div style={{ 
-                    marginTop: "auto",
-                    paddingTop: 10,
-                    borderTop: "1px solid var(--border)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    fontSize: 13,
-                    color: "var(--text-muted)"
-                  }}>
-                    {/* Author Avatar & Name */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
-                      {post.author_avatar ? (
-                        <img 
-                          src={resolveMediaUrl(post.author_avatar)} 
-                          alt={post.author_name || ""} 
-                          style={{ 
-                            width: 24, 
-                            height: 24, 
-                            borderRadius: "50%",
-                            objectFit: "cover" 
-                          }} 
-                        />
-                      ) : (
-                        <div style={{ 
-                          width: 24, 
-                          height: 24, 
-                          borderRadius: "50%", 
-                          background: "var(--accent-dim)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: "var(--accent)"
-                        }}>
-                          {(post.author_name || "U")[0].toUpperCase()}
-                        </div>
-                      )}
-                      <span style={{ 
-                        fontWeight: 500, 
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis"
+                    {post.excerpt && (
+                      <p style={{
+                        margin: 0,
+                        fontSize: 14,
+                        color: "var(--text-secondary)",
+                        lineHeight: 1.5,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden"
                       }}>
-                        {post.author_name || blogText.unknown}
+                        {post.excerpt}
+                      </p>
+                    )}
+
+                    <div style={{
+                      marginTop: "auto",
+                      paddingTop: 10,
+                      borderTop: "1px solid var(--border)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      fontSize: 13,
+                      color: "var(--text-muted)"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+                        {post.author_avatar ? (
+                          <img
+                            src={resolveMediaUrl(post.author_avatar)}
+                            alt={post.author_name || ""}
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: "50%",
+                              objectFit: "cover"
+                            }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            background: "var(--accent-dim)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "var(--accent)"
+                          }}>
+                            {(post.author_name || "U")[0].toUpperCase()}
+                          </div>
+                        )}
+                        <span style={{
+                          fontWeight: 500,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis"
+                        }}>
+                          {post.author_name || blogText.unknown}
+                        </span>
+                      </div>
+
+                      <span style={{ whiteSpace: "nowrap" }}>
+                        {toDate(post.published_at || post.created_at, lang)}
+                      </span>
+
+                      <span style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                        <Eye size={13} /> {(post.views || 0).toLocaleString()}
                       </span>
                     </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    );
+  }
 
-                    {/* Date */}
-                    <span style={{ whiteSpace: "nowrap" }}>
-                      {toDate(post.published_at || post.created_at, lang)}
-                    </span>
+  /* ── App / Coach / Admin — Apple-HIG, dark-first design ── */
+  const statusBadge = (status: BlogStatus) => {
+    if (status === "published") {
+      return (
+        <Badge variant="success" className="gap-1">
+          <Check size={12} strokeWidth={2} /> {lang === "ar" ? "منشور" : "Published"}
+        </Badge>
+      );
+    }
+    if (status === "pending_review") {
+      return (
+        <Badge variant="accent" className="gap-1">
+          <Clock size={12} strokeWidth={2} /> {lang === "ar" ? "قيد المراجعة" : "Pending Review"}
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="warning" className="gap-1">
+        <PenSquare size={12} strokeWidth={2} /> {lang === "ar" ? "مسودة" : "Draft"}
+      </Badge>
+    );
+  };
 
-                    {/* Views */}
-                    <span style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
-                      <Eye size={13} /> {(post.views || 0).toLocaleString()}
+  return (
+    <section className="mx-auto w-full max-w-[1200px] px-4 py-5">
+      <div className="space-y-6">
+        {/* Header */}
+        <header className="space-y-1.5 pt-1">
+          <h1 className="text-[28px] font-bold leading-tight tracking-tight">{heading}</h1>
+          <p className="text-[15px] text-muted-foreground">{subheading}</p>
+        </header>
+
+        {/* Toolbar: search + writer controls */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative min-w-[260px] flex-1">
+            <Search
+              size={16}
+              strokeWidth={2}
+              className="pointer-events-none absolute top-1/2 start-3.5 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("search_placeholder") || (lang === "ar" ? "ابحث في المقالات" : "Search blogs")}
+              className="ps-10"
+              aria-label={t("search_placeholder") || "Search blogs"}
+            />
+          </div>
+
+          {canWrite && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant={activeTab === "feed" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setActiveTab("feed")}
+                className="rounded-full"
+              >
+                {blogText.readerView}
+              </Button>
+              <Button
+                variant={activeTab === "manage" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setActiveTab("manage")}
+                className="rounded-full"
+              >
+                {blogText.writerStudio}
+              </Button>
+              <Button size="sm" onClick={openNewEditor} className="rounded-full">
+                <PenSquare size={16} strokeWidth={2} /> {blogText.newPost}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <div className="rounded-md bg-destructive/15 px-4 py-3 text-[13px] font-medium text-destructive">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i} className="gap-0 overflow-hidden p-0">
+                <Skeleton className="h-[200px] w-full rounded-none" />
+                <div className="space-y-3 p-4">
+                  <Skeleton className="h-5 w-4/5 rounded-md" />
+                  <Skeleton className="h-4 w-full rounded-md" />
+                  <Skeleton className="h-4 w-2/3 rounded-md" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
+          <Card className="items-center gap-2 p-12 text-center">
+            <div className="grid size-14 place-items-center rounded-full bg-muted">
+              <Eye size={24} strokeWidth={2} className="text-muted-foreground" />
+            </div>
+            <p className="text-[15px] font-semibold text-foreground">{blogText.noPosts}</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
+            {posts.map((post) => {
+              const blogUrl = mode === "app"
+                ? `/app/blogs/${post.slug}`
+                : mode === "coach"
+                ? `/coach/blogs/${post.slug}`
+                : `/admin/blogs/${post.slug}`;
+              const isManage = canWrite && activeTab === "manage";
+
+              return (
+                <Card
+                  key={post.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    if (isManage) {
+                      setSelectedId(post.id);
+                      openEditEditor(post);
+                    } else {
+                      window.location.href = blogUrl;
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      if (isManage) {
+                        setSelectedId(post.id);
+                        openEditEditor(post);
+                      } else {
+                        window.location.href = blogUrl;
+                      }
+                    }
+                  }}
+                  className={cn(
+                    "group cursor-pointer gap-0 overflow-hidden p-0 outline-none transition active:scale-[0.99] hover:shadow-soft-md focus-visible:ring-2 focus-visible:ring-ring/60",
+                    selectedId === post.id && isManage && "ring-2 ring-primary/40",
+                  )}
+                >
+                  {/* Featured image */}
+                  <div className="relative h-[200px] w-full overflow-hidden bg-muted">
+                    {post.header_image_url ? (
+                      <img
+                        src={resolveMediaUrl(post.header_image_url)}
+                        alt={post.title}
+                        className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                      />
+                    ) : (
+                      <div className="size-full bg-gradient-to-br from-primary/20 to-[var(--secondary-dim)]" />
+                    )}
+
+                    {/* Status badge (manage) */}
+                    {isManage && (
+                      <div className="absolute top-2.5 end-2.5">{statusBadge(post.status)}</div>
+                    )}
+
+                    {/* Language badge */}
+                    <span className="absolute top-2.5 start-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">
+                      {post.language === "ar" ? "🇸🇦 AR" : "🇬🇧 EN"}
                     </span>
                   </div>
 
-                  {/* Admin Actions */}
-                  {canWrite && activeTab === "manage" && (
-                    <div style={{ 
-                      display: "flex", 
-                      gap: 8, 
-                      marginTop: 10,
-                      flexWrap: "wrap"
-                    }}>
-                      {mode === "admin" && post.status === "pending_review" && (
-                        <>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); onReviewBlog(post.id, "approve"); }}
-                            style={{ flex: 1, border: "1px solid rgba(34,197,94,0.4)", background: "rgba(34,197,94,0.1)", color: "#4ade80", borderRadius: "var(--radius-full)", padding: "6px 10px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-                            ✓ Approve
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); onReviewBlog(post.id, "reject"); }}
-                            style={{ flex: 1, border: "1px solid rgba(255,68,68,0.4)", background: "rgba(255,68,68,0.1)", color: "#ff9a9a", borderRadius: "var(--radius-full)", padding: "6px 10px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-                            ✗ Reject
-                          </button>
-                        </>
-                      )}
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditEditor(post);
-                        }} 
-                        style={{ 
-                          flex: 1,
-                          border: "1px solid var(--border)", 
-                          background: "var(--bg-surface)", 
-                          color: "var(--text-primary)", 
-                          borderRadius: "var(--radius-full)", 
-                          padding: "6px 10px", 
-                          cursor: "pointer",
-                          fontSize: 13,
-                          fontWeight: 600
-                        }}
-                      >
-                        {t("edit")}
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(post.id);
-                        }} 
-                        style={{ 
-                          border: "1px solid rgba(255,68,68,0.4)", 
-                          background: "rgba(255,68,68,0.1)", 
-                          color: "#ff9a9a", 
-                          borderRadius: "var(--radius-full)", 
-                          padding: "6px 10px", 
-                          cursor: "pointer" 
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                  {/* Card content */}
+                  <div className="flex flex-1 flex-col gap-2.5 p-4">
+                    <h3 className="line-clamp-2 text-[17px] font-semibold leading-snug tracking-tight">
+                      {post.title}
+                    </h3>
 
+                    {post.excerpt && (
+                      <p className="line-clamp-2 text-[14px] leading-relaxed text-muted-foreground">
+                        {post.excerpt}
+                      </p>
+                    )}
+
+                    {/* Meta */}
+                    <div className="mt-auto flex items-center gap-3 pt-3 text-[13px] text-muted-foreground">
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <Avatar className="size-6">
+                          {post.author_avatar && (
+                            <AvatarImage src={resolveMediaUrl(post.author_avatar)} alt={post.author_name || ""} />
+                          )}
+                          <AvatarFallback className="bg-primary/15 text-[11px] font-bold text-primary">
+                            {(post.author_name || "U")[0].toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate font-medium">{post.author_name || blogText.unknown}</span>
+                      </div>
+
+                      <span className="whitespace-nowrap">{toDate(post.published_at || post.created_at, lang)}</span>
+
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                        <Eye size={13} strokeWidth={2} /> {(post.views || 0).toLocaleString()}
+                      </span>
+                    </div>
+
+                    {/* Manage actions */}
+                    {isManage && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {mode === "admin" && post.status === "pending_review" && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); onReviewBlog(post.id, "approve"); }}
+                              className="flex-1 text-[var(--green)]"
+                            >
+                              <Check size={14} strokeWidth={2} /> {lang === "ar" ? "موافقة" : "Approve"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); onReviewBlog(post.id, "reject"); }}
+                              className="flex-1 text-destructive"
+                            >
+                              <X size={14} strokeWidth={2} /> {lang === "ar" ? "رفض" : "Reject"}
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); openEditEditor(post); }}
+                          className="flex-1"
+                        >
+                          {t("edit")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          aria-label={t("delete") || "Delete"}
+                          onClick={(e) => { e.stopPropagation(); onDelete(post.id); }}
+                          className="text-destructive"
+                        >
+                          <Trash2 size={14} strokeWidth={2} />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Writer Studio editor (modal) ── */}
       {showEditor && canWrite && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(3px)", padding: 16, overflowY: "auto" }}>
-          <div style={{ maxWidth: 1160, margin: "0 auto", background: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 16, display: "grid", gap: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-              <h3 style={{ margin: 0, fontSize: 22 }}>{editingPost ? blogText.editPost : blogText.writePost}</h3>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button onClick={() => setPreviewMode((prev) => !prev)} style={{ border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", borderRadius: "var(--radius-full)", padding: "8px 10px", cursor: "pointer" }}>
-                  <Sparkles size={14} /> {previewMode ? blogText.editor : t("preview")}
-                </button>
-                <button onClick={closeEditor} style={{ border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", borderRadius: "var(--radius-full)", padding: "8px 10px", cursor: "pointer" }}>
-                  {blogText.close}
-                </button>
+        <div className="fixed inset-0 z-[90] overflow-y-auto bg-black/70 p-4 backdrop-blur-[3px]">
+          <Card className="mx-auto max-w-[1160px] gap-3 p-4 shadow-soft-lg sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <h3 className="text-[22px] font-bold tracking-tight">{editingPost ? blogText.editPost : blogText.writePost}</h3>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPreviewMode((prev) => !prev)}>
+                  <Sparkles size={14} strokeWidth={2} /> {previewMode ? blogText.editor : t("preview")}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={closeEditor} aria-label={blogText.close}>
+                  <X size={16} strokeWidth={2} /> {blogText.close}
+                </Button>
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }} className="grid-2col">
-              <section style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 14, display: "grid", gap: 10 }}>
-                <input
+            <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+              {/* Editor column */}
+              <section className="grid content-start gap-2.5 rounded-lg bg-muted/40 p-4">
+                <Input
                   value={draft.title}
                   onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))}
                   placeholder={blogText.postTitle}
-                  className="input-base"
-                  style={{ fontSize: 18, fontWeight: 700 }}
+                  className="bg-card text-[18px] font-bold"
+                  aria-label={blogText.postTitle}
                 />
-                <textarea
+                <Textarea
                   value={draft.excerpt}
                   onChange={(e) => setDraft((prev) => ({ ...prev, excerpt: e.target.value }))}
                   placeholder={blogText.postExcerpt}
-                  className="input-base"
-                  style={{ minHeight: 84, resize: "vertical" }}
+                  className="min-h-[84px] bg-card"
+                  aria-label={blogText.postExcerpt}
                 />
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "8px 0" }}>
-                  <button onClick={() => insertSyntax("## ", "", "Section title")} style={{ border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", borderRadius: "var(--radius-full)", padding: "6px 8px", cursor: "pointer" }}><Heading2 size={14} /></button>
-                  <button onClick={() => insertSyntax("### ", "", "Sub-section")} style={{ border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", borderRadius: "var(--radius-full)", padding: "6px 8px", cursor: "pointer" }}><Heading3 size={14} /></button>
-                  <button onClick={() => insertSyntax("**", "**", "bold")} style={{ border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", borderRadius: "var(--radius-full)", padding: "6px 8px", cursor: "pointer" }}><Bold size={14} /></button>
-                  <button onClick={() => insertSyntax("*", "*", "italic")} style={{ border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", borderRadius: "var(--radius-full)", padding: "6px 8px", cursor: "pointer" }}><Italic size={14} /></button>
-                  <button onClick={() => insertSyntax("- ", "", "list item")} style={{ border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", borderRadius: "var(--radius-full)", padding: "6px 8px", cursor: "pointer" }}><List size={14} /></button>
-                  <button onClick={() => insertSyntax("1. ", "", "list item")} style={{ border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", borderRadius: "var(--radius-full)", padding: "6px 8px", cursor: "pointer" }}><ListOrdered size={14} /></button>
-                  <button onClick={() => insertSyntax("> ", "", "quote")} style={{ border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", borderRadius: "var(--radius-full)", padding: "6px 8px", cursor: "pointer" }}><Quote size={14} /></button>
-                  <button onClick={() => insertSyntax("[", "](https://)", "link text")} style={{ border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", borderRadius: "var(--radius-full)", padding: "6px 8px", cursor: "pointer" }}><LinkIcon size={14} /></button>
+                {/* Markdown toolbar */}
+                <div className="flex flex-wrap gap-2 py-1">
+                  <Button variant="outline" size="icon-sm" onClick={() => insertSyntax("## ", "", "Section title")} aria-label="Heading 2"><Heading2 size={14} strokeWidth={2} /></Button>
+                  <Button variant="outline" size="icon-sm" onClick={() => insertSyntax("### ", "", "Sub-section")} aria-label="Heading 3"><Heading3 size={14} strokeWidth={2} /></Button>
+                  <Button variant="outline" size="icon-sm" onClick={() => insertSyntax("**", "**", "bold")} aria-label="Bold"><Bold size={14} strokeWidth={2} /></Button>
+                  <Button variant="outline" size="icon-sm" onClick={() => insertSyntax("*", "*", "italic")} aria-label="Italic"><Italic size={14} strokeWidth={2} /></Button>
+                  <Button variant="outline" size="icon-sm" onClick={() => insertSyntax("- ", "", "list item")} aria-label="Bulleted list"><List size={14} strokeWidth={2} /></Button>
+                  <Button variant="outline" size="icon-sm" onClick={() => insertSyntax("1. ", "", "list item")} aria-label="Numbered list"><ListOrdered size={14} strokeWidth={2} /></Button>
+                  <Button variant="outline" size="icon-sm" onClick={() => insertSyntax("> ", "", "quote")} aria-label="Quote"><Quote size={14} strokeWidth={2} /></Button>
+                  <Button variant="outline" size="icon-sm" onClick={() => insertSyntax("[", "](https://)", "link text")} aria-label="Link"><LinkIcon size={14} strokeWidth={2} /></Button>
                 </div>
 
                 {!previewMode ? (
-                  <textarea
+                  <Textarea
                     ref={editorRef}
                     value={draft.content}
                     onChange={(e) => setDraft((prev) => ({ ...prev, content: e.target.value }))}
                     placeholder={blogText.writeArticle}
-                    className="input-base"
-                    style={{ minHeight: 340, resize: "vertical", lineHeight: 1.7 }}
+                    className="min-h-[340px] resize-y bg-card leading-relaxed"
+                    aria-label={blogText.writeArticle}
                   />
                 ) : (
-                  <div style={{ minHeight: 340, border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 14, background: "var(--bg-surface)" }}>
-                    <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(markdownToHtml(draft.content)) }} />
+                  <div className="min-h-[340px] rounded-md bg-card p-4">
+                    <div
+                      className="mx-auto max-w-[68ch] space-y-3 text-[15px] leading-relaxed text-foreground [&_a]:text-[var(--secondary)] [&_a]:underline [&_blockquote]:border-s-2 [&_blockquote]:border-border [&_blockquote]:ps-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_h2]:text-[20px] [&_h2]:font-bold [&_h3]:text-[17px] [&_h3]:font-semibold [&_li]:ms-5 [&_li]:list-disc"
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(markdownToHtml(draft.content)) }}
+                    />
                   </div>
                 )}
 
-                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                  <small style={{ color: "var(--text-muted)" }}>{words} {blogText.words} • {readMinutes} {blogText.minRead} • {blogText.autosave}</small>
-                  <small style={{ color: "var(--text-muted)" }}>{blogText.tipSave}</small>
+                <div className="flex flex-wrap justify-between gap-2.5 text-[12px] text-muted-foreground">
+                  <span>{words} {blogText.words} • {readMinutes} {blogText.minRead} • {blogText.autosave}</span>
+                  <span>{blogText.tipSave}</span>
                 </div>
               </section>
 
-              <aside style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 14, display: "grid", gap: 12, alignContent: "start" }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Language</span>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
+              {/* Sidebar column */}
+              <aside className="grid content-start gap-4 rounded-lg bg-muted/40 p-4">
+                <div className="grid gap-2">
+                  <span className="text-[13px] font-medium text-muted-foreground">Language</span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={language === "en" ? "secondary" : "outline"}
+                      size="sm"
+                      disabled={!!editingPost}
                       onClick={() => {
                         if (!editingPost) {
                           // Save current draft before switching
@@ -904,29 +1021,20 @@ export default function BlogExperience({ mode, heading, subheading, allowWriting
                             setDraftAr(draft);
                             localStorage.setItem(draftKeyAr, JSON.stringify(draft));
                           }
-                          
+
                           // Switch to English and load English draft
                           setLanguage("en");
                           setDraft(draftEn);
                         }
                       }}
-                      disabled={!!editingPost}
-                      style={{
-                        flex: 1,
-                        padding: "8px 12px",
-                        borderRadius: "var(--radius-full)",
-                        border: `1px solid ${language === "en" ? "var(--accent)" : "var(--border)"}`,
-                        background: language === "en" ? "var(--accent-dim)" : "var(--bg-surface)",
-                        color: language === "en" ? "var(--accent)" : "var(--text-secondary)",
-                        cursor: editingPost ? "not-allowed" : "pointer",
-                        opacity: editingPost ? 0.5 : 1,
-                        fontWeight: language === "en" ? 600 : 400,
-                        fontSize: 12,
-                      }}
+                      className="flex-1"
                     >
                       🇬🇧 English
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant={language === "ar" ? "secondary" : "outline"}
+                      size="sm"
+                      disabled={!!editingPost}
                       onClick={() => {
                         if (!editingPost) {
                           // Save current draft before switching
@@ -934,137 +1042,101 @@ export default function BlogExperience({ mode, heading, subheading, allowWriting
                             setDraftEn(draft);
                             localStorage.setItem(draftKeyEn, JSON.stringify(draft));
                           }
-                          
+
                           // Switch to Arabic and load Arabic draft
                           setLanguage("ar");
                           setDraft(draftAr);
                         }
                       }}
-                      disabled={!!editingPost}
-                      style={{
-                        flex: 1,
-                        padding: "8px 12px",
-                        borderRadius: "var(--radius-full)",
-                        border: `1px solid ${language === "ar" ? "var(--accent)" : "var(--border)"}`,
-                        background: language === "ar" ? "var(--accent-dim)" : "var(--bg-surface)",
-                        color: language === "ar" ? "var(--accent)" : "var(--text-secondary)",
-                        cursor: editingPost ? "not-allowed" : "pointer",
-                        opacity: editingPost ? 0.5 : 1,
-                        fontWeight: language === "ar" ? 600 : 400,
-                        fontSize: 12,
-                      }}
+                      className="flex-1"
                     >
                       🇸🇦 العربية
-                    </button>
+                    </Button>
                   </div>
                   {!editingPost && (
-                    <small style={{ color: "var(--text-muted)", fontSize: 11 }}>
+                    <p className="text-[11px] text-muted-foreground">
                       {lang === "ar" ? "يمكنك التبديل بين اللغتين - سيتم حفظ كل نسخة تلقائيًا" : "You can switch between languages - each version is saved separately"}
-                    </small>
+                    </p>
                   )}
                   {editingPost && (
-                    <small style={{ color: "var(--text-muted)", fontSize: 11 }}>
+                    <p className="text-[11px] text-muted-foreground">
                       {lang === "ar" ? "لا يمكن تغيير لغة المقال بعد إنشائه" : "Cannot change language after creation"}
-                    </small>
+                    </p>
                   )}
                   {!editingPost && (
-                    <select
-                      value={relatedBlogId || ""}
-                      onChange={(e) => setRelatedBlogId(e.target.value ? Number(e.target.value) : null)}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: "var(--radius-full)",
-                        border: "1px solid var(--border)",
-                        background: "var(--bg-surface)",
-                        color: "var(--text-primary)",
-                        fontSize: 12,
-                        cursor: "pointer",
-                      }}
+                    <Select
+                      value={relatedBlogId ? String(relatedBlogId) : "none"}
+                      onValueChange={(v) => setRelatedBlogId(v && v !== "none" ? Number(v) : null)}
                     >
-                      <option value="">{language === "ar" ? "لا توجد نسخة مرتبطة" : "No related version"}</option>
-                      {posts
-                        .filter((p) => p.language !== language && !p.related_blog_id)
-                        .map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {language === "ar" ? "ربط بـ" : "Link to"}: {p.title}
-                          </option>
-                        ))}
-                    </select>
+                      <SelectTrigger size="sm" className="w-full bg-card">
+                        <SelectValue placeholder={language === "ar" ? "لا توجد نسخة مرتبطة" : "No related version"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{language === "ar" ? "لا توجد نسخة مرتبطة" : "No related version"}</SelectItem>
+                        {posts
+                          .filter((p) => p.language !== language && !p.related_blog_id)
+                          .map((p) => (
+                            <SelectItem key={p.id} value={String(p.id)}>
+                              {language === "ar" ? "ربط بـ" : "Link to"}: {p.title}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
                   )}
-                </label>
+                </div>
 
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{blogText.headerImage}</span>
-                  <label style={{ border: "1px dashed var(--border-light)", borderRadius: "var(--radius-full)", padding: 12, cursor: "pointer", background: "var(--bg-surface)", display: "grid", gap: 6 }}>
-                    <input type="file" accept="image/*" onChange={(e) => setHeaderFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-secondary)" }}><ImageIcon size={14} /> {headerFile ? headerFile.name : blogText.uploadHeader}</div>
-                    <small style={{ color: "var(--text-muted)" }}>{blogText.headerHint}</small>
-                    <small style={{ color: "var(--text-muted)" }}>JPG or PNG — recommended 1200×630px, max 5 MB</small>
+                {/* Header image upload */}
+                <div className="grid gap-2">
+                  <span className="text-[13px] font-medium text-muted-foreground">{blogText.headerImage}</span>
+                  <label className="grid cursor-pointer gap-1.5 rounded-md bg-card p-3 ring-1 ring-inset ring-border transition-colors hover:bg-accent">
+                    <input type="file" accept="image/*" onChange={(e) => setHeaderFile(e.target.files?.[0] || null)} className="hidden" />
+                    <span className="flex items-center gap-2 text-[13px] text-foreground"><ImageIcon size={14} strokeWidth={2} /> {headerFile ? headerFile.name : blogText.uploadHeader}</span>
+                    <span className="text-[12px] text-muted-foreground">{blogText.headerHint}</span>
+                    <span className="text-[12px] text-muted-foreground">JPG or PNG — recommended 1200×630px, max 5 MB</span>
                   </label>
-                </label>
+                </div>
 
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{blogText.videoUpload}</span>
-                  <label style={{ border: "1px dashed var(--border-light)", borderRadius: "var(--radius-full)", padding: 12, cursor: "pointer", background: "var(--bg-surface)", display: "grid", gap: 6 }}>
-                    <input type="file" accept="video/*" onChange={(e) => handleVideoFileChange(e.target.files?.[0] || null)} style={{ display: "none" }} />
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-secondary)" }}><PlayCircle size={14} /> {videoFile ? videoFile.name : blogText.uploadVideo}</div>
+                {/* Video upload */}
+                <div className="grid gap-2">
+                  <span className="text-[13px] font-medium text-muted-foreground">{blogText.videoUpload}</span>
+                  <label className="grid cursor-pointer gap-1.5 rounded-md bg-card p-3 ring-1 ring-inset ring-border transition-colors hover:bg-accent">
+                    <input type="file" accept="video/*" onChange={(e) => handleVideoFileChange(e.target.files?.[0] || null)} className="hidden" />
+                    <span className="flex items-center gap-2 text-[13px] text-foreground"><PlayCircle size={14} strokeWidth={2} /> {videoFile ? videoFile.name : blogText.uploadVideo}</span>
                     {videoDuration !== null && (
-                      <small style={{ color: "var(--accent)", fontWeight: 600 }}>Duration: {Math.floor(videoDuration / 60)}m {videoDuration % 60}s</small>
+                      <span className="text-[12px] font-semibold text-primary">Duration: {Math.floor(videoDuration / 60)}m {videoDuration % 60}s</span>
                     )}
-                    <small style={{ color: "var(--text-muted)" }}>{blogText.videoHint}</small>
+                    <span className="text-[12px] text-muted-foreground">{blogText.videoHint}</span>
                   </label>
-                </label>
+                </div>
 
                 {editingPost?.header_image_url && (
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)" }}>
+                  <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
                     <input type="checkbox" checked={removeHeaderImage} onChange={(e) => setRemoveHeaderImage(e.target.checked)} /> {blogText.removeHeader}
                   </label>
                 )}
                 {editingPost?.video_url && (
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)" }}>
+                  <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
                     <input type="checkbox" checked={removeVideo} onChange={(e) => setRemoveVideo(e.target.checked)} /> {blogText.removeVideo}
                   </label>
                 )}
 
-                <div style={{ display: "grid", gap: 8 }}>
-                  <button
-                    onClick={() => onSave("draft")}
-                    disabled={saving}
-                    style={{ borderRadius: "var(--radius-full)", border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", padding: "10px 12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-                  >
-                    <Save size={15} /> {blogText.saveDraft}
-                  </button>
-                  <button
-                    onClick={() => onSave("published")}
-                    disabled={saving}
-                    style={{ borderRadius: "var(--radius-full)", border: "none", background: "var(--accent)", color: "#111", padding: "10px 12px", cursor: "pointer", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-                  >
-                    <Upload size={15} /> {saving ? blogText.saving : blogText.publish}
-                  </button>
+                <div className="grid gap-2">
+                  <Button variant="outline" onClick={() => onSave("draft")} disabled={saving} className="w-full">
+                    <Save size={15} strokeWidth={2} /> {blogText.saveDraft}
+                  </Button>
+                  <Button onClick={() => onSave("published")} disabled={saving} className="w-full">
+                    <Upload size={15} strokeWidth={2} /> {saving ? blogText.saving : blogText.publish}
+                  </Button>
                   {saving && uploadProgress > 0 && (
-                    <div style={{ display: "grid", gap: 6 }}>
-                      <div style={{
-                        width: "100%",
-                        height: 6,
-                        background: "var(--bg-surface)",
-                        borderRadius: "var(--radius-full)",
-                        overflow: "hidden",
-                        border: "1px solid var(--border-light)"
-                      }}>
-                        <div style={{
-                          height: "100%",
-                          width: `${uploadProgress}%`,
-                          background: "var(--accent)",
-                          transition: "width 0.3s ease",
-                        }} />
-                      </div>
-                      <small style={{ color: "var(--text-muted)", textAlign: "center" }}>{uploadProgress}% uploaded</small>
+                    <div className="grid gap-1.5">
+                      <Progress value={uploadProgress} className="h-1.5" />
+                      <span className="text-center text-[12px] text-muted-foreground">{uploadProgress}% uploaded</span>
                     </div>
                   )}
                 </div>
               </aside>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </section>
