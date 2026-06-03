@@ -11,7 +11,6 @@ import { Separator } from "@/components/ui/separator";
 const card: CSSProperties = {
   background: "var(--bg-card)",
   borderRadius: 16,
-  boxShadow: "var(--shadow-soft-sm)",
   padding: 16,
 };
 

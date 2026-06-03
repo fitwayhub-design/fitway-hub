@@ -97,6 +97,23 @@ html.light {
   to { height: 0; }
 }
 
+/* ── Flat-at-rest interaction model (app redesign) ──────────────────────────
+   Buttons and cards/shapes carry NO shadow at rest — surfaces are separated by
+   fill alone (e.g. #fff cards on the #f8f8f8 light background, or #111 on #000
+   in dark). A soft shadow appears only on hover, and only on hover-capable
+   devices, so touch screens stay perfectly flat. Overlays and the floating nav
+   use shadow-soft-md / shadow-soft-lg, which are intentionally NOT flattened so
+   menus, dialogs and the tab bar keep the elevation that makes them read as
+   floating above the page. */
+.app-view :is(.shadow-soft-xs, .shadow-soft-sm, .shadow-soft) {
+  box-shadow: none;
+}
+@media (hover: hover) {
+  .app-view :is(.shadow-soft-sm, .shadow-soft):hover {
+    box-shadow: var(--shadow-soft);
+  }
+}
+
 /* ── Custom brand fonts ── */
 @font-face { font-family: 'Gotham'; src: url('/fonts/GothamBook.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: 'Gotham'; src: url('/fonts/GothamBold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
@@ -192,7 +209,7 @@ html.light {
    Secondary: Ocean Blue        #2563EB
 ═══════════════════════════════════════════════════════════ */
 html.light {
-  --bg-primary:    #F5F5F0;
+  --bg-primary:    #f8f8f8;
   --bg-surface:    #FFFFFF;
   --bg-card:       #FFFFFF;
   --bg-card-hover: #EDEDEA;
@@ -1076,7 +1093,7 @@ html.light .app-bottom-nav-inner {
 html.light .app-nav-center .app-nav-center-bubble {
   box-shadow:
     0 14px 32px rgba(200, 176, 0, 0.32),
-    0 0 0 6px #f5f5f0;
+    0 0 0 6px #f8f8f8;
 }
 html.light .app-nav-center .app-nav-center-bubble::after {
   background: radial-gradient(circle, rgba(200, 176, 0, 0.45) 0%, rgba(200, 176, 0, 0) 70%);
@@ -2302,7 +2319,7 @@ html.light .web-bold [data-bold="card"] {
 html.light .web-fwh {
   /* Clean "normal white" version — true white surfaces with subtle warm borders
      rather than the previous cream/parchment palette. */
-  --fwh-bg:        #ffffff;
+  --fwh-bg:        #f8f8f8;
   --fwh-s1:        #fafafa;
   --fwh-s2:        #f3f3f1;
   --fwh-s3:        #ebebe7;

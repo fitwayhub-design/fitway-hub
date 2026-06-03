@@ -81,7 +81,6 @@ export default function VideoPlayer({
     borderRadius: 12,
     background: "#000",
     border: "none",
-    boxShadow: "var(--shadow-soft-sm)",
     ...style,
   };
 
