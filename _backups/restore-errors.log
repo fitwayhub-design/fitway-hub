@@ -1,0 +1,19 @@
+ERROR 1146 (42S02) at line 6: Table 'fitwayhub.ad_ads' doesn't exist
+ERROR 1062 (23000) at line 10: Duplicate entry '1' for key 'ad_approval_rules.PRIMARY'
+ERROR 1146 (42S02) at line 356: Table 'fitwayhub.ad_billing_transactions' doesn't exist
+ERROR 1054 (42S22) at line 358: Unknown column 'org_id' in 'field list'
+ERROR 1054 (42S22) at line 405: Unknown column 'owner_id' in 'field list'
+ERROR 1054 (42S22) at line 477: Unknown column 'adset_id' in 'field list'
+ERROR 1062 (23000) at line 534: Duplicate entry '1' for key 'ad_feature_flags.PRIMARY'
+ERROR 1062 (23000) at line 544: Duplicate entry '1' for key 'ad_placements.PRIMARY'
+ERROR 1146 (42S02) at line 552: Table 'fitwayhub.ad_rules' doesn't exist
+ERROR 1054 (42S22) at line 554: Unknown column 'budget_type' in 'field list'
+ERROR 1062 (23000) at line 616: Duplicate entry '1' for key 'ad_template_presets.PRIMARY'
+ERROR 1062 (23000) at line 1077: Duplicate entry '1' for key 'admin_ad_settings.PRIMARY'
+ERROR 1062 (23000) at line 1183: Duplicate entry '1' for key 'app_settings.PRIMARY'
+ERROR 1062 (23000) at line 1269: Duplicate entry '10-ways-burn-fat-faster-en' for key 'blog_posts.unique_slug_lang'
+ERROR 1062 (23000) at line 1439: Duplicate entry '1' for key 'email_settings.PRIMARY'
+ERROR 1062 (23000) at line 1535: Duplicate entry '1' for key 'payment_settings.PRIMARY'
+ERROR 1062 (23000) at line 1700: Duplicate entry '1' for key 'push_templates.PRIMARY'
+ERROR 1054 (42S22) at line 2023: Unknown column 'location' in 'field list'
+ERROR 1062 (23000) at line 2047: Duplicate entry '6' for key 'website_sections.PRIMARY'

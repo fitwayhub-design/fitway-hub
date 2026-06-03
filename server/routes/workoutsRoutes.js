@@ -1,0 +1,388 @@
+import { Router } from 'express';
+import { authenticateToken } from '../middleware/auth.js';
+import { get, query, run } from '../config/database.js';
+import { optimizeImage, uploadToR2, uploadVideo, validateVideoSize } from '../middleware/upload.js';
+const router = Router();
+const coachOrAdmin = (req, res, next) => {
+    if (req.user?.role !== 'coach' && req.user?.role !== 'admin') {
+        return res.status(403).json({ message: 'Coach access required' });
+    }
+    next();
+};
+// Workout videos are now admin-curated only (managed under Trainings). Coaches
+// can still browse the library and view their own historical submissions, but
+// cannot upload new videos.
+const adminOnly = (req, res, next) => {
+    if (req.user?.role !== 'admin') {
+        return res.status(403).json({ message: 'Only admins can add workout videos' });
+    }
+    next();
+};
+function extractYouTubeVideoId(url) {
+    const match = String(url || '').match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return match ? match[1] : null;
+}
+router.get('/videos', authenticateToken, async (req, res) => {
+    try {
+        const videos = await query(`SELECT wv.*, u.name AS coach_name
+       FROM workout_videos wv
+       LEFT JOIN users u ON u.id = wv.coach_id
+       WHERE COALESCE(wv.approval_status, 'approved') = 'approved'
+         AND (wv.is_short IS NULL OR wv.is_short = 0)
+       ORDER BY wv.created_at DESC`);
+        res.json({ videos });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to fetch videos' });
+    }
+});
+// ── Shorties: short videos only ────────────────────────────────────────────────
+router.get('/shorties', authenticateToken, async (req, res) => {
+    try {
+        const videos = await query(`SELECT wv.*, u.name AS coach_name
+       FROM workout_videos wv
+       LEFT JOIN users u ON u.id = wv.coach_id
+       WHERE COALESCE(wv.approval_status, 'approved') = 'approved'
+         AND wv.is_short = 1
+       ORDER BY wv.created_at DESC`);
+        res.json({ videos });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to fetch shorties' });
+    }
+});
+router.get('/my-videos', authenticateToken, coachOrAdmin, async (req, res) => {
+    try {
+        const videos = await query(`SELECT wv.*, u.name AS submitted_by_name
+       FROM workout_videos wv
+       LEFT JOIN users u ON u.id = wv.submitted_by
+       WHERE wv.coach_id = ?
+       ORDER BY wv.created_at DESC`, [req.user.id]);
+        res.json({ videos });
+    }
+    catch {
+        res.status(500).json({ message: 'Failed to fetch your videos' });
+    }
+});
+// ── Engagement ────────────────────────────────────────────────────────────────
+// Per-user state in one round-trip so the Workouts page can render the saved /
+// liked / progress badges on first paint without N follow-up requests.
+router.get('/me', authenticateToken, async (req, res) => {
+    try {
+        const [saves, likes, progress] = await Promise.all([
+            query('SELECT video_id FROM video_saves WHERE user_id = ?', [req.user.id]),
+            query('SELECT video_id FROM video_likes WHERE user_id = ?', [req.user.id]),
+            query(`SELECT video_id, position_seconds, duration_seconds, completed, updated_at
+         FROM video_progress WHERE user_id = ?
+         ORDER BY updated_at DESC`, [req.user.id]),
+        ]);
+        res.json({
+            saved_ids: saves.map(r => r.video_id),
+            liked_ids: likes.map(r => r.video_id),
+            progress: progress,
+        });
+    }
+    catch (err) {
+        console.error('GET /workouts/me failed:', err);
+        res.status(500).json({ message: 'Failed to fetch engagement state' });
+    }
+});
+// Record a view. Idempotent enough — clients should call once per "open" of
+// the player. We insert a timestamped row AND bump the denormalised counter
+// so `/shorties` can sort by all-time popularity in O(1).
+router.post('/videos/:id/view', authenticateToken, async (req, res) => {
+    const videoId = Number(req.params.id);
+    if (!videoId)
+        return res.status(400).json({ message: 'Invalid video id' });
+    try {
+        await run('INSERT INTO video_views (video_id, user_id) VALUES (?, ?)', [videoId, req.user.id]);
+        await run('UPDATE workout_videos SET views_count = views_count + 1 WHERE id = ?', [videoId]);
+        res.json({ ok: true });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to record view' });
+    }
+});
+// Toggle a like. Returns the new state + denormalised count so the client
+// can update its UI without a second fetch.
+router.post('/videos/:id/like', authenticateToken, async (req, res) => {
+    const videoId = Number(req.params.id);
+    if (!videoId)
+        return res.status(400).json({ message: 'Invalid video id' });
+    try {
+        const existing = await get('SELECT 1 FROM video_likes WHERE user_id = ? AND video_id = ?', [req.user.id, videoId]);
+        if (existing) {
+            await run('DELETE FROM video_likes WHERE user_id = ? AND video_id = ?', [req.user.id, videoId]);
+            await run('UPDATE workout_videos SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = ?', [videoId]);
+        }
+        else {
+            await run('INSERT INTO video_likes (user_id, video_id) VALUES (?, ?)', [req.user.id, videoId]);
+            await run('UPDATE workout_videos SET likes_count = likes_count + 1 WHERE id = ?', [videoId]);
+        }
+        const v = await get('SELECT likes_count FROM workout_videos WHERE id = ?', [videoId]);
+        res.json({ liked: !existing, likes_count: v?.likes_count ?? 0 });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to toggle like' });
+    }
+});
+// Toggle a save (private bookmark). Server-backed so favorites sync across
+// devices, replacing the previous localStorage-only implementation.
+router.post('/videos/:id/save', authenticateToken, async (req, res) => {
+    const videoId = Number(req.params.id);
+    if (!videoId)
+        return res.status(400).json({ message: 'Invalid video id' });
+    try {
+        const existing = await get('SELECT 1 FROM video_saves WHERE user_id = ? AND video_id = ?', [req.user.id, videoId]);
+        if (existing) {
+            await run('DELETE FROM video_saves WHERE user_id = ? AND video_id = ?', [req.user.id, videoId]);
+        }
+        else {
+            await run('INSERT INTO video_saves (user_id, video_id) VALUES (?, ?)', [req.user.id, videoId]);
+        }
+        res.json({ saved: !existing });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to toggle save' });
+    }
+});
+// Upsert playback progress. The client sends position/duration every ~5s.
+// Server flips `completed` once the user watches past 90% so we can hide
+// finished workouts from "Continue watching".
+router.post('/videos/:id/progress', authenticateToken, async (req, res) => {
+    const videoId = Number(req.params.id);
+    const position = Math.max(0, Math.floor(Number(req.body?.position_seconds) || 0));
+    const duration = Math.max(0, Math.floor(Number(req.body?.duration_seconds) || 0));
+    if (!videoId)
+        return res.status(400).json({ message: 'Invalid video id' });
+    try {
+        const completed = duration > 0 && position / duration >= 0.9 ? 1 : 0;
+        await run(`INSERT INTO video_progress (user_id, video_id, position_seconds, duration_seconds, completed)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         position_seconds = VALUES(position_seconds),
+         duration_seconds = GREATEST(duration_seconds, VALUES(duration_seconds)),
+         completed = GREATEST(completed, VALUES(completed))`, [req.user.id, videoId, position, duration, completed]);
+        res.json({ ok: true, completed: !!completed });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to save progress' });
+    }
+});
+// Trending shorts — last 7 days of views, falling back to all-time popularity
+// then recency for ties / cold-start. Returns the full short rows so the
+// client can render the featured hero without a second fetch.
+router.get('/shorties/trending', authenticateToken, async (req, res) => {
+    try {
+        const limit = Math.min(Math.max(Number(req.query.limit) || 5, 1), 20);
+        const videos = await query(`SELECT wv.*, u.name AS coach_name,
+              COALESCE(recent.recent_views, 0) AS recent_views
+       FROM workout_videos wv
+       LEFT JOIN users u ON u.id = wv.coach_id
+       LEFT JOIN (
+         SELECT video_id, COUNT(*) AS recent_views
+         FROM video_views
+         WHERE viewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+         GROUP BY video_id
+       ) recent ON recent.video_id = wv.id
+       WHERE wv.is_short = 1
+         AND COALESCE(wv.approval_status, 'approved') = 'approved'
+       ORDER BY recent.recent_views DESC, wv.views_count DESC, wv.created_at DESC
+       LIMIT ?`, [limit]);
+        res.json({ videos });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to fetch trending shorts' });
+    }
+});
+router.post('/videos/submissions', authenticateToken, adminOnly, uploadVideo.fields([
+    { name: 'video', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 }
+]), validateVideoSize, optimizeImage(), async (req, res) => {
+    try {
+        const { title, description, duration, category, is_premium, is_short } = req.body;
+        if (!title)
+            return res.status(400).json({ message: 'Title is required' });
+        const files = req.files;
+        const videoFile = files?.video?.[0];
+        const thumbnailFile = files?.thumbnail?.[0];
+        if (!videoFile)
+            return res.status(400).json({ message: 'Video file is required' });
+        const videoUrl = await uploadToR2(videoFile, 'videos');
+        const thumbnailUrl = thumbnailFile ? await uploadToR2(thumbnailFile, 'thumbnails') : null;
+        const durationSeconds = videoFile.size > 0 ? Math.ceil(videoFile.size / (1024 * 1024)) : parseInt(duration || '0', 10) || 0;
+        const isShort = is_short === '1' || is_short === true ? 1 : 0;
+        const isPremium = is_premium === '1' || is_premium === true ? 1 : 0;
+        const approvalStatus = req.user.role === 'admin' ? 'approved' : 'pending';
+        const result = await run(`INSERT INTO workout_videos
+       (title, description, url, duration, duration_seconds, category, is_premium, thumbnail, is_short, source_type, coach_id, submitted_by, approval_status, approved_by, approved_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [
+            title,
+            description || '',
+            videoUrl,
+            duration || '',
+            durationSeconds,
+            category || 'General',
+            isPremium,
+            thumbnailUrl || '',
+            isShort,
+            'upload',
+            req.user.id,
+            req.user.id,
+            approvalStatus,
+            approvalStatus === 'approved' ? req.user.id : null,
+            approvalStatus === 'approved' ? new Date() : null,
+        ]);
+        const video = await get('SELECT * FROM workout_videos WHERE id = ?', [result.insertId]);
+        res.json({
+            video,
+            message: approvalStatus === 'approved'
+                ? 'Video published successfully'
+                : 'Video submitted for admin approval'
+        });
+    }
+    catch (err) {
+        console.error('Coach video submission error:', err);
+        res.status(500).json({ message: 'Failed to submit video' });
+    }
+});
+router.post('/videos/submissions/youtube', authenticateToken, adminOnly, async (req, res) => {
+    try {
+        const { title, description, duration, category, is_premium, is_short, youtube_url } = req.body;
+        if (!title)
+            return res.status(400).json({ message: 'Title is required' });
+        if (!youtube_url)
+            return res.status(400).json({ message: 'YouTube URL is required' });
+        const videoId = extractYouTubeVideoId(youtube_url);
+        if (!videoId)
+            return res.status(400).json({ message: 'Invalid YouTube URL. Please provide a valid YouTube video link.' });
+        const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+        const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        const isShort = is_short === '1' || is_short === true ? 1 : 0;
+        const isPremium = is_premium === '1' || is_premium === true ? 1 : 0;
+        const approvalStatus = req.user.role === 'admin' ? 'approved' : 'pending';
+        const result = await run(`INSERT INTO workout_videos
+       (title, description, url, youtube_url, source_type, duration, duration_seconds, category, is_premium, thumbnail, is_short, coach_id, submitted_by, approval_status, approved_by, approved_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [
+            title,
+            description || '',
+            embedUrl,
+            youtube_url,
+            'youtube',
+            duration || '',
+            0,
+            category || 'General',
+            isPremium,
+            thumbnail,
+            isShort,
+            req.user.id,
+            req.user.id,
+            approvalStatus,
+            approvalStatus === 'approved' ? req.user.id : null,
+            approvalStatus === 'approved' ? new Date() : null,
+        ]);
+        const video = await get('SELECT * FROM workout_videos WHERE id = ?', [result.insertId]);
+        res.json({
+            video,
+            message: approvalStatus === 'approved'
+                ? 'YouTube video published successfully'
+                : 'YouTube video submitted for admin approval'
+        });
+    }
+    catch (err) {
+        console.error('Coach YouTube submission error:', err);
+        res.status(500).json({ message: 'Failed to submit YouTube video' });
+    }
+});
+// ── Playlists: public lists ────────────────────────────────────────────────────
+router.get('/playlists', authenticateToken, async (_req, res) => {
+    try {
+        const playlists = await query(`
+      SELECT p.*, u.name as creator_name,
+             (SELECT COUNT(*) FROM playlist_videos WHERE playlist_id = p.id) as video_count
+      FROM video_playlists p
+      LEFT JOIN users u ON u.id = p.created_by
+      WHERE p.is_public = 1
+      ORDER BY p.sort_order ASC, p.created_at DESC
+    `);
+        res.json({ playlists });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to fetch playlists' });
+    }
+});
+router.get('/playlists/:id/videos', authenticateToken, async (req, res) => {
+    try {
+        const vids = await query(`SELECT v.*, pv.sort_order as playlist_order FROM playlist_videos pv
+       JOIN workout_videos v ON v.id = pv.video_id
+       WHERE pv.playlist_id = ? AND COALESCE(v.approval_status, 'approved') = 'approved' ORDER BY pv.sort_order ASC`, [req.params.id]);
+        res.json({ videos: vids });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to fetch playlist videos' });
+    }
+});
+router.get('/my-plan', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const workoutPlan = await get('SELECT * FROM workout_plans WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', [userId]);
+        const nutritionPlan = await get('SELECT * FROM nutrition_plans WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', [userId]);
+        if (!workoutPlan && !nutritionPlan)
+            return res.json(null);
+        res.json({
+            workout: workoutPlan ? {
+                title: workoutPlan.title,
+                description: workoutPlan.description,
+                sessions: typeof workoutPlan.exercises === 'string' ? JSON.parse(workoutPlan.exercises || '[]') : (workoutPlan.exercises || []),
+            } : null,
+            nutrition: nutritionPlan ? {
+                title: nutritionPlan.title,
+                dailyCalories: nutritionPlan.daily_calories,
+                protein: nutritionPlan.protein_g,
+                carbs: nutritionPlan.carbs_g,
+                fat: nutritionPlan.fat_g,
+                meals: typeof nutritionPlan.meals === 'string' ? JSON.parse(nutritionPlan.meals || '[]') : (nutritionPlan.meals || []),
+                notes: nutritionPlan.notes,
+            } : null,
+        });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Could not fetch plan' });
+    }
+});
+// ── Points: Video watched (anti-cheat) ────────────────────────────────────────
+router.post('/videos/:id/watched', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const videoId = req.params.id;
+        const { watchedDuration, videoDuration, seeked, speedChanged } = req.body || {};
+        // Anti-cheat validations
+        if (!watchedDuration || !videoDuration)
+            return res.status(400).json({ message: 'Missing watch data', points: 0 });
+        if (seeked || speedChanged)
+            return res.json({ message: 'Not eligible — video was seeked or speed changed', points: 0 });
+        // User must have watched at least 90% of the video
+        if (watchedDuration < videoDuration * 0.9)
+            return res.json({ message: 'Video not fully watched', points: 0 });
+        // Check not already awarded today
+        const today = new Date().toISOString().split('T')[0];
+        const already = await get('SELECT id FROM point_transactions WHERE user_id = ? AND reference_type = ? AND reference_id = ? AND DATE(created_at) = ?', [userId, 'video_watch', videoId, today]);
+        if (already)
+            return res.json({ message: 'Already awarded today', points: 0 });
+        await run('UPDATE users SET points = points + 2 WHERE id = ?', [userId]);
+        await run('INSERT INTO point_transactions (user_id, points, reason, reference_type, reference_id) VALUES (?,?,?,?,?)', [userId, 2, 'Watched a full workout video', 'video_watch', videoId]);
+        const user = await get('SELECT points FROM users WHERE id = ?', [userId]);
+        // Update computed activity profile (fire-and-forget)
+        try {
+            const { updateUserActivityProfile } = await import('../services/activityProfileService.js');
+            updateUserActivityProfile(userId).catch(() => { });
+        }
+        catch { }
+        res.json({ message: '+2 points for watching video!', points: user?.points || 0 });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to award points' });
+    }
+});
+export default router;
+//# sourceMappingURL=workoutsRoutes.js.map
