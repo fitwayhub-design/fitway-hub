@@ -20,11 +20,16 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  X, Smartphone, Loader2, CheckCircle, AlertCircle,
-  ChevronRight, Upload, Clock, Info,
+  X, Loader2, CheckCircle, AlertCircle,
+  ChevronRight, ChevronLeft, Upload, Clock, Lock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type WalletType = "vodafone" | "orange" | "we" | "instapay";
@@ -220,25 +225,27 @@ export default function UnifiedCheckout({
   if (step === "paypal") return (
     <Overlay><Sheet>
       <Hdr title="PayPal / Card / Google & Apple Pay" back={() => setStep("provider")} />
-      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16, lineHeight: 1.6 }}>
+      <p className="mb-4 text-[13px] leading-relaxed text-muted-foreground">
         PayPal accepts credit cards, debit cards, Google Pay, and Apple Pay. No PayPal account required.
       </p>
       {loading ? (
-        <div style={{ textAlign: "center", padding: 32 }}><Loader2 size={28} color="var(--main)" style={{ animation: "spin 1s linear infinite" }} /></div>
+        <div className="grid place-items-center py-8"><Loader2 size={28} strokeWidth={2} className="animate-spin text-primary" /></div>
       ) : <div ref={paypalRef} style={{ minHeight: 50 }} />}
       {error && <ErrBox>{error}</ErrBox>}
-      <p style={S.lock}>🔒 Secured by PayPal · Encrypted</p>
+      <p className="mt-4 inline-flex w-full items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+        <Lock size={12} strokeWidth={2} /> Secured by PayPal · Encrypted
+      </p>
     </Sheet></Overlay>
   );
 
   if (step === "manual_ewallet") return (
     <Overlay><Sheet>
       <Hdr title="Pay via Mobile Wallet" back={() => setStep("provider")} />
-      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.6 }}>
-        Pick your wallet, send <strong style={{ color: "var(--main)" }}>{amount} EGP</strong> to the
+      <p className="mb-3.5 text-[13px] leading-relaxed text-muted-foreground">
+        Pick your wallet, send <strong className="text-primary">{amount} EGP</strong> to the
         number below from your wallet app, then upload the confirmation screenshot.
       </p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+      <div className="mb-3.5 flex flex-wrap gap-2">
         {(["vodafone", "orange", "we", "instapay"] as WalletType[]).map(w => (
           <WalletChip key={w} id={w} selected={walletType === w} onClick={() => setWalletType(w)} />
         ))}
@@ -256,15 +263,17 @@ export default function UnifiedCheckout({
         adminRef={nums[walletType] ? `Send to: ${nums[walletType]}` : undefined}
         copyValue={nums[walletType]}
       />
-      <div style={{ marginTop: 14 }}>
-        <label style={S.label}>Your Wallet Number</label>
-        <input className="input-base" type="tel" placeholder="01XXXXXXXXX" value={senderNum} onChange={e => setSenderNum(e.target.value)} style={{ marginBottom: 12 }} />
+      <div className="mt-3.5 space-y-2">
+        <Label htmlFor="ewallet-sender">Your Wallet Number</Label>
+        <Input id="ewallet-sender" type="tel" placeholder="01XXXXXXXXX" value={senderNum} onChange={e => setSenderNum(e.target.value)} />
       </div>
-      <ProofUploader file={proofFile} preview={proofPreview} onFile={handleFile} inputRef={fileRef} />
+      <div className="mt-3">
+        <ProofUploader file={proofFile} preview={proofPreview} onFile={handleFile} inputRef={fileRef} />
+      </div>
       {error && <ErrBox>{error}</ErrBox>}
-      <button disabled={loading || !proofFile} className="btn-main" style={{ width: "100%", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={submitManualProof}>
-        {loading ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Submitting…</> : <><Upload size={15} /> Submit Payment Proof</>}
-      </button>
+      <Button disabled={loading || !proofFile} className="mt-3.5 w-full" onClick={submitManualProof}>
+        {loading ? <><Loader2 size={16} strokeWidth={2} className="animate-spin" /> Submitting…</> : <><Upload size={16} strokeWidth={2} /> Submit Payment Proof</>}
+      </Button>
     </Sheet></Overlay>
   );
 
@@ -272,15 +281,15 @@ export default function UnifiedCheckout({
   const manualEnabled = config?.manualEwallet?.enabled !== false;
   return (
     <Overlay><Sheet>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 22 }}>
+      <div className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <h3 style={S.title}>{label || "Choose Payment"}</h3>
-          <p style={{ fontSize: 14, color: "var(--main)", fontWeight: 700, marginTop: 4 }}>Total: {amount} EGP</p>
+          <h3 className="text-[17px] font-bold tracking-tight text-foreground">{label || "Choose Payment"}</h3>
+          <p className="mt-1 text-[14px] font-bold text-primary">Total: {amount} EGP</p>
         </div>
-        {onClose && <Ibtn onClick={onClose}><X size={17} /></Ibtn>}
+        {onClose && <Ibtn onClick={onClose} aria-label="Close checkout"><X size={17} strokeWidth={2} /></Ibtn>}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className="flex flex-col gap-3">
         {/* Manual e-wallet — Vodafone, Orange, WE, InstaPay */}
         {manualEnabled && (
           <ProviderCard
@@ -288,15 +297,14 @@ export default function UnifiedCheckout({
             title="Mobile Wallet & InstaPay"
             sub="Vodafone Cash · Orange Cash · WE Pay · InstaPay"
             tag="EGP"
-            tagColor="var(--main)"
-            modes={["🕐 Reviewed by admin"]}
+            modes={["Reviewed by admin"]}
             onClick={() => setStep("manual_ewallet")}
           />
         )}
       </div>
 
       {!manualEnabled && (
-        <div style={{ textAlign: "center", padding: 24, color: "var(--text-muted)", fontSize: 13 }}>
+        <div className="py-6 text-center text-[13px] text-muted-foreground">
           No payment methods are configured yet. Please contact support.
         </div>
       )}
@@ -310,68 +318,74 @@ export default function UnifiedCheckout({
 
 function Overlay({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 p-4 backdrop-blur-[6px]">
       {children}
     </div>
   );
 }
 
 function Sheet({ children }: { children: React.ReactNode }) {
-  return <div style={S.sheet}>{children}</div>;
+  return (
+    <Card className="max-h-[90dvh] w-full max-w-[440px] gap-0 overflow-y-auto rounded-lg p-6 shadow-soft-lg">
+      {children}
+    </Card>
+  );
 }
 
 function Hdr({ title, back }: { title: string; back?: () => void }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+    <div className="mb-5 flex items-center gap-2.5">
       {back && (
-        <button onClick={back} style={{ background: "var(--bg-surface)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)", flexShrink: 0, fontSize: 18, fontWeight: 700 }}>‹</button>
+        <Button type="button" variant="secondary" size="icon-sm" className="rounded-full" onClick={back} aria-label="Go back">
+          <ChevronLeft size={18} strokeWidth={2} />
+        </Button>
       )}
-      <h3 style={S.title}>{title}</h3>
+      <h3 className="text-[17px] font-bold tracking-tight text-foreground">{title}</h3>
     </div>
   );
 }
 
-function Ibtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+function Ibtn({ onClick, children, "aria-label": ariaLabel }: { onClick: () => void; children: React.ReactNode; "aria-label"?: string }) {
   return (
-    <button onClick={onClick} style={{ background: "var(--bg-surface)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)", flexShrink: 0 }}>
+    <Button type="button" variant="secondary" size="icon-sm" className="rounded-full" onClick={onClick} aria-label={ariaLabel}>
       {children}
-    </button>
+    </Button>
   );
 }
 
 function StatusScreen({ icon, bg, title, sub, cta, onCta, ctaSecondary, onCtaSecondary }: any) {
   return (
-    <div style={{ textAlign: "center", padding: "8px 0" }}>
-      <div style={{ width: 68, height: 68, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>{icon}</div>
-      <h3 style={S.title}>{title}</h3>
-      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8, lineHeight: 1.6 }}>{sub}</p>
-      <div style={{ display: "flex", gap: 10, marginTop: 24, justifyContent: "center" }}>
-        <button onClick={onCta} className="btn-main" style={{ flex: 1 }}>{cta}</button>
-        {ctaSecondary && <button onClick={onCtaSecondary} className="btn-ghost" style={{ flex: 1 }}>{ctaSecondary}</button>}
+    <div className="py-2 text-center">
+      <div className="mx-auto mb-4 grid size-[68px] place-items-center rounded-full" style={{ background: bg }}>{icon}</div>
+      <h3 className="text-[17px] font-bold tracking-tight text-foreground">{title}</h3>
+      <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{sub}</p>
+      <div className="mt-6 flex justify-center gap-2.5">
+        <Button className="flex-1" onClick={onCta}>{cta}</Button>
+        {ctaSecondary && <Button variant="ghost" className="flex-1" onClick={onCtaSecondary}>{ctaSecondary}</Button>}
       </div>
     </div>
   );
 }
 
-function ProviderCard({ emoji, title, sub, tag, tagColor, modes, onClick }: any) {
+function ProviderCard({ emoji, title, sub, tag, modes, onClick }: any) {
   return (
-    <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px", borderRadius: "var(--radius-xl)", border: "1px solid var(--border-light)", background: "var(--bg-surface)", cursor: "pointer", textAlign: "left", width: "100%", transition: "all 0.15s" }}
-      onMouseOver={e => { (e.currentTarget as any).style.borderColor = "var(--main)"; (e.currentTarget as any).style.background = "var(--main-dim)"; }}
-      onMouseOut={e => { (e.currentTarget as any).style.borderColor = "var(--border-light)"; (e.currentTarget as any).style.background = "var(--bg-surface)"; }}
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-3.5 rounded-md bg-muted px-4 py-4 text-start shadow-soft-sm transition hover:bg-accent active:scale-[0.99]"
     >
-      <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{emoji}</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{title}</p>
-        <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>{sub}</p>
-        <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+      <div className="grid size-12 shrink-0 place-items-center rounded-full bg-card text-[22px]">{emoji}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[14px] font-bold text-foreground">{title}</p>
+        <p className="mt-0.5 text-[12px] text-muted-foreground">{sub}</p>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
           {modes.map((m: string) => (
-            <span key={m} style={{ fontSize: 10, padding: "2px 7px", borderRadius: "var(--radius-full)", background: "var(--bg-card)", color: "var(--text-muted)", fontWeight: 600 }}>{m}</span>
+            <Badge key={m} variant="muted" className="gap-1 text-[10px]"><Clock size={10} strokeWidth={2} /> {m}</Badge>
           ))}
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-        <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: "var(--radius-full)", background: `${tagColor}18`, color: tagColor, fontWeight: 700 }}>{tag}</span>
-        <ChevronRight size={15} color="var(--text-muted)" />
+      <div className="flex shrink-0 items-center gap-1.5">
+        <Badge>{tag}</Badge>
+        <ChevronRight size={16} strokeWidth={2} className="text-muted-foreground" />
       </div>
     </button>
   );
@@ -379,30 +393,36 @@ function ProviderCard({ emoji, title, sub, tag, tagColor, modes, onClick }: any)
 
 function WalletChip({ id, selected, onClick }: { id: WalletType; selected: boolean; onClick: () => void; key?: React.Key }) {
   return (
-    <button onClick={onClick} style={{ flex: 1, padding: "8px 4px", borderRadius: "var(--radius-full)", border: `2px solid ${selected ? walletColor(id) : "var(--border-light)"}`, background: selected ? `${walletColor(id)}18` : "var(--bg-surface)", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-      <span style={{ fontSize: 16 }}>{walletEmoji(id)}</span>
-      <span style={{ fontSize: 10, fontWeight: 700, color: selected ? walletColor(id) : "var(--text-muted)" }}>{walletShort(id)}</span>
+    <button
+      onClick={onClick}
+      className="flex flex-1 flex-col items-center gap-1 rounded-md px-1 py-2 transition"
+      style={selected
+        ? { background: `color-mix(in srgb, ${walletColor(id)} 14%, transparent)`, boxShadow: `inset 0 0 0 2px ${walletColor(id)}`, color: walletColor(id) }
+        : { background: "var(--muted)", color: "var(--muted-foreground)" }}
+    >
+      <span className="text-[16px]">{walletEmoji(id)}</span>
+      <span className="text-[10px] font-bold">{walletShort(id)}</span>
     </button>
   );
 }
 
 function ManualInstructions({ icon, title, steps, color, adminRef, copyValue }: any) {
   return (
-    <div style={{ padding: 14, borderRadius: "var(--radius-lg)", background: `${color}12`, border: `1px solid ${color}40`, marginBottom: 6 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-        <span style={{ fontSize: 24 }}>{icon}</span>
-        <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{title} Transfer Instructions</span>
+    <div className="mb-1.5 rounded-md p-3.5" style={{ background: `color-mix(in srgb, ${color} 10%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 35%, transparent)` }}>
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="text-[24px]">{icon}</span>
+        <span className="text-[14px] font-bold text-foreground">{title} Transfer Instructions</span>
       </div>
       {steps.map((s: string, i: number) => (
-        <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
-          <div style={{ width: 20, height: 20, borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff" }}>{i + 1}</div>
-          <span style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5 }}>{s}</span>
+        <div key={i} className="mb-2 flex items-start gap-2.5">
+          <div className="grid size-5 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: color }}>{i + 1}</div>
+          <span className="text-[13px] leading-relaxed text-foreground">{s}</span>
         </div>
       ))}
       {adminRef && (
-        <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: "var(--radius-md)", background: "var(--bg-surface)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontFamily: "monospace", fontSize: 18, fontWeight: 800, color, letterSpacing: 1 }}>{adminRef}</span>
-          {copyValue && <button onClick={() => navigator.clipboard?.writeText(copyValue)} style={S.copyBtn}>Copy</button>}
+        <div className="mt-2.5 flex items-center justify-between gap-2 rounded-md bg-card px-3.5 py-2.5">
+          <span className="font-mono text-[18px] font-extrabold tracking-wide" style={{ color }}>{adminRef}</span>
+          {copyValue && <Button type="button" variant="secondary" size="sm" className="rounded-full" onClick={() => navigator.clipboard?.writeText(copyValue)}>Copy</Button>}
         </div>
       )}
     </div>
@@ -411,19 +431,23 @@ function ManualInstructions({ icon, title, steps, color, adminRef, copyValue }: 
 
 function ProofUploader({ file, preview, onFile, inputRef }: any) {
   return (
-    <div>
-      <label style={S.label}>Transaction Screenshot *</label>
-      <input type="file" ref={inputRef} accept="image/*" onChange={onFile} style={{ display: "none" }} />
+    <div className="space-y-2">
+      <Label htmlFor="proof-upload">Transaction Screenshot *</Label>
+      <input id="proof-upload" type="file" ref={inputRef} accept="image/*" onChange={onFile} style={{ display: "none" }} />
       {preview ? (
-        <div style={{ position: "relative" }}>
-          <img src={preview} alt="Proof" style={{ width: "100%", maxHeight: 180, objectFit: "contain", borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", background: "var(--bg-surface)" }} />
-          <button onClick={() => { inputRef.current?.click(); }} style={{ position: "absolute", bottom: 8, right: 8, background: "var(--main)", border: "none", borderRadius: "var(--radius-full)", padding: "4px 10px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600 }}>Change</button>
+        <div className="relative">
+          <img src={preview} alt="Payment proof screenshot" className="max-h-[180px] w-full rounded-md bg-muted object-contain shadow-soft-sm" />
+          <Button type="button" size="sm" className="absolute bottom-2 end-2 rounded-full" onClick={() => { inputRef.current?.click(); }}>Change</Button>
         </div>
       ) : (
-        <button onClick={() => inputRef.current?.click()} style={{ width: "100%", padding: "24px", borderRadius: "var(--radius-lg)", border: "2px dashed var(--border-light)", background: "var(--bg-surface)", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-          <Upload size={24} color="var(--text-muted)" />
-          <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Click to upload screenshot</span>
-          <span style={{ fontSize: 10, color: "var(--text-muted)" }}>JPG or PNG — max 5 MB</span>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="flex w-full flex-col items-center gap-2 rounded-md bg-muted p-6 ring-1 ring-inset ring-border transition hover:bg-accent"
+        >
+          <Upload size={24} strokeWidth={2} className="text-muted-foreground" />
+          <span className="text-[13px] text-muted-foreground">Click to upload screenshot</span>
+          <span className="text-[10px] text-muted-foreground">JPG or PNG — max 5 MB</span>
         </button>
       )}
     </div>
@@ -432,7 +456,10 @@ function ProofUploader({ file, preview, onFile, inputRef }: any) {
 
 function ErrBox({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: "rgba(248,113,113,0.1)", color: "var(--red)", borderRadius: "var(--radius-md)", padding: "10px 14px", fontSize: 13, marginTop: 8 }}>{children}</div>
+    <div className="mt-2 flex items-start gap-2 rounded-md bg-destructive/10 px-3.5 py-2.5 text-[13px] text-destructive">
+      <AlertCircle size={16} strokeWidth={2} className="mt-px shrink-0" />
+      <span>{children}</span>
+    </div>
   );
 }
 
@@ -449,30 +476,6 @@ function walletLabel(w: WalletType): string {
 function walletShort(w: WalletType): string {
   return { vodafone: "Vodafone", orange: "Orange", we: "WE", instapay: "InstaPay" }[w];
 }
-
-// ── Styles ─────────────────────────────────────────────────────────────────────
-const S = {
-  sheet: {
-    background: "var(--bg-card)",
-    borderRadius: "var(--radius-xl)",
-    border: "1px solid var(--border-light)",
-    padding: "26px 22px",
-    width: "100%", maxWidth: 440,
-    boxShadow: "0 24px 64px rgba(0,0,0,0.45)",
-    maxHeight: "90dvh",
-    overflowY: "auto" as const,
-  } as React.CSSProperties,
-  title: {
-    fontFamily: "var(--font-heading)", fontSize: 17, fontWeight: 700,
-    color: "var(--text-primary)", margin: 0,
-  } as React.CSSProperties,
-  label: { fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6 } as React.CSSProperties,
-  lock: { fontSize: 11, color: "var(--text-muted)", textAlign: "center" as const, marginTop: 14 },
-  copyBtn: {
-    background: "var(--bg-card)", border: "none", borderRadius: "var(--radius-full)",
-    padding: "4px 12px", fontSize: 11, color: "var(--text-secondary)", cursor: "pointer", fontWeight: 600,
-  } as React.CSSProperties,
-};
 
 // Re-export with old name for backward compat with existing imports.
 // Existing imports still write `import { PaymobCheckout } from ...` —

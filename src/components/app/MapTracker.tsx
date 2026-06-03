@@ -11,7 +11,9 @@ import {
   AccelerometerStepCounter,
   normaliseHeightCm,
 } from '@/lib/stepCalculations';
-import { Activity, Zap, MapPin, Timer } from 'lucide-react';
+import { Activity, Zap, MapPin, Timer, Play, Square, Loader2, AlertCircle, Footprints, PersonStanding } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 interface Position { lat: number; lng: number; timestamp: number; accuracy?: number }
 
@@ -407,72 +409,94 @@ const MapTracker = React.forwardRef<
 
   useImperativeHandle(ref, () => ({ start, stop, running }));
 
-  const gpsStatusColor = gpsStatus === 'active' ? 'var(--accent)' : gpsStatus === 'acquiring' ? 'var(--amber)' : gpsStatus === 'error' ? 'var(--red)' : 'var(--text-muted)';
+  const gpsStatusColor = gpsStatus === 'active' ? 'var(--green)' : gpsStatus === 'acquiring' ? 'var(--amber)' : gpsStatus === 'error' ? 'var(--red)' : 'var(--muted-foreground)';
+  const gpsStatusLabel = gpsStatus === 'active' ? 'GPS Active' : gpsStatus === 'acquiring' ? 'Acquiring…' : gpsStatus === 'error' ? 'GPS Error' : 'GPS Ready';
+
+  const stats = [
+    { label: 'Steps', value: steps > 0 ? steps.toLocaleString() : '—', icon: Activity, color: 'var(--primary)' },
+    { label: 'Distance', value: distanceMeters > 0 ? (() => {
+        if (distanceUnit === 'cm') return `${Math.round(distanceMeters * 100)} cm`;
+        if (distanceUnit === 'm') return `${Math.round(distanceMeters)} m`;
+        return distanceMeters >= 1000 ? `${(distanceMeters/1000).toFixed(2)} km` : `${Math.round(distanceMeters)} m`;
+      })() : '—', icon: MapPin, color: 'var(--secondary)' },
+    { label: 'Calories', value: calories > 0 ? `${Math.round(calories)}` : '—', icon: Zap, color: 'var(--destructive)' },
+  ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ position: 'relative', borderRadius: "var(--radius-full)", overflow: 'hidden', border: '1px solid var(--border)' }}>
+    <div className="flex flex-col gap-4">
+      <div className="relative overflow-hidden rounded-lg shadow-soft-sm">
         <div ref={mapRef} style={{ width: '100%', height: 'clamp(240px, 38vw, 380px)', display: 'block', backgroundColor: 'var(--bg-surface)' }} />
-        <div style={{ position: 'absolute', top: 12, insetInlineEnd: 12, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', borderRadius: "var(--radius-full)", padding: '5px 12px', display: 'flex', alignItems: 'center', gap: 6, border: `1px solid ${gpsStatusColor}` }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: gpsStatusColor, display: 'inline-block' }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: gpsStatusColor, fontFamily: "var(--font-en)" }}>{gpsStatus === 'active' ? 'GPS Active' : gpsStatus === 'acquiring' ? 'Acquiring...' : gpsStatus === 'error' ? 'GPS Error' : 'GPS Ready'}</span>
+        <div
+          className="absolute top-3 z-[1000] inline-flex items-center gap-1.5 rounded-full bg-black/75 px-3 py-1.5 text-[11px] font-semibold backdrop-blur-md"
+          style={{ insetInlineEnd: 12, color: gpsStatusColor }}
+        >
+          <span className="inline-block size-[7px] rounded-full" style={{ backgroundColor: gpsStatusColor }} />
+          {gpsStatusLabel}
         </div>
         {running && (
-          <div style={{ position: 'absolute', top: 12, insetInlineStart: 12, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', borderRadius: "var(--radius-full)", padding: '5px 12px', border: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 12, color: 'var(--accent)', fontFamily: "var(--font-en)", fontWeight: 700 }}>⏱ {formatTime(elapsed)}</span>
+          <div className="absolute top-3 z-[1000] inline-flex items-center gap-1.5 rounded-full bg-black/75 px-3 py-1.5 text-[12px] font-bold tabular-nums text-primary backdrop-blur-md" style={{ insetInlineStart: 12 }}>
+            <Timer size={13} strokeWidth={2} /> {formatTime(elapsed)}
           </div>
         )}
       </div>
 
       {/* Live Stats — always visible */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-        {[
-          { label: 'Steps', value: steps > 0 ? steps.toLocaleString() : '—', icon: Activity, color: 'var(--accent)' },
-          { label: 'Distance', value: distanceMeters > 0 ? (() => {
-              if (distanceUnit === 'cm') return `${Math.round(distanceMeters * 100)} cm`;
-              if (distanceUnit === 'm') return `${Math.round(distanceMeters)} m`;
-              return distanceMeters >= 1000 ? `${(distanceMeters/1000).toFixed(2)} km` : `${Math.round(distanceMeters)} m`;
-            })() : '—', icon: MapPin, color: 'var(--blue)' },
-          { label: 'Calories', value: calories > 0 ? `${Math.round(calories)}` : '—', icon: Zap, color: 'var(--red)' },
-        ].map(stat => (
-          <div key={stat.label} style={{ backgroundColor: 'var(--bg-surface)', border: `1px solid ${running ? stat.color + '40' : 'var(--border)'}`, borderRadius: "var(--radius-full)", padding: '10px 12px', textAlign: 'center', transition: 'border-color 0.3s' }}>
-            <stat.icon size={14} color={stat.color} style={{ marginBottom: 4 }} />
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 17, fontWeight: 700, color: stat.color, lineHeight: 1, margin: '2px 0' }}>{stat.value}</p>
-            <p style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{stat.label}{stat.label === 'Calories' ? ' kcal' : ''}</p>
-          </div>
+      <div className="grid grid-cols-3 gap-2">
+        {stats.map(stat => (
+          <Card
+            key={stat.label}
+            className="gap-0 rounded-md bg-muted px-3 py-2.5 text-center shadow-none transition-shadow"
+            style={running ? { boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${stat.color} 35%, transparent)` } : undefined}
+          >
+            <stat.icon size={14} strokeWidth={2} className="mx-auto mb-1" style={{ color: stat.color }} />
+            <p className="my-0.5 text-[17px] font-bold leading-none tabular-nums" style={{ color: stat.color }}>{stat.value}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{stat.label}{stat.label === 'Calories' ? ' kcal' : ''}</p>
+          </Card>
         ))}
       </div>
 
       {running && speedKmh > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', backgroundColor: 'var(--bg-surface)', borderRadius: "var(--radius-full)", border: '1px solid var(--border)', fontSize: 12 }}>
-          <Timer size={13} color="var(--text-muted)" />
-          <span style={{ color: 'var(--text-secondary)' }}>Speed: <strong style={{ color: 'var(--cyan)' }}>{speedKmh.toFixed(1)} km/h</strong></span>
-          <span style={{ color: 'var(--text-muted)', marginInlineStart: 'auto' }}>{positions.length} GPS pts</span>
+        <div className="flex items-center gap-2.5 rounded-md bg-muted px-4 py-2 text-[12px]">
+          <Timer size={13} strokeWidth={2} className="text-muted-foreground" />
+          <span className="text-muted-foreground">Speed: <strong className="text-[var(--cyan)]">{speedKmh.toFixed(1)} km/h</strong></span>
+          <span className="ms-auto text-muted-foreground">{positions.length} GPS pts</span>
         </div>
       )}
 
       {mapError && (
-        <div style={{ backgroundColor: 'rgba(255,68,68,0.1)', border: '1px solid var(--red)', borderRadius: "var(--radius-full)", padding: '10px 14px', fontSize: 13, color: 'var(--red)' }}>⚠️ {mapError}</div>
+        <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-4 py-2.5 text-[13px] text-destructive">
+          <AlertCircle size={16} strokeWidth={2} className="mt-px shrink-0" />
+          <span>{mapError}</span>
+        </div>
       )}
 
       {!hideControls && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Mode</span>
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Mode</span>
             {(['walking', 'running'] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)} style={{ padding: '6px 16px', borderRadius: "var(--radius-full)", fontSize: 12, fontWeight: 600, border: `1px solid ${mode === m ? 'var(--accent)' : 'var(--border)'}`, background: mode === m ? 'var(--accent-dim)' : 'transparent', color: mode === m ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', textTransform: 'capitalize', fontFamily: "var(--font-en)", transition: 'all 0.15s' }}>
-                {m === 'walking' ? '🚶' : '🏃'} {m}
-              </button>
+              <Button
+                key={m}
+                type="button"
+                size="sm"
+                variant={mode === m ? 'default' : 'secondary'}
+                onClick={() => setMode(m)}
+                className="rounded-full capitalize"
+              >
+                {m === 'walking' ? <Footprints size={14} strokeWidth={2} /> : <PersonStanding size={14} strokeWidth={2} />} {m}
+              </Button>
             ))}
           </div>
           {!running ? (
-            <button onClick={start} disabled={!mapReady} style={{ width: '100%', padding: '14px', borderRadius: "var(--radius-full)", background: mapReady ? 'var(--accent)' : 'var(--bg-surface)', border: 'none', color: mapReady ? '#000000' : 'var(--text-muted)', fontSize: 14, fontWeight: 700, cursor: mapReady ? 'pointer' : 'not-allowed', fontFamily: "var(--font-en)", letterSpacing: '0.05em', opacity: mapReady ? 1 : 0.65, transition: 'all 0.15s' }}>
-              {mapReady ? '▶ START LIVE TRACKING' : '⟳ Loading Map...'}
-            </button>
+            <Button onClick={start} disabled={!mapReady} size="lg" className="w-full">
+              {mapReady
+                ? <><Play size={18} strokeWidth={2} fill="currentColor" /> START LIVE TRACKING</>
+                : <><Loader2 size={18} strokeWidth={2} className="animate-spin" /> Loading Map…</>}
+            </Button>
           ) : (
-            <button onClick={stop} style={{ width: '100%', padding: '14px', borderRadius: "var(--radius-full)", background: 'var(--red)', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "var(--font-en)", letterSpacing: '0.05em' }}>
-              ⏹ STOP & SAVE SESSION
-            </button>
+            <Button onClick={stop} variant="destructive" size="lg" className="w-full">
+              <Square size={16} strokeWidth={2} fill="currentColor" /> STOP &amp; SAVE SESSION
+            </Button>
           )}
         </div>
       )}
