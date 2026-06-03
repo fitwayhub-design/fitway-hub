@@ -5,13 +5,17 @@ import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/context/I18nContext";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
+import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type RecentSession = { id: number; start_time: string; end_time: string; total_steps: number; total_distance_km: number; calories: number; };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "10px 14px", fontSize: 13 }}>
+    <div style={{ background: "var(--popover)", borderRadius: 12, padding: "10px 14px", fontSize: 13, boxShadow: "var(--shadow-soft-md)" }}>
       <p style={{ color: "var(--text-secondary)", marginBottom: 4 }}>{label}</p>
       {payload.map((p: any) => <p key={p.name} style={{ color: "var(--accent)", fontWeight: 700 }}>{p.value?.toLocaleString()} {p.name}</p>)}
     </div>
@@ -24,8 +28,6 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<any>(null);
   const [period, setPeriod] = useState<"7"|"30"|"180">("30");
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
-  useEffect(() => { const h = () => setIsMobile(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
 
   const loadAnalytics = () => {
     if (!user) return;
@@ -40,8 +42,6 @@ export default function Analytics() {
   }, [user, period]);
   useAutoRefresh(loadAnalytics);
 
-
-
   const weekly = metrics?.weekly || [];
   const avgSteps = weekly.length ? Math.round(weekly.reduce((a: number, b: any) => a + b.steps, 0) / 7) : 0;
   const activeDays = weekly.filter((d: any) => d.steps > 0).length;
@@ -54,102 +54,116 @@ export default function Analytics() {
     { label: t("consistency") || "Consistency", value: `${consistency}%`, color: "var(--cyan)", icon: TrendingUp },
   ];
 
+  const emptyWeek = Array.from({ length: 7 }, (_, i) => ({ day: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i], steps: 0, calories: 0 }));
+
   return (
-    <div style={{ padding: isMobile ? "16px 12px 40px" : "24px 20px 40px", maxWidth: 900, margin: "0 auto" }}>
+    <div className="mx-auto w-full max-w-[960px] px-4 pb-4">
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
-        <h1 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(20px, 4vw, 28px)", fontWeight: 700 }}>{t("advanced_analytics") || "Analytics"}</h1>
-        <select value={period} onChange={e => setPeriod(e.target.value as "7"|"30"|"180")} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "8px 14px", fontSize: 13, color: "var(--text-primary)", cursor: "pointer" }}>
-            <option value="7">{t("last_7_days")}</option><option value="30">{t("last_30_days")}</option><option value="180">{t("last_6_months")}</option>
-          </select>
-      </div>
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3 pt-1">
+        <h1 className="text-[26px] font-bold leading-none tracking-tight">{t("advanced_analytics") || "Analytics"}</h1>
+        <Select value={period} onValueChange={(v) => setPeriod(v as "7"|"30"|"180")}>
+          <SelectTrigger size="sm" className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">{t("last_7_days")}</SelectItem>
+            <SelectItem value="30">{t("last_30_days")}</SelectItem>
+            <SelectItem value="180">{t("last_6_months")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </header>
 
       {/* Metric Cards */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 24, overflowX: "auto", paddingBottom: 4, scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
+      <div className="scroll-x -mx-4 mb-6 flex snap-x gap-3 px-4 pb-1">
         {metricCards.map((m) => (
-          <div key={m.label} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "16px 18px", minWidth: 160, flex: "0 0 auto", scrollSnapAlign: "start" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <span style={{ fontSize: 11, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{m.label}</span>
-              <div style={{ width: 30, height: 30, borderRadius: "var(--radius-full)", backgroundColor: `${m.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <m.icon size={14} color={m.color} />
-              </div>
+          <div key={m.label} className="min-w-[164px] shrink-0 snap-start rounded-lg bg-card p-4 shadow-soft-sm">
+            <div className="mb-2.5 flex items-center justify-between">
+              <span className="text-[11px] tracking-wide text-muted-foreground uppercase">{m.label}</span>
+              <span className="grid size-7 place-items-center rounded-full" style={{ background: `color-mix(in srgb, ${m.color} 16%, transparent)` }}>
+                <m.icon size={14} style={{ color: m.color }} />
+              </span>
             </div>
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 26, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1 }}>{loading ? "—" : m.value}</p>
+            <p className="text-[26px] leading-none font-bold tabular-nums">{loading ? "—" : m.value}</p>
           </div>
         ))}
       </div>
 
       {/* Charts */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginBottom: 20 }}>
-        {/* Weekly steps */}
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "20px 16px" }}>
-          <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, marginBottom: 16 }}>{t('weekly_steps')}</p>
+      <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card className="gap-4 p-5">
+          <p className="text-[14px] font-bold">{t('weekly_steps')}</p>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={weekly.length ? weekly : Array.from({length:7},(_,i)=>({day:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i],steps:0,calories:0}))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <BarChart data={weekly.length ? weekly : emptyWeek}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
               <XAxis dataKey="day" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="steps" fill="var(--accent)" radius={[4, 4, 0, 0]} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--accent-surface)" }} />
+              <Bar dataKey="steps" fill="var(--accent)" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-        {/* Calories area */}
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "20px 16px" }}>
-          <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, marginBottom: 16 }}>{t('calories_trend')}</p>
+        </Card>
+        <Card className="gap-4 p-5">
+          <p className="text-[14px] font-bold">{t('calories_trend')}</p>
           <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={weekly.length ? weekly : Array.from({length:7},(_,i)=>({day:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i],steps:0,calories:0}))}>
-              <defs><linearGradient id="calGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FF4444" stopOpacity={0.3} /><stop offset="95%" stopColor="#FF4444" stopOpacity={0} /></linearGradient></defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <AreaChart data={weekly.length ? weekly : emptyWeek}>
+              <defs><linearGradient id="calGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--red)" stopOpacity={0.3} /><stop offset="95%" stopColor="var(--red)" stopOpacity={0} /></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
               <XAxis dataKey="day" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="calories" stroke="#FF4444" strokeWidth={2} fill="url(#calGrad)" />
+              <Area type="monotone" dataKey="calories" stroke="var(--red)" strokeWidth={2} fill="url(#calGrad)" />
             </AreaChart>
           </ResponsiveContainer>
-        </div>
+        </Card>
       </div>
 
       {/* Summary + Sessions */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "20px 20px" }}>
-          <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, marginBottom: 16 }}>{t("summary") || "Summary"}</p>
-          {loading ? <p style={{ color: "var(--text-muted)" }}>{t('loading_text')}</p> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card className="gap-4 p-5">
+          <p className="text-[14px] font-bold">{t("summary") || "Summary"}</p>
+          {loading ? (
+            <div className="space-y-2.5">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}</div>
+          ) : (
+            <div className="flex flex-col">
               {[
                 { label: t("total_steps") || "Total Steps", val: metrics?.totalSteps?.toLocaleString() || 0 },
                 { label: t("total_distance") || "Total Distance", val: `${(metrics?.totalDistance || 0).toFixed(2)} km` },
                 { label: t("total_calories") || "Total Calories", val: metrics?.totalCalories || 0 },
-              ].map((item) => (
-                <div key={item.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{item.label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{item.val}</span>
+              ].map((item, i, arr) => (
+                <div key={item.label}>
+                  <div className="flex items-center justify-between py-2.5">
+                    <span className="text-[13px] text-muted-foreground">{item.label}</span>
+                    <span className="text-[13px] font-bold tabular-nums">{item.val}</span>
+                  </div>
+                  {i < arr.length - 1 && <Separator />}
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Card>
 
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "20px 20px" }}>
-          <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, marginBottom: 16 }}>{t("recent_sessions") || "Recent Sessions"}</p>
-          {loading ? <p style={{ color: "var(--text-muted)" }}>{t('loading_text')}</p> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <Card className="gap-4 p-5">
+          <p className="text-[14px] font-bold">{t("recent_sessions") || "Recent Sessions"}</p>
+          {loading ? (
+            <div className="space-y-2.5">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-md" />)}</div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
               {(metrics?.recentSessions || []).slice(0, 5).map((s: RecentSession) => (
-                <div key={s.id} style={{ padding: "10px 12px", backgroundColor: "var(--bg-surface)", borderRadius: "var(--radius-full)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={s.id} className="flex items-center justify-between rounded-md bg-muted px-3 py-2.5">
                   <div>
-                    <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>{new Date(s.start_time).toLocaleDateString()}</p>
-                    <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{s.end_time ? `${Math.round((new Date(s.end_time).getTime() - new Date(s.start_time).getTime()) / 60000)} min` : "—"}</p>
+                    <p className="text-[12px] text-muted-foreground">{new Date(s.start_time).toLocaleDateString()}</p>
+                    <p className="mt-0.5 text-[12px] text-muted-foreground/70">{s.end_time ? `${Math.round((new Date(s.end_time).getTime() - new Date(s.start_time).getTime()) / 60000)} min` : "—"}</p>
                   </div>
-                  <div style={{ textAlign: "end" }}>
-                    <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>{s.total_steps.toLocaleString()}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{s.total_distance_km.toFixed(2)} km</p>
+                  <div className="text-end">
+                    <p className="text-[14px] font-bold text-primary tabular-nums">{s.total_steps.toLocaleString()}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{s.total_distance_km.toFixed(2)} km</p>
                   </div>
                 </div>
               ))}
-              {(metrics?.recentSessions || []).length === 0 && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{t('no_sessions_yet')}</p>}
+              {(metrics?.recentSessions || []).length === 0 && <p className="text-[13px] text-muted-foreground">{t('no_sessions_yet')}</p>}
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );
