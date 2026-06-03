@@ -1,14 +1,23 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  Settings, ToggleLeft, ToggleRight, Save, RefreshCw, History,
+  Settings, Save, RefreshCw, History,
   Shield, DollarSign, Target, Image as ImageIcon, Flag,
-  ChevronRight, CheckCircle, AlertTriangle, Globe, Layers,
-  Eye, BarChart2, Zap, Clock, Lock, Plus, Trash2, Edit2,
+  ChevronRight, CheckCircle, Globe, Layers,
+  Eye, BarChart2, Zap, Clock, Lock, Trash2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { getApiBase } from "@/lib/api";
 import axios from "axios";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const API = getApiBase();
 
@@ -20,13 +29,13 @@ interface Preset { id: number; preset_type: string; name: string; description?: 
 interface Overview { campaigns: { total: number; active: number; pending: number }; pending_reviews: number; events_today: number; spend_today: number; }
 
 const CATEGORY_META: Record<string, { label: string; icon: any; color: string; desc: string }> = {
-  global:     { label: "Global Settings",     icon: Globe,      color: "#FFD600", desc: "Master on/off switches for the ads system" },
-  budget:     { label: "Budget Controls",     icon: DollarSign, color: "#10b981", desc: "Spending limits and auto-pause rules" },
-  targeting:  { label: "Targeting Settings",  icon: Target,     color: "#3b82f6", desc: "What targeting options coaches can use" },
-  creatives:  { label: "Creative Settings",   icon: ImageIcon,  color: "#f59e0b", desc: "Allowed formats, sizes and templates" },
-  moderation: { label: "Moderation Rules",    icon: Shield,     color: "#ef4444", desc: "Auto-flagging, approval workflow" },
-  reporting:  { label: "Reporting Settings",  icon: BarChart2,  color: "#8b5cf6", desc: "Analytics refresh, exports, windows" },
-  security:   { label: "Security & Audit",    icon: Lock,       color: "#ec4899", desc: "Audit logs, rate limits, session policy" },
+  global:     { label: "Global Settings",     icon: Globe,      color: "var(--primary)",   desc: "Master on/off switches for the ads system" },
+  budget:     { label: "Budget Controls",     icon: DollarSign, color: "var(--green)",     desc: "Spending limits and auto-pause rules" },
+  targeting:  { label: "Targeting Settings",  icon: Target,     color: "var(--secondary)", desc: "What targeting options coaches can use" },
+  creatives:  { label: "Creative Settings",   icon: ImageIcon,  color: "var(--amber)",     desc: "Allowed formats, sizes and templates" },
+  moderation: { label: "Moderation Rules",    icon: Shield,     color: "var(--red)",       desc: "Auto-flagging, approval workflow" },
+  reporting:  { label: "Reporting Settings",  icon: BarChart2,  color: "var(--secondary)", desc: "Analytics refresh, exports, windows" },
+  security:   { label: "Security & Audit",    icon: Lock,       color: "var(--primary)",   desc: "Audit logs, rate limits, session policy" },
 };
 
 export default function AdminAdSettings() {
@@ -125,48 +134,54 @@ export default function AdminAdSettings() {
 
   const renderSettingControl = (s: Setting) => {
     const pending = dirty[s.setting_key] !== undefined ? dirty[s.setting_key] : s.setting_value;
+    const isDirty = dirty[s.setting_key] !== undefined;
+    const fieldId = `ad-setting-${s.setting_key}`;
 
     if (s.setting_type === "boolean") {
       const isOn = pending === "true";
       return (
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={() => { const nv = isOn ? "false" : "true"; setDirty(d => ({ ...d, [s.setting_key]: nv })); saveSetting(s.setting_key, nv); }} style={{ background: "none", border: "none", cursor: "pointer", color: isOn ? "var(--accent)" : "var(--text-muted)", display: "flex", alignItems: "center", transition: "color 0.15s" }}>
-            {saving === s.setting_key ? <RefreshCw size={22} style={{ animation: "spin 1s linear infinite" }} /> : isOn ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-          </button>
-          <span style={{ fontSize: 12, color: isOn ? "var(--accent)" : "var(--text-muted)", fontWeight: 600 }}>{isOn ? l("ON", "تشغيل") : l("OFF", "إيقاف")}</span>
+        <div className="flex items-center gap-2.5">
+          {saving === s.setting_key && <RefreshCw size={16} strokeWidth={2} className="animate-spin text-muted-foreground" />}
+          <Switch
+            id={fieldId}
+            checked={isOn}
+            onCheckedChange={(v) => { const nv = v ? "true" : "false"; setDirty(d => ({ ...d, [s.setting_key]: nv })); saveSetting(s.setting_key, nv); }}
+            disabled={saving === s.setting_key}
+            aria-label={s.label}
+          />
         </div>
       );
     }
 
     if (s.setting_type === "integer") {
       return (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <input type="number" defaultValue={s.setting_value} onChange={e => setDirty(d => ({ ...d, [s.setting_key]: e.target.value }))} style={{ width: 90, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13, textAlign: "right" }} />
-          <button onClick={() => saveSetting(s.setting_key, dirty[s.setting_key] ?? s.setting_value)} style={{ padding: "6px 12px", borderRadius: 8, background: dirty[s.setting_key] !== undefined ? "var(--accent)" : "var(--bg-surface)", border: "1px solid var(--border)", color: dirty[s.setting_key] !== undefined ? "#000" : "var(--text-muted)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-            {saving === s.setting_key ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Save size={12} />}
-          </button>
+        <div className="flex items-center gap-2">
+          <Input id={fieldId} type="number" defaultValue={s.setting_value} onChange={e => setDirty(d => ({ ...d, [s.setting_key]: e.target.value }))} aria-label={s.label} className="h-9 w-[90px] text-end" />
+          <Button size="icon-sm" variant={isDirty ? "default" : "outline"} onClick={() => saveSetting(s.setting_key, dirty[s.setting_key] ?? s.setting_value)} disabled={saving === s.setting_key} aria-label={l("Save", "حفظ")}>
+            {saving === s.setting_key ? <RefreshCw size={14} strokeWidth={2} className="animate-spin" /> : <Save size={14} strokeWidth={2} />}
+          </Button>
         </div>
       );
     }
 
     if (s.setting_type === "string") {
       return (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <input defaultValue={s.setting_value} onChange={e => setDirty(d => ({ ...d, [s.setting_key]: e.target.value }))} style={{ width: 140, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13 }} />
-          <button onClick={() => saveSetting(s.setting_key, dirty[s.setting_key] ?? s.setting_value)} style={{ padding: "6px 12px", borderRadius: 8, background: dirty[s.setting_key] !== undefined ? "var(--accent)" : "var(--bg-surface)", border: "1px solid var(--border)", color: dirty[s.setting_key] !== undefined ? "#000" : "var(--text-muted)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-            <Save size={12} />
-          </button>
+        <div className="flex items-center gap-2">
+          <Input id={fieldId} defaultValue={s.setting_value} onChange={e => setDirty(d => ({ ...d, [s.setting_key]: e.target.value }))} aria-label={s.label} className="h-9 w-[140px]" />
+          <Button size="icon-sm" variant={isDirty ? "default" : "outline"} onClick={() => saveSetting(s.setting_key, dirty[s.setting_key] ?? s.setting_value)} disabled={saving === s.setting_key} aria-label={l("Save", "حفظ")}>
+            <Save size={14} strokeWidth={2} />
+          </Button>
         </div>
       );
     }
 
     // JSON type - textarea
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <textarea defaultValue={s.setting_value} onChange={e => setDirty(d => ({ ...d, [s.setting_key]: e.target.value }))} rows={2} style={{ width: 200, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 11, fontFamily: "monospace", resize: "none" }} />
-        <button onClick={() => saveSetting(s.setting_key, dirty[s.setting_key] ?? s.setting_value)} style={{ padding: "6px 12px", borderRadius: 8, background: dirty[s.setting_key] !== undefined ? "var(--accent)" : "var(--bg-surface)", border: "1px solid var(--border)", color: dirty[s.setting_key] !== undefined ? "#000" : "var(--text-muted)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-          <Save size={12} />
-        </button>
+      <div className="flex items-start gap-2">
+        <Textarea id={fieldId} defaultValue={s.setting_value} onChange={e => setDirty(d => ({ ...d, [s.setting_key]: e.target.value }))} rows={2} aria-label={s.label} className="min-h-0 w-[200px] resize-none py-2 font-mono text-[11px]" />
+        <Button size="icon-sm" variant={isDirty ? "default" : "outline"} onClick={() => saveSetting(s.setting_key, dirty[s.setting_key] ?? s.setting_value)} disabled={saving === s.setting_key} aria-label={l("Save", "حفظ")}>
+          <Save size={14} strokeWidth={2} />
+        </Button>
       </div>
     );
   };
@@ -182,69 +197,79 @@ export default function AdminAdSettings() {
   ] as const;
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+    <div className="space-y-6" dir={lang === "ar" ? "rtl" : "ltr"}>
       {/* Toast */}
       {toast && (
-        <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, padding: "10px 20px", fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
-          <CheckCircle size={13} color="var(--accent)" style={{ verticalAlign: "middle", marginRight: 6 }} />{toast}
+        <div role="status" aria-live="polite" className="fixed bottom-6 left-1/2 z-[9999] flex -translate-x-1/2 items-center gap-2 rounded-md bg-card px-5 py-2.5 text-[13px] font-semibold text-foreground shadow-soft-lg ring-1 ring-inset ring-border">
+          <CheckCircle size={14} strokeWidth={2} className="text-primary" />{toast}
         </div>
       )}
 
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 26, fontFamily: "var(--font-en)", marginBottom: 4 }}>{l("Ad System Settings", "إعدادات نظام الإعلانات")}</h1>
-        <p style={{ color: "var(--text-muted)", fontSize: 14 }}>{l("Master control panel for FitWayHub's internal promotion engine", "لوحة التحكم الرئيسية لمحرك الإعلانات الداخلي في FitWayHub")}</p>
+      <div className="flex items-center gap-3">
+        <span className="grid size-11 shrink-0 place-items-center rounded-md bg-primary/15 text-primary">
+          <Settings size={20} strokeWidth={2} />
+        </span>
+        <div>
+          <h1 className="text-[26px] leading-tight font-bold tracking-tight">{l("Ad System Settings", "إعدادات نظام الإعلانات")}</h1>
+          <p className="text-[13px] text-muted-foreground">{l("Master control panel for FitWayHub's internal promotion engine", "لوحة التحكم الرئيسية لمحرك الإعلانات الداخلي في FitWayHub")}</p>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "var(--bg-surface)", borderRadius: 14, padding: 4, overflowX: "auto" }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{ flex: 1, minWidth: 80, padding: "9px 12px", borderRadius: 10, border: "none", background: tab === t.key ? "var(--bg-card)" : "transparent", color: tab === t.key ? "var(--text-primary)" : "var(--text-muted)", fontWeight: tab === t.key ? 700 : 400, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, transition: "all 0.15s", boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.2)" : "none", whiteSpace: "nowrap" }}>
-            <t.icon size={13} /> {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+        <TabsList className="h-auto w-full flex-wrap p-1">
+          {TABS.map(t => (
+            <TabsTrigger key={t.key} value={t.key} className="min-w-[80px] flex-1 py-2">
+              <t.icon size={14} strokeWidth={2} /> {t.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {loading ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: 60 }}>
-          <RefreshCw size={24} color="var(--accent)" style={{ animation: "spin 1s linear infinite" }} />
+        <div className="space-y-4">
+          <Skeleton className="h-28 w-full rounded-lg" />
+          <Skeleton className="h-28 w-full rounded-lg" />
         </div>
       ) : (
         <>
           {/* ── Overview ────────────────────────────────────────────────── */}
           {tab === "overview" && overview && (
-            <div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 24 }}>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
                 {[
-                  { label: l("Total Campaigns", "إجمالي الحملات"),  value: overview.campaigns?.total ?? 0,         icon: Layers,         color: "#FFD600" },
-                  { label: l("Active Campaigns", "الحملات النشطة"), value: overview.campaigns?.active ?? 0,         icon: CheckCircle,    color: "#10b981" },
-                  { label: l("Pending Reviews", "المراجعات المعلقة"),  value: overview.pending_reviews ?? 0,           icon: Clock,          color: "#f59e0b" },
-                  { label: l("Events Today", "أحداث اليوم"),     value: overview.events_today ?? 0,              icon: Eye,            color: "#3b82f6" },
+                  { label: l("Total Campaigns", "إجمالي الحملات"),  value: overview.campaigns?.total ?? 0,         icon: Layers,         color: "var(--primary)" },
+                  { label: l("Active Campaigns", "الحملات النشطة"), value: overview.campaigns?.active ?? 0,         icon: CheckCircle,    color: "var(--green)" },
+                  { label: l("Pending Reviews", "المراجعات المعلقة"),  value: overview.pending_reviews ?? 0,           icon: Clock,          color: "var(--amber)" },
+                  { label: l("Events Today", "أحداث اليوم"),     value: overview.events_today ?? 0,              icon: Eye,            color: "var(--secondary)" },
                 ].map(card => (
-                  <div key={card.label} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "20px" }}>
-                    <card.icon size={18} color={card.color} style={{ marginBottom: 8 }} />
-                    <p style={{ fontSize: 28, fontWeight: 800, fontFamily: "var(--font-en)", color: card.color }}>{card.value}</p>
-                    <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{card.label}</p>
-                  </div>
+                  <Card key={card.label} className="gap-0 p-5">
+                    <card.icon size={18} strokeWidth={2} className="mb-2" style={{ color: card.color }} />
+                    <p className="text-[28px] leading-tight font-bold tabular-nums tracking-tight text-foreground">{card.value}</p>
+                    <p className="text-[12px] text-muted-foreground">{card.label}</p>
+                  </Card>
                 ))}
               </div>
 
               {/* Quick settings summary */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {Object.entries(CATEGORY_META).map(([cat, meta]) => {
                   const catSettings = grouped[cat] || [];
                   const toggleCount = catSettings.filter(s => s.setting_type === "boolean" && s.setting_value === "true").length;
                   return (
-                    <div key={cat} onClick={() => setTab("settings")} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "18px 20px", cursor: "pointer", display: "flex", gap: 14, alignItems: "center", transition: "border-color 0.15s" }}>
-                      <div style={{ width: 40, height: 40, borderRadius: 12, background: `${meta.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <meta.icon size={18} color={meta.color} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>{meta.label}</p>
-                        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{catSettings.length} {l("settings", "إعداد")} · {toggleCount} {l("active", "نشط")}</p>
-                      </div>
-                      <ChevronRight size={14} color="var(--text-muted)" />
-                    </div>
+                    <Card key={cat} asChild className="gap-0 p-0">
+                      <button type="button" onClick={() => setTab("settings")} className="flex items-center gap-3.5 px-5 py-4 text-start transition-shadow hover:shadow-soft">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-md" style={{ background: `color-mix(in srgb, ${meta.color} 15%, transparent)`, color: meta.color }}>
+                          <meta.icon size={18} strokeWidth={2} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[14px] font-semibold text-foreground">{meta.label}</p>
+                          <p className="text-[12px] text-muted-foreground">{catSettings.length} {l("settings", "إعداد")} · {toggleCount} {l("active", "نشط")}</p>
+                        </div>
+                        <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-muted-foreground rtl:rotate-180" />
+                      </button>
+                    </Card>
                   );
                 })}
               </div>
@@ -253,33 +278,36 @@ export default function AdminAdSettings() {
 
           {/* ── Settings ────────────────────────────────────────────────── */}
           {tab === "settings" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div className="flex flex-col gap-5">
               {(Object.entries(grouped) as [string, Setting[]][]).map(([category, settings]) => {
                 const meta = CATEGORY_META[category];
                 if (!meta) return null;
                 return (
-                  <div key={category} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, overflow: "hidden" }}>
-                    <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 34, height: 34, borderRadius: 10, background: `${meta.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <meta.icon size={16} color={meta.color} />
-                      </div>
-                      <div>
-                        <p style={{ fontSize: 15, fontWeight: 700 }}>{meta.label}</p>
-                        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{meta.desc}</p>
+                  <Card key={category} className="gap-0 overflow-hidden p-0">
+                    <div className="flex items-center gap-3 bg-muted px-5 py-3.5">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-md" style={{ background: `color-mix(in srgb, ${meta.color} 15%, transparent)`, color: meta.color }}>
+                        <meta.icon size={16} strokeWidth={2} />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[15px] font-semibold text-foreground">{meta.label}</p>
+                        <p className="mt-0.5 text-[13px] text-muted-foreground">{meta.desc}</p>
                       </div>
                     </div>
                     <div>
                       {settings.map((s, i) => (
-                        <div key={s.setting_key} style={{ padding: "14px 24px", borderBottom: i < settings.length - 1 ? "1px solid var(--border-light)" : "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-                          <div style={{ flex: 1, minWidth: 200 }}>
-                            <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{s.label}</p>
-                            <p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>{s.setting_key}</p>
+                        <div key={s.setting_key}>
+                          <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3.5">
+                            <div className="min-w-[200px] flex-1">
+                              <p className="text-[14px] font-semibold text-foreground">{s.label}</p>
+                              <code className="text-[11px] text-muted-foreground">{s.setting_key}</code>
+                            </div>
+                            {renderSettingControl(s)}
                           </div>
-                          {renderSettingControl(s)}
+                          {i < settings.length - 1 && <Separator />}
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </Card>
                 );
               })}
             </div>
@@ -287,157 +315,168 @@ export default function AdminAdSettings() {
 
           {/* ── Placements ──────────────────────────────────────────────── */}
           {tab === "placements" && (
-            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, overflow: "hidden" }}>
-              <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
-                <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{l("Internal Placement Surfaces", "أماكن عرض الإعلانات الداخلية")}</h2>
-                <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{l("Control where ads appear across FitWayHub. Drag to reorder priority.", "تحكم في أماكن ظهور الإعلانات داخل FitWayHub. اسحب لإعادة ترتيب الأولوية.")}</p>
+            <Card className="gap-0 overflow-hidden p-0">
+              <div className="bg-muted px-5 py-4">
+                <h2 className="text-[16px] font-semibold text-foreground">{l("Internal Placement Surfaces", "أماكن عرض الإعلانات الداخلية")}</h2>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">{l("Control where ads appear across FitWayHub. Drag to reorder priority.", "تحكم في أماكن ظهور الإعلانات داخل FitWayHub. اسحب لإعادة ترتيب الأولوية.")}</p>
               </div>
               {placements.map((p, i) => (
-                <div key={p.placement_key} style={{ padding: "16px 24px", borderBottom: i < placements.length - 1 ? "1px solid var(--border-light)" : "none", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: 180 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, background: "var(--bg-surface)", padding: "2px 6px", borderRadius: 6, color: "var(--text-muted)" }}>#{p.priority_order}</span>
-                      <p style={{ fontSize: 14, fontWeight: 700 }}>{p.label}</p>
+                <div key={p.placement_key}>
+                  <div className="flex flex-wrap items-center gap-4 px-5 py-4">
+                    <div className="min-w-[180px] flex-1">
+                      <div className="mb-0.5 flex items-center gap-2">
+                        <Badge variant="muted">#{p.priority_order}</Badge>
+                        <p className="text-[14px] font-semibold text-foreground">{p.label}</p>
+                      </div>
+                      <code className="text-[11px] text-muted-foreground">{p.placement_key}</code>
                     </div>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>{p.placement_key}</p>
+                    <div className="flex flex-wrap items-end gap-3.5">
+                      <div className="grid gap-1">
+                        <label htmlFor={`placement-max-${p.placement_key}`} className="text-[10px] text-muted-foreground">{l("Max Ads", "الحد الأقصى للإعلانات")}</label>
+                        <Input id={`placement-max-${p.placement_key}`} type="number" min={1} max={20} defaultValue={p.max_ads} onBlur={e => updatePlacementField(p.placement_key, "max_ads", +e.target.value)} className="h-9 w-[68px] text-center" />
+                      </div>
+                      <div className="grid gap-1">
+                        <label htmlFor={`placement-freq-${p.placement_key}`} className="text-[10px] text-muted-foreground">{l("Freq Cap (h)", "حد التكرار (ساعة)")}</label>
+                        <Input id={`placement-freq-${p.placement_key}`} type="number" min={1} defaultValue={p.frequency_cap_hours} onBlur={e => updatePlacementField(p.placement_key, "frequency_cap_hours", +e.target.value)} className="h-9 w-[68px] text-center" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch checked={p.enabled} onCheckedChange={() => togglePlacement(p.placement_key, p.enabled)} aria-label={`${p.label} ${l("enabled", "مفعل")}`} />
+                        <span className="text-[11px] font-semibold text-muted-foreground">{p.enabled ? l("ON", "تشغيل") : l("OFF", "إيقاف")}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-                    <div style={{ display: "flex", flex: "column", gap: 2 }}>
-                      <label style={{ fontSize: 10, color: "var(--text-muted)", display: "block" }}>{l("Max Ads", "الحد الأقصى للإعلانات")}</label>
-                      <input type="number" min={1} max={20} defaultValue={p.max_ads} onBlur={e => updatePlacementField(p.placement_key, "max_ads", +e.target.value)} style={{ width: 60, padding: "5px 8px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13, textAlign: "center" }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 10, color: "var(--text-muted)", display: "block" }}>{l("Freq Cap (h)", "حد التكرار (ساعة)")}</label>
-                      <input type="number" min={1} defaultValue={p.frequency_cap_hours} onBlur={e => updatePlacementField(p.placement_key, "frequency_cap_hours", +e.target.value)} style={{ width: 60, padding: "5px 8px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13, textAlign: "center" }} />
-                    </div>
-                    <button onClick={() => togglePlacement(p.placement_key, p.enabled)} style={{ background: "none", border: "none", cursor: "pointer", color: p.enabled ? "var(--accent)" : "var(--text-muted)", display: "flex", alignItems: "center", gap: 6 }}>
-                      {p.enabled ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-                      <span style={{ fontSize: 11, fontWeight: 600 }}>{p.enabled ? l("ON", "تشغيل") : l("OFF", "إيقاف")}</span>
-                    </button>
-                  </div>
+                  {i < placements.length - 1 && <Separator />}
                 </div>
               ))}
-            </div>
+            </Card>
           )}
 
           {/* ── Feature Flags ─────────────────────────────────────────────── */}
           {tab === "flags" && (
-            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, overflow: "hidden" }}>
-              <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
-                <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{l("Feature Flags", "مفاتيح الميزات")}</h2>
-                <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{l("Enable or disable experimental and advanced features system-wide.", "تفعيل أو تعطيل الميزات التجريبية والمتقدمة على مستوى النظام.")}</p>
+            <Card className="gap-0 overflow-hidden p-0">
+              <div className="bg-muted px-5 py-4">
+                <h2 className="text-[16px] font-semibold text-foreground">{l("Feature Flags", "مفاتيح الميزات")}</h2>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">{l("Enable or disable experimental and advanced features system-wide.", "تفعيل أو تعطيل الميزات التجريبية والمتقدمة على مستوى النظام.")}</p>
               </div>
               {flags.map((f, i) => (
-                <div key={f.flag_key} style={{ padding: "16px 24px", borderBottom: i < flags.length - 1 ? "1px solid var(--border-light)" : "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                  <div>
-                    <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>{f.label}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>{f.flag_key}</p>
-                    {f.description && <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{f.description}</p>}
+                <div key={f.flag_key}>
+                  <div className="flex items-center justify-between gap-4 px-5 py-4">
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-semibold text-foreground">{f.label}</p>
+                      <code className="text-[11px] text-muted-foreground">{f.flag_key}</code>
+                      {f.description && <p className="mt-0.5 text-[12px] text-muted-foreground">{f.description}</p>}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Switch checked={f.enabled} onCheckedChange={() => toggleFlag(f.flag_key, f.enabled)} aria-label={f.label} />
+                      <span className="text-[12px] font-semibold text-muted-foreground">{f.enabled ? l("Enabled", "مفعل") : l("Disabled", "معطل")}</span>
+                    </div>
                   </div>
-                  <button onClick={() => toggleFlag(f.flag_key, f.enabled)} style={{ background: "none", border: "none", cursor: "pointer", color: f.enabled ? "var(--accent)" : "var(--text-muted)", display: "flex", alignItems: "center", gap: 6 }}>
-                    {f.enabled ? <ToggleRight size={30} /> : <ToggleLeft size={30} />}
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{f.enabled ? l("Enabled", "مفعل") : l("Disabled", "معطل")}</span>
-                  </button>
+                  {i < flags.length - 1 && <Separator />}
                 </div>
               ))}
-            </div>
+            </Card>
           )}
 
           {/* ── Approval Rules ─────────────────────────────────────────────── */}
           {tab === "approvals" && (
-            <div>
-              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, overflow: "hidden" }}>
-                <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{l("Approval Rules", "قواعد الموافقة")}</h2>
-                    <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{l("Rules that determine how campaigns are reviewed and approved.", "قواعد تحدد كيفية مراجعة الحملات والموافقة عليها.")}</p>
-                  </div>
-                </div>
-                {rules.map((r, i) => {
-                  const typeColor: Record<string, string> = { auto_approve: "#10b981", require_review: "#f59e0b", auto_reject: "#ef4444", flag: "#3b82f6" };
-                  return (
-                    <div key={r.id} style={{ padding: "16px 24px", borderBottom: i < rules.length - 1 ? "1px solid var(--border-light)" : "none", display: "flex", alignItems: "center", gap: 14 }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                          <span style={{ padding: "3px 9px", borderRadius: 99, fontSize: 10, fontWeight: 700, background: `${typeColor[r.rule_type] || "#888"}20`, color: typeColor[r.rule_type] || "#888" }}>
-                            {r.rule_type.replace(/_/g, " ").toUpperCase()}
-                          </span>
-                          {!r.enabled && <span style={{ padding: "3px 9px", borderRadius: 99, fontSize: 10, fontWeight: 600, background: "var(--bg-surface)", color: "var(--text-muted)" }}>{l("DISABLED", "معطل")}</span>}
-                        </div>
-                        <p style={{ fontSize: 14, fontWeight: 600 }}>{r.rule_name}</p>
-                        {r.conditions && <p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace", marginTop: 2 }}>{r.conditions}</p>}
-                      </div>
-                      <button onClick={() => deleteRule(r.id)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--red)", cursor: "pointer", fontSize: 12 }}>
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  );
-                })}
+            <Card className="gap-0 overflow-hidden p-0">
+              <div className="bg-muted px-5 py-4">
+                <h2 className="text-[16px] font-semibold text-foreground">{l("Approval Rules", "قواعد الموافقة")}</h2>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">{l("Rules that determine how campaigns are reviewed and approved.", "قواعد تحدد كيفية مراجعة الحملات والموافقة عليها.")}</p>
               </div>
-            </div>
+              {rules.map((r, i) => {
+                const typeVariant: Record<string, "success" | "warning" | "destructive" | "accent"> = { auto_approve: "success", require_review: "warning", auto_reject: "destructive", flag: "accent" };
+                return (
+                  <div key={r.id}>
+                    <div className="flex items-center gap-3.5 px-5 py-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <Badge variant={typeVariant[r.rule_type] || "muted"}>
+                            {r.rule_type.replace(/_/g, " ").toUpperCase()}
+                          </Badge>
+                          {!r.enabled && <Badge variant="muted">{l("DISABLED", "معطل")}</Badge>}
+                        </div>
+                        <p className="text-[14px] font-semibold text-foreground">{r.rule_name}</p>
+                        {r.conditions && <code className="mt-0.5 block text-[11px] text-muted-foreground">{r.conditions}</code>}
+                      </div>
+                      <Button variant="outline" size="icon-sm" onClick={() => deleteRule(r.id)} aria-label={l("Delete rule", "حذف القاعدة")} className="text-destructive ring-destructive/40 hover:bg-destructive/10 hover:text-destructive">
+                        <Trash2 size={14} strokeWidth={2} />
+                      </Button>
+                    </div>
+                    {i < rules.length - 1 && <Separator />}
+                  </div>
+                );
+              })}
+            </Card>
           )}
 
           {/* ── Template Presets ──────────────────────────────────────────── */}
           {tab === "presets" && (
-            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, overflow: "hidden" }}>
-              <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
-                <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{l("Campaign Presets & Templates", "القوالب الجاهزة للحملات")}</h2>
-                <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{l("Default templates available to coaches when creating campaigns.", "قوالب افتراضية متاحة للمدربين عند إنشاء الحملات.")}</p>
+            <Card className="gap-0 overflow-hidden p-0">
+              <div className="bg-muted px-5 py-4">
+                <h2 className="text-[16px] font-semibold text-foreground">{l("Campaign Presets & Templates", "القوالب الجاهزة للحملات")}</h2>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">{l("Default templates available to coaches when creating campaigns.", "قوالب افتراضية متاحة للمدربين عند إنشاء الحملات.")}</p>
               </div>
               {["campaign", "ad_set", "budget", "creative"].map(type => {
                 const typePresets = presets.filter(p => p.preset_type === type);
                 return (
                   <div key={type}>
-                    <div style={{ padding: "10px 24px", background: "var(--bg-surface)", borderBottom: "1px solid var(--border-light)" }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{type.replace("_", " ")} Templates</p>
+                    <div className="bg-muted/60 px-5 py-2.5">
+                      <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{type.replace("_", " ")} Templates</p>
                     </div>
-                    {typePresets.length === 0 && <p style={{ padding: "14px 24px", fontSize: 13, color: "var(--text-muted)" }}>{l("No presets of this type.", "لا توجد قوالب من هذا النوع.")}</p>}
-                    {typePresets.map((p, i) => (
-                      <div key={p.id} style={{ padding: "14px 24px", borderBottom: "1px solid var(--border-light)", display: "flex", alignItems: "center", gap: 14 }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                            <p style={{ fontSize: 14, fontWeight: 700 }}>{p.name}</p>
-                            {p.is_default && <span style={{ padding: "2px 8px", borderRadius: 99, fontSize: 10, fontWeight: 700, background: "var(--accent-dim)", color: "var(--accent)" }}>{l("DEFAULT", "افتراضي")}</span>}
+                    {typePresets.length === 0 && <p className="px-5 py-3.5 text-[13px] text-muted-foreground">{l("No presets of this type.", "لا توجد قوالب من هذا النوع.")}</p>}
+                    {typePresets.map((p) => (
+                      <div key={p.id}>
+                        <div className="flex items-center gap-3.5 px-5 py-3.5">
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-0.5 flex items-center gap-2">
+                              <p className="text-[14px] font-semibold text-foreground">{p.name}</p>
+                              {p.is_default && <Badge variant="default">{l("DEFAULT", "افتراضي")}</Badge>}
+                            </div>
+                            {p.description && <p className="text-[12px] text-muted-foreground">{p.description}</p>}
+                            <code className="mt-0.5 block text-[11px] text-muted-foreground">{p.config}</code>
                           </div>
-                          {p.description && <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{p.description}</p>}
-                          <p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace", marginTop: 2 }}>{p.config}</p>
+                          <Button variant="outline" size="icon-sm" onClick={() => deletePreset(p.id)} aria-label={l("Delete preset", "حذف القالب المسبق")} className="text-destructive ring-destructive/40 hover:bg-destructive/10 hover:text-destructive">
+                            <Trash2 size={14} strokeWidth={2} />
+                          </Button>
                         </div>
-                        <button onClick={() => deletePreset(p.id)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--red)", cursor: "pointer", fontSize: 12 }}>
-                          <Trash2 size={12} />
-                        </button>
+                        <Separator />
                       </div>
                     ))}
                   </div>
                 );
               })}
-            </div>
+            </Card>
           )}
 
           {/* ── History ─────────────────────────────────────────────────── */}
           {tab === "history" && (
-            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, overflow: "hidden" }}>
-              <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
-                <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{l("Settings Change History", "سجل تغييرات الإعدادات")}</h2>
-                <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{l("Full audit trail of every settings change.", "سجل تدقيق كامل لكل تغيير في الإعدادات.")}</p>
+            <Card className="gap-0 overflow-hidden p-0">
+              <div className="bg-muted px-5 py-4">
+                <h2 className="text-[16px] font-semibold text-foreground">{l("Settings Change History", "سجل تغييرات الإعدادات")}</h2>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">{l("Full audit trail of every settings change.", "سجل تدقيق كامل لكل تغيير في الإعدادات.")}</p>
               </div>
-              {history.length === 0 && <p style={{ padding: "24px", color: "var(--text-muted)", fontSize: 14 }}>{l("No history yet.", "لا يوجد سجل بعد.")}</p>}
+              {history.length === 0 && <p className="px-5 py-6 text-[14px] text-muted-foreground">{l("No history yet.", "لا يوجد سجل بعد.")}</p>}
               {history.map((h, i) => (
-                <div key={h.id} style={{ padding: "14px 24px", borderBottom: i < history.length - 1 ? "1px solid var(--border-light)" : "none", display: "flex", gap: 14, alignItems: "flex-start" }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", marginTop: 5, flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{h.setting_key}</p>
-                    <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      <span style={{ color: "#ef4444" }}>{h.old_value}</span> → <span style={{ color: "#10b981" }}>{h.new_value}</span>
-                    </p>
-                    {h.reason && <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{l("Reason", "السبب")}: {h.reason}</p>}
+                <div key={h.id}>
+                  <div className="flex items-start gap-3.5 px-5 py-3.5">
+                    <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-semibold text-foreground">{h.setting_key}</p>
+                      <p className="text-[12px] text-muted-foreground">
+                        <span className="text-destructive">{h.old_value}</span> → <span className="text-[var(--green)]">{h.new_value}</span>
+                      </p>
+                      {h.reason && <p className="mt-0.5 text-[12px] text-muted-foreground">{l("Reason", "السبب")}: {h.reason}</p>}
+                    </div>
+                    <div className="shrink-0 text-end">
+                      <p className="text-[12px] font-semibold text-foreground">{h.changed_by_name}</p>
+                      <p className="text-[11px] text-muted-foreground">{new Date(h.changed_at).toLocaleString()}</p>
+                    </div>
                   </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{h.changed_by_name}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{new Date(h.changed_at).toLocaleString()}</p>
-                  </div>
+                  {i < history.length - 1 && <Separator />}
                 </div>
               ))}
-            </div>
+            </Card>
           )}
         </>
       )}

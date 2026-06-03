@@ -4,6 +4,12 @@ import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useAppImages } from "@/context/AppImagesContext";
 import { getApiBase } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const API = getApiBase();
 
@@ -18,8 +24,8 @@ const PRESET_SLOTS: Slot[] = [
 ];
 
 const CATEGORY_META: Record<string, { label: string; color: string; desc: string }> = {
-  onboarding: { label: "Onboarding", color: "#FFD600", desc: "Full-screen background images shown behind each onboarding step" },
-  custom:     { label: "Custom Slots", color: "#8b5cf6", desc: "Additional slots created by admins" },
+  onboarding: { label: "Onboarding", color: "var(--primary)", desc: "Full-screen background images shown behind each onboarding step" },
+  custom:     { label: "Custom Slots", color: "var(--secondary)", desc: "Additional slots created by admins" },
 };
 
 export default function AppImagesManager() {
@@ -113,30 +119,35 @@ export default function AppImagesManager() {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto", direction: lang === "ar" ? "rtl" : "ltr" }}>
+    <div className="space-y-6" dir={lang === "ar" ? "rtl" : "ltr"}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24, display: "flex", alignItems: "center", gap: 10, color: "var(--text-primary)" }}>
-            <ImageIcon size={22} color="var(--accent)" />
-            {l("App Images", "صور التطبيق")}
-          </h1>
-          <p style={{ margin: "6px 0 0", color: "var(--text-secondary)", fontSize: 13 }}>
-            {l("Upload images used inside the app — onboarding, feature mockups, branding marks.", "ارفع الصور المستخدمة داخل التطبيق — شاشات التهيئة والميزات والعلامة التجارية.")}
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-md bg-primary/15 text-primary">
+            <ImageIcon size={20} strokeWidth={2} />
+          </span>
+          <div>
+            <h1 className="text-[26px] leading-tight font-bold tracking-tight">{l("App Images", "صور التطبيق")}</h1>
+            <p className="text-[13px] text-muted-foreground">
+              {l("Upload images used inside the app — onboarding, feature mockups, branding marks.", "ارفع الصور المستخدمة داخل التطبيق — شاشات التهيئة والميزات والعلامة التجارية.")}
+            </p>
+          </div>
         </div>
-        <button
-          onClick={load}
-          style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", borderRadius: 10, cursor: "pointer" }}
-        >
-          <RefreshCw size={16} /> {l("Refresh", "تحديث")}
-        </button>
+        <Button variant="outline" size="sm" onClick={load}>
+          <RefreshCw size={16} strokeWidth={2} /> {l("Refresh", "تحديث")}
+        </Button>
       </div>
 
       {/* Toast */}
       {toast && (
-        <div style={{ position: "fixed", top: 20, right: 20, padding: "10px 14px", borderRadius: 10, background: toast.kind === "ok" ? "#10b981" : "#ef4444", color: "#fff", display: "flex", alignItems: "center", gap: 8, zIndex: 9999 }}>
-          {toast.kind === "ok" ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed end-5 top-5 z-[9999] flex items-center gap-2 rounded-md bg-card px-4 py-3 text-[13px] font-semibold text-foreground shadow-soft-lg ring-1 ring-inset ${toast.kind === "ok" ? "ring-[color-mix(in_srgb,var(--green)_40%,transparent)]" : "ring-destructive/40"}`}
+        >
+          {toast.kind === "ok"
+            ? <CheckCircle size={16} strokeWidth={2} className="text-[var(--green)]" />
+            : <AlertTriangle size={16} strokeWidth={2} className="text-destructive" />}
           {toast.text}
         </div>
       )}
@@ -145,66 +156,73 @@ export default function AppImagesManager() {
       {Object.entries(categorised).map(([catKey, slots]) => {
         const meta = CATEGORY_META[catKey] || CATEGORY_META.custom;
         return (
-          <section key={catKey} style={{ marginBottom: 28, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
-            <header style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: meta.color }} />
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>{meta.label}</div>
-                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{meta.desc}</div>
+          <Card key={catKey} className="gap-0 overflow-hidden p-0">
+            <div className="flex items-center gap-3 bg-muted px-5 py-3.5">
+              <span className="size-2.5 shrink-0 rounded-full" style={{ background: meta.color }} />
+              <div className="min-w-0">
+                <p className="text-[15px] font-semibold text-foreground">{meta.label}</p>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">{meta.desc}</p>
               </div>
-            </header>
-            <div style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+            </div>
+            <div className="grid gap-3.5 p-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
               {slots.map(slot => {
                 const existing = bySlug.get(slot.slug);
                 const busy = uploadingSlug === slot.slug;
                 return (
-                  <div key={slot.slug} style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--bg-primary)", display: "flex", flexDirection: "column" }}>
-                    <div style={{ aspectRatio: "9/16", background: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                  <div key={slot.slug} className="flex flex-col overflow-hidden rounded-md bg-muted shadow-soft-xs">
+                    <div className="relative grid aspect-[9/16] place-items-center bg-card">
                       {existing?.url ? (
-                        <img src={existing.url} alt={slot.slug} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                        <img src={existing.url} alt={existing.alt || slot.label} className="size-full object-contain" />
                       ) : (
-                        <div style={{ color: "var(--text-secondary)", fontSize: 12, textAlign: "center", padding: 12 }}>
-                          <ImageIcon size={32} opacity={0.35} />
-                          <div style={{ marginTop: 8 }}>{l("No image", "بدون صورة")}</div>
+                        <div className="px-3 py-3 text-center text-[12px] text-muted-foreground">
+                          <ImageIcon size={32} strokeWidth={2} className="mx-auto opacity-35" />
+                          <div className="mt-2">{l("No image", "بدون صورة")}</div>
                         </div>
                       )}
                       {busy && (
-                        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }}>
+                        <div className="absolute inset-0 grid place-items-center bg-black/50 text-[13px] text-white">
                           {l("Uploading…", "جارٍ الرفع…")}
                         </div>
                       )}
                     </div>
-                    <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{slot.label}</div>
-                      <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "monospace" }}>{slot.slug}</div>
-                      {slot.hint && <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{slot.hint}</div>}
-                      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                    <div className="flex flex-col gap-1.5 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[13px] font-semibold text-foreground">{slot.label}</div>
+                        {existing && <Badge variant="success">{l("Set", "موجودة")}</Badge>}
+                      </div>
+                      <code className="text-[11px] text-muted-foreground">{slot.slug}</code>
+                      {slot.hint && <div className="text-[11px] text-muted-foreground">{slot.hint}</div>}
+                      <div className="mt-1.5 flex gap-1.5">
                         <input
                           ref={el => { fileRefs.current[slot.slug] = el; }}
                           type="file"
                           accept="image/*"
-                          style={{ display: "none" }}
+                          className="hidden"
                           onChange={e => {
                             const f = e.target.files?.[0];
                             if (f) upload(slot.slug, f, slot.category);
                             e.target.value = "";
                           }}
                         />
-                        <button
+                        <Button
+                          size="sm"
+                          className="flex-1"
                           onClick={() => fileRefs.current[slot.slug]?.click()}
                           disabled={busy}
-                          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px", border: "none", background: "var(--accent)", color: "#000", borderRadius: 8, cursor: busy ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600 }}
                         >
-                          <Upload size={14} /> {existing ? l("Replace", "استبدال") : l("Upload", "رفع")}
-                        </button>
+                          <Upload size={14} strokeWidth={2} /> {existing ? l("Replace", "استبدال") : l("Upload", "رفع")}
+                        </Button>
                         {existing && (
-                          <button
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             onClick={() => remove(slot.slug)}
                             disabled={busy}
-                            style={{ padding: "8px 10px", border: "1px solid var(--border)", background: "transparent", color: "#ef4444", borderRadius: 8, cursor: "pointer" }}
+                            aria-label={l(`Delete ${slot.label}`, `حذف ${slot.label}`)}
+                            className="text-destructive ring-destructive/40 hover:bg-destructive/10 hover:text-destructive"
                           >
-                            <Trash2 size={14} />
-                          </button>
+                            <Trash2 size={14} strokeWidth={2} />
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -212,48 +230,58 @@ export default function AppImagesManager() {
                 );
               })}
             </div>
-          </section>
+          </Card>
         );
       })}
 
       {/* Custom slug upload */}
-      <section style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 18 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
-          <Plus size={16} /> {l("Add Custom Slot", "إضافة فتحة مخصصة")}
+      <Card className="gap-0 p-5">
+        <div className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
+          <Plus size={16} strokeWidth={2} /> {l("Add Custom Slot", "إضافة فتحة مخصصة")}
         </div>
-        <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "6px 0 12px" }}>
+        <p className="mt-1.5 mb-3 text-[12px] text-muted-foreground">
           {l("Enter a slug (lowercase letters, digits, underscores) then pick an image. Use these slugs in code via <AppImage slug=\"...\"/>.", "أدخل معرفًا (أحرف صغيرة وأرقام وشرطة سفلية) ثم اختر صورة. استخدم المعرف في الكود عبر <AppImage slug=\"...\"/>.")}
         </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
+        <div className="flex flex-wrap gap-2">
+          <Label htmlFor="custom-slug" className="sr-only">{l("Custom slot slug", "معرف الفتحة المخصصة")}</Label>
+          <Input
+            id="custom-slug"
             value={customSlug}
             onChange={e => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
             placeholder="e.g. home_hero_badge"
             maxLength={64}
-            style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid var(--border)", background: "var(--bg-primary)", color: "var(--text-primary)", borderRadius: 8, fontFamily: "monospace", fontSize: 13 }}
+            className="min-w-[200px] flex-1 font-mono text-[13px]"
           />
-          <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: customSlug ? "var(--accent)" : "var(--bg-primary)", color: customSlug ? "#000" : "var(--text-secondary)", borderRadius: 8, cursor: customSlug ? "pointer" : "not-allowed", fontWeight: 600, fontSize: 13 }}>
-            <Upload size={14} />
-            {l("Choose image", "اختر صورة")}
-            <input
-              type="file"
-              accept="image/*"
-              disabled={!customSlug}
-              style={{ display: "none" }}
-              onChange={e => {
-                const f = e.target.files?.[0];
-                if (f && customSlug) {
-                  upload(customSlug, f, "custom");
-                  setCustomSlug("");
-                }
-                e.target.value = "";
-              }}
-            />
-          </label>
+          <Button asChild disabled={!customSlug}>
+            <label className={customSlug ? "cursor-pointer" : "cursor-not-allowed"}>
+              <Upload size={14} strokeWidth={2} />
+              {l("Choose image", "اختر صورة")}
+              <input
+                type="file"
+                accept="image/*"
+                disabled={!customSlug}
+                hidden
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f && customSlug) {
+                    upload(customSlug, f, "custom");
+                    setCustomSlug("");
+                  }
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          </Button>
         </div>
-      </section>
+      </Card>
 
-      {loading && <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>{l("Loading…", "جارٍ التحميل…")}</div>}
+      {loading && (
+        <div className="grid gap-3.5 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-[9/16] w-full rounded-md" />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
