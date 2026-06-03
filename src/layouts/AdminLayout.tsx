@@ -167,8 +167,7 @@ export function AdminLayout() {
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points={isRtl ? "9 18 15 12 9 6" : "15 18 9 12 15 6"}/></svg>
                   </button>
                 )}
-                <h1 style={{ margin: 0, fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", letterSpacing: "-0.01em", textTransform: "uppercase" }}>{currentPageLabel}</h1>
-                <p style={{ margin: "3px 0 0", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)" }}>{t("dashboard")} / {currentPageLabel}</p>
+                <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, lineHeight: 1.1, fontFamily: "var(--fwh-display, var(--font-heading))", letterSpacing: "-0.03em", color: "var(--text-primary)" }}>{currentPageLabel}</h1>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
