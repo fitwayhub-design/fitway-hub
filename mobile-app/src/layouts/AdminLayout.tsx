@@ -2,7 +2,7 @@ import { Outlet, Link, NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Settings, Activity,
   Gift, DollarSign, Video, Megaphone, UserCheck, Globe, MessageCircle, FileText,
-  ClipboardList, Wallet, Bell, ShieldCheck, Flag, Image as ImageIcon, Mail,
+  ClipboardList, Wallet, Bell, ShieldCheck, Flag, Image as ImageIcon, Mail, Trophy, MessagesSquare,
 } from "lucide-react";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useI18n } from "@/context/I18nContext";
@@ -16,6 +16,7 @@ const navItems: NavItem[] = [
   // Coaches register, upload their papers, admin approves/declines here.
   { path: "/admin/coach-requests", icon: ShieldCheck, label: "Coach Requests" },
   { path: "/admin/coach-reports", icon: Flag, label: "Coach Reports" },
+  { path: "/admin/community", icon: MessagesSquare,  label: "Community" },
   { path: "/admin/tickets",   icon: MessageCircle,   label: "Tickets" },
   { path: "/admin/payments",  icon: DollarSign,      label: "Payments" },
   { path: "/admin/videos",    icon: Video,           label: "Videos" },
@@ -25,6 +26,7 @@ const navItems: NavItem[] = [
   { path: "/admin/gifts",     icon: Gift,            label: "Gifts" },
   { path: "/admin/blogs",          icon: FileText,        label: "Our Blog" },
   { path: "/admin/website",        icon: Globe,           label: "Website" },
+  { path: "/admin/challenges",     icon: Trophy,          label: "Challenges" },
   { path: "/admin/app-images",     icon: ImageIcon,       label: "App Images" },
   { path: "/admin/subscriptions",  icon: ClipboardList,   label: "Subscriptions" },
   { path: "/admin/withdrawals",    icon: Wallet,          label: "Withdrawals" },
@@ -65,6 +67,7 @@ export function AdminLayout() {
     // moderation reports against active coaches.
     { path: "/admin/coach-requests", icon: ShieldCheck, label: "Coach Requests" },
     { path: "/admin/coach-reports", icon: Flag, label: t("coach_reports") },
+    { path: "/admin/community", icon: MessagesSquare,  label: t("community") },
     { path: "/admin/tickets",   icon: MessageCircle,   label: "Tickets" },
     { path: "/admin/payments",  icon: DollarSign,      label: t("payments") },
     { path: "/admin/videos",    icon: Video,           label: t("videos") },
@@ -73,6 +76,7 @@ export function AdminLayout() {
     { path: "/admin/gifts",     icon: Gift,            label: t("gifts") },
     { path: "/admin/blogs",          icon: FileText,        label: "Our Blog" },
     { path: "/admin/website",        icon: Globe,           label: t("website") },
+    { path: "/admin/challenges",     icon: Trophy,          label: t("challenges") || "Challenges" },
     { path: "/admin/app-images",     icon: ImageIcon,       label: t("app_images") || "App Images" },
     { path: "/admin/subscriptions",  icon: ClipboardList,   label: t("subscriptions") || "Subscriptions" },
     { path: "/admin/withdrawals",    icon: Wallet,          label: t("withdrawals") || "Withdrawals" },
@@ -167,8 +171,7 @@ export function AdminLayout() {
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points={isRtl ? "9 18 15 12 9 6" : "15 18 9 12 15 6"}/></svg>
                   </button>
                 )}
-                <h1 style={{ margin: 0, fontSize: 22, fontWeight: 300, lineHeight: 1.05, fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", letterSpacing: "-0.01em", textTransform: "uppercase" }}>{currentPageLabel}</h1>
-                <p style={{ margin: "3px 0 0", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)" }}>{t("dashboard")} / {currentPageLabel}</p>
+                <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600, lineHeight: 1.1, fontFamily: "var(--fwh-display, var(--font-heading))", letterSpacing: "-0.03em", color: "var(--text-primary)" }}>{currentPageLabel}</h1>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

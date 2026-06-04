@@ -4,7 +4,7 @@ import {
   Home, Dumbbell, Activity, Users,
   MessageCircle, Wrench, CreditCard, BarChart2,
   UserCheck, BookOpen, ClipboardList, User, Utensils, LogOut, Inbox, Trophy,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { CoachSearchIcon } from "@/components/icons/CoachSearchIcon";
 import { useAuth } from "@/context/AuthContext";
@@ -15,6 +15,9 @@ import { getAvatar } from "@/lib/avatar";
 import { getApiBase } from "@/lib/api";
 import LocationPermissionModal, { shouldAskForLocation } from "@/components/app/LocationPermissionModal";
 import NotificationDropdown from "@/components/app/NotificationDropdown";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
 
 // ── Primary bottom nav (5 items, middle is the center FAB) ──────────────────
 type BottomNavItem = { path: string; icon: typeof Home; label: string; center?: boolean };
@@ -67,6 +70,15 @@ function useIsDesktop() {
     return () => mq.removeEventListener("change", handler);
   }, []);
   return desktop;
+}
+
+/** Initials for the avatar fallback (keeps a graceful state while the image loads). */
+function initialsOf(nameOrEmail?: string) {
+  if (!nameOrEmail) return "U";
+  const base = nameOrEmail.includes("@") ? nameOrEmail.split("@")[0] : nameOrEmail;
+  const parts = base.trim().split(/[\s._-]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return base.slice(0, 2).toUpperCase();
 }
 
 export function AppLayout() {
@@ -140,6 +152,9 @@ export function AppLayout() {
     return () => window.removeEventListener("features:refresh", onRefresh);
   }, [fetchFeatures]);
 
+  const BackChevron = isRtl ? ChevronRight : ChevronLeft;
+  const avatarSrc = user ? (user.avatar || getAvatar(user.email, null, (user as any).gender, user.name)) : "";
+
   return (
     <div
       className={`app-view app-layout app-fwh${isRtl ? " rtl" : ""}${isDesktop ? " app-desktop user-panel-shell" : ""}`}
@@ -162,10 +177,9 @@ export function AppLayout() {
           style={{
             position: "fixed", top: 0, [isRtl ? "right" : "left"]: 0,
             width: currentSidebarW, height: "100dvh", zIndex: 100,
-            background: "var(--bg-card)", borderRight: isRtl ? "none" : "1px solid var(--border)",
-            borderLeft: isRtl ? "1px solid var(--border)" : "none",
+            background: "var(--bg-card)",
             display: "flex", flexDirection: "column", overflow: "hidden",
-            transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+            transition: "width 0.28s cubic-bezier(0.22,1,0.36,1)",
           }}
         >
           {/* Brand header + collapse toggle */}
@@ -175,36 +189,37 @@ export function AppLayout() {
             alignItems: "center",
             justifyContent: sidebarCollapsed ? "center" : "space-between",
             gap: 10,
-            padding: sidebarCollapsed ? "16px 0" : "16px 14px",
-            borderBottom: "1px solid var(--border)",
+            padding: sidebarCollapsed ? "16px 0" : "20px 16px",
           }}>
-            <Link to="/app/dashboard" className="user-panel-brand" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", minWidth: 0, flex: sidebarCollapsed ? "0 0 auto" : 1 }}>
+            <Link to="/app/dashboard" className="user-panel-brand" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", minWidth: 0, flex: sidebarCollapsed ? "0 0 auto" : 1, borderRadius: 12, padding: sidebarCollapsed ? 0 : "4px 6px" }}>
               {sidebarCollapsed ? (
-                <img src={favicon} alt={branding.app_name || "FitWay Hub"} style={{ width: 36, height: 36, borderRadius: 8, objectFit: "contain", flexShrink: 0 }} />
+                <img src={favicon} alt={branding.app_name || "FitWay Hub"} style={{ width: 36, height: 36, borderRadius: 10, objectFit: "contain", flexShrink: 0 }} />
               ) : brandLogo ? (
-                <img src={brandLogo} alt={branding.app_name || "FitWay Hub"} style={{ height: 28, borderRadius: 12, objectFit: "contain" }} />
+                <img src={brandLogo} alt={branding.app_name || "FitWay Hub"} style={{ height: 28, borderRadius: 8, objectFit: "contain" }} />
               ) : (
                 <span style={{
                   fontFamily: "var(--fwh-display, var(--font-heading))",
-                  fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em",
+                  fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em",
                   color: "var(--text-primary)",
-                  textTransform: "uppercase",
                 }}>
                   {branding.app_name || "FitWay Hub"}
                 </span>
               )}
             </Link>
-            <button
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setSidebarCollapsed(c => !c)}
               title={sidebarCollapsed ? "Expand" : "Collapse"}
-              style={{ width: 28, height: 28, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-surface)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--text-muted)", flexShrink: 0 }}
+              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className="text-muted-foreground"
             >
-              {sidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-            </button>
+              {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+            </Button>
           </div>
 
           {/* Nav items */}
-          <nav style={{ flex: 1, overflowY: "auto", padding: sidebarCollapsed ? "12px 8px" : "12px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
+          <nav style={{ flex: 1, overflowY: "auto", padding: sidebarCollapsed ? "8px 8px" : "8px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
             {allNav.map(({ path, icon: Icon, label }) => {
               const active = location.pathname === path || location.pathname.startsWith(path + "/");
               return (
@@ -215,18 +230,18 @@ export function AppLayout() {
                   className={`user-panel-nav-link${active ? " active" : ""}`}
                   style={{
                     display: "flex", alignItems: "center",
-                    gap: sidebarCollapsed ? 0 : 10,
+                    gap: sidebarCollapsed ? 0 : 12,
                     justifyContent: sidebarCollapsed ? "center" : "flex-start",
-                    padding: sidebarCollapsed ? "10px 0" : "10px 12px",
+                    padding: sidebarCollapsed ? "11px 0" : "10px 12px",
                     borderRadius: 12, textDecoration: "none",
-                    fontSize: 13, fontWeight: active ? 700 : 500,
+                    fontSize: 14, fontWeight: active ? 600 : 500,
                     color: active ? "var(--main)" : "var(--text-secondary)",
                     background: active ? "var(--main-dim)" : "transparent",
-                    transition: "all 0.18s",
+                    transition: "color 0.18s, background 0.18s",
                     whiteSpace: "nowrap", overflow: "hidden",
                   }}
                 >
-                  <Icon size={18} strokeWidth={active ? 2.4 : 1.8} />
+                  <Icon size={19} strokeWidth={active ? 2.4 : 1.9} />
                   {!sidebarCollapsed && labelForPath(path, label)}
                 </NavLink>
               );
@@ -235,48 +250,45 @@ export function AppLayout() {
 
           {/* User avatar at bottom */}
           {user && (
-            <div style={{ borderTop: "1px solid var(--border)" }}>
+            <div style={{ padding: sidebarCollapsed ? "8px" : "10px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
               <NavLink
                 to="/app/profile"
                 className="user-panel-profile-link"
                 title={sidebarCollapsed ? (user.name || user.email) : undefined}
                 style={{
                   display: "flex", alignItems: "center",
-                  gap: sidebarCollapsed ? 0 : 10,
+                  gap: sidebarCollapsed ? 0 : 12,
                   justifyContent: sidebarCollapsed ? "center" : "flex-start",
                   textDecoration: "none",
-                  padding: sidebarCollapsed ? "14px 0" : "16px 18px",
+                  padding: sidebarCollapsed ? "8px 0" : "10px",
+                  borderRadius: 14,
                 }}
               >
-                <img src={user.avatar || getAvatar(user.email, null, (user as any).gender, user.name)} alt="" style={{ width: 32, height: 32, borderRadius: 12, objectFit: "cover", border: "1px solid var(--main)" }} />
+                <Avatar className="size-9 ring-2 ring-primary/70">
+                  <AvatarImage src={avatarSrc} alt="" />
+                  <AvatarFallback>{initialsOf(user.name || user.email)}</AvatarFallback>
+                </Avatar>
                 {!sidebarCollapsed && (
                   <div style={{ minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name || user.email}</span>
+                    <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name || user.email}</span>
                     <span style={{
-                      display: "block", fontSize: 9, color: "var(--text-muted)",
-                      textTransform: "uppercase", letterSpacing: "0.18em",
-                      fontFamily: "var(--fwh-mono, ui-monospace, monospace)", marginTop: 2,
+                      display: "block", fontSize: 11, color: "var(--text-muted)",
+                      textTransform: "capitalize", marginTop: 1,
                     }}>{user.role}</span>
                   </div>
                 )}
               </NavLink>
-              <button
+              <Button
+                variant="ghost"
                 onClick={handleSignOut}
                 title={sidebarCollapsed ? t("sign_out") : undefined}
-                style={{
-                  display: "flex", alignItems: "center",
-                  gap: sidebarCollapsed ? 0 : 10,
-                  justifyContent: sidebarCollapsed ? "center" : "flex-start",
-                  width: "100%",
-                  padding: sidebarCollapsed ? "12px 0" : "12px 18px",
-                  border: "none", background: "transparent",
-                  color: "var(--red)", fontSize: 13, fontWeight: 600, cursor: "pointer",
-                  borderTop: "1px solid var(--border)",
-                }}
+                aria-label={t("sign_out")}
+                className="h-10 justify-center text-destructive hover:text-destructive hover:bg-destructive/10"
+                style={{ justifyContent: sidebarCollapsed ? "center" : "flex-start", paddingInline: sidebarCollapsed ? 0 : 12, gap: sidebarCollapsed ? 0 : 12 }}
               >
-                <LogOut size={16} />
+                <LogOut size={17} />
                 {!sidebarCollapsed && t("sign_out")}
-              </button>
+              </Button>
             </div>
           )}
         </aside>
@@ -286,35 +298,26 @@ export function AppLayout() {
       {!isDesktop && (
         <header className="app-top-bar">
           <div className="app-top-bar-inner">
-            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
               {location.pathname !== '/app/dashboard' && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   aria-label={t('back')}
                   onClick={() => window.history.back()}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    color: 'var(--text-secondary)',
-                    fontSize: 20,
-                    flexShrink: 0,
-                  }}
+                  className="-ms-1 text-foreground"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points={isRtl ? "9 18 15 12 9 6" : "15 18 9 12 15 6"}/></svg>
-                </button>
+                  <BackChevron size={22} strokeWidth={2.2} />
+                </Button>
               )}
               <Link to="/app/dashboard" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", minWidth: 0 }}>
                 {brandLogo ? (
-                  <img src={brandLogo} alt={branding.app_name || "FitWay Hub"} style={{ height: 26, borderRadius: 12, objectFit: "contain" }} />
+                  <img src={brandLogo} alt={branding.app_name || "FitWay Hub"} style={{ height: 26, borderRadius: 8, objectFit: "contain" }} />
                 ) : (
                   <span style={{
                     fontFamily: "var(--fwh-display, var(--font-heading))",
-                    fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em",
+                    fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em",
                     color: "var(--text-primary)",
-                    textTransform: "uppercase",
                   }}>
                     {branding.app_name || "FitWay Hub"}
                   </span>
@@ -323,19 +326,15 @@ export function AppLayout() {
             </div>
 
             {user && (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 {isFeatureEnabled("/app/notifications") && (
-                  <NotificationDropdown token={token} size={20} align={isRtl ? "left" : "right"} buttonStyle={{ background: "transparent", border: "none", width: 34, height: 34 }} />
+                  <NotificationDropdown token={token} size={20} align={isRtl ? "left" : "right"} buttonStyle={{ background: "transparent", border: "none", width: 38, height: 38 }} />
                 )}
-                <NavLink to="/app/profile" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-                  <div style={{
-                    width: 32, height: 32, borderRadius: 12,
-                    border: "1px solid var(--main)", padding: 1,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    boxShadow: "none",
-                  }}>
-                    <img src={user.avatar || getAvatar(user.email, null, (user as any).gender, user.name)} alt="" style={{ width: "100%", height: "100%", borderRadius: 12, objectFit: "cover" }} />
-                  </div>
+                <NavLink to="/app/profile" aria-label={t("nav_profile")} style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
+                  <Avatar className="size-9 ring-2 ring-primary/70">
+                    <AvatarImage src={avatarSrc} alt="" />
+                    <AvatarFallback className="text-xs">{initialsOf(user.name || user.email)}</AvatarFallback>
+                  </Avatar>
                 </NavLink>
               </div>
             )}
@@ -353,7 +352,7 @@ export function AppLayout() {
                     className={`app-top-scroll-item${isActive ? " active" : ""}`}
                   >
                     <div className="app-top-scroll-icon-wrap">
-                      <Icon size={14} strokeWidth={isActive ? 2.5 : 1.8} />
+                      <Icon size={15} strokeWidth={isActive ? 2.5 : 1.9} />
                     </div>
                     <span className="app-top-scroll-label">{labelForPath(path, label)}</span>
                   </NavLink>
@@ -363,11 +362,11 @@ export function AppLayout() {
                 type="button"
                 onClick={handleSignOut}
                 className="app-top-scroll-item"
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)" }}
+                style={{ background: "none", cursor: "pointer", color: "var(--red)" }}
                 aria-label={t("sign_out")}
               >
                 <div className="app-top-scroll-icon-wrap">
-                  <LogOut size={14} strokeWidth={2} />
+                  <LogOut size={15} strokeWidth={2} />
                 </div>
                 <span className="app-top-scroll-label">{t("sign_out")}</span>
               </button>
@@ -379,70 +378,55 @@ export function AppLayout() {
       {/* ── Page content ── */}
       <main style={{
         minHeight: "100dvh",
-        ...(isDesktop ? { [isRtl ? "marginRight" : "marginLeft"]: currentSidebarW, transition: "margin 0.25s cubic-bezier(0.4,0,0.2,1)" } : {}),
+        ...(isDesktop ? { [isRtl ? "marginRight" : "marginLeft"]: currentSidebarW, transition: "margin 0.28s cubic-bezier(0.22,1,0.36,1)" } : {}),
       }}>
         {isDesktop && (
           <header className="user-panel-header panel-topbar fade-up" style={{
             position: "sticky",
             top: 0,
             zIndex: 20,
-            minHeight: 62,
+            minHeight: 64,
             display: "flex",
-            alignItems: "stretch",
+            alignItems: "center",
             justifyContent: "space-between",
-            padding: "0 20px 0 24px",
-            borderBottom: "1px solid var(--border)",
-            background: "color-mix(in srgb, var(--bg-primary) 88%, transparent)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
-            gap: 10,
+            padding: "0 24px",
+            background: "color-mix(in srgb, var(--bg-primary) 80%, transparent)",
+            backdropFilter: "saturate(180%) blur(20px)",
+            WebkitBackdropFilter: "saturate(180%) blur(20px)",
+            gap: 12,
           }}>
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 0, flex: 1, gap: 6, padding: "8px 0" }}>
-              <div style={{ display: "flex", alignItems: "center", minWidth: 0, gap: 10 }}>
-                {location.pathname !== '/app/dashboard' && (
-                  <button
-                    aria-label={t('back')}
-                    onClick={() => window.history.back()}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: 0,
-                      marginInlineEnd: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      color: 'var(--text-secondary)',
-                      fontSize: 20
-                    }}
-                  >
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points={isRtl ? "9 18 15 12 9 6" : "15 18 9 12 15 6"}/></svg>
-                  </button>
-                )}
-                <h1 style={{
-                  margin: 0,
-                  fontSize: 22,
-                  fontWeight: 300,
-                  fontFamily: "var(--fwh-display, var(--font-heading))",
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1.0,
-                }}>{currentPageLabel}</h1>
-                <p style={{
-                  margin: "5px 0 0",
-                  fontSize: 10,
-                  color: "var(--text-muted)",
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  fontFamily: "var(--fwh-mono, ui-monospace, monospace)",
-                }}>{t("nav_home")} / {currentPageLabel}</p>
-              </div>
+            <div style={{ display: "flex", alignItems: "center", minWidth: 0, flex: 1, gap: 8 }}>
+              {location.pathname !== '/app/dashboard' && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('back')}
+                  onClick={() => window.history.back()}
+                  className="-ms-2 text-muted-foreground"
+                >
+                  <BackChevron size={22} strokeWidth={2.2} />
+                </Button>
+              )}
+              <h1 style={{
+                margin: 0,
+                fontSize: 24,
+                fontWeight: 600,
+                fontFamily: "var(--fwh-display, var(--font-heading))",
+                letterSpacing: "-0.03em",
+                lineHeight: 1.1,
+                color: "var(--text-primary)",
+              }}>{currentPageLabel}</h1>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {isFeatureEnabled("/app/notifications") && (
               <NotificationDropdown token={token} size={18} align={isRtl ? "left" : "right"} />
             )}
             {user && (
-              <NavLink to="/app/profile" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-                <img src={user.avatar || getAvatar(user.email, null, (user as any).gender, user.name)} alt="" style={{ width: 32, height: 32, borderRadius: 12, objectFit: "cover", border: "1px solid var(--main)" }} />
+              <NavLink to="/app/profile" aria-label={t("nav_profile")} style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
+                <Avatar className="size-9 ring-2 ring-primary/70">
+                  <AvatarImage src={avatarSrc} alt="" />
+                  <AvatarFallback className="text-xs">{initialsOf(user.name || user.email)}</AvatarFallback>
+                </Avatar>
               </NavLink>
             )}
             </div>
@@ -476,11 +460,12 @@ export function AppLayout() {
                   key={item.path}
                   to={item.path}
                   className={({ isActive }) => `app-nav-item${isActive ? " active" : ""}`}
+                  aria-label={labelForPath(item.path, item.label)}
                 >
                   {({ isActive }) => (
                     <>
                       <div className="app-nav-icon-wrap">
-                        <Icon size={20} color={isActive ? "#fff" : "var(--text-muted)"} strokeWidth={isActive ? 2.5 : 1.8} />
+                        <Icon size={21} color={isActive ? "var(--main)" : "var(--text-muted)"} strokeWidth={isActive ? 2.5 : 1.9} />
                       </div>
                       <span className="app-nav-label">{labelForPath(item.path, item.label)}</span>
                     </>
@@ -495,6 +480,9 @@ export function AppLayout() {
       {showLocation && (
         <LocationPermissionModal token={token} onDismiss={() => setShowLocation(false)} />
       )}
+
+      {/* App-scoped toast host (Apple-style, soft shadow) */}
+      <Toaster />
     </div>
   );
 }

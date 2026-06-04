@@ -3,6 +3,17 @@ import { MacroCalculator } from "@/components/app/MacroCalculator";
 import { Calculator, Flame, Droplets, Utensils } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useI18n } from "@/context/I18nContext";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Tools() {
   const { t } = useI18n();
@@ -30,101 +41,104 @@ export default function Tools() {
 
   const bmiColor = !bmiResult ? "var(--accent)" : bmiResult.bmi < 18.5 ? "var(--blue)" : bmiResult.bmi < 25 ? "var(--accent)" : bmiResult.bmi < 30 ? "var(--amber)" : "var(--red)";
 
-  const card = { backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "22px 20px" };
-
   return (
-    <div style={{ padding: isMobile ? "16px 12px 40px" : "24px 20px 40px", maxWidth: 900, margin: "0 auto" }}>
-      <h1 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(20px, 4vw, 28px)", fontWeight: 700, marginBottom: 28 }}>{t("fitness_tools")}</h1>
+    <div className="mx-auto w-full max-w-[1100px] px-4 pb-4">
+      <h1 className="mb-6 text-[28px] font-bold leading-tight tracking-tight">{t("fitness_tools")}</h1>
 
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+      <div className={`grid gap-4 ${isMobile ? "grid-cols-1" : "grid-cols-[repeat(auto-fit,minmax(280px,1fr))]"}`}>
         {/* Calorie Calculator */}
-        <div style={card}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <div style={{ width: 36, height: 36, borderRadius: "var(--radius-full)", backgroundColor: "rgba(255,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Flame size={18} color="var(--red)" />
-            </div>
-            <h2 style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{t("calorie_calculator")}</h2>
+        <Card className="gap-0 p-5">
+          <div className="mb-4 flex items-center gap-2.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full" style={{ backgroundColor: "rgba(255,68,68,0.12)" }}>
+              <Flame size={18} color="var(--red)" strokeWidth={2} />
+            </span>
+            <h2 className="text-[15px] font-semibold">{t("calorie_calculator")}</h2>
           </div>
           <CalorieCalculator />
-        </div>
+        </Card>
 
         {/* BMI Calculator */}
-        <div style={card}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <div style={{ width: 36, height: 36, borderRadius: "var(--radius-full)", backgroundColor: "rgba(59,139,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Calculator size={18} color="var(--blue)" />
-            </div>
-            <h2 style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{t("bmi_calculator")}</h2>
+        <Card className="gap-0 p-5">
+          <div className="mb-4 flex items-center gap-2.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full" style={{ backgroundColor: "rgba(59,139,255,0.12)" }}>
+              <Calculator size={18} color="var(--blue)" strokeWidth={2} />
+            </span>
+            <h2 className="text-[15px] font-semibold">{t("bmi_calculator")}</h2>
           </div>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16, lineHeight: 1.6 }}>{t("bmi_desc")}</p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>{t("height_cm")}</label>
-              <input type="number" placeholder="175" value={bmiHeight} onChange={(e) => setBmiHeight(e.target.value === "" ? "" : Number(e.target.value))} className="input-base" />
+          <p className="mb-4 text-[13px] leading-relaxed text-muted-foreground">{t("bmi_desc")}</p>
+          <div className="mb-3 grid grid-cols-2 gap-2.5">
+            <div className="space-y-1.5">
+              <Label htmlFor="bmi-height" className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{t("height_cm")}</Label>
+              <Input id="bmi-height" type="number" placeholder="175" value={bmiHeight} onChange={(e) => setBmiHeight(e.target.value === "" ? "" : Number(e.target.value))} />
             </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>{t("weight_kg")}</label>
-              <input type="number" placeholder="70" value={bmiWeight} onChange={(e) => setBmiWeight(e.target.value === "" ? "" : Number(e.target.value))} className="input-base" />
+            <div className="space-y-1.5">
+              <Label htmlFor="bmi-weight" className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{t("weight_kg")}</Label>
+              <Input id="bmi-weight" type="number" placeholder="70" value={bmiWeight} onChange={(e) => setBmiWeight(e.target.value === "" ? "" : Number(e.target.value))} />
             </div>
           </div>
-          <button onClick={calculateBMI} style={{ width: "100%", padding: "11px", borderRadius: "var(--radius-full)", backgroundColor: "rgba(59,139,255,0.15)", border: "1px solid rgba(59,139,255,0.3)", color: "var(--blue)", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{t("calculate_bmi")}</button>
+          <Button onClick={calculateBMI} variant="secondary" className="w-full text-[var(--secondary)]">{t("calculate_bmi")}</Button>
           {bmiResult && (
-            <div style={{ marginTop: 14, padding: "14px", backgroundColor: `${bmiColor}10`, border: `1px solid ${bmiColor}30`, borderRadius: "var(--radius-full)", textAlign: "center" }}>
-              <p style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>{t("your_bmi")}</p>
-              <p style={{ fontFamily: "var(--font-en)", fontSize: 36, fontWeight: 700, color: bmiColor, lineHeight: 1 }}>{bmiResult.bmi}</p>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4 }}>{bmiResult.category}</p>
+            <div className="mt-3.5 rounded-md p-3.5 text-center" style={{ backgroundColor: `color-mix(in srgb, ${bmiColor} 10%, transparent)` }}>
+              <p className="mb-1 text-[11px] text-muted-foreground">{t("your_bmi")}</p>
+              <p className="text-[36px] font-bold leading-none tabular-nums" style={{ color: bmiColor }}>{bmiResult.bmi}</p>
+              <p className="mt-1 text-[13px] text-muted-foreground">{bmiResult.category}</p>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Hydration Calculator */}
-        <div style={{ ...card, gridColumn: "span 1" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <div style={{ width: 36, height: 36, borderRadius: "var(--radius-full)", backgroundColor: "rgba(0,212,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Droplets size={18} color="var(--cyan)" />
-            </div>
-            <h2 style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{t("hydration_calculator")}</h2>
+        <Card className="gap-0 p-5">
+          <div className="mb-4 flex items-center gap-2.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full" style={{ backgroundColor: "rgba(0,212,255,0.12)" }}>
+              <Droplets size={18} color="var(--cyan)" strokeWidth={2} />
+            </span>
+            <h2 className="text-[15px] font-semibold">{t("hydration_calculator")}</h2>
           </div>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16, lineHeight: 1.6 }}>{t("hydration_desc")}</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>{t("weight_kg")}</label>
-              <input type="number" placeholder="70" value={hydrationWeight} onChange={(e) => setHydrationWeight(e.target.value === "" ? "" : Number(e.target.value))} className="input-base" />
+          <p className="mb-4 text-[13px] leading-relaxed text-muted-foreground">{t("hydration_desc")}</p>
+          <div className="mb-3 flex flex-col gap-2.5">
+            <div className="space-y-1.5">
+              <Label htmlFor="hydration-weight" className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{t("weight_kg")}</Label>
+              <Input id="hydration-weight" type="number" placeholder="70" value={hydrationWeight} onChange={(e) => setHydrationWeight(e.target.value === "" ? "" : Number(e.target.value))} />
             </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 5 }}>{t("activity_level")}</label>
-              <select value={hydrationActivity} onChange={(e) => setHydrationActivity(e.target.value as any)} className="input-base" style={{ cursor: "pointer" }}>
-                <option value="low">{t("low_activity")}</option>
-                <option value="moderate">{t("moderate_activity")}</option>
-                <option value="high">{t("high_activity")}</option>
-              </select>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{t("activity_level")}</Label>
+              <Select value={hydrationActivity} onValueChange={(v) => setHydrationActivity(v as any)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">{t("low_activity")}</SelectItem>
+                  <SelectItem value="moderate">{t("moderate_activity")}</SelectItem>
+                  <SelectItem value="high">{t("high_activity")}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <button onClick={calculateHydration} style={{ width: "100%", padding: "11px", borderRadius: "var(--radius-full)", backgroundColor: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.25)", color: "var(--cyan)", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{t("calculate_water")}</button>
+          <Button onClick={calculateHydration} variant="secondary" className="w-full text-[var(--cyan)]">{t("calculate_water")}</Button>
           {hydrationResult && (
-            <div style={{ marginTop: 14, padding: "14px", backgroundColor: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", borderRadius: "var(--radius-full)", textAlign: "center" }}>
-              <p style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>{t("daily_water")}</p>
-              <p style={{ fontFamily: "var(--font-en)", fontSize: 36, fontWeight: 700, color: "var(--cyan)", lineHeight: 1 }}>{hydrationResult} <span style={{ fontSize: 16, fontWeight: 400 }}>{t("ml")}</span></p>
-              <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{(hydrationResult / 1000).toFixed(1)} {t("liters")}</p>
+            <div className="mt-3.5 rounded-md p-3.5 text-center" style={{ backgroundColor: "rgba(0,212,255,0.08)" }}>
+              <p className="mb-1 text-[11px] text-muted-foreground">{t("daily_water")}</p>
+              <p className="text-[36px] font-bold leading-none tabular-nums" style={{ color: "var(--cyan)" }}>{hydrationResult} <span className="text-base font-normal">{t("ml")}</span></p>
+              <p className="mt-1 text-[12px] text-muted-foreground">{(hydrationResult / 1000).toFixed(1)} {t("liters")}</p>
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Macro Nutrients Calculator — full width */}
-      <div style={{ marginTop: 24 }}>
-        <div style={card}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <div style={{ width: 36, height: 36, borderRadius: "var(--radius-full)", backgroundColor: "rgba(255,214,0,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Utensils size={18} color="var(--accent)" />
-            </div>
+      <div className="mt-6">
+        <Card className="gap-0 p-5">
+          <div className="mb-4 flex items-center gap-2.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full" style={{ backgroundColor: "rgba(255,214,0,0.12)" }}>
+              <Utensils size={18} color="var(--accent)" strokeWidth={2} />
+            </span>
             <div>
-              <h2 style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{t("macro_calculator")}</h2>
-              <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{t("macro_desc")}</p>
+              <h2 className="text-[15px] font-semibold">{t("macro_calculator")}</h2>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">{t("macro_desc")}</p>
             </div>
           </div>
           <MacroCalculator />
-        </div>
+        </Card>
       </div>
     </div>
   );

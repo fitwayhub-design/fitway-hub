@@ -7,8 +7,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
-import { Search, MessageCircle, ChevronLeft, Send } from "lucide-react";
+import { Search, MessageCircle, ChevronLeft, Send, ArrowRight, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { getAvatar } from "@/lib/avatar";
+import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Ticket {
   id: number; user_id: number; coach_id: number;
@@ -88,111 +96,158 @@ export default function AdminTickets() {
 
   if (selected) {
     return (
-      <div style={{ maxWidth: 900, margin: "0 auto" }}>
-        <button onClick={() => setSelected(null)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", marginBottom: 14, fontSize: 13 }}>
-          <ChevronLeft size={16} /> Back to all tickets
-        </button>
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: "20px 22px", marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+      <div className="space-y-6">
+        <Button variant="ghost" size="sm" onClick={() => setSelected(null)} className="-ms-2 gap-1.5 text-muted-foreground">
+          <ChevronLeft size={16} strokeWidth={2} /> Back to all tickets
+        </Button>
+
+        <Card className="gap-0 p-5">
+          <div className="mb-2.5 flex items-center justify-between gap-2.5">
+            <p className="text-[11px] tracking-wider text-muted-foreground uppercase">
               Ticket #{selected.id} · {selected.kind || "general"}
             </p>
             <StatusPill status={selected.status} />
           </div>
-          <h2 style={{ fontSize: 19, fontWeight: 800, marginBottom: 10 }}>{selected.subject}</h2>
-          {selected.body && <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{selected.body}</p>}
-          <div style={{ display: "flex", gap: 24, fontSize: 12, color: "var(--text-muted)", marginTop: 14 }}>
-            <span>Athlete: <strong style={{ color: "var(--text-primary)" }}>{selected.user_name}</strong></span>
-            <span>Coach: <strong style={{ color: "var(--text-primary)" }}>{selected.coach_name}</strong></span>
+          <h2 className="mb-2 text-[19px] font-bold tracking-tight">{selected.subject}</h2>
+          {selected.body && <p className="text-[14px] leading-relaxed whitespace-pre-wrap text-muted-foreground">{selected.body}</p>}
+          <div className="mt-3.5 flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-muted-foreground">
+            <span>Athlete: <strong className="text-foreground">{selected.user_name}</strong></span>
+            <span>Coach: <strong className="text-foreground">{selected.coach_name}</strong></span>
             <span>Opened: {new Date(selected.created_at).toLocaleString()}</span>
           </div>
-        </div>
+        </Card>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
-          {replies.map(r => (
-            <div key={r.id} style={{ display: "flex", gap: 10 }}>
-              <img src={r.author_avatar || getAvatar(r.author_id, null, null, r.author_name)} alt="" style={{ width: 32, height: 32, borderRadius: "50%" }} />
-              <div style={{ flex: 1, background: r.author_role === "admin" ? "rgba(168,85,247,0.08)" : "var(--bg-card)", border: `1px solid ${r.author_role === "admin" ? "rgba(168,85,247,0.3)" : "var(--border)"}`, borderRadius: 12, padding: "10px 14px" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
-                  {r.author_name} · <span style={{ color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 10 }}>{r.author_role}</span>
-                </p>
-                <p style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{r.body}</p>
-                <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6 }}>{new Date(r.created_at).toLocaleString()}</p>
+        <div className="flex flex-col gap-2.5">
+          {replies.map(r => {
+            const isAdmin = r.author_role === "admin";
+            return (
+              <div key={r.id} className="flex gap-2.5">
+                <Avatar className="size-8 shrink-0">
+                  <AvatarImage src={r.author_avatar || getAvatar(r.author_id, null, null, r.author_name)} alt="" />
+                  <AvatarFallback className="text-[11px]">{(r.author_name || "U").slice(0, 1)}</AvatarFallback>
+                </Avatar>
+                <div className={cn(
+                  "min-w-0 flex-1 rounded-2xl px-3.5 py-2.5 shadow-soft-sm",
+                  isAdmin ? "bg-primary/15 text-foreground ring-1 ring-[color-mix(in_srgb,var(--primary)_30%,transparent)]" : "bg-card text-foreground",
+                )}>
+                  <p className="mb-1 text-[11px] font-bold">
+                    {r.author_name} · <span className="text-[10px] tracking-wider text-muted-foreground uppercase">{r.author_role}</span>
+                  </p>
+                  <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{r.body}</p>
+                  <p className="mt-1.5 text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</p>
+                </div>
               </div>
-            </div>
-          ))}
-          {replies.length === 0 && <p style={{ fontSize: 13, color: "var(--text-muted)", padding: 20, textAlign: "center" }}>No replies yet.</p>}
+            );
+          })}
+          {replies.length === 0 && <p className="py-5 text-center text-[13px] text-muted-foreground">No replies yet.</p>}
         </div>
 
         {/* Admin can step in if needed */}
         {selected.status !== "closed" && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <textarea value={adminReply} onChange={e => setAdminReply(e.target.value)} placeholder="Reply as admin (visible to both parties)…" rows={2}
-              style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14 }} />
-            <button onClick={replyAsAdmin} disabled={busy || !adminReply.trim()}
-              style={{ padding: "10px 16px", borderRadius: 10, border: "none", background: "var(--main)", color: "#000", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-              <Send size={14} /> Reply
-            </button>
+          <div className="flex items-end gap-2">
+            <Textarea
+              value={adminReply}
+              onChange={e => setAdminReply(e.target.value)}
+              placeholder="Reply as admin (visible to both parties)…"
+              aria-label="Reply as admin"
+              rows={2}
+              className="min-h-11 flex-1"
+            />
+            <Button onClick={replyAsAdmin} disabled={busy || !adminReply.trim()} className="gap-1.5">
+              <Send size={14} strokeWidth={2} /> Reply
+            </Button>
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 8 }}>
-          {selected.status !== "resolved" && <button onClick={() => setStatus("resolved")} disabled={busy} style={pillBtn("var(--green)", "rgba(74,222,128,0.08)")}>Mark resolved</button>}
-          {selected.status !== "closed" && <button onClick={() => setStatus("closed")} disabled={busy} style={pillBtn("var(--red)", "rgba(248,113,113,0.08)")}>Close</button>}
-          {selected.status !== "open" && <button onClick={() => setStatus("open")} disabled={busy} style={pillBtn("var(--text-secondary)", "var(--bg-surface)")}>Reopen</button>}
+        <div className="flex flex-wrap gap-2">
+          {selected.status !== "resolved" && (
+            <Button variant="outline" size="sm" onClick={() => setStatus("resolved")} disabled={busy}
+              className="gap-1.5 text-[var(--green)] ring-[color-mix(in_srgb,var(--green)_40%,transparent)] hover:bg-[color-mix(in_srgb,var(--green)_10%,transparent)] hover:text-[var(--green)]">
+              <CheckCircle size={13} strokeWidth={2} /> Mark resolved
+            </Button>
+          )}
+          {selected.status !== "closed" && (
+            <Button variant="outline" size="sm" onClick={() => setStatus("closed")} disabled={busy}
+              className="gap-1.5 text-destructive ring-[color-mix(in_srgb,var(--red)_40%,transparent)] hover:bg-[color-mix(in_srgb,var(--red)_10%,transparent)] hover:text-destructive">
+              <XCircle size={13} strokeWidth={2} /> Close
+            </Button>
+          )}
+          {selected.status !== "open" && (
+            <Button variant="outline" size="sm" onClick={() => setStatus("open")} disabled={busy} className="gap-1.5 text-muted-foreground">
+              <RefreshCw size={13} strokeWidth={2} /> Reopen
+            </Button>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <h1 style={{ fontFamily: "var(--font-heading)", fontSize: 22, fontWeight: 800 }}>All tickets</h1>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-[28px] font-bold leading-tight tracking-tight">All tickets</h1>
+        <div className="flex flex-wrap gap-1.5">
           {(["all", "open", "resolved", "closed"] as const).map(s => (
-            <button key={s} onClick={() => setFilter(s)} style={{
-              padding: "6px 14px", borderRadius: 99,
-              border: `1px solid ${filter === s ? "var(--main)" : "var(--border)"}`,
-              background: filter === s ? "var(--main-dim)" : "var(--bg-surface)",
-              color: filter === s ? "var(--main)" : "var(--text-muted)",
-              fontSize: 12, fontWeight: 600, cursor: "pointer", textTransform: "capitalize",
-            }}>{s} {s === "open" && filter !== "open" ? `(${tickets.filter(t => t.status === "open").length})` : ""}</button>
+            <Button
+              key={s}
+              size="sm"
+              variant={filter === s ? "default" : "outline"}
+              onClick={() => setFilter(s)}
+              className={cn("capitalize", filter !== s && "text-muted-foreground")}
+            >
+              {s} {s === "open" && filter !== "open" ? `(${tickets.filter(t => t.status === "open").length})` : ""}
+            </Button>
           ))}
         </div>
       </div>
 
-      <div style={{ position: "relative", marginBottom: 16 }}>
-        <Search size={14} style={{ position: "absolute", insetInlineStart: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by subject, athlete, or coach name…"
-          style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13 }} />
+      <div className="relative">
+        <Search size={16} strokeWidth={2} className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted-foreground start-3.5" />
+        <Input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Search by subject, athlete, or coach name…"
+          aria-label="Search tickets"
+          className="ps-10"
+        />
       </div>
 
       {loading ? (
-        <p style={{ color: "var(--text-muted)", textAlign: "center", padding: 40 }}>Loading…</p>
+        <div className="flex flex-col gap-2.5">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[64px] w-full rounded-lg" />)}</div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: "center", padding: 60, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14 }}>
-          <MessageCircle size={36} color="var(--text-muted)" style={{ marginBottom: 10 }} />
-          <p style={{ fontSize: 14, color: "var(--text-secondary)" }}>No tickets match this filter.</p>
-        </div>
+        <Card className="items-center gap-3 p-12 text-center">
+          <div className="grid size-14 place-items-center rounded-full bg-muted">
+            <MessageCircle size={26} strokeWidth={2} className="text-muted-foreground" />
+          </div>
+          <p className="text-[14px] text-muted-foreground">No tickets match this filter.</p>
+        </Card>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="flex flex-col gap-2.5">
           {filtered.map(t => (
-            <button key={t.id} onClick={() => openTicket(t)}
-              style={{ textAlign: "left", display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 12, padding: "12px 14px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, cursor: "pointer", alignItems: "center" }}>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.subject}</p>
-                <p style={{ fontSize: 11, color: "var(--text-muted)" }}>#{t.id} · {t.kind || "general"}</p>
+            <button
+              key={t.id}
+              onClick={() => openTicket(t)}
+              className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 rounded-lg bg-card p-3.5 text-start shadow-soft-sm transition hover:shadow-soft active:scale-[0.99] md:grid-cols-[1fr_1fr_auto_auto]"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-[14px] font-bold">{t.subject}</p>
+                <p className="text-[11px] text-muted-foreground">#{t.id} · {t.kind || "general"}</p>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <img src={t.user_avatar || getAvatar(t.user_id, null, null, t.user_name)} alt="" style={{ width: 22, height: 22, borderRadius: "50%" }} />
-                <span style={{ fontSize: 12 }}>{t.user_name}</span>
-                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>→</span>
-                <img src={t.coach_avatar || getAvatar(t.coach_id, null, null, t.coach_name)} alt="" style={{ width: 22, height: 22, borderRadius: "50%" }} />
-                <span style={{ fontSize: 12 }}>{t.coach_name}</span>
+              <div className="col-span-2 flex items-center gap-2 md:col-span-1">
+                <Avatar className="size-6 shrink-0">
+                  <AvatarImage src={t.user_avatar || getAvatar(t.user_id, null, null, t.user_name)} alt="" />
+                  <AvatarFallback className="text-[10px]">{(t.user_name || "U").slice(0, 1)}</AvatarFallback>
+                </Avatar>
+                <span className="truncate text-[12px]">{t.user_name}</span>
+                <ArrowRight size={12} strokeWidth={2} className="shrink-0 text-muted-foreground rtl:rotate-180" />
+                <Avatar className="size-6 shrink-0">
+                  <AvatarImage src={t.coach_avatar || getAvatar(t.coach_id, null, null, t.coach_name)} alt="" />
+                  <AvatarFallback className="text-[10px]">{(t.coach_name || "U").slice(0, 1)}</AvatarFallback>
+                </Avatar>
+                <span className="truncate text-[12px]">{t.coach_name}</span>
               </div>
               <StatusPill status={t.status} />
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{new Date(t.updated_at).toLocaleDateString()}</span>
+              <span className="text-[11px] whitespace-nowrap text-muted-foreground">{new Date(t.updated_at).toLocaleDateString()}</span>
             </button>
           ))}
         </div>
@@ -202,15 +257,6 @@ export default function AdminTickets() {
 }
 
 function StatusPill({ status }: { status: string }) {
-  const m: Record<string, { bg: string; c: string }> = {
-    open:     { bg: "rgba(255,179,64,0.12)", c: "var(--amber)" },
-    resolved: { bg: "rgba(74,222,128,0.12)", c: "var(--green)" },
-    closed:   { bg: "rgba(120,120,120,0.18)", c: "var(--text-muted)" },
-  };
-  const s = m[status] || m.open;
-  return <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: s.bg, color: s.c, textTransform: "uppercase", letterSpacing: "0.1em" }}>{status}</span>;
-}
-
-function pillBtn(c: string, bg: string): React.CSSProperties {
-  return { padding: "9px 14px", borderRadius: 10, border: `1px solid ${c}`, background: bg, color: c, fontSize: 12, fontWeight: 700, cursor: "pointer" };
+  const variant = status === "resolved" ? "success" : status === "closed" ? "muted" : "warning";
+  return <Badge variant={variant as any} className="shrink-0 uppercase tracking-wider">{status}</Badge>;
 }

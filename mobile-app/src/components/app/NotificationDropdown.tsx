@@ -4,6 +4,8 @@ import { Bell, CheckCheck, ExternalLink } from "lucide-react";
 import { getApiBase } from "@/lib/api";
 import { useI18n } from "@/context/I18nContext";
 import { resolveNotificationLink } from "@/lib/notificationLinks";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface Notification {
   id: number;
@@ -61,7 +63,6 @@ export default function NotificationDropdown({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const isRtl = lang === "ar";
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
@@ -140,96 +141,63 @@ export default function NotificationDropdown({
   const label = t("notifications") || "Notifications";
 
   return (
-    <div ref={wrapperRef} style={{ position: "relative", display: "inline-flex" }}>
-      <button
+    <div ref={wrapperRef} className="relative inline-flex">
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         aria-label={label}
         aria-expanded={open}
         onClick={() => setOpen(o => !o)}
-        style={{
-          position: "relative",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          width: 34, height: 34, borderRadius: 10,
-          background: "var(--bg-card)", border: "1px solid var(--border)",
-          color: "var(--text-primary)", cursor: "pointer",
-          ...buttonStyle,
-        }}
+        className="relative rounded-full bg-card text-foreground shadow-soft-xs hover:bg-accent"
+        style={buttonStyle}
       >
-        <Bell size={size} />
+        <Bell size={size} strokeWidth={2} className="!size-auto" />
         {unreadCount > 0 && (
-          <span
-            style={{
-              position: "absolute", top: -4, [isRtl ? "left" : "right"]: -5,
-              width: 16, height: 16, borderRadius: "50%",
-              background: "var(--secondary, var(--main))", color: "#fff",
-              fontSize: 9, fontWeight: 700,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              border: "2px solid var(--bg-main, var(--bg-primary))",
-            }}
-          >
+          <span className="absolute -top-1 -end-1 grid size-[18px] min-w-[18px] place-items-center rounded-full bg-[var(--secondary)] px-1 text-[9px] font-bold leading-none text-white shadow-soft-xs ring-2 ring-background">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
-      </button>
+      </Button>
 
       {open && (
         <div
           role="menu"
-          style={{
-            position: "absolute",
-            top: "calc(100% + 8px)",
-            [align === "left" ? "left" : "right"]: 0,
-            width: "min(360px, 92vw)",
-            maxHeight: "70vh",
-            background: "var(--bg-card)",
-            border: "1px solid var(--border)",
-            borderRadius: 14,
-            boxShadow: "0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.02)",
-            zIndex: 1000,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            animation: "notif-pop 0.15s ease-out",
-          }}
+          className={cn(
+            "absolute top-[calc(100%+8px)] z-[1000] flex max-h-[70vh] w-[min(360px,92vw)] flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-soft-lg",
+            "animate-in fade-in-0 zoom-in-95 slide-in-from-top-1",
+            align === "left" ? "start-0" : "end-0",
+          )}
         >
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "12px 14px", borderBottom: "1px solid var(--border)",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Bell size={15} />
-              <span style={{ fontWeight: 700, fontSize: 14 }}>{label}</span>
+          <div className="flex items-center justify-between gap-3 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Bell size={15} strokeWidth={2} className="text-foreground" />
+              <span className="text-sm font-semibold tracking-tight">{label}</span>
               {unreadCount > 0 && (
-                <span style={{
-                  fontSize: 10, fontWeight: 700, padding: "2px 7px",
-                  borderRadius: 99, background: "var(--red, #EF4444)", color: "#fff",
-                }}>
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-destructive px-1.5 text-[10px] font-bold leading-none text-destructive-foreground">
                   {unreadCount}
                 </span>
               )}
             </div>
             {unreadCount > 0 && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={markAllRead}
-                style={{
-                  display: "flex", alignItems: "center", gap: 4,
-                  background: "none", border: "1px solid var(--border)",
-                  borderRadius: 99, padding: "4px 9px",
-                  fontSize: 11, color: "var(--text-secondary)", cursor: "pointer", fontWeight: 600,
-                }}
+                className="h-8 gap-1.5 rounded-full px-3 text-[11px] text-muted-foreground"
               >
-                <CheckCheck size={12} /> {t("mark_all_read") || "Mark all"}
-              </button>
+                <CheckCheck size={12} strokeWidth={2} /> {t("mark_all_read") || "Mark all"}
+              </Button>
             )}
           </div>
 
-          <div style={{ overflowY: "auto", flex: 1 }}>
+          <div className="flex-1 overflow-y-auto">
             {loading && recent.length === 0 ? (
-              <div style={{ padding: "30px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+              <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">
                 {t("loading") || "Loading…"}
               </div>
             ) : recent.length === 0 ? (
-              <div style={{ padding: "30px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+              <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">
                 {t("no_notifications") || "No notifications yet"}
               </div>
             ) : (
@@ -244,41 +212,33 @@ export default function NotificationDropdown({
                     tabIndex={0}
                     onClick={() => handleClickItem(n)}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClickItem(n); } }}
-                    style={{
-                      display: "flex", gap: 10,
-                      padding: "11px 14px",
-                      borderBottom: "1px solid var(--border)",
-                      background: unread ? "color-mix(in srgb, var(--main) 6%, transparent)" : "transparent",
-                      cursor: "pointer",
-                    }}
+                    className={cn(
+                      "flex cursor-pointer gap-2.5 px-4 py-3 outline-none transition-colors hover:bg-accent focus-visible:bg-accent",
+                      unread && "bg-[var(--secondary-dim)]",
+                    )}
                   >
-                    <div style={{
-                      width: 8, flexShrink: 0, borderRadius: 99,
-                      background: unread ? color : "transparent",
-                      alignSelf: "stretch",
-                    }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div
+                      className="w-1 shrink-0 self-stretch rounded-full"
+                      style={{ background: unread ? color : "transparent" }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <p className="truncate text-[13px] font-semibold text-foreground">
                           {n.title}
                         </p>
-                        <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0 }}>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
                           {formatRelative(n.created_at, lang)}
                         </span>
                       </div>
-                      <p style={{
-                        fontSize: 12, color: "var(--text-secondary)", margin: "3px 0 0",
-                        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-                        overflow: "hidden", lineHeight: 1.4,
-                      }}>
+                      <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                         {n.body}
                       </p>
                       {dest && (
-                        <span style={{
-                          display: "inline-flex", alignItems: "center", gap: 3,
-                          fontSize: 10, color: color, marginTop: 4, fontWeight: 600,
-                        }}>
-                          <ExternalLink size={10} /> {t("open") || "Open"}
+                        <span
+                          className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold"
+                          style={{ color }}
+                        >
+                          <ExternalLink size={10} strokeWidth={2} /> {t("open") || "Open"}
                         </span>
                       )}
                     </div>
@@ -291,26 +251,12 @@ export default function NotificationDropdown({
           <Link
             to={viewAllPath}
             onClick={() => setOpen(false)}
-            style={{
-              display: "block", textAlign: "center",
-              padding: "11px 14px",
-              borderTop: "1px solid var(--border)",
-              background: "var(--bg-surface, var(--bg-card))",
-              fontSize: 12, fontWeight: 700, color: "var(--main)",
-              textDecoration: "none",
-            }}
+            className="block bg-muted px-4 py-3 text-center text-xs font-semibold text-[var(--secondary)] transition-colors hover:bg-accent"
           >
             {t("view_all_notifications") || "View all notifications"}
           </Link>
         </div>
       )}
-
-      <style>{`
-        @keyframes notif-pop {
-          from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0)    scale(1); }
-        }
-      `}</style>
     </div>
   );
 }

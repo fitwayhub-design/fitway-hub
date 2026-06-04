@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { Flag, CheckCircle2, XCircle, ShieldAlert } from "lucide-react";
 import { getAvatar } from "@/lib/avatar";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type ReportStatus = "pending" | "resolved" | "dismissed";
 
@@ -76,99 +82,93 @@ export default function CoachReports() {
   const reviewed = reports.filter((r) => r.status !== "pending");
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", paddingBottom: 28 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
-        <h1 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(20px, 3.6vw, 28px)", fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-          <Flag size={20} color="var(--red)" /> Coach Reports
-        </h1>
-        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{pending.length} pending · {reviewed.length} reviewed</p>
-      </div>
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-md bg-destructive/15 text-destructive">
+            <Flag size={20} strokeWidth={2} />
+          </span>
+          <div>
+            <h1 className="text-[26px] leading-tight font-bold tracking-tight">Coach Reports</h1>
+            <p className="text-[13px] text-muted-foreground">{pending.length} pending · {reviewed.length} reviewed</p>
+          </div>
+        </div>
+      </header>
 
       {message && (
-        <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 12, background: "rgba(255,214,0,0.08)", border: "1px solid rgba(255,214,0,0.24)", color: "var(--accent)", fontSize: 13, fontWeight: 600 }}>
+        <div className="mb-4 rounded-md bg-primary/10 px-3.5 py-2.5 text-[13px] font-semibold text-primary">
           {message}
         </div>
       )}
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Loading reports...</div>
+        <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-lg" />)}</div>
       ) : reports.length === 0 ? (
-        <div style={{ padding: 34, textAlign: "center", borderRadius: 16, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-muted)" }}>
-          No coach reports yet.
-        </div>
+        <Card className="items-center p-9 text-center text-[14px] text-muted-foreground">No coach reports yet.</Card>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="flex flex-col gap-3">
           {reports.map((r) => {
-            const statusColor = r.status === "pending" ? "var(--amber)" : r.status === "resolved" ? "var(--accent)" : "var(--text-muted)";
+            const variant = r.status === "pending" ? "warning" : r.status === "resolved" ? "success" : "muted";
             return (
-              <div key={r.id} style={{ borderRadius: 16, border: "1px solid var(--border)", background: "var(--bg-card)", padding: 14 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <img src={r.coach_avatar || getAvatar(r.coach_email, null, null, r.coach_name)} alt={r.coach_name} style={{ width: 44, height: 44, borderRadius: "50%", border: "1px solid var(--border)", background: "var(--bg-surface)" }} />
+              <Card key={r.id} className="gap-3 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="size-11">
+                      <AvatarImage src={r.coach_avatar || getAvatar(r.coach_email, null, null, r.coach_name)} alt={r.coach_name} />
+                      <AvatarFallback>{(r.coach_name || "C").slice(0, 1)}</AvatarFallback>
+                    </Avatar>
                     <div>
-                      <p style={{ fontSize: 14, fontWeight: 700 }}>{r.coach_name}</p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{r.coach_email}</p>
+                      <p className="text-[14px] font-bold">{r.coach_name}</p>
+                      <p className="text-[11px] text-muted-foreground">{r.coach_email}</p>
                     </div>
                   </div>
-                  <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 99, border: `1px solid ${statusColor}`, color: statusColor, fontWeight: 700, textTransform: "uppercase" }}>
-                    {String(r.status || "").replace(/_/g, " ")}
-                  </span>
+                  <Badge variant={variant as any} className="uppercase tracking-wide">{String(r.status || "").replace(/_/g, " ")}</Badge>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginBottom: 10 }}>
-                  <div style={{ padding: "9px 11px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)" }}>
-                    <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>Reporter</p>
-                    <p style={{ fontSize: 13, fontWeight: 600 }}>{r.user_name || "User"}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{r.user_email}</p>
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  <div className="rounded-md bg-muted px-3 py-2.5">
+                    <p className="mb-1 text-[10px] tracking-wide text-muted-foreground uppercase">Reporter</p>
+                    <p className="text-[13px] font-semibold">{r.user_name || "User"}</p>
+                    <p className="text-[11px] text-muted-foreground">{r.user_email}</p>
                   </div>
-                  <div style={{ padding: "9px 11px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)" }}>
-                    <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>Reason</p>
-                    <p style={{ fontSize: 13, fontWeight: 600 }}>{r.reason.replace(/_/g, " ")}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{new Date(r.created_at).toLocaleString()}</p>
+                  <div className="rounded-md bg-muted px-3 py-2.5">
+                    <p className="mb-1 text-[10px] tracking-wide text-muted-foreground uppercase">Reason</p>
+                    <p className="text-[13px] font-semibold">{r.reason.replace(/_/g, " ")}</p>
+                    <p className="text-[11px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</p>
                   </div>
                 </div>
 
                 {r.details && (
-                  <div style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", marginBottom: 10 }}>
-                    <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.55 }}>{r.details}</p>
+                  <div className="rounded-md bg-muted px-3 py-2.5">
+                    <p className="text-[12px] leading-relaxed text-muted-foreground">{r.details}</p>
                   </div>
                 )}
 
                 {r.status === "pending" ? (
-                  <>
-                    <textarea
-                      className="input-base"
+                  <div className="flex flex-col gap-2.5">
+                    <Textarea
                       value={notesById[r.id] || ""}
                       onChange={(e) => setNotesById((prev) => ({ ...prev, [r.id]: e.target.value }))}
                       rows={2}
                       placeholder="Admin notes (optional)"
-                      style={{ resize: "vertical", marginBottom: 8 }}
                     />
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button
-                        onClick={() => review(r.id, "resolved")}
-                        disabled={savingId === r.id}
-                        style={{ padding: "9px 12px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#000000", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, opacity: savingId === r.id ? 0.6 : 1 }}
-                      >
-                        <CheckCircle2 size={14} /> Resolve
-                      </button>
-                      <button
-                        onClick={() => review(r.id, "dismissed")}
-                        disabled={savingId === r.id}
-                        style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-secondary)", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, opacity: savingId === r.id ? 0.6 : 1 }}
-                      >
-                        <XCircle size={14} /> Dismiss
-                      </button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={() => review(r.id, "resolved")} disabled={savingId === r.id} className="gap-1.5">
+                        <CheckCircle2 size={14} strokeWidth={2} /> Resolve
+                      </Button>
+                      <Button variant="outline" onClick={() => review(r.id, "dismissed")} disabled={savingId === r.id} className="gap-1.5">
+                        <XCircle size={14} strokeWidth={2} /> Dismiss
+                      </Button>
                     </div>
-                  </>
+                  </div>
                 ) : (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-muted)", paddingTop: 2 }}>
-                    <ShieldAlert size={14} />
+                  <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                    <ShieldAlert size={14} strokeWidth={2} />
                     Reviewed {r.reviewed_at ? new Date(r.reviewed_at).toLocaleString() : ""}
                     {r.reviewer_name ? ` by ${r.reviewer_name}` : ""}
                   </div>
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>

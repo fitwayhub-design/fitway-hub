@@ -1,6 +1,5 @@
-﻿import type React from "react";
+import type React from "react";
 import { getApiBase } from "@/lib/api";
-import { fetchWithTimeout } from "@/lib/nativeAuth";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import UserLocationPicker from "@/components/app/UserLocationPicker";
 import { useState, useRef, useEffect } from "react";
@@ -8,8 +7,20 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useI18n } from "@/context/I18nContext";
-import { Camera, Sun, Moon, Globe, LogOut, Shield, Bell, Edit2, Check, X, Settings, Activity, Save, Plus, Image as ImageIcon, Grid3x3, Info, SlidersHorizontal, Heart } from "lucide-react";
+import { Camera, Sun, Moon, Globe, LogOut, Shield, Bell, Edit2, Check, X, Settings, Activity, Save, Plus, Image as ImageIcon, Grid3x3, Info, SlidersHorizontal, Heart, MessageSquare, Ticket, MessageCircle, Dumbbell, CheckCircle2, PartyPopper, Zap } from "lucide-react";
 import { avatarUrl } from "@/lib/avatar";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 type ProfileTab = "posts" | "progress" | "about" | "settings";
 type SettingsSection = "preferences" | "privacy" | "security";
@@ -49,7 +60,6 @@ export default function Profile() {
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
   const [showSecurity, setShowSecurity] = useState(false);
   const [securitySaving, setSecuritySaving] = useState(false);
-  const [emailSaving, setEmailSaving] = useState(false);
   const [stepGoalSaving, setStepGoalSaving] = useState(false);
   const [stepGoalDraft, setStepGoalDraft] = useState<number>((user as any)?.stepGoal || (user as any)?.step_goal || 10000);
   const [showProgressPhotos, setShowProgressPhotos] = useState(() => localStorage.getItem("profile_show_progress_photos") !== "0");
@@ -69,16 +79,8 @@ export default function Profile() {
   const [otpRequested, setOtpRequested] = useState(false);
   const [otpRequesting, setOtpRequesting] = useState(false);
   const [otpResendCooldown, setOtpResendCooldown] = useState(0);
-  const [emailForm, setEmailForm] = useState({
-    currentPassword: "",
-    newEmail: user?.email || "",
-  });
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("preferences");
-
-  useEffect(() => {
-    setEmailForm((prev) => ({ ...prev, newEmail: user?.email || "" }));
-  }, [user?.email]);
 
   useEffect(() => {
     setStepGoalDraft((user as any)?.stepGoal || (user as any)?.step_goal || 10000);
@@ -231,7 +233,7 @@ export default function Profile() {
     }
     setOtpRequesting(true);
     try {
-      const r = await fetchWithTimeout(`${getApiBase()}/api/auth/change-password/request-otp`, {
+      const r = await fetch(`${getApiBase()}/api/auth/change-password/request-otp`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
@@ -280,40 +282,6 @@ export default function Profile() {
     setSecuritySaving(false);
   };
 
-  const saveEmailSettings = async () => {
-    if (!emailForm.currentPassword || !emailForm.newEmail.trim()) {
-      flash(`❌ ${t("current_password_new_email_required")}`);
-      return;
-    }
-    const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(emailForm.newEmail.trim())) {
-      flash(`❌ ${t("valid_email_address")}`);
-      return;
-    }
-    setEmailSaving(true);
-    try {
-      const r = await fetch(`${getApiBase()}/api/auth/change-email`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          currentPassword: emailForm.currentPassword,
-          newEmail: emailForm.newEmail.trim(),
-        }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        flash(`❌ ${d?.message || t("failed_update_email")}`);
-      } else {
-        updateUser({ email: d?.email || emailForm.newEmail.trim() } as any);
-        setEmailForm({ currentPassword: "", newEmail: d?.email || emailForm.newEmail.trim() });
-        flash(`✅ ${t("email_updated_success")}`);
-      }
-    } catch {
-      flash(`❌ ${t("failed_update_email")}`);
-    }
-    setEmailSaving(false);
-  };
-
   const saveStepGoal = async () => {
     const stepGoal = Number(stepGoalDraft || 0);
     if (!stepGoal || stepGoal < 100) {
@@ -358,317 +326,309 @@ export default function Profile() {
     { key: "settings", label: lang === "ar" ? "الإعدادات" : "Settings", icon: Settings },
   ];
 
+  const profileFields: { label: string; key: string; type: string; placeholder: string }[] = [
+    { label: t("height_cm"), key: "height", type: "number", placeholder: "175" },
+    { label: t("weight_kg"), key: "weight", type: "number", placeholder: "70" },
+    { label: t("target_weight"), key: "targetWeight", type: "number", placeholder: "65" },
+    { label: t("date_of_birth"), key: "dateOfBirth", type: "date", placeholder: "" },
+  ];
+
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 32 }}>
+    <div className="mx-auto w-full max-w-[680px] px-4 pb-4">
       {/* ═══════════ HERO HEADER ═══════════ */}
-      <div style={{ position: "relative", marginBottom: 70 }}>
-        {/* Cover gradient */}
-        <div style={{
-          height: 160,
-          background: "var(--bg-card)",
-          borderBottom: "1px solid var(--border)",
-          position: "relative",
-        }}>
+      <Card className="relative mb-16 gap-0 overflow-visible p-0 shadow-soft">
+        {/* Cover */}
+        <div className="relative h-24 overflow-hidden rounded-t-lg bg-muted">
           {/* FWH yellow accent stripe */}
-          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 4, background: "var(--main)" }} />
-          {/* Top-right quick actions over cover */}
-          <div style={{ position: "absolute", top: 56, [lang === "ar" ? "left" : "right"]: 16, display: "flex", gap: 8 }}>
-            <button onClick={toggleTheme} aria-label="theme"
-              style={{ width: 36, height: 36, borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-surface)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-primary)" }}>
-              {isDark ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-            <button onClick={() => setLang(lang === "en" ? "ar" : "en")} aria-label="lang"
-              style={{ width: 36, height: 36, borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-surface)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-primary)", fontSize: 13 }}>
-              {lang === "en" ? "🇸🇦" : "🇬🇧"}
-            </button>
+          <div className="absolute inset-x-0 bottom-0 h-1 bg-primary" />
+          {/* Top-end quick actions over cover */}
+          <div className="absolute end-4 top-4 flex gap-2">
+            <Button variant="secondary" size="icon-sm" onClick={toggleTheme} aria-label={lang === "ar" ? "تبديل المظهر" : "Toggle theme"}>
+              {isDark ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
+            </Button>
+            <Button variant="secondary" size="icon-sm" onClick={() => setLang(lang === "en" ? "ar" : "en")} aria-label={lang === "ar" ? "تغيير اللغة" : "Change language"}>
+              <Globe size={16} strokeWidth={2} />
+            </Button>
           </div>
         </div>
 
         {/* Avatar overlapping cover */}
-        <div style={{ position: "absolute", [lang === "ar" ? "right" : "left"]: 20, bottom: -56, zIndex: 2 }}>
-          <div style={{ position: "relative" }}>
-            <img src={avatarUrl(user)} alt=""
-              style={{ width: 112, height: 112, borderRadius: "50%", objectFit: "cover", border: "4px solid var(--bg-primary)", background: "var(--bg-surface)", boxShadow: "0 6px 20px rgba(0,0,0,0.3)" }} />
-            <button onClick={() => avatarRef.current?.click()} disabled={uploading}
-              style={{ position: "absolute", bottom: 2, [lang === "ar" ? "left" : "right"]: 2, width: 32, height: 32, borderRadius: "50%", background: "var(--main)", border: "3px solid var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-              <Camera size={14} color="#0A0A0B" />
-            </button>
-            <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatar} />
+        <div className="absolute -bottom-14 start-5 z-[2]">
+          <div className="relative">
+            <Avatar className="size-28 shadow-soft-md ring-4 ring-background">
+              <AvatarImage src={avatarUrl(user)} alt={user?.name || "Profile"} />
+              <AvatarFallback>{(user?.name || "U").slice(0, 1)}</AvatarFallback>
+            </Avatar>
+            <Button
+              size="icon-sm"
+              onClick={() => avatarRef.current?.click()}
+              disabled={uploading}
+              aria-label={lang === "ar" ? "تغيير الصورة" : "Change photo"}
+              className="absolute -bottom-1 end-0 size-9 rounded-full ring-4 ring-background"
+            >
+              <Camera size={15} strokeWidth={2} />
+            </Button>
+            <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
           </div>
         </div>
 
         {/* Identity info under cover */}
-        <div style={{ padding: "12px 20px 0", marginTop: 0 }}>
-          <div className="profile-identity-row" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 180, paddingTop: 64 }}>
+        <div className="px-5 pt-6 pb-5">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-[180px] flex-1">
               {editName ? (
-                <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>
-                  <input value={nameVal} onChange={e => setNameVal(e.target.value)} autoFocus
-                    style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--accent)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 17, fontWeight: 800, outline: "none" }} />
-                  <button onClick={saveName} disabled={saving} style={{ width: 30, height: 30, borderRadius: 8, background: "var(--accent)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={14} color="#0A0A0B" /></button>
-                  <button onClick={() => { setEditName(false); setNameVal(user?.name || ""); }} style={{ width: 30, height: 30, borderRadius: 8, background: "var(--bg-surface)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={14} /></button>
+                <div className="mb-1.5 flex items-center gap-2">
+                  <Input value={nameVal} onChange={e => setNameVal(e.target.value)} autoFocus aria-label={lang === "ar" ? "الاسم" : "Name"} className="h-10 flex-1 text-[17px] font-bold" />
+                  <Button size="icon-sm" onClick={saveName} disabled={saving} aria-label={lang === "ar" ? "حفظ الاسم" : "Save name"}><Check size={16} strokeWidth={2.5} /></Button>
+                  <Button variant="secondary" size="icon-sm" onClick={() => { setEditName(false); setNameVal(user?.name || ""); }} aria-label={lang === "ar" ? "إلغاء" : "Cancel"}><X size={16} strokeWidth={2} /></Button>
                 </div>
               ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-                  <h1 style={{ fontSize: "clamp(22px, 7vw, 32px)", fontWeight: 300, fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", letterSpacing: "-0.02em", lineHeight: 1.0, textTransform: "uppercase", margin: 0, wordBreak: "break-word" }}>{user?.name}</h1>
-                  <button onClick={() => { setEditName(true); setNameVal(user?.name || ""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}><Edit2 size={13} /></button>
+                <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                  <h1 className="text-[28px] leading-tight font-bold tracking-tight break-words">{user?.name}</h1>
+                  <Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={() => { setEditName(true); setNameVal(user?.name || ""); }} aria-label={lang === "ar" ? "تعديل الاسم" : "Edit name"}><Edit2 size={15} strokeWidth={2} /></Button>
                 </div>
               )}
-              <p style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 10, color: "var(--text-muted)", margin: 0, letterSpacing: "0.1em", textTransform: "uppercase", wordBreak: "break-all" }}>{user?.email}</p>
+              <p className="text-[13px] break-all text-muted-foreground">{user?.email}</p>
               {(user as any)?.fitnessGoal && (
-                <p style={{ fontSize: 12, color: "var(--accent)", margin: "4px 0 0", fontWeight: 600 }}>
+                <p className="mt-1.5 text-[13px] font-semibold text-primary">
                   🎯 {(user as any).fitnessGoal}
                 </p>
               )}
             </div>
-            <button onClick={() => { setEditProfile(!editProfile); setActiveTab("about"); setProfileForm({ height: user?.height || "", weight: user?.weight || "", gender: user?.gender || "", dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.date_of_birth || "", fitnessGoal: (user as any)?.fitnessGoal || (user as any)?.fitness_goal || "", activityLevel: (user as any)?.activityLevel || (user as any)?.activity_level || "", targetWeight: (user as any)?.targetWeight || (user as any)?.target_weight || "", weeklyGoal: (user as any)?.weeklyGoal || (user as any)?.weekly_goal || "" }); }}
-              className="profile-edit-cta"
-              style={{ padding: "10px 18px", borderRadius: 12, border: "1px solid var(--main)", background: editProfile ? "var(--main)" : "transparent", color: editProfile ? "#0A0A0B" : "var(--main)", fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontWeight: 600, fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-              <Edit2 size={13} /> <span className="profile-edit-cta-label">{editProfile ? t("cancel_editing") : t("edit_profile_info")}</span>
-            </button>
+            <Button
+              variant={editProfile ? "default" : "outline"}
+              size="sm"
+              onClick={() => { setEditProfile(!editProfile); setActiveTab("about"); setProfileForm({ height: user?.height || "", weight: user?.weight || "", gender: user?.gender || "", dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.date_of_birth || "", fitnessGoal: (user as any)?.fitnessGoal || (user as any)?.fitness_goal || "", activityLevel: (user as any)?.activityLevel || (user as any)?.activity_level || "", targetWeight: (user as any)?.targetWeight || (user as any)?.target_weight || "", weeklyGoal: (user as any)?.weeklyGoal || (user as any)?.weekly_goal || "" }); }}
+            >
+              <Edit2 size={14} strokeWidth={2} /> {editProfile ? t("cancel_editing") : t("edit_profile_info")}
+            </Button>
           </div>
 
           {/* Stats row */}
-          <div className="profile-stats-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", marginTop: 20 }}>
+          <div className="mt-5 grid grid-cols-3 gap-2">
             {[
               { label: t("points"), value: (user?.points || 0).toLocaleString() },
               { label: t("steps_today"), value: (user?.steps || 0).toLocaleString() },
               { label: t("bmi_label"), value: bmi || "—", sub: bmiLabel || "" },
-            ].map((s, i) => (
-              <div key={s.label} style={{ background: "var(--bg-card)", padding: "16px 10px", textAlign: "center", borderRight: i < 2 ? "1px solid var(--border)" : "none" }}>
-                <p style={{ fontFamily: "var(--fwh-display, 'Barlow Condensed', sans-serif)", fontSize: 28, fontWeight: 300, letterSpacing: "-0.02em", lineHeight: 1.0, color: "var(--text-primary)", margin: 0 }}>{s.value}</p>
-                {(s as any).sub && <p style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 9, color: "var(--main)", fontWeight: 600, margin: "4px 0 0", letterSpacing: "0.16em", textTransform: "uppercase" }}>{(s as any).sub}</p>}
-                <p style={{ fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)", fontSize: 9, color: "var(--text-muted)", marginTop: 6, letterSpacing: "0.18em", textTransform: "uppercase" }}>{s.label}</p>
+            ].map((s) => (
+              <div key={s.label} className="rounded-md bg-muted px-2.5 py-4 text-center">
+                <p className="text-2xl leading-none font-bold tabular-nums tracking-tight">{s.value}</p>
+                {(s as any).sub && <p className="mt-1.5 text-[11px] font-semibold tracking-wide text-primary uppercase">{(s as any).sub}</p>}
+                <p className="mt-1.5 text-[11px] tracking-wide text-muted-foreground uppercase">{s.label}</p>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      </Card>
 
-      {msg && <div style={{ margin: "0 16px 12px", padding: "10px 14px", borderRadius: 12, background: msg.startsWith("✅") ? "rgba(74,222,128,0.1)" : "rgba(251,113,133,0.1)", border: `1px solid ${msg.startsWith("✅") ? "var(--green)" : "var(--red)"}`, fontSize: 13, fontWeight: 600, color: msg.startsWith("✅") ? "var(--green)" : "var(--red)" }}>{msg}</div>}
-
-      {/* ═══════════ TAB NAV ═══════════ */}
-      <div style={{ margin: "0 16px 20px", position: "sticky", top: "var(--app-top-offset, 0px)", zIndex: 5, background: "var(--bg-primary)", paddingTop: 4 }}>
-        <div role="tablist" style={{ display: "flex", gap: 0, padding: 0, borderRadius: 12, background: "transparent", borderBottom: "1px solid var(--border)", overflowX: "auto" }}>
-          {TABS.map(tab => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.key;
-            return (
-              <button key={tab.key}
-                role="tab"
-                aria-selected={active}
-                onClick={() => setActiveTab(tab.key)}
-                style={{
-                  flex: 1, minWidth: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                  padding: "12px 4px", borderRadius: 12,
-                  border: "none",
-                  borderBottom: active ? "2px solid var(--main)" : "2px solid transparent",
-                  cursor: "pointer",
-                  background: "transparent",
-                  color: active ? "var(--main)" : "var(--text-muted)",
-                  fontFamily: "var(--fwh-mono, 'Geist Mono', monospace)",
-                  fontSize: 9.5, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase",
-                  transition: "all 0.15s",
-                  // Containment: each tab is a flex item allowed to shrink (minWidth 0),
-                  // and any label that's still too long is ellipsised instead of bleeding
-                  // into the next tab.
-                  overflow: "hidden",
-                }}>
-                <Icon size={13} style={{ flexShrink: 0 }} />
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{tab.label}</span>
-                {typeof tab.count === "number" && tab.count > 0 && (
-                  <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 12, border: "1px solid currentColor", color: active ? "var(--main)" : "var(--text-muted)" }}>
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+      {msg && (
+        <div className={`mb-4 rounded-md px-3.5 py-2.5 text-[13px] font-semibold ${msg.startsWith("✅") ? "bg-[color-mix(in_srgb,var(--green)_14%,transparent)] text-[var(--green)]" : "bg-[color-mix(in_srgb,var(--red)_14%,transparent)] text-[var(--red)]"}`}>
+          {msg}
         </div>
-      </div>
+      )}
 
-      {/* ═══════════ TAB: POSTS ═══════════ */}
-      {activeTab === "posts" && (
-        <>
-          <div style={{ margin: "0 16px 20px", padding: "16px", borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      {/* ═══════════ TABS ═══════════ */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProfileTab)} className="gap-5">
+        <div className="sticky top-[var(--app-top-offset,0px)] z-[5] -mx-4 bg-background px-4 pt-1">
+          <TabsList className="w-full">
+            {TABS.map(tab => {
+              const Icon = tab.icon;
+              return (
+                <TabsTrigger key={tab.key} value={tab.key} className="min-w-0 px-1.5">
+                  <Icon size={15} strokeWidth={2} />
+                  <span className="truncate">{tab.label}</span>
+                  {typeof tab.count === "number" && tab.count > 0 && (
+                    <Badge variant="muted" className="px-1.5 py-0 text-[10px] data-[state=active]:bg-primary/15">{tab.count}</Badge>
+                  )}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </div>
+
+        {/* ═══════════ TAB: POSTS ═══════════ */}
+        <TabsContent value="posts" className="flex flex-col gap-5">
+          <Card className="p-5">
             {communityPosts.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "30px 16px" }}>
-                <Grid3x3 size={32} color="var(--text-muted)" style={{ marginBottom: 8 }} />
-                <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>{t("no_community_posts_yet")}</p>
-                <Link to="/app/community" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+              <div className="px-4 py-8 text-center">
+                <Grid3x3 size={32} strokeWidth={2} className="mx-auto mb-2 text-muted-foreground" />
+                <p className="mb-1 text-[15px] font-semibold text-foreground">{t("no_community_posts_yet")}</p>
+                <Link to="/app/community" className="text-[13px] font-semibold text-primary transition-opacity hover:opacity-75">
                   {lang === "ar" ? "اذهب للمجتمع →" : "Go to Community →"}
                 </Link>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div className="flex flex-col gap-2.5">
                 {communityPosts.map((post: any) => (
-                  <div key={post.id} style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>{post.created_at ? new Date(post.created_at).toLocaleString() : ""}</p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, margin: 0, display: "flex", alignItems: "center", gap: 3 }}><Heart size={11} /> {post.likes || 0}</p>
+                  <div key={post.id} className="rounded-md bg-muted px-3.5 py-3 shadow-soft-xs">
+                    <div className="mb-2 flex items-center justify-between gap-2.5">
+                      <p className="text-[11px] text-muted-foreground">{post.created_at ? new Date(post.created_at).toLocaleString() : ""}</p>
+                      <p className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground"><Heart size={12} strokeWidth={2} /> {post.likes || 0}</p>
                     </div>
-                    {post.content && <p style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, marginBottom: post.media_url || post.hashtags ? 8 : 0 }}>{post.content}</p>}
+                    {post.content && <p className={`text-[13px] leading-relaxed text-foreground ${post.media_url || post.hashtags ? "mb-2" : ""}`}>{post.content}</p>}
                     {post.media_url && (
-                      <img src={post.media_url} alt="post" style={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 10, border: "1px solid var(--border)", marginBottom: post.hashtags ? 8 : 0 }} />
+                      <img src={post.media_url} alt={lang === "ar" ? "منشور" : "post"} className={`max-h-64 w-full rounded-md object-cover ${post.hashtags ? "mb-2" : ""}`} />
                     )}
-                    {post.hashtags && <p style={{ fontSize: 12, color: "var(--blue)", wordBreak: "break-word", margin: 0 }}>{post.hashtags}</p>}
+                    {post.hashtags && <p className="text-[13px] break-words text-[var(--secondary)]">{post.hashtags}</p>}
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Recent activity feed: forms, tickets, plan-comments, training
               events — the meeting wants this beside the community posts on
               the client profile. */}
-          <RecentActivityCard token={token} />
-        </>
-      )}
+          <RecentActivityCard token={token} lang={lang} />
+        </TabsContent>
 
-      {/* ═══════════ TAB: PROGRESS ═══════════ */}
-      {activeTab === "progress" && (
-        <div style={{ margin: "0 16px 20px", padding: "16px", borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-          <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "var(--text-muted)" }}>
-            {lang === "ar" ? "شارك قبل وبعد لرؤية تقدمك" : "Track your transformation"}
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 6, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.06em" }}>{t("before_label")}</p>
-              <div onClick={() => beforeRef.current?.click()}
-                style={{ width: "100%", aspectRatio: "3/4", borderRadius: 14, border: "2px dashed var(--border)", background: "var(--bg-surface)", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                {beforePhoto ? (
-                  <img src={beforePhoto.startsWith("http") ? beforePhoto : `${getApiBase()}${beforePhoto}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                ) : (
-                  <div style={{ textAlign: "center", color: "var(--text-muted)" }}>
-                    <Plus size={24} /><p style={{ fontSize: 11, marginTop: 4 }}>{t("add_photo")}</p>
-                  </div>
-                )}
+        {/* ═══════════ TAB: PROGRESS ═══════════ */}
+        <TabsContent value="progress">
+          <Card className="p-5">
+            <p className="mb-3 text-[15px] font-semibold text-muted-foreground">
+              {lang === "ar" ? "شارك قبل وبعد لرؤية تقدمك" : "Track your transformation"}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="mb-1.5 text-center text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t("before_label")}</p>
+                <button type="button" onClick={() => beforeRef.current?.click()}
+                  className="relative flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-inset ring-border transition active:scale-[0.99]">
+                  {beforePhoto ? (
+                    <img src={beforePhoto.startsWith("http") ? beforePhoto : `${getApiBase()}${beforePhoto}`} alt={t("before_label")} className="size-full object-cover" />
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <Plus size={24} strokeWidth={2} className="mx-auto" /><p className="mt-1 text-[11px]">{t("add_photo")}</p>
+                    </div>
+                  )}
+                </button>
+                <input ref={beforeRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadProgressPhoto("before", f); }} />
               </div>
-              <input ref={beforeRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadProgressPhoto("before", f); }} />
-            </div>
-            <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 6, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.06em" }}>{t("now_label")}</p>
-              <div onClick={() => nowRef.current?.click()}
-                style={{ width: "100%", aspectRatio: "3/4", borderRadius: 14, border: "2px dashed var(--border)", background: "var(--bg-surface)", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                {nowPhoto ? (
-                  <img src={nowPhoto.startsWith("http") ? nowPhoto : `${getApiBase()}${nowPhoto}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                ) : (
-                  <div style={{ textAlign: "center", color: "var(--text-muted)" }}>
-                    <Plus size={24} /><p style={{ fontSize: 11, marginTop: 4 }}>{t("add_photo")}</p>
-                  </div>
-                )}
+              <div>
+                <p className="mb-1.5 text-center text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t("now_label")}</p>
+                <button type="button" onClick={() => nowRef.current?.click()}
+                  className="relative flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-inset ring-border transition active:scale-[0.99]">
+                  {nowPhoto ? (
+                    <img src={nowPhoto.startsWith("http") ? nowPhoto : `${getApiBase()}${nowPhoto}`} alt={t("now_label")} className="size-full object-cover" />
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <Plus size={24} strokeWidth={2} className="mx-auto" /><p className="mt-1 text-[11px]">{t("add_photo")}</p>
+                    </div>
+                  )}
+                </button>
+                <input ref={nowRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadProgressPhoto("now", f); }} />
               </div>
-              <input ref={nowRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadProgressPhoto("now", f); }} />
             </div>
-          </div>
-          {photosLoading && <p style={{ textAlign: "center", fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>{t("uploading_text")}</p>}
-        </div>
-      )}
+            {photosLoading && <p className="mt-2 text-center text-[13px] text-muted-foreground">{t("uploading_text")}</p>}
+          </Card>
+        </TabsContent>
 
-      {/* ═══════════ TAB: ABOUT ═══════════ */}
-      {activeTab === "about" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, margin: "0 16px 20px" }}>
+        {/* ═══════════ TAB: ABOUT ═══════════ */}
+        <TabsContent value="about" className="flex flex-col gap-4">
           {/* Body stats */}
           {(user?.height || user?.weight || user?.gender) && (
-            <div style={{ padding: 16, borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+            <Card className="p-5">
+              <p className="mb-2.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                 {lang === "ar" ? "بياناتك الجسدية" : "Body stats"}
               </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                {user?.height && <div style={{ flex: 1, padding: "10px", borderRadius: 10, background: "var(--bg-surface)", textAlign: "center" }}>
-                  <p style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{user.height} cm</p>
-                  <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0 }}>{t("height_label")}</p>
+              <div className="flex gap-2">
+                {user?.height && <div className="flex-1 rounded-md bg-muted p-2.5 text-center">
+                  <p className="text-[15px] font-semibold">{user.height} cm</p>
+                  <p className="text-[11px] text-muted-foreground">{t("height_label")}</p>
                 </div>}
-                {user?.weight && <div style={{ flex: 1, padding: "10px", borderRadius: 10, background: "var(--bg-surface)", textAlign: "center" }}>
-                  <p style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{user.weight} kg</p>
-                  <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0 }}>{t("weight_label")}</p>
+                {user?.weight && <div className="flex-1 rounded-md bg-muted p-2.5 text-center">
+                  <p className="text-[15px] font-semibold">{user.weight} kg</p>
+                  <p className="text-[11px] text-muted-foreground">{t("weight_label")}</p>
                 </div>}
-                {user?.gender && <div style={{ flex: 1, padding: "10px", borderRadius: 10, background: "var(--bg-surface)", textAlign: "center" }}>
-                  <p style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{user.gender === "male" ? "♂" : user.gender === "female" ? "♀" : "—"}</p>
-                  <p style={{ fontSize: 10, color: "var(--text-muted)", margin: 0 }}>{t("gender")}</p>
+                {user?.gender && <div className="flex-1 rounded-md bg-muted p-2.5 text-center">
+                  <p className="text-[15px] font-semibold">{user.gender === "male" ? "♂" : user.gender === "female" ? "♀" : "—"}</p>
+                  <p className="text-[11px] text-muted-foreground">{t("gender")}</p>
                 </div>}
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Edit profile form */}
           {editProfile && (
-            <div style={{ padding: 16, borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--accent)" }}>
-              <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{t("edit_profile_info")}</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {[
-                  { label: t("height_cm"), key: "height", type: "number", placeholder: "175" },
-                  { label: t("weight_kg"), key: "weight", type: "number", placeholder: "70" },
-                  { label: t("target_weight"), key: "targetWeight", type: "number", placeholder: "65" },
-                  { label: t("date_of_birth"), key: "dateOfBirth", type: "date", placeholder: "" },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>{f.label}</label>
-                    <input type={f.type} value={(profileForm as any)[f.key]} onChange={e => setProfileForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder}
-                      style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+            <Card className="p-5">
+              <p className="mb-4 text-[15px] font-semibold">{t("edit_profile_info")}</p>
+              <div className="flex flex-col gap-4">
+                {profileFields.map(f => (
+                  <div key={f.key} className="grid gap-2">
+                    <Label htmlFor={`profile-${f.key}`}>{f.label}</Label>
+                    <Input id={`profile-${f.key}`} type={f.type} value={(profileForm as any)[f.key]} onChange={e => setProfileForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} />
                   </div>
                 ))}
-                <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>{t("gender")}</label>
-                  <select value={profileForm.gender} onChange={e => setProfileForm(p => ({ ...p, gender: e.target.value }))}
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, outline: "none" }}>
-                    <option value="">{t("select_prompt")}</option>
-                    <option value="male">{t("male")}</option>
-                    <option value="female">{t("female")}</option>
-                    <option value="other">{t("other_gender")}</option>
-                  </select>
+                <div className="grid gap-2">
+                  <Label htmlFor="profile-gender">{t("gender")}</Label>
+                  <Select value={profileForm.gender || undefined} onValueChange={(v) => setProfileForm(p => ({ ...p, gender: v }))}>
+                    <SelectTrigger id="profile-gender" className="w-full">
+                      <SelectValue placeholder={t("select_prompt")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">{t("male")}</SelectItem>
+                      <SelectItem value="female">{t("female")}</SelectItem>
+                      <SelectItem value="other">{t("other_gender")}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>{t("main_goal")}</label>
-                  <select value={profileForm.fitnessGoal} onChange={e => setProfileForm(p => ({ ...p, fitnessGoal: e.target.value }))}
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, outline: "none" }}>
-                    <option value="">{t("select_prompt")}</option>
-                    <option value="lose_weight">{t("lose_weight")}</option>
-                    <option value="gain_muscle">{t("gain_muscle_opt")}</option>
-                    <option value="maintain">{t("maintain_opt")}</option>
-                    <option value="improve_fitness">{t("improve_fitness_opt")}</option>
-                    <option value="flexibility">{t("flexibility_goal")}</option>
-                  </select>
+                <div className="grid gap-2">
+                  <Label htmlFor="profile-goal">{t("main_goal")}</Label>
+                  <Select value={profileForm.fitnessGoal || undefined} onValueChange={(v) => setProfileForm(p => ({ ...p, fitnessGoal: v }))}>
+                    <SelectTrigger id="profile-goal" className="w-full">
+                      <SelectValue placeholder={t("select_prompt")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lose_weight">{t("lose_weight")}</SelectItem>
+                      <SelectItem value="gain_muscle">{t("gain_muscle_opt")}</SelectItem>
+                      <SelectItem value="maintain">{t("maintain_opt")}</SelectItem>
+                      <SelectItem value="improve_fitness">{t("improve_fitness_opt")}</SelectItem>
+                      <SelectItem value="flexibility">{t("flexibility_goal")}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>{t("activity_level_label")}</label>
-                  <select value={profileForm.activityLevel} onChange={e => setProfileForm(p => ({ ...p, activityLevel: e.target.value }))}
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, outline: "none" }}>
-                    <option value="">{t("select_prompt")}</option>
-                    <option value="sedentary">{t("sedentary")}</option>
-                    <option value="lightly_active">{t("lightly_active")}</option>
-                    <option value="moderately_active">{t("moderately_active")}</option>
-                    <option value="very_active">{t("very_active")}</option>
-                    <option value="extra_active">{t("extra_active")}</option>
-                  </select>
+                <div className="grid gap-2">
+                  <Label htmlFor="profile-activity">{t("activity_level_label")}</Label>
+                  <Select value={profileForm.activityLevel || undefined} onValueChange={(v) => setProfileForm(p => ({ ...p, activityLevel: v }))}>
+                    <SelectTrigger id="profile-activity" className="w-full">
+                      <SelectValue placeholder={t("select_prompt")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sedentary">{t("sedentary")}</SelectItem>
+                      <SelectItem value="lightly_active">{t("lightly_active")}</SelectItem>
+                      <SelectItem value="moderately_active">{t("moderately_active")}</SelectItem>
+                      <SelectItem value="very_active">{t("very_active")}</SelectItem>
+                      <SelectItem value="extra_active">{t("extra_active")}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>{t("weekly_goal")}</label>
-                  <select value={profileForm.weeklyGoal} onChange={e => setProfileForm(p => ({ ...p, weeklyGoal: e.target.value }))}
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, outline: "none" }}>
-                    <option value="">{t("select_prompt")}</option>
-                    <option value="0.25">{t("lose_0_25")}</option>
-                    <option value="0.5">{t("lose_0_5")}</option>
-                    <option value="0.75">{t("lose_0_75")}</option>
-                    <option value="1">{t("lose_1")}</option>
-                    <option value="maintain">{t("maintain_weight_opt")}</option>
-                    <option value="gain_0.25">{t("gain_0_25")}</option>
-                    <option value="gain_0.5">{t("gain_0_5")}</option>
-                  </select>
+                <div className="grid gap-2">
+                  <Label htmlFor="profile-weekly">{t("weekly_goal")}</Label>
+                  <Select value={profileForm.weeklyGoal || undefined} onValueChange={(v) => setProfileForm(p => ({ ...p, weeklyGoal: v }))}>
+                    <SelectTrigger id="profile-weekly" className="w-full">
+                      <SelectValue placeholder={t("select_prompt")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0.25">{t("lose_0_25")}</SelectItem>
+                      <SelectItem value="0.5">{t("lose_0_5")}</SelectItem>
+                      <SelectItem value="0.75">{t("lose_0_75")}</SelectItem>
+                      <SelectItem value="1">{t("lose_1")}</SelectItem>
+                      <SelectItem value="maintain">{t("maintain_weight_opt")}</SelectItem>
+                      <SelectItem value="gain_0.25">{t("gain_0_25")}</SelectItem>
+                      <SelectItem value="gain_0.5">{t("gain_0_5")}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <button onClick={saveProfile} disabled={saving}
-                  style={{ width: "100%", padding: "12px", borderRadius: 12, background: "var(--accent)", border: "none", color: "#0A0A0B", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: saving ? 0.6 : 1 }}>
-                  <Save size={15} /> {saving ? t("saving_text") : t("save_profile_text")}
-                </button>
+                <Button onClick={saveProfile} disabled={saving} size="lg" className="w-full">
+                  <Save size={16} strokeWidth={2} /> {saving ? t("saving_text") : t("save_profile_text")}
+                </Button>
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Onboarding / About data */}
-          <div style={{ padding: 16, borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{t("onboarding_data")}</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <Card className="p-5">
+            <p className="mb-2.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t("onboarding_data")}</p>
+            <div className="grid grid-cols-2 gap-2.5">
               {[
                 { label: t("date_of_birth"), value: (user as any)?.dateOfBirth || "—" },
                 { label: t("main_goal"), value: (user as any)?.fitnessGoal || "—" },
@@ -679,179 +639,150 @@ export default function Profile() {
                 { label: t("step_goal_label"), value: user?.stepGoal ? `${user.stepGoal.toLocaleString()} steps/day` : "—" },
                 { label: t("location"), value: [(user as any)?.city, (user as any)?.country].filter(Boolean).join(", ") || "—" },
               ].map((row) => (
-                <div key={row.label} style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
-                  <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4, margin: 0 }}>{row.label}</p>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>{row.value}</p>
+                <div key={row.label} className="rounded-md bg-muted px-3 py-2.5">
+                  <p className="mb-1 text-[11px] tracking-wide text-muted-foreground uppercase">{row.label}</p>
+                  <p className="text-[13px] font-semibold text-foreground">{row.value}</p>
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
 
           {/* Location picker */}
           {showLocationCard && (
-            <div style={{ borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)", padding: "14px 16px" }}>
+            <Card className="px-5">
               <UserLocationPicker
                 token={token}
                 savedLat={(user as any)?.latitude ?? null}
                 savedCity={(user as any)?.city ?? null}
               />
-            </div>
+            </Card>
           )}
-        </div>
-      )}
+        </TabsContent>
 
-      {/* ═══════════ TAB: SETTINGS ═══════════ */}
-      {activeTab === "settings" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, margin: "0 16px 20px" }}>
+        {/* ═══════════ TAB: SETTINGS ═══════════ */}
+        <TabsContent value="settings" className="flex flex-col gap-4">
           {/* Settings sub-nav — 3 equal columns so all three tabs fit on the
               narrowest phones without horizontal scroll. */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 4, padding: 4, borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            {([
-              { key: "preferences", label: lang === "ar" ? "التفضيلات" : "Preferences", icon: SlidersHorizontal },
-              { key: "privacy", label: lang === "ar" ? "الخصوصية" : "Privacy", icon: Shield },
-              { key: "security", label: lang === "ar" ? "الأمان" : "Security", icon: Shield },
-            ] as { key: SettingsSection; label: string; icon: any }[]).map(s => {
-              const Icon = s.icon;
-              const active = settingsSection === s.key;
-              return (
-                <button key={s.key} onClick={() => setSettingsSection(s.key)}
-                  style={{
-                    minWidth: 0,
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "8px 6px", borderRadius: 9,
-                    border: "none", cursor: "pointer",
-                    background: active ? "var(--accent)" : "transparent",
-                    color: active ? "#0A0A0B" : "var(--text-secondary)",
-                    fontSize: 12, fontWeight: 700,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden", textOverflow: "ellipsis",
-                  }}>
-                  <Icon size={13} style={{ flexShrink: 0 }} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{s.label}</span>
-                </button>
-              );
-            })}
-          </div>
+          <Tabs value={settingsSection} onValueChange={(v) => setSettingsSection(v as SettingsSection)}>
+            <TabsList className="w-full">
+              {([
+                { key: "preferences", label: lang === "ar" ? "التفضيلات" : "Preferences", icon: SlidersHorizontal },
+                { key: "privacy", label: lang === "ar" ? "الخصوصية" : "Privacy", icon: Shield },
+                { key: "security", label: lang === "ar" ? "الأمان" : "Security", icon: Shield },
+              ] as { key: SettingsSection; label: string; icon: any }[]).map(s => {
+                const Icon = s.icon;
+                return (
+                  <TabsTrigger key={s.key} value={s.key} className="min-w-0">
+                    <Icon size={14} strokeWidth={2} /> <span className="truncate">{s.label}</span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
 
           {/* Preferences */}
           {settingsSection === "preferences" && (
-            <div style={{ borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)", overflow: "hidden" }}>
+            <Card className="gap-0 p-0">
               {[
-                { icon: isDark ? Sun : Moon, label: lang === "ar" ? "الوضع الليلي" : "Dark Mode", value: isDark, onToggle: () => toggleTheme() },
-                { icon: Globe, label: lang === "ar" ? "اللغة العربية" : "Arabic Language", value: lang === "ar", onToggle: () => setLang(lang === "en" ? "ar" : "en") },
-                { icon: Bell, label: lang === "ar" ? "الإشعارات" : "Notifications", value: notificationsEnabled, onToggle: () => setNotificationsEnabled((v) => !v) },
-                { icon: Activity, label: lang === "ar" ? "تقليل الحركة" : "Reduced Motion", value: reducedMotion, onToggle: () => setReducedMotion((v) => !v) },
-                { icon: Settings, label: lang === "ar" ? "إظهار إعدادات الموقع" : "Show Location Settings", value: showLocationCard, onToggle: () => setShowLocationCard((v) => !v) },
+                { id: "pref-dark", icon: isDark ? Sun : Moon, label: lang === "ar" ? "الوضع الليلي" : "Dark Mode", value: isDark, onToggle: () => toggleTheme() },
+                { id: "pref-lang", icon: Globe, label: lang === "ar" ? "اللغة العربية" : "Arabic Language", value: lang === "ar", onToggle: () => setLang(lang === "en" ? "ar" : "en") },
+                { id: "pref-notif", icon: Bell, label: lang === "ar" ? "الإشعارات" : "Notifications", value: notificationsEnabled, onToggle: () => setNotificationsEnabled((v) => !v) },
+                { id: "pref-motion", icon: Activity, label: lang === "ar" ? "تقليل الحركة" : "Reduced Motion", value: reducedMotion, onToggle: () => setReducedMotion((v) => !v) },
+                { id: "pref-location", icon: Settings, label: lang === "ar" ? "إظهار إعدادات الموقع" : "Show Location Settings", value: showLocationCard, onToggle: () => setShowLocationCard((v) => !v) },
               ].map((item, i, arr) => {
                 const Icon = item.icon;
                 return (
-                  <button key={item.label} onClick={item.onToggle}
-                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", width: "100%", background: "none", border: "none", cursor: "pointer", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none", textAlign: "left" }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--bg-surface)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Icon size={17} color="var(--text-secondary)" />
+                  <div key={item.id}>
+                    <div className="flex items-center gap-3 px-4 py-3.5">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-muted">
+                        <Icon size={18} strokeWidth={2} className="text-muted-foreground" />
+                      </span>
+                      <Label htmlFor={item.id} className="flex-1 text-[15px] font-medium">{item.label}</Label>
+                      <Switch id={item.id} checked={item.value} onCheckedChange={item.onToggle} />
                     </div>
-                    <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>{item.label}</span>
-                    <div style={{ width: 44, height: 24, borderRadius: 999, background: item.value ? "var(--accent)" : "var(--bg-surface)", border: "1px solid var(--border)", position: "relative", transition: "all 0.2s" }}>
-                      <div style={{ width: 18, height: 18, borderRadius: "50%", background: item.value ? "#0A0A0B" : "var(--text-muted)", position: "absolute", top: 2, left: item.value ? 22 : 2, transition: "all 0.2s" }} />
-                    </div>
-                  </button>
+                    {i < arr.length - 1 && <Separator />}
+                  </div>
                 );
               })}
-            </div>
+            </Card>
           )}
 
           {/* Privacy */}
           {settingsSection === "privacy" && (
-            <div style={{ padding: 16, borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{lang === "ar" ? "ما يظهر للآخرين" : "Profile Visibility"}</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <Card className="p-5">
+              <p className="mb-3 text-[15px] font-semibold">{lang === "ar" ? "ما يظهر للآخرين" : "Profile Visibility"}</p>
+              <div className="overflow-hidden rounded-md bg-muted">
                 {[
-                  { label: lang === "ar" ? "إظهار صور التقدم" : "Show Progress Photos", value: showProgressPhotos, onToggle: () => setShowProgressPhotos((v) => !v) },
-                  { label: lang === "ar" ? "إظهار بيانات البداية" : "Show Onboarding Data", value: showOnboardingData, onToggle: () => setShowOnboardingData((v) => !v) },
-                  { label: lang === "ar" ? "إظهار منشورات المجتمع" : "Show Community Posts", value: showCommunityPostsCard, onToggle: () => setShowCommunityPostsCard((v) => !v) },
-                ].map((s) => (
-                  <button key={s.label} onClick={s.onToggle}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", cursor: "pointer" }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{s.label}</span>
-                    <div style={{ width: 44, height: 24, borderRadius: 999, background: s.value ? "var(--accent)" : "var(--bg-card)", border: "1px solid var(--border)", position: "relative" }}>
-                      <div style={{ width: 18, height: 18, borderRadius: "50%", background: s.value ? "#0A0A0B" : "var(--text-muted)", position: "absolute", top: 2, left: s.value ? 22 : 2, transition: "all 0.2s" }} />
+                  { id: "priv-photos", label: lang === "ar" ? "إظهار صور التقدم" : "Show Progress Photos", value: showProgressPhotos, onToggle: () => setShowProgressPhotos((v) => !v) },
+                  { id: "priv-onboarding", label: lang === "ar" ? "إظهار بيانات البداية" : "Show Onboarding Data", value: showOnboardingData, onToggle: () => setShowOnboardingData((v) => !v) },
+                  { id: "priv-community", label: lang === "ar" ? "إظهار منشورات المجتمع" : "Show Community Posts", value: showCommunityPostsCard, onToggle: () => setShowCommunityPostsCard((v) => !v) },
+                ].map((s, i, arr) => (
+                  <div key={s.id}>
+                    <div className="flex items-center justify-between gap-3 px-3 py-3">
+                      <Label htmlFor={s.id} className="text-[13px] font-semibold">{s.label}</Label>
+                      <Switch id={s.id} checked={s.value} onCheckedChange={s.onToggle} />
                     </div>
-                  </button>
+                    {i < arr.length - 1 && <Separator className="bg-border/60" />}
+                  </div>
                 ))}
               </div>
-              <div style={{ marginTop: 16, padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)" }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 6 }}>
+              <div className="mt-4 grid gap-2 rounded-md bg-muted px-3 py-3">
+                <Label htmlFor="step-goal" className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                   {lang === "ar" ? "هدف الخطوات اليومي" : "Daily Step Goal"}
-                </label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input type="number" min={100} value={stepGoalDraft} onChange={(e) => setStepGoalDraft(Number(e.target.value || 0))}
-                    style={{ flex: 1, padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 14, outline: "none" }} />
-                  <button onClick={saveStepGoal} disabled={stepGoalSaving}
-                    style={{ padding: "9px 12px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#0A0A0B", fontWeight: 700, cursor: stepGoalSaving ? "not-allowed" : "pointer", opacity: stepGoalSaving ? 0.7 : 1 }}>
+                </Label>
+                <div className="flex gap-2">
+                  <Input id="step-goal" type="number" min={100} value={stepGoalDraft} onChange={(e) => setStepGoalDraft(Number(e.target.value || 0))} className="flex-1 bg-card" />
+                  <Button onClick={saveStepGoal} disabled={stepGoalSaving}>
                     {stepGoalSaving ? (lang === "ar" ? "جاري الحفظ" : "Saving") : (lang === "ar" ? "حفظ" : "Save")}
-                  </button>
+                  </Button>
                 </div>
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Security */}
           {settingsSection === "security" && (
-            <div style={{ padding: 16, borderRadius: 12, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                <Shield size={15} /> {t("security_settings")}
+            <Card className="p-5">
+              <p className="mb-3 flex items-center gap-1.5 text-[15px] font-semibold">
+                <Shield size={16} strokeWidth={2} /> {t("security_settings")}
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 12 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>{t("change_email")}</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>{t("new_email_label")}</label>
-                      <input type="email" value={emailForm.newEmail} onChange={(e) => setEmailForm((p) => ({ ...p, newEmail: e.target.value }))}
-                        style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>{t("current_password")}</label>
-                      <input type="password" value={emailForm.currentPassword} onChange={(e) => setEmailForm((p) => ({ ...p, currentPassword: e.target.value }))}
-                        style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
-                    </div>
-                    <button onClick={saveEmailSettings} disabled={emailSaving}
-                      style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid var(--accent)", background: "transparent", color: "var(--accent)", fontWeight: 700, fontSize: 13, cursor: emailSaving ? "not-allowed" : "pointer", opacity: emailSaving ? 0.65 : 1 }}>
-                      {emailSaving ? t("updating_text") : t("update_email")}
-                    </button>
+              <div className="flex flex-col gap-3">
+                <div className="rounded-md bg-muted p-3.5">
+                  <p className="mb-2.5 text-[13px] font-semibold">{t("email_address") || "Email address"}</p>
+                  <div className="flex items-center gap-2">
+                    <Input value={user?.email || ""} readOnly disabled aria-label={t("email_address") || "Email address"} className="bg-card" />
                   </div>
+                  <p className="mt-2 text-[11px] text-muted-foreground">{t("email_locked_note") || "Your email is linked to your account and can't be changed."}</p>
                 </div>
 
-                <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 12 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>{t("change_password")}</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>{t("current_password")}</label>
-                      <input type="password" value={securityForm.currentPassword} onChange={(e) => setSecurityForm((p) => ({ ...p, currentPassword: e.target.value }))}
-                        style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                <div className="rounded-md bg-muted p-3.5">
+                  <p className="mb-2.5 text-[13px] font-semibold">{t("change_password")}</p>
+                  <div className="flex flex-col gap-3">
+                    <div className="grid gap-2">
+                      <Label htmlFor="sec-current-pw">{t("current_password")}</Label>
+                      <Input id="sec-current-pw" type="password" value={securityForm.currentPassword} onChange={(e) => setSecurityForm((p) => ({ ...p, currentPassword: e.target.value }))} className="bg-card" />
                     </div>
-                    <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>{t("new_password")}</label>
-                      <input type="password" value={securityForm.newPassword} onChange={(e) => setSecurityForm((p) => ({ ...p, newPassword: e.target.value }))}
-                        style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                    <div className="grid gap-2">
+                      <Label htmlFor="sec-new-pw">{t("new_password")}</Label>
+                      <Input id="sec-new-pw" type="password" value={securityForm.newPassword} onChange={(e) => setSecurityForm((p) => ({ ...p, newPassword: e.target.value }))} className="bg-card" />
                     </div>
-                    <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>{t("confirm_new_password")}</label>
-                      <input type="password" value={securityForm.confirmPassword} onChange={(e) => setSecurityForm((p) => ({ ...p, confirmPassword: e.target.value }))}
-                        style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                    <div className="grid gap-2">
+                      <Label htmlFor="sec-confirm-pw">{t("confirm_new_password")}</Label>
+                      <Input id="sec-confirm-pw" type="password" value={securityForm.confirmPassword} onChange={(e) => setSecurityForm((p) => ({ ...p, confirmPassword: e.target.value }))} className="bg-card" />
                     </div>
                     {!otpRequested ? (
-                      <button onClick={requestPasswordOtp} disabled={otpRequesting}
-                        style={{ width: "100%", padding: "11px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#0A0A0B", fontWeight: 700, fontSize: 13, cursor: otpRequesting ? "not-allowed" : "pointer", opacity: otpRequesting ? 0.65 : 1 }}>
+                      <Button onClick={requestPasswordOtp} disabled={otpRequesting} className="w-full">
                         {otpRequesting ? "Sending code..." : `Send code to ${user?.email}`}
-                      </button>
+                      </Button>
                     ) : (
                       <>
-                        <div style={{ padding: "10px 12px", backgroundColor: "rgba(255,214,0,0.08)", border: "1px solid rgba(255,214,0,0.25)", borderRadius: 10, fontSize: 12, color: "var(--text-secondary)" }}>
-                          We sent a 6-digit code to <strong style={{ color: "var(--text-primary)" }}>{user?.email}</strong>. It expires in 2 minutes.
+                        <div className="rounded-md bg-primary/10 px-3 py-2.5 text-[13px] text-muted-foreground">
+                          We sent a 6-digit code to <strong className="text-foreground">{user?.email}</strong>. It expires in 2 minutes.
                         </div>
-                        <div>
-                          <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4, display: "block" }}>Verification code</label>
-                          <input
+                        <div className="grid gap-2">
+                          <Label htmlFor="sec-otp">Verification code</Label>
+                          <Input
+                            id="sec-otp"
                             type="text"
                             inputMode="numeric"
                             pattern="[0-9]*"
@@ -859,50 +790,42 @@ export default function Profile() {
                             value={securityForm.otp}
                             onChange={(e) => setSecurityForm((p) => ({ ...p, otp: e.target.value.replace(/\D/g, "") }))}
                             placeholder="000000"
-                            style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 16, letterSpacing: "0.4em", fontFamily: "monospace", outline: "none", boxSizing: "border-box" }}
+                            className="bg-card text-center text-[16px] tracking-[0.4em]"
                           />
                         </div>
-                        <button onClick={saveSecuritySettings} disabled={securitySaving || securityForm.otp.length !== 6}
-                          style={{ width: "100%", padding: "11px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#0A0A0B", fontWeight: 700, fontSize: 13, cursor: securitySaving ? "not-allowed" : "pointer", opacity: (securitySaving || securityForm.otp.length !== 6) ? 0.65 : 1 }}>
+                        <Button onClick={saveSecuritySettings} disabled={securitySaving || securityForm.otp.length !== 6} className="w-full">
                           {securitySaving ? t("updating_text") : "Verify & update password"}
-                        </button>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
-                          <button type="button" onClick={() => { setOtpRequested(false); setSecurityForm((p) => ({ ...p, otp: "" })); setOtpResendCooldown(0); }} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 0 }}>← Cancel</button>
-                          <button type="button" onClick={requestPasswordOtp} disabled={otpResendCooldown > 0 || otpRequesting} style={{ background: "none", border: "none", color: otpResendCooldown > 0 ? "var(--text-muted)" : "var(--accent)", cursor: otpResendCooldown > 0 ? "default" : "pointer", padding: 0, fontWeight: 600 }}>
+                        </Button>
+                        <div className="flex items-center justify-between text-[13px]">
+                          <Button type="button" variant="link" className="h-auto p-0 text-muted-foreground" onClick={() => { setOtpRequested(false); setSecurityForm((p) => ({ ...p, otp: "" })); setOtpResendCooldown(0); }}>← Cancel</Button>
+                          <Button type="button" variant="link" className="h-auto p-0 font-semibold disabled:text-muted-foreground disabled:no-underline" onClick={requestPasswordOtp} disabled={otpResendCooldown > 0 || otpRequesting}>
                             {otpResendCooldown > 0 ? `Resend in ${otpResendCooldown}s` : "Resend code"}
-                          </button>
+                          </Button>
                         </div>
                       </>
                     )}
                   </div>
                 </div>
 
-                <button onClick={() => navigate("/auth/forgot-password")}
-                  style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-secondary)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                <Button onClick={() => navigate("/auth/forgot-password")} variant="secondary" className="w-full">
                   {t("forgot_password")}
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Logout */}
-          <button onClick={() => { logout(); navigate("/auth/login"); }}
-            style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 16, background: "rgba(251,113,133,0.08)", border: "1px solid rgba(251,113,133,0.2)", cursor: "pointer" }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(251,113,133,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <LogOut size={17} color="var(--red)" />
-            </div>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--red)" }}>{t("sign_out")}</span>
-          </button>
-        </div>
-      )}
-
-
+          <Button onClick={() => { logout(); navigate("/auth/login"); }} variant="destructive" size="lg" className="w-full">
+            <LogOut size={17} strokeWidth={2} /> {t("sign_out")}
+          </Button>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
 
-function RecentActivityCard({ token }: { token: string | null }) {
+function RecentActivityCard({ token, lang }: { token: string | null; lang: string }) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -915,46 +838,48 @@ function RecentActivityCard({ token }: { token: string | null }) {
   }, [token]);
 
   const labelFor = (it: any) => {
-    if (it.kind === 'post')     return { label: 'Community post',   icon: '💬' };
-    if (it.kind === 'ticket')   return { label: 'Ticket',           icon: '🎫' };
-    if (it.kind === 'comment')  return { label: 'Plan comment',     icon: '💭' };
+    if (it.kind === 'post')     return { label: 'Community post',   icon: MessageSquare };
+    if (it.kind === 'ticket')   return { label: 'Ticket',           icon: Ticket };
+    if (it.kind === 'comment')  return { label: 'Plan comment',     icon: MessageCircle };
     if (it.kind === 'training') {
-      if (it.title === 'workout_started')  return { label: 'Started training',  icon: '🏋️' };
-      if (it.title === 'workout_finished') return { label: 'Finished a workout', icon: '✅' };
-      if (it.title === 'plan_finished')    return { label: 'Finished the plan', icon: '🎉' };
-      return { label: 'Training update', icon: '⚡' };
+      if (it.title === 'workout_started')  return { label: 'Started training',  icon: Dumbbell };
+      if (it.title === 'workout_finished') return { label: 'Finished a workout', icon: CheckCircle2 };
+      if (it.title === 'plan_finished')    return { label: 'Finished the plan', icon: PartyPopper };
+      return { label: 'Training update', icon: Zap };
     }
-    return { label: it.kind, icon: '•' };
+    return { label: it.kind, icon: Activity };
   };
 
   return (
-    <div style={{ margin: '0 16px 20px', padding: '16px', borderRadius: 12, background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-      <p style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 12, fontFamily: 'var(--font-mono, monospace)' }}>
-        Recent activity
+    <Card className="p-5">
+      <p className="mb-3 text-[11px] tracking-wide text-muted-foreground uppercase">
+        {lang === "ar" ? "آخر الأنشطة" : "Recent activity"}
       </p>
       {loading ? (
-        <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loading…</p>
+        <p className="text-[13px] text-muted-foreground">Loading…</p>
       ) : items.length === 0 ? (
-        <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Nothing yet — open a ticket, comment on a plan, or finish a workout to see it here.</p>
+        <p className="text-[13px] text-muted-foreground">Nothing yet — open a ticket, comment on a plan, or finish a workout to see it here.</p>
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <ul className="flex flex-col gap-2">
           {items.slice(0, 12).map((it: any) => {
             const meta = labelFor(it);
+            const MetaIcon = meta.icon;
             const titlePreview = (it.title || '').slice(0, 80);
             return (
-              <li key={`${it.kind}-${it.id}`} style={{ display: 'flex', gap: 10, padding: '8px 10px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                <span style={{ fontSize: 16 }}>{meta.icon}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>{meta.label}</p>
-                  {titlePreview && <p style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{titlePreview}</p>}
+              <li key={`${it.kind}-${it.id}`} className="flex items-center gap-2.5 rounded-md bg-muted px-2.5 py-2">
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-card text-muted-foreground">
+                  <MetaIcon size={16} strokeWidth={2} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-foreground">{meta.label}</p>
+                  {titlePreview && <p className="truncate text-[13px] text-muted-foreground">{titlePreview}</p>}
                 </div>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(it.created_at).toLocaleDateString()}</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">{new Date(it.created_at).toLocaleDateString()}</span>
               </li>
             );
           })}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }
-

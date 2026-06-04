@@ -4,6 +4,13 @@ import { getApiBase } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { getAvatar } from "@/lib/avatar";
 import { CheckCircle, XCircle, Clock, FileText, Eye } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 export default function AdminCertifications() {
   const { token } = useAuth();
@@ -17,8 +24,8 @@ export default function AdminCertifications() {
   const api = (path: string, opts?: RequestInit) =>
     fetch(getApiBase() + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
 
-  const fetchRequests = async () => {
-    setLoading(true);
+  const fetchRequests = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const r = await api("/api/admin/certification-requests");
       if (r.ok) {
@@ -30,7 +37,7 @@ export default function AdminCertifications() {
   };
 
   useEffect(() => { fetchRequests(); }, []);
-  useAutoRefresh(fetchRequests);
+  useAutoRefresh(() => fetchRequests(true));
 
   const handleAction = async (id: number, action: "approve" | "reject") => {
     setActionLoading(id);
@@ -48,127 +55,125 @@ export default function AdminCertifications() {
   };
 
   const filtered = filter === "all" ? requests : requests.filter(r => r.status === filter);
+  const pendingCount = requests.filter(r => r.status === "pending").length;
 
   const statusBadge = (status: string) => {
-    const map: Record<string, { bg: string; color: string; border: string; label: string; icon: any }> = {
-      pending: { bg: "rgba(255,179,64,0.12)", color: "var(--amber)", border: "rgba(255,179,64,0.25)", label: "Pending", icon: Clock },
-      approved: { bg: "rgba(59,130,246,0.1)", color: "#3b82f6", border: "rgba(59,130,246,0.25)", label: "Approved", icon: CheckCircle },
-      rejected: { bg: "rgba(255,68,68,0.1)", color: "var(--red)", border: "rgba(255,68,68,0.25)", label: "Rejected", icon: XCircle },
+    const map: Record<string, { variant: string; label: string; icon: any }> = {
+      pending: { variant: "warning", label: "Pending", icon: Clock },
+      approved: { variant: "accent", label: "Approved", icon: CheckCircle },
+      rejected: { variant: "destructive", label: "Rejected", icon: XCircle },
     };
     const s = map[status] || map.pending;
     const Icon = s.icon;
-    return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 10px", borderRadius: 99, background: s.bg, color: s.color, border: `1px solid ${s.border}`, fontWeight: 600 }}>
-        <Icon size={12} /> {s.label}
-      </span>
-    );
+    return <Badge variant={s.variant as any}><Icon size={12} strokeWidth={2} /> {s.label}</Badge>;
   };
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <h1 style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700 }}>Coach Requests</h1>
-        <div style={{ display: "flex", gap: 6 }}>
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-md bg-primary/15 text-primary">
+            <FileText size={20} strokeWidth={2} />
+          </span>
+          <div>
+            <h1 className="text-[26px] leading-tight font-bold tracking-tight">Coach Requests</h1>
+            <p className="text-[13px] text-muted-foreground">Review and approve coach certification submissions</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
           {(["pending", "all", "approved", "rejected"] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)} style={{
-              padding: "6px 14px", borderRadius: 99, border: `1px solid ${filter === f ? "var(--blue)" : "var(--border)"}`,
-              background: filter === f ? "rgba(59,139,255,0.1)" : "var(--bg-surface)",
-              color: filter === f ? "var(--blue)" : "var(--text-muted)",
-              cursor: "pointer", fontSize: 12, fontWeight: 600, textTransform: "capitalize",
-            }}>{f} {f === "pending" ? `(${requests.filter(r => r.status === "pending").length})` : ""}</button>
+            <Button
+              key={f}
+              size="sm"
+              variant={filter === f ? "default" : "secondary"}
+              onClick={() => setFilter(f)}
+              className="rounded-full capitalize"
+            >
+              {f} {f === "pending" ? `(${pendingCount})` : ""}
+            </Button>
           ))}
         </div>
-      </div>
+      </header>
 
       {loading ? (
-        <p style={{ textAlign: "center", color: "var(--text-muted)", padding: 40 }}>Loading...</p>
+        <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-44 w-full rounded-lg" />)}</div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: "center", padding: 60, color: "var(--text-muted)" }}>
-          <FileText size={40} style={{ opacity: 0.3, marginBottom: 12 }} />
-          <p style={{ fontSize: 14 }}>No {filter === "all" ? "" : filter} certification requests</p>
-        </div>
+        <Card className="items-center py-14 text-center text-muted-foreground">
+          <FileText size={40} strokeWidth={2} className="mb-3 opacity-30" />
+          <p className="text-[14px]">No {filter === "all" ? "" : filter} certification requests</p>
+        </Card>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="flex flex-col gap-3">
           {filtered.map((req: any) => (
-            <div key={req.id} style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "18px 20px" }}>
+            <Card key={req.id} className="gap-3.5 p-5">
               {/* Header */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <img src={req.coach_avatar || getAvatar(req.coach_email, null, null, req.coach_name)} alt={req.coach_name} style={{ width: 42, height: 42, borderRadius: "50%", backgroundColor: "var(--bg-surface)", border: "2px solid var(--border)" }} />
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-3">
+                  <Avatar className="size-11">
+                    <AvatarImage src={req.coach_avatar || getAvatar(req.coach_email, null, null, req.coach_name)} alt={req.coach_name} />
+                    <AvatarFallback>{(req.coach_name || "C").slice(0, 1)}</AvatarFallback>
+                  </Avatar>
                   <div>
-                    <p style={{ fontSize: 14, fontWeight: 700 }}>{req.coach_name}</p>
-                    <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{req.coach_email} · {req.specialty || "General Fitness"}</p>
+                    <p className="text-[14px] font-bold">{req.coach_name}</p>
+                    <p className="text-[12px] text-muted-foreground">{req.coach_email} · {req.specialty || "General Fitness"}</p>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div className="flex items-center gap-2">
                   {statusBadge(req.status)}
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{new Date(req.created_at).toLocaleDateString()}</span>
+                  <span className="text-[11px] text-muted-foreground">{new Date(req.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
 
               {/* Documents */}
-              <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-                <button onClick={() => setPreviewUrl(req.national_id_url)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--blue)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                  <Eye size={14} /> View National ID
-                </button>
-                <button onClick={() => setPreviewUrl(req.certification_url)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--blue)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                  <Eye size={14} /> View Certification
-                </button>
-                <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-muted)", padding: "8px 0" }}>
-                  Paid: {req.amount_paid} EGP
-                </span>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Button variant="secondary" size="sm" onClick={() => setPreviewUrl(req.national_id_url)} className="gap-1.5 text-[var(--secondary)]">
+                  <Eye size={14} strokeWidth={2} /> View National ID
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => setPreviewUrl(req.certification_url)} className="gap-1.5 text-[var(--secondary)]">
+                  <Eye size={14} strokeWidth={2} /> View Certification
+                </Button>
+                <span className="text-[12px] text-muted-foreground">Paid: {req.amount_paid} EGP</span>
               </div>
 
               {/* Admin actions for pending requests */}
               {req.status === "pending" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <textarea
-                    placeholder="Admin notes (optional)..."
+                <div className="flex flex-col gap-2.5">
+                  <Textarea
+                    placeholder="Admin notes (optional)…"
                     value={adminNotes[req.id] || ""}
                     onChange={e => setAdminNotes(prev => ({ ...prev, [req.id]: e.target.value }))}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: 10, background: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-primary)", fontSize: 13, resize: "vertical", minHeight: 50, fontFamily: "inherit" }}
+                    rows={2}
                   />
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={() => handleAction(req.id, "approve")}
-                      disabled={actionLoading === req.id}
-                      style={{ flex: 1, padding: "10px", borderRadius: 10, background: "linear-gradient(135deg, #3b82f6, #06b6d4)", border: "none", color: "#fff", cursor: actionLoading === req.id ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, fontFamily: "var(--font-en)", opacity: actionLoading === req.id ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                    >
-                      <CheckCircle size={15} /> {actionLoading === req.id ? "Processing…" : "Approve"}
-                    </button>
-                    <button
-                      onClick={() => handleAction(req.id, "reject")}
-                      disabled={actionLoading === req.id}
-                      style={{ flex: 1, padding: "10px", borderRadius: 10, background: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.3)", color: "var(--red)", cursor: actionLoading === req.id ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, fontFamily: "var(--font-en)", opacity: actionLoading === req.id ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                    >
-                      <XCircle size={15} /> {actionLoading === req.id ? "Processing…" : "Reject & Refund"}
-                    </button>
+                  <div className="flex gap-2">
+                    <Button onClick={() => handleAction(req.id, "approve")} disabled={actionLoading === req.id} className="flex-1 gap-1.5">
+                      <CheckCircle size={15} strokeWidth={2} /> {actionLoading === req.id ? "Processing…" : "Approve"}
+                    </Button>
+                    <Button variant="destructive" onClick={() => handleAction(req.id, "reject")} disabled={actionLoading === req.id} className="flex-1 gap-1.5">
+                      <XCircle size={15} strokeWidth={2} /> {actionLoading === req.id ? "Processing…" : "Reject & Refund"}
+                    </Button>
                   </div>
                 </div>
               )}
 
               {/* Show review info for reviewed requests */}
               {req.status !== "pending" && (
-                <div style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div className="flex flex-wrap gap-3 text-[12px] text-muted-foreground">
                   {req.reviewer_name && <span>Reviewed by: {req.reviewer_name}</span>}
                   {req.reviewed_at && <span>on {new Date(req.reviewed_at).toLocaleDateString()}</span>}
-                  {req.admin_notes && <span style={{ color: "var(--text-secondary)" }}>Notes: {req.admin_notes}</span>}
+                  {req.admin_notes && <span className="text-foreground/80">Notes: {req.admin_notes}</span>}
                 </div>
               )}
-            </div>
+            </Card>
           ))}
         </div>
       )}
 
       {/* Document preview modal */}
-      {previewUrl && (
-        <div onClick={() => setPreviewUrl(null)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, cursor: "pointer" }}>
-          <div onClick={e => e.stopPropagation()} style={{ maxWidth: 700, maxHeight: "85vh", position: "relative" }}>
-            <button onClick={() => setPreviewUrl(null)} style={{ position: "absolute", top: -40, right: 0, background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 99, padding: "8px 16px", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Close</button>
-            <img src={previewUrl} alt="Document preview" style={{ maxWidth: "100%", maxHeight: "80vh", borderRadius: 12, objectFit: "contain" }} />
-          </div>
-        </div>
-      )}
+      <Dialog open={!!previewUrl} onOpenChange={(o) => !o && setPreviewUrl(null)}>
+        <DialogContent className="max-w-[720px] bg-transparent p-0 shadow-none ring-0">
+          {previewUrl && <img src={previewUrl} alt="Document preview" className="max-h-[82vh] w-full rounded-lg object-contain" />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

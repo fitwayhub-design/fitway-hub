@@ -6,8 +6,20 @@ import { getApiBase } from "@/lib/api";
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Circle, Utensils, Flame, RefreshCw, Droplets, UserCheck, User as UserIcon,
-  Lock, Pencil,
+  Lock, Pencil, ArrowRight,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import PlanCommentsThread from "@/components/app/PlanCommentsThread";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 interface Meal {
   id: number;
@@ -17,6 +29,9 @@ interface Meal {
   protein: string;
   note?: string;
   eaten?: boolean;
+  // Stable key matching the coach's per-meal comment thread
+  // (`<mealId>::<name>`). Only set for coach-plan meals.
+  commentKey?: string;
 }
 
 interface NutritionDay {
@@ -108,6 +123,7 @@ export default function NutritionPlan() {
   const [tab, setTab] = useState<"self" | "coach">("self");
   const [plan, setPlan] = useState<NutritionDay[]>(DEFAULT_PLAN);
   const [coachPlanData, setCoachPlanData] = useState<NutritionDay[] | null>(null);
+  const [coachNutritionPlanId, setCoachNutritionPlanId] = useState<number | null>(null);
   const [coachName, setCoachName] = useState<string>("");
   const [hasSubscription, setHasSubscription] = useState(false);
   const [hasMyPlan, setHasMyPlan] = useState(false);
@@ -140,13 +156,15 @@ export default function NutritionPlan() {
               meals.forEach((m: any, idx: number) => {
                 const day = m.day || DAYS[idx % 7];
                 if (!dayMap.has(day)) dayMap.set(day, []);
-                dayMap.get(day)!.push({ id: idx + 1, name: m.name || m.meal_name, amount: m.amount || "1 serving", calories: m.calories || 0, protein: m.protein || "0g" });
+                const name = m.name || m.meal_name;
+                dayMap.get(day)!.push({ id: idx + 1, name, amount: m.amount || "1 serving", calories: m.calories || 0, protein: m.protein || "0g", commentKey: String(m.id) + "::" + name });
               });
               const coachPlan: NutritionDay[] = DAYS.map((day, i) => ({
                 id: i + 1, day, goal: dayMap.has(day) ? "Maintain" : "Rest",
                 meals: dayMap.get(day) || [], expanded: false,
               }));
               setCoachPlanData(coachPlan);
+              setCoachNutritionPlanId(d.plan.id ?? null);
               setCoachName(d.plan.coach_name || "Your Coach");
             }
           } catch { /* leave coachPlanData null */ }
@@ -162,8 +180,9 @@ export default function NutritionPlan() {
             const meals = typeof d.plan.meals === "string" ? JSON.parse(d.plan.meals) : d.plan.meals;
             if (Array.isArray(meals) && meals.length > 0) {
               const dayMap = new Map<string, Meal[]>();
-              meals.forEach((m: any, idx: number) => { const day = m.day || DAYS[idx % 7]; if (!dayMap.has(day)) dayMap.set(day, []); dayMap.get(day)!.push({ id: idx + 1, name: m.name || m.meal_name, amount: m.amount || "1 serving", calories: m.calories || 0, protein: m.protein || "0g" }); });
+              meals.forEach((m: any, idx: number) => { const day = m.day || DAYS[idx % 7]; if (!dayMap.has(day)) dayMap.set(day, []); const name = m.name || m.meal_name; dayMap.get(day)!.push({ id: idx + 1, name, amount: m.amount || "1 serving", calories: m.calories || 0, protein: m.protein || "0g", commentKey: String(m.id) + "::" + name }); });
               setCoachPlanData(DAYS.map((day, i) => ({ id: i + 1, day, goal: dayMap.has(day) ? "Maintain" : "Rest", meals: dayMap.get(day) || [], expanded: false })));
+              setCoachNutritionPlanId(d.plan.id ?? null);
             }
           } catch {}
         }
@@ -232,401 +251,364 @@ export default function NutritionPlan() {
   const totalCalories = displayedPlan.reduce((s, d) => s + d.meals.reduce((ms, m) => ms + m.calories, 0), 0);
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 32 }}>
+    <div className="mx-auto w-full max-w-[880px] px-4 pb-4">
 
       {/* Flash */}
       {flash && (
-        <div style={{
-          position: "fixed", top: 70, left: "50%", transform: "translateX(-50%)",
-          zIndex: 999, background: "var(--bg-card)", border: "1px solid var(--border)",
-          borderRadius: 12, padding: "10px 20px", fontSize: 13, fontWeight: 600,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.3)", color: "var(--text-primary)",
-          whiteSpace: "nowrap",
-        }}>
+        <div className="fixed start-1/2 top-[70px] z-[999] -translate-x-1/2 whitespace-nowrap rounded-md bg-card px-5 py-2.5 text-[13px] font-semibold text-foreground shadow-soft-lg">
           {flash}
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ padding: "16px 16px 8px" }}>
-        <h1 style={{ fontFamily: "var(--font-heading)", fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 4 }}>
-          Nutrition Plan
-        </h1>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-          {tab === "coach"
-            ? (hasSubscription && coachPlanData
-                ? `Assigned by ${coachName}`
-                : "Subscribe to a coach to receive a personalised plan")
-            : "Your weekly meal schedule"}
-        </p>
-      </div>
+      <div className="space-y-4">
 
-      {/* Tabs: My Plan / Coach Plan (Coach tab is locked without an active subscription) */}
-      <div style={{ display: "flex", gap: 8, padding: "8px 16px 12px" }}>
-        <button
-          onClick={() => setTab("self")}
-          style={{
-            flex: 1, padding: "10px 14px", borderRadius: 12,
-            border: `1px solid ${tab === "self" ? "var(--main)" : "var(--border)"}`,
-            background: tab === "self" ? "var(--main-dim)" : "var(--bg-card)",
-            color: tab === "self" ? "var(--main)" : "var(--text-secondary)",
-            fontWeight: tab === "self" ? 700 : 500, fontSize: 13, cursor: "pointer",
-            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-          }}
-        >
-          <UserIcon size={14} /> My Plan
-        </button>
-        <button
-          onClick={() => setTab("coach")}
-          disabled={!hasSubscription}
-          aria-disabled={!hasSubscription}
-          style={{
-            flex: 1, padding: "10px 14px", borderRadius: 12,
-            border: `1px solid ${tab === "coach" ? "#3B82F6" : "var(--border)"}`,
-            background: tab === "coach" ? "rgba(59,130,246,0.12)" : "var(--bg-card)",
-            color: !hasSubscription ? "var(--text-muted)" : tab === "coach" ? "#3B82F6" : "var(--text-secondary)",
-            fontWeight: tab === "coach" ? 700 : 500, fontSize: 13,
-            cursor: hasSubscription ? "pointer" : "not-allowed",
-            opacity: hasSubscription ? 1 : 0.6,
-            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-          }}
-        >
-          {hasSubscription ? <UserCheck size={14} /> : <Lock size={14} />} Coach Plan
-        </button>
-      </div>
-
-      {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, padding: "8px 16px 16px" }}>
-        {[
-          { icon: Utensils,    label: "Total Meals",  value: totalMeals,                      color: "var(--main)" },
-          { icon: CheckCircle2,label: "Eaten",        value: `${eatenMeals}/${totalMeals}`,   color: "#4ADE80" },
-          { icon: Flame,       label: "Weekly kcal",  value: `${(totalCalories/1000).toFixed(1)}k`, color: "#FB7185" },
-        ].map(({ icon: Icon, label, value, color }) => (
-          <div key={label} style={{
-            background: "var(--bg-card)", borderRadius: 14, padding: "12px 10px",
-            border: "1px solid var(--border)", textAlign: "center",
-          }}>
-            <div style={{ width: 32, height: 32, borderRadius: 10, background: `${color}22`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 6px" }}>
-              <Icon size={16} color={color} strokeWidth={2} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>{value}</div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 500, marginTop: 1 }}>{label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Grams-to-calories quick estimator */}
-      <GramsCalorieCalc />
-
-
-      {/* Coach tab: locked card when no active subscription */}
-      {tab === "coach" && !hasSubscription && (
-        <div style={{ margin: "0 16px 24px", padding: "28px 22px", borderRadius: 18, border: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "center" }}>
-          <div style={{ width: 56, height: 56, borderRadius: 18, background: "rgba(59,130,246,0.12)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-            <Lock size={22} color="#3B82F6" />
-          </div>
-          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Subscribe to a coach to unlock</p>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.55, marginBottom: 16 }}>
-            Once you subscribe, your coach can publish a custom nutrition plan that appears here.
+        {/* Header */}
+        <header className="pt-1">
+          <h1 className="text-[28px] font-bold leading-tight tracking-tight">Nutrition Plan</h1>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            {tab === "coach"
+              ? (hasSubscription && coachPlanData
+                  ? `Assigned by ${coachName}`
+                  : "Subscribe to a coach to receive a personalised plan")
+              : "Your weekly meal schedule"}
           </p>
+        </header>
+
+        {/* Tabs: My Plan / Coach Plan (Coach tab is locked without an active subscription) */}
+        <div role="tablist" className="flex gap-1 rounded-md bg-muted p-1">
           <button
-            onClick={() => navigate("/app/coaching")}
-            style={{ padding: "11px 22px", borderRadius: 12, border: "none", background: "#3B82F6", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+            role="tab"
+            aria-selected={tab === "self"}
+            onClick={() => setTab("self")}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1.5 rounded-[8px] px-3 py-2.5 text-[13px] font-semibold transition-all",
+              tab === "self"
+                ? "bg-card text-foreground shadow-soft-sm"
+                : "text-muted-foreground",
+            )}
           >
-            Find a coach
+            <UserIcon size={15} strokeWidth={2} /> My Plan
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === "coach"}
+            onClick={() => setTab("coach")}
+            disabled={!hasSubscription}
+            aria-disabled={!hasSubscription}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1.5 rounded-[8px] px-3 py-2.5 text-[13px] font-semibold transition-all",
+              tab === "coach"
+                ? "bg-card text-[var(--secondary)] shadow-soft-sm"
+                : "text-muted-foreground",
+              !hasSubscription && "cursor-not-allowed opacity-50",
+            )}
+          >
+            {hasSubscription ? <UserCheck size={15} strokeWidth={2} /> : <Lock size={15} strokeWidth={2} />} Coach Plan
           </button>
         </div>
-      )}
 
-      {/* Coach tab: subscribed but coach hasn't pushed a plan yet */}
-      {tab === "coach" && hasSubscription && !coachPlanData && (
-        <div style={{ margin: "0 16px 24px", padding: "28px 22px", borderRadius: 18, border: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "center" }}>
-          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>No plan from your coach yet</p>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.55 }}>
-            Your coach will push a nutrition plan here as soon as it's ready.
-          </p>
-        </div>
-      )}
-
-      {/* My Plan: Add / Edit toggle */}
-      {tab === "self" && (
-        <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 16px 12px" }}>
-          <button
-            onClick={() => setEditingMyPlan(v => !v)}
-            style={{
-              padding: "8px 14px", borderRadius: 10,
-              border: editingMyPlan ? "1px solid var(--main)" : "1px solid var(--border)",
-              background: editingMyPlan ? "var(--main-dim)" : "var(--bg-card)",
-              color: editingMyPlan ? "var(--main)" : "var(--text-secondary)",
-              fontWeight: 600, fontSize: 12, cursor: "pointer",
-              display: "inline-flex", alignItems: "center", gap: 6,
-            }}
-          >
-            {editingMyPlan ? <CheckCircle2 size={14} /> : (hasMyPlan ? <Pencil size={14} /> : <Plus size={14} />)}
-            {editingMyPlan ? "Done" : (hasMyPlan ? "Edit" : "Add")}
-          </button>
-        </div>
-      )}
-
-      {/* Day cards */}
-      {(tab === "self" || (tab === "coach" && coachPlanData)) && (
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 16px" }}>
-        {displayedPlan.map(day => {
-          const color = GOAL_COLORS[day.goal] || "var(--main)";
-          const isToday = day.day === todayDayName;
-          const eatenCount = day.meals.filter(m => m.eaten).length;
-          const total = day.meals.length;
-          const allEaten = total > 0 && eatenCount === total;
-          const dayCalories = day.meals.reduce((s, m) => s + m.calories, 0);
-
-          return (
-            <div
-              key={day.id}
-              style={{
-                background: "var(--bg-card)", borderRadius: 16,
-                border: `1px solid ${isToday ? "var(--main)" : "var(--border)"}`,
-                overflow: "hidden",
-                boxShadow: isToday ? "0 0 0 1px var(--main-glow)" : "none",
-              }}
-            >
-              {/* Day header */}
-              <button
-                onClick={() => toggleDay(day.id)}
-                style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 12,
-                  padding: "14px 16px", background: "transparent", border: "none",
-                  cursor: "pointer", textAlign: "start",
-                }}
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { icon: Utensils,    label: "Total Meals",  value: totalMeals,                            color: "var(--main)" },
+            { icon: CheckCircle2,label: "Eaten",        value: `${eatenMeals}/${totalMeals}`,         color: "var(--green)" },
+            { icon: Flame,       label: "Weekly kcal",  value: `${(totalCalories/1000).toFixed(1)}k`, color: "#FB7185" },
+          ].map(({ icon: Icon, label, value, color }) => (
+            <Card key={label} className="items-center gap-0 p-4 text-center shadow-soft-sm">
+              <span
+                className="mx-auto mb-1.5 grid size-9 place-items-center rounded-md"
+                style={{ background: `color-mix(in srgb, ${color} 15%, transparent)` }}
               >
-                <div style={{
-                  width: 36, height: 36, borderRadius: 11, flexShrink: 0,
-                  background: `${color}22`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  {allEaten
-                    ? <Droplets size={16} color={color} strokeWidth={2} />
-                    : <Utensils size={16} color={color} strokeWidth={2} />
-                  }
-                </div>
+                <Icon size={17} strokeWidth={2} style={{ color }} />
+              </span>
+              <div className="text-2xl font-bold tabular-nums tracking-tight">{value}</div>
+              <div className="mt-0.5 text-[11px] font-medium text-muted-foreground">{label}</div>
+            </Card>
+          ))}
+        </div>
 
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{day.day}</span>
-                    {isToday && (
-                      <span style={{
-                        fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-                        background: "var(--main)", color: "#fff",
-                        padding: "2px 6px", borderRadius: 20, textTransform: "uppercase",
-                      }}>Today</span>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{
-                      fontSize: 11, fontWeight: 600,
-                      color, background: `${color}18`,
-                      padding: "2px 8px", borderRadius: 20,
-                    }}>{day.goal}</span>
-                    {total > 0 && (
-                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                        {dayCalories} kcal · {eatenCount}/{total} eaten
-                      </span>
-                    )}
-                  </div>
-                </div>
+        {/* Grams-to-calories quick estimator */}
+        <GramsCalorieCalc />
 
-                {/* Progress ring */}
-                {total > 0 && (
-                  <div style={{ width: 32, height: 32, position: "relative", flexShrink: 0 }}>
-                    <svg width="32" height="32" viewBox="0 0 32 32">
-                      <circle cx="16" cy="16" r="13" fill="none" stroke="var(--border)" strokeWidth="3" />
-                      <circle
-                        cx="16" cy="16" r="13" fill="none"
-                        stroke={color} strokeWidth="3"
-                        strokeDasharray={`${2 * Math.PI * 13}`}
-                        strokeDashoffset={`${2 * Math.PI * 13 * (1 - eatenCount / total)}`}
-                        strokeLinecap="round"
-                        style={{ transform: "rotate(-90deg)", transformOrigin: "center", transition: "stroke-dashoffset 0.4s" }}
-                      />
-                    </svg>
-                  </div>
+        {/* Coach tab: locked card when no active subscription */}
+        {tab === "coach" && !hasSubscription && (
+          <Card className="items-center p-7 text-center shadow-soft-sm">
+            <span className="mb-3.5 grid size-14 place-items-center rounded-lg bg-[var(--secondary-dim)]">
+              <Lock size={22} strokeWidth={2} className="text-[var(--secondary)]" />
+            </span>
+            <p className="text-[15px] font-semibold">Subscribe to a coach to unlock</p>
+            <p className="mt-1.5 max-w-[340px] text-[13px] leading-relaxed text-muted-foreground">
+              Once you subscribe, your coach can publish a custom nutrition plan that appears here.
+            </p>
+            <Button
+              onClick={() => navigate("/app/coaching")}
+              className="mt-4 bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90"
+            >
+              Find a coach <ArrowRight size={16} />
+            </Button>
+          </Card>
+        )}
+
+        {/* Coach tab: subscribed but coach hasn't pushed a plan yet */}
+        {tab === "coach" && hasSubscription && !coachPlanData && (
+          <Card className="items-center p-7 text-center shadow-soft-sm">
+            <p className="text-[15px] font-semibold">No plan from your coach yet</p>
+            <p className="mt-1.5 max-w-[340px] text-[13px] leading-relaxed text-muted-foreground">
+              Your coach will push a nutrition plan here as soon as it's ready.
+            </p>
+          </Card>
+        )}
+
+        {/* My Plan: Add / Edit toggle */}
+        {tab === "self" && (
+          <div className="flex justify-end">
+            <Button
+              variant={editingMyPlan ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEditingMyPlan(v => !v)}
+            >
+              {editingMyPlan ? <CheckCircle2 size={15} /> : (hasMyPlan ? <Pencil size={15} /> : <Plus size={15} />)}
+              {editingMyPlan ? "Done" : (hasMyPlan ? "Edit" : "Add")}
+            </Button>
+          </div>
+        )}
+
+        {/* Day cards */}
+        {(tab === "self" || (tab === "coach" && coachPlanData)) && (
+        <div className="flex flex-col gap-2">
+          {displayedPlan.map(day => {
+            const color = GOAL_COLORS[day.goal] || "var(--main)";
+            const isToday = day.day === todayDayName;
+            const eatenCount = day.meals.filter(m => m.eaten).length;
+            const total = day.meals.length;
+            const allEaten = total > 0 && eatenCount === total;
+            const dayCalories = day.meals.reduce((s, m) => s + m.calories, 0);
+            const pct = total > 0 ? Math.round((eatenCount / total) * 100) : 0;
+
+            return (
+              <Card
+                key={day.id}
+                className={cn(
+                  "gap-0 overflow-hidden p-0 shadow-soft-sm",
+                  isToday && "ring-1 ring-primary/60",
                 )}
-                {day.expanded
-                  ? <ChevronUp size={16} color="var(--text-muted)" />
-                  : <ChevronDown size={16} color="var(--text-muted)" />
-                }
-              </button>
+              >
+                {/* Day header */}
+                <button
+                  onClick={() => toggleDay(day.id)}
+                  aria-expanded={day.expanded}
+                  className="flex w-full items-center gap-3 p-4 text-start transition active:scale-[0.99]"
+                >
+                  <span
+                    className="grid size-9 shrink-0 place-items-center rounded-md"
+                    style={{ background: `color-mix(in srgb, ${color} 14%, transparent)` }}
+                  >
+                    {allEaten
+                      ? <Droplets size={16} strokeWidth={2} style={{ color }} />
+                      : <Utensils size={16} strokeWidth={2} style={{ color }} />
+                    }
+                  </span>
 
-              {/* Expanded content */}
-              {day.expanded && (
-                <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px 16px" }}>
-
-                  {/* Goal selector — only when editing my own plan */}
-                  {tab === "self" && editingMyPlan && (
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                    {GOAL_OPTIONS.map(g => (
-                      <button
-                        key={g}
-                        onClick={() => changeGoal(day.id, g)}
-                        style={{
-                          padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
-                          border: "none", cursor: "pointer",
-                          background: day.goal === g ? (GOAL_COLORS[g] || "var(--main)") : "var(--bg-surface)",
-                          color: day.goal === g ? "#fff" : "var(--text-secondary)",
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {g}
-                      </button>
-                    ))}
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="text-[15px] font-semibold">{day.day}</span>
+                      {isToday && (
+                        <Badge className="px-2 py-0 text-[10px] uppercase tracking-wide">Today</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                        style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}
+                      >{day.goal}</span>
+                      {total > 0 && (
+                        <span className="text-[11px] text-muted-foreground">
+                          {dayCalories} kcal · {eatenCount}/{total} eaten
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  )}
 
-                  {/* Meals */}
-                  {day.meals.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "16px 0", color: "var(--text-muted)", fontSize: 13 }}>
-                      No meals yet. Add one below.
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
-                      {day.meals.map((meal, idx) => (
-                        <div
-                          key={meal.id}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 10,
-                            padding: "10px 12px", borderRadius: 12,
-                            background: meal.eaten ? `${color}12` : "var(--bg-surface)",
-                            border: `1px solid ${meal.eaten ? color + "44" : "var(--border)"}`,
-                            transition: "all 0.2s",
-                          }}
-                        >
+                  {/* Progress + chevron */}
+                  {total > 0 && (
+                    <span className="text-[12px] font-bold tabular-nums" style={{ color }}>{pct}%</span>
+                  )}
+                  {day.expanded
+                    ? <ChevronUp size={18} className="shrink-0 text-muted-foreground" />
+                    : <ChevronDown size={18} className="shrink-0 text-muted-foreground" />
+                  }
+                </button>
+
+                {total > 0 && (
+                  <Progress
+                    value={pct}
+                    className="h-1 rounded-none"
+                    style={{ ["--primary" as any]: color }}
+                  />
+                )}
+
+                {/* Expanded content */}
+                {day.expanded && (
+                  <div className="px-4 pt-3 pb-4">
+                    <Separator className="mb-3" />
+
+                    {/* Goal selector — only when editing my own plan */}
+                    {tab === "self" && editingMyPlan && (
+                    <div className="mb-3.5 flex flex-wrap gap-1.5">
+                      {GOAL_OPTIONS.map(g => {
+                        const active = day.goal === g;
+                        const gColor = GOAL_COLORS[g] || "var(--main)";
+                        return (
                           <button
-                            onClick={() => toggleMeal(day.id, meal.id)}
-                            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}
+                            key={g}
+                            onClick={() => changeGoal(day.id, g)}
+                            className={cn(
+                              "rounded-full px-2.5 py-1 text-[11px] font-semibold transition",
+                              !active && "bg-muted text-muted-foreground",
+                            )}
+                            style={active ? { background: gColor, color: "#fff" } : undefined}
                           >
-                            {meal.eaten
-                              ? <CheckCircle2 size={20} color={color} strokeWidth={2} />
-                              : <Circle size={20} color="var(--text-muted)" strokeWidth={1.8} />
-                            }
+                            {g}
                           </button>
-
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{
-                              fontSize: 13, fontWeight: 600,
-                              color: meal.eaten ? "var(--text-muted)" : "var(--text-primary)",
-                              textDecoration: meal.eaten ? "line-through" : "none",
-                            }}>
-                              {idx + 1}. {meal.name}
-                            </div>
-                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                              {meal.amount} · {meal.calories} kcal · {meal.protein} protein
-                            </div>
-                          </div>
-
-                          {tab === "self" && editingMyPlan && (
-                            <button
-                              onClick={() => removeMeal(day.id, meal.id)}
-                              style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", flexShrink: 0 }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
-                  )}
+                    )}
 
-                  {/* Add meal form */}
-                  {tab === "self" && editingMyPlan && addingMeal === day.id ? (
-                    <div style={{ background: "var(--bg-surface)", borderRadius: 12, padding: 12, border: "1px solid var(--border)", marginBottom: 10 }}>
-                      <input
-                        className="input-base"
-                        placeholder="Meal name (e.g. Chicken & Rice)"
-                        value={newMeal.name}
-                        onChange={e => setNewMeal(v => ({ ...v, name: e.target.value }))}
-                        style={{ marginBottom: 8, fontSize: 13 }}
-                        autoFocus
-                        onKeyDown={e => e.key === "Enter" && addMeal(day.id)}
-                      />
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
-                        {[
-                          { key: "amount",   label: "Amount",  placeholder: "200g" },
-                          { key: "calories", label: "kcal",    placeholder: "500" },
-                          { key: "protein",  label: "Protein", placeholder: "40g" },
-                        ].map(({ key, label, placeholder }) => (
-                          <div key={key}>
-                            <label style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 4 }}>
-                              {label}
-                            </label>
-                            <input
-                              className="input-base"
-                              placeholder={placeholder}
-                              value={(newMeal as any)[key]}
-                              onChange={e => setNewMeal(v => ({ ...v, [key]: e.target.value }))}
-                              style={{ fontSize: 13, padding: "8px 10px" }}
-                            />
+                    {/* Meals */}
+                    {day.meals.length === 0 ? (
+                      <div className="py-4 text-center text-[13px] text-muted-foreground">
+                        No meals yet. Add one below.
+                      </div>
+                    ) : (
+                      <div className="mb-3 flex flex-col gap-1.5">
+                        {day.meals.map((meal, idx) => (
+                          <div key={meal.id}>
+                          <div
+                            className="flex items-center gap-2.5 rounded-md p-3 transition"
+                            style={{
+                              background: meal.eaten
+                                ? `color-mix(in srgb, ${color} 10%, transparent)`
+                                : "var(--color-muted)",
+                            }}
+                          >
+                            <button
+                              onClick={() => toggleMeal(day.id, meal.id)}
+                              className="shrink-0 transition active:scale-90"
+                              aria-label={meal.eaten ? "Mark meal not eaten" : "Mark meal eaten"}
+                              aria-pressed={!!meal.eaten}
+                            >
+                              {meal.eaten
+                                ? <CheckCircle2 size={20} strokeWidth={2} style={{ color }} />
+                                : <Circle size={20} strokeWidth={1.8} className="text-muted-foreground" />
+                              }
+                            </button>
+
+                            <div className="min-w-0 flex-1">
+                              <div
+                                className={cn(
+                                  "text-[13px] font-semibold",
+                                  meal.eaten ? "text-muted-foreground line-through" : "text-foreground",
+                                )}
+                              >
+                                {idx + 1}. {meal.name}
+                              </div>
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                <span className="text-[11px] text-muted-foreground">{meal.amount}</span>
+                                <Badge variant="destructive" className="px-2 py-0 text-[10px]">{meal.calories} kcal</Badge>
+                                <Badge variant="accent" className="px-2 py-0 text-[10px]">{meal.protein} protein</Badge>
+                              </div>
+                            </div>
+
+                            {tab === "self" && editingMyPlan && (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => removeMeal(day.id, meal.id)}
+                                className="shrink-0 text-muted-foreground"
+                                aria-label="Remove meal"
+                              >
+                                <Trash2 size={15} />
+                              </Button>
+                            )}
+                          </div>
+                          {/* Coach's guidance comments for this meal */}
+                          {tab === "coach" && coachNutritionPlanId && meal.commentKey && (
+                            <div className="mt-1.5 ps-8">
+                              <PlanCommentsThread nutritionPlanId={coachNutritionPlanId} mealKey={meal.commentKey} compact />
+                            </div>
+                          )}
                           </div>
                         ))}
                       </div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button
-                          onClick={() => addMeal(day.id)}
-                          style={{
-                            flex: 1, padding: "9px", borderRadius: 10, border: "none",
-                            background: "var(--main)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer",
-                          }}
-                        >
-                          Add
-                        </button>
-                        <button
-                          onClick={() => setAddingMeal(null)}
-                          style={{
-                            flex: 1, padding: "9px", borderRadius: 10,
-                            border: "1px solid var(--border)", background: "transparent",
-                            color: "var(--text-secondary)", fontWeight: 600, fontSize: 13, cursor: "pointer",
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
+                    )}
 
-                  {/* Actions row — Add Meal only while editing My Plan */}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {tab === "self" && editingMyPlan && addingMeal !== day.id && (
-                      <button
-                        onClick={() => setAddingMeal(day.id)}
-                        style={{
-                          flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                          padding: "9px", borderRadius: 10, border: "1px dashed var(--border)",
-                          background: "transparent", color: "var(--text-secondary)",
-                          fontWeight: 600, fontSize: 12, cursor: "pointer",
-                        }}
-                      >
-                        <Plus size={14} /> Add Meal
-                      </button>
-                    )}
-                    {day.meals.length > 0 && (
-                      <button
-                        onClick={() => resetDay(day.id)}
-                        style={{
-                          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                          padding: "9px 14px", borderRadius: 10,
-                          border: "1px solid var(--border)", background: "transparent",
-                          color: "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                        }}
-                      >
-                        <RefreshCw size={13} /> Reset
-                      </button>
-                    )}
+                    {/* Add meal form */}
+                    {tab === "self" && editingMyPlan && addingMeal === day.id ? (
+                      <Card className="mb-2.5 gap-0 bg-muted p-3 shadow-none">
+                        <Input
+                          placeholder="Meal name (e.g. Chicken & Rice)"
+                          value={newMeal.name}
+                          onChange={e => setNewMeal(v => ({ ...v, name: e.target.value }))}
+                          className="mb-2 bg-card"
+                          autoFocus
+                          onKeyDown={e => e.key === "Enter" && addMeal(day.id)}
+                        />
+                        <div className="mb-2.5 grid grid-cols-3 gap-2">
+                          {[
+                            { key: "amount",   label: "Amount",  placeholder: "200g" },
+                            { key: "calories", label: "kcal",    placeholder: "500" },
+                            { key: "protein",  label: "Protein", placeholder: "40g" },
+                          ].map(({ key, label, placeholder }) => (
+                            <div key={key}>
+                              <Label className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {label}
+                              </Label>
+                              <Input
+                                placeholder={placeholder}
+                                value={(newMeal as any)[key]}
+                                onChange={e => setNewMeal(v => ({ ...v, [key]: e.target.value }))}
+                                className="h-10 bg-card text-[13px]"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button onClick={() => addMeal(day.id)} className="flex-1">Add</Button>
+                          <Button variant="outline" onClick={() => setAddingMeal(null)} className="flex-1">Cancel</Button>
+                        </div>
+                      </Card>
+                    ) : null}
+
+                    {/* Actions row — Add Meal only while editing My Plan */}
+                    <div className="flex gap-2">
+                      {tab === "self" && editingMyPlan && addingMeal !== day.id && (
+                        <Button
+                          variant="outline"
+                          onClick={() => setAddingMeal(day.id)}
+                          className="flex-1 border-dashed text-muted-foreground"
+                        >
+                          <Plus size={15} /> Add Meal
+                        </Button>
+                      )}
+                      {day.meals.length > 0 && (
+                        <Button
+                          variant="outline"
+                          onClick={() => resetDay(day.id)}
+                          className="text-muted-foreground"
+                        >
+                          <RefreshCw size={14} /> Reset
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                )}
+              </Card>
+            );
+          })}
+        </div>
+        )}
       </div>
-      )}
     </div>
   );
 }
@@ -664,35 +646,57 @@ function GramsCalorieCalc() {
   const carb = (food.c * ratio).toFixed(1);
   const fat  = (food.f * ratio).toFixed(1);
   return (
-    <div style={{ margin: "0 16px 16px", padding: "14px 16px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-      <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-        <Flame size={14} color="#FB7185" /> Calorie calculator (by grams)
+    <Card className="gap-0 p-4 shadow-soft-sm">
+      <p className="mb-2.5 flex items-center gap-1.5 text-[13px] font-semibold">
+        <Flame size={15} strokeWidth={2} className="text-[#FB7185]" /> Calorie calculator (by grams)
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
-        <select value={foodId} onChange={e => setFoodId(e.target.value)}
-          style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13 }}>
-          {FOOD_TABLE.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-        </select>
-        <input type="number" min="0" value={grams} onChange={e => setGrams(e.target.value)} placeholder="grams"
-          style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13 }} />
+      <div className="mb-2 grid grid-cols-[2fr_1fr] gap-2">
+        <Select value={foodId} onValueChange={setFoodId}>
+          <SelectTrigger className="w-full text-[13px]" aria-label="Food">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FOOD_TABLE.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Input
+          type="number"
+          min="0"
+          value={grams}
+          onChange={e => setGrams(e.target.value)}
+          placeholder="grams"
+          aria-label="Grams"
+          className="text-[13px]"
+        />
       </div>
       {food.id === "custom" && (
-        <input type="number" min="0" value={customKcal} onChange={e => setCustomKcal(e.target.value)} placeholder="kcal per 100g (from label)"
-          style={{ width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13, marginBottom: 8 }} />
+        <Input
+          type="number"
+          min="0"
+          value={customKcal}
+          onChange={e => setCustomKcal(e.target.value)}
+          placeholder="kcal per 100g (from label)"
+          aria-label="kcal per 100g"
+          className="mb-2 text-[13px]"
+        />
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 4 }}>
+      <div className="mt-1 grid grid-cols-4 gap-1.5">
         {[
           { label: "kcal", val: kcal,  c: "#FB7185" },
-          { label: "P (g)", val: prot, c: "#60A5FA" },
-          { label: "C (g)", val: carb, c: "#4ADE80" },
-          { label: "F (g)", val: fat,  c: "#FBBF24" },
+          { label: "P (g)", val: prot, c: "var(--secondary)" },
+          { label: "C (g)", val: carb, c: "var(--green)" },
+          { label: "F (g)", val: fat,  c: "var(--amber)" },
         ].map(({ label, val, c }) => (
-          <div key={label} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 10, background: `${c}14` }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: c }}>{val}</div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{label}</div>
+          <div
+            key={label}
+            className="rounded-md p-2 text-center"
+            style={{ background: `color-mix(in srgb, ${c} 12%, transparent)` }}
+          >
+            <div className="text-[15px] font-bold tabular-nums" style={{ color: c }}>{val}</div>
+            <div className="text-[10px] text-muted-foreground">{label}</div>
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
