@@ -50,6 +50,7 @@ export default function PlanCommentsThread({ workoutPlanId, nutritionPlanId, exe
   const [open, setOpen] = useState(!compact);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const planId = workoutPlanId || nutritionPlanId;
   const key = exerciseKey || mealKey;
 
@@ -82,7 +83,8 @@ export default function PlanCommentsThread({ workoutPlanId, nutritionPlanId, exe
       if (exerciseKey) body.exercise_key = exerciseKey;
       if (mealKey) body.meal_key = mealKey;
       const r = await api("/api/tickets/plan-comments", { method: "POST", body: JSON.stringify(body) });
-      if (r.ok) { setDraft(""); await load(); }
+      if (r.ok) { setDraft(""); setErr(""); await load(); }
+      else { const d = await r.json().catch(() => ({})); setErr(d.message || "Couldn't post comment."); }
     } finally { setBusy(false); }
   };
   const resolve = async (id: number, status: "open" | "resolved") => {
@@ -187,6 +189,7 @@ export default function PlanCommentsThread({ workoutPlanId, nutritionPlanId, exe
               <Send size={16} strokeWidth={2} />
             </Button>
           </div>
+          {err && <p className="mt-1.5 text-[12px] text-[var(--red)]">{err}</p>}
         </div>
       )}
     </div>

@@ -2717,7 +2717,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     const fontAr = getComputedStyle(document.documentElement).getPropertyValue('--font-ar').trim() || "'Cairo', sans-serif";
     document.body.style.fontFamily = lang === 'ar' ? `${fontAr}, ${fontEn}` : fontEn;
 
-    // translate existing DOM
+    // translate existing DOM. Reset the "already translated" set first: nodes
+    // converted to Arabic were being skipped on the way back to English (the
+    // guard in translateNode short-circuits known nodes), which left stray
+    // Arabic words on screen until a full refresh. Clearing the set forces
+    // every node to be re-evaluated for the new language.
+    translatedNodes.current = new WeakSet<Node>();
     requestAnimationFrame(() => translateAll());
 
     // observe new/changed DOM nodes for dynamic content (debounced to avoid lag)

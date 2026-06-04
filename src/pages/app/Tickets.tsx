@@ -57,6 +57,7 @@ export default function Tickets() {
   const [replies, setReplies] = useState<Reply[]>([]);
   const [replyDraft, setReplyDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
 
   // Cascading subject — athlete picks workout/nutrition, then a day from the
   // coach plan, then the specific exercise or meal. No free text. Subject is
@@ -99,7 +100,8 @@ export default function Tickets() {
     setBusy(true);
     try {
       const r = await api(`/api/tickets/${selected.id}/reply`, { method: "POST", body: JSON.stringify({ body: replyDraft.trim() }) });
-      if (r.ok) { setReplyDraft(""); await openTicket(selected); await loadList(); }
+      if (r.ok) { setReplyDraft(""); setErr(""); await openTicket(selected); await loadList(); }
+      else { const d = await r.json().catch(() => ({})); setErr(d.message || "Couldn't send reply."); }
     } finally { setBusy(false); }
   };
   const setStatus = async (status: "open" | "resolved" | "closed") => {
@@ -131,11 +133,12 @@ export default function Tickets() {
       const r = await api("/api/tickets", { method: "POST", body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
+        setErr("");
         setComposeMode(false); setNewBody(""); setNewCoachId("");
         setSelectedDay(""); setSelectedItemKey(""); setSelectedItemLabel("");
         await loadList();
         if (d.ticket) openTicket(d.ticket);
-      }
+      } else { const d = await r.json().catch(() => ({})); setErr(d.message || "Couldn't create ticket."); }
     } finally { setBusy(false); }
   };
 
@@ -239,11 +242,14 @@ export default function Tickets() {
         </div>
 
         {selected.status !== "closed" && (
-          <div className="flex items-end gap-2">
-            <Textarea value={replyDraft} onChange={e => setReplyDraft(e.target.value)} placeholder="Write a reply…" rows={2} className="min-h-11 flex-1" />
-            <Button onClick={sendReply} disabled={busy || !replyDraft.trim()} className="gap-1.5">
-              <Send size={14} /> Send
-            </Button>
+          <div>
+            <div className="flex items-end gap-2">
+              <Textarea value={replyDraft} onChange={e => { setReplyDraft(e.target.value); if (err) setErr(""); }} placeholder="Write a reply…" rows={2} className="min-h-11 flex-1" />
+              <Button onClick={sendReply} disabled={busy || !replyDraft.trim()} className="gap-1.5">
+                <Send size={14} /> Send
+              </Button>
+            </div>
+            {err && <p className="mt-1.5 text-[12px] text-[var(--red)]">{err}</p>}
           </div>
         )}
 
@@ -341,6 +347,7 @@ export default function Tickets() {
               </>
             )}
 
+            {err && <p className="text-[12px] text-[var(--red)]">{err}</p>}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setComposeMode(false)}>Cancel</Button>
               <Button size="sm" onClick={createTicket} disabled={busy || !newCoachId || !selectedItemKey || !newBody.trim() || planMissing}>
