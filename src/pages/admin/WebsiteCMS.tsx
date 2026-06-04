@@ -1,7 +1,7 @@
 import { getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect, useRef, type ReactNode, type ChangeEvent } from "react";
-import { Plus, Trash2, Eye, EyeOff, ChevronUp, ChevronDown, Edit3, Save, X, Upload, Image, Globe, Layout, Type, AlignLeft, Grid, Layers, ExternalLink, Languages, Search, Users, HelpCircle, Target, Tag, Palette } from "lucide-react";
+import { Plus, Trash2, Eye, EyeOff, ChevronUp, ChevronDown, Edit3, Save, X, Upload, Image, Globe, Layout, Type, AlignLeft, Grid, Layers, ExternalLink, Users, HelpCircle, Target, Tag } from "lucide-react";
 import { useI18n } from "@/context/I18nContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -245,13 +245,6 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
   const [appSettingsForm, setAppSettingsForm] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
-  const [translations, setTranslations] = useState<Record<string, string>>({});
-  const [translationsForm, setTranslationsForm] = useState<Record<string, string>>({});
-  const [translationsLoaded, setTranslationsLoaded] = useState(false);
-  const [translationsSaving, setTranslationsSaving] = useState(false);
-  const [translationSearch, setTranslationSearch] = useState("");
-  const [newTransKey, setNewTransKey] = useState("");
-  const [newTransVal, setNewTransVal] = useState("");
 
   const api = (path: string, opts?: RequestInit & { rawBody?: boolean }) => {
     const hdrs: Record<string, string> = { Authorization: `Bearer ${token}` };
@@ -282,11 +275,10 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
   const saveBranding = async () => {
     setBrandingSaving(true);
     try {
+      // Colours, fonts and button-hover effect are intentionally NOT saved
+      // here — they are hard-coded in the app theme and no longer editable.
       const keys = [
         "app_name", "app_tagline", "logo_url_en_light", "logo_url_en_dark", "logo_url_ar_light", "logo_url_ar_dark", "favicon_url", "footer_text", "copyright_text",
-        "primary_color", "secondary_color", "secondary_color_light", "bg_primary", "bg_card",
-        "btn_hover_type", "btn_hover_color",
-        "font_en", "font_ar", "font_heading",
         "social_instagram", "social_facebook", "social_twitter", "social_youtube", "social_tiktok",
         "coming_soon_enabled", "coming_soon_bg_image", "coming_soon_text", "coming_soon_text_ar",
       ];
@@ -304,23 +296,8 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
         }
       }
 
-      // Ensure the light-mode secondary colour key exists on older installs
-      // (it's seeded for fresh ones) so the PUT below actually persists it.
-      if (!("secondary_color_light" in brandingForm)) {
-        try {
-          await api("/api/admin/app-settings/add", {
-            method: "POST",
-            body: JSON.stringify({ key: "secondary_color_light", value: "#2563EB", type: "color", category: "branding", label: "Secondary Color (Light mode)" }),
-          });
-        } catch {
-          // Ignore if key already exists.
-        }
-      }
-
       const payload: Record<string, string> = {};
-      // Never blank the light-mode secondary colour: fall back to a sensible
-      // default so it always holds a valid colour even if untouched.
-      for (const k of keys) payload[k] = brandingForm[k] || (k === "secondary_color_light" ? "#2563EB" : "");
+      for (const k of keys) payload[k] = brandingForm[k] || "";
       const r = await api("/api/admin/app-settings", { method: "PUT", body: JSON.stringify(payload) });
       if (!r.ok) throw new Error("save failed");
       showMsg(t("cms_branding_saved"));
@@ -385,41 +362,8 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
     } catch {}
   };
 
-  const loadTranslations = async () => {
-    setTranslationsLoaded(false);
-    try {
-      const r = await api("/api/admin/website-translations");
-      const d = await r.json();
-      const t = d.translations || {};
-      setTranslations(t);
-      setTranslationsForm({ ...t });
-    } catch {} finally { setTranslationsLoaded(true); }
-  };
-
-  const saveTranslations = async () => {
-    setTranslationsSaving(true);
-    try {
-      const r = await api("/api/admin/website-translations", { method: "PUT", body: JSON.stringify({ translations: translationsForm }) });
-      if (!r.ok) throw new Error();
-      showMsg("✅ Translations saved!");
-      setTranslations({ ...translationsForm });
-    } catch { showMsg("❌ Failed to save translations"); }
-    finally { setTranslationsSaving(false); }
-  };
-
-  const addTranslation = () => {
-    if (!newTransKey.trim()) return;
-    setTranslationsForm(prev => ({ ...prev, [newTransKey.trim()]: newTransVal.trim() }));
-    setNewTransKey("");
-    setNewTransVal("");
-  };
-
-  const removeTranslation = (key: string) => {
-    setTranslationsForm(prev => { const n = { ...prev }; delete n[key]; return n; });
-  };
-
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     const r = await api(`/api/cms/admin/sections/${activePage}`);
     const d = await r.json();
     setSections(d.sections || []);
@@ -427,8 +371,8 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
   };
 
   useEffect(() => { load(); setEditingId(null); }, [activePage]);
-  useAutoRefresh(load);
-  useEffect(() => { loadBranding(); loadTranslations(); }, []);
+  useAutoRefresh(() => load(true));
+  useEffect(() => { loadBranding(); }, []);
 
   const toggleVisible = async (s: Section) => {
     await api(`/api/cms/admin/sections/${s.id}`, { method: "PUT", body: JSON.stringify({ is_visible: !s.is_visible }) });
@@ -1485,71 +1429,8 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
               </div>
             </div>
 
-            <div className="flex flex-col gap-2.5">
-              <p className="text-xs font-bold tracking-wider text-primary uppercase">{t("cms_colors_fonts")}</p>
-              {[
-                [t("cms_primary_color"), "primary_color"],
-                [l("Secondary Color (Dark mode)", "اللون الثانوي (الوضع الداكن)"), "secondary_color"],
-                [l("Secondary Color (Light mode)", "اللون الثانوي (الوضع الفاتح)"), "secondary_color_light"],
-                [t("cms_bg_primary"), "bg_primary"],
-                [t("cms_bg_card"), "bg_card"],
-              ].map(([label, key]) => (
-                <div key={key as string} className="grid gap-1.5">
-                  <Label className={fieldLabel}>{label}</Label>
-                  <div className="flex gap-2">
-                    <input type="color" aria-label={`${label} color`} value={brandingForm[key as string] || "#000000"} onChange={e => setBrandingForm(v => ({ ...v, [key]: e.target.value }))} className="h-11 w-11 cursor-pointer rounded-md bg-muted p-1 ring-1 ring-inset ring-border" />
-                    <Input className="flex-1" value={brandingForm[key as string] || ""} onChange={e => setBrandingForm(v => ({ ...v, [key]: e.target.value }))} />
-                  </div>
-                </div>
-              ))}
-
-              {/* ── Button Hover Style ── */}
-              <div className="pt-1.5">
-                <Separator className="mb-3" />
-                <p className="mb-2.5 flex items-center gap-2 text-xs font-bold tracking-wider text-primary uppercase"><Palette size={14} strokeWidth={2} /> Button Hover Effect</p>
-                <div className="mb-3 grid grid-cols-2 gap-2">
-                  {[
-                    { v: "glow",     l: "✨ Glow",    d: "Accent-colored glow" },
-                    { v: "lighten",  l: "☀️ Lighten", d: "Brightness boost" },
-                    { v: "shadow",   l: "🌑 Shadow",  d: "Neutral drop shadow" },
-                    { v: "lift",     l: "⬆️ Lift",    d: "Float upward" },
-                    { v: "pulse",    l: "💓 Pulse",   d: "Slight scale grow" },
-                  ].map(({ v, l: hl, d }) => {
-                    const sel = (brandingForm.btn_hover_type || "glow") === v;
-                    return (
-                      <button key={v} type="button" onClick={() => setBrandingForm(f => ({ ...f, btn_hover_type: v }))}
-                        className={`rounded-md p-3 text-start transition-colors ${sel ? "bg-primary/15 ring-1 ring-inset ring-primary/40" : "bg-muted hover:bg-accent"}`}>
-                        <p className={`text-[13px] font-semibold ${sel ? "text-primary" : "text-foreground"}`}>{hl}</p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">{d}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-                <Label className={fieldLabel}>Hover Glow Color <span className="font-normal normal-case">(leave empty = auto from accent)</span></Label>
-                <div className="mt-1.5 flex gap-2">
-                  <input type="color" aria-label="Hover glow color" value={brandingForm.btn_hover_color || "#FFD600"} onChange={e => setBrandingForm(v => ({ ...v, btn_hover_color: e.target.value }))} className="h-11 w-11 cursor-pointer rounded-md bg-muted p-1 ring-1 ring-inset ring-border" />
-                  <Input className="flex-1" placeholder="e.g. rgba(255,214,0,0.4) or leave empty" value={brandingForm.btn_hover_color || ""} onChange={e => setBrandingForm(v => ({ ...v, btn_hover_color: e.target.value }))} />
-                  {brandingForm.btn_hover_color && (
-                    <Button type="button" variant="outline" onClick={() => setBrandingForm(v => ({ ...v, btn_hover_color: "" }))}>
-                      Reset
-                    </Button>
-                  )}
-                </div>
-                {/* Live preview */}
-                <div className="mt-3 rounded-md bg-muted p-3.5"
-                  ref={el => { if (el) { const html = document.documentElement; html.setAttribute("data-btn-hover", brandingForm.btn_hover_type || "glow"); const c = brandingForm.btn_hover_color; if (c) html.style.setProperty("--btn-hover-color", c); } }}>
-                  <p className="mb-2 text-[11px] text-muted-foreground">LIVE PREVIEW — hover the buttons below:</p>
-                  <div className="flex flex-wrap gap-2.5">
-                    <button className="rounded-full bg-[var(--accent)] px-5 py-2.5 text-[13px] font-bold text-black">Primary</button>
-                    <button className="rounded-full bg-card px-5 py-2.5 text-[13px] font-semibold text-foreground ring-1 ring-inset ring-border">Secondary</button>
-                    <button className="rounded-full bg-transparent px-5 py-2.5 text-[13px] font-semibold text-[var(--accent)] ring-1 ring-inset ring-[var(--accent)]">Outline</button>
-                  </div>
-                </div>
-              </div>
-              <div className="grid gap-1.5"><Label className={fieldLabel}>{t("cms_font_en")}</Label><Input value={brandingForm.font_en || ""} onChange={e => setBrandingForm(v => ({ ...v, font_en: e.target.value }))} /></div>
-              <div className="grid gap-1.5"><Label className={fieldLabel}>{t("cms_font_ar")}</Label><Input value={brandingForm.font_ar || ""} onChange={e => setBrandingForm(v => ({ ...v, font_ar: e.target.value }))} /></div>
-              <div className="grid gap-1.5"><Label className={fieldLabel}>{t("cms_font_heading")}</Label><Input value={brandingForm.font_heading || ""} onChange={e => setBrandingForm(v => ({ ...v, font_heading: e.target.value }))} /></div>
-            </div>
+            {/* Colors, fonts and button hover effect are now hard-coded in the
+                app theme and are intentionally not editable from the CMS. */}
 
             <div className="flex flex-col gap-2.5">
               <p className="text-xs font-bold tracking-wider text-primary uppercase">{t("cms_social_links")}</p>
@@ -1721,65 +1602,6 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* APP CONFIGURATION */}
-      {/* Website Translations Manager */}
-      <div className="mt-6 flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="flex items-center gap-2 text-base font-semibold">
-              <Languages size={18} strokeWidth={2} className="text-primary" /> Website Translations
-            </p>
-            <p className="text-[13px] text-muted-foreground">Manage Arabic fallback translations for website text</p>
-          </div>
-          <div className="flex gap-2">
-            {translationsLoaded && (
-              <Button onClick={saveTranslations} disabled={translationsSaving}>
-                <Save size={16} strokeWidth={2} /> {translationsSaving ? "Saving…" : "Save Translations"}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {!translationsLoaded ? (
-          <Card className="p-8 text-center text-[13px] text-muted-foreground">Loading translations...</Card>
-        ) : (
-          <Card className="gap-0 p-5">
-            {/* Search + Add */}
-            <div className="mb-3.5 flex flex-wrap gap-2.5">
-              <div className="relative min-w-[200px] flex-1">
-                <Search size={14} strokeWidth={2} className="pointer-events-none absolute top-1/2 start-3 -translate-y-1/2 text-muted-foreground" />
-                <Input value={translationSearch} onChange={e => setTranslationSearch(e.target.value)} placeholder="Search translations..." className="ps-9" aria-label="Search translations" />
-              </div>
-            </div>
-
-            {/* Add new translation */}
-            <div className="mb-3.5 grid grid-cols-[1fr_1fr_auto] gap-2 rounded-md bg-muted p-3">
-              <Input className="bg-card" value={newTransKey} onChange={e => setNewTransKey(e.target.value)} placeholder="English text (key)" aria-label="English text key" />
-              <Input className="bg-card" value={newTransVal} onChange={e => setNewTransVal(e.target.value)} placeholder="Arabic translation" dir="rtl" aria-label="Arabic translation" />
-              <Button onClick={addTranslation}>
-                <Plus size={16} strokeWidth={2} /> Add
-              </Button>
-            </div>
-
-            {/* Translations list */}
-            <div className="flex max-h-[400px] flex-col gap-1.5 overflow-y-auto">
-              {Object.entries(translationsForm)
-                .filter(([k, v]) => !translationSearch || k.toLowerCase().includes(translationSearch.toLowerCase()) || (v as string).toLowerCase().includes(translationSearch.toLowerCase()))
-                .map(([key, val]) => (
-                  <div key={key} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
-                    <div className="truncate rounded-md bg-muted px-2 py-1.5 text-xs text-foreground" title={key}>{key}</div>
-                    <Input className="text-xs" value={val} onChange={e => setTranslationsForm(prev => ({ ...prev, [key]: e.target.value }))} dir="rtl" aria-label={`Translation for ${key}`} />
-                    <Button variant="destructive" size="icon-sm" aria-label={`Remove translation ${key}`} onClick={() => removeTranslation(key)}>
-                      <Trash2 size={14} strokeWidth={2} />
-                    </Button>
-                  </div>
-                ))}
-            </div>
-            <p className="mt-2.5 text-[11px] text-muted-foreground">{Object.keys(translationsForm).length} translation(s)</p>
-          </Card>
-        )}
-      </div>
 
     </div>
   );

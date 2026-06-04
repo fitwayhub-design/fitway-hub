@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { query, get, run } from '../config/database.js';
 import { uploadToR2 } from '../middleware/upload.js';
 import { sendPushFromTemplate } from '../notificationService.js';
+import { containsContactInfo, CONTACT_INFO_MESSAGE } from '../utils/contentGuard.js';
 
 const PRESENCE_TTL_MS = 20_000;
 const presenceMap = new Map<number, number>();
@@ -136,6 +137,7 @@ export const sendMessage = async (req: Request, res: Response) => {
     const { receiverId, challengeId, content } = req.body;
     const mediaUrl = req.file ? await uploadToR2(req.file, 'chat') : null;
     if ((!receiverId && !challengeId) || (!content && !mediaUrl)) return res.status(400).json({ message: 'Receiver ID or Challenge ID and content/media are required' });
+    if (containsContactInfo(content)) return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
 
     // Enforce direct-chat rules
     if (receiverId) {

@@ -32,6 +32,40 @@ router.post('/bootstrap-admin', async (req: any, res: Response) => {
 });
 
 
+// ── Recent activity feed (admin dashboard) ──────────────────────────────────
+// Aggregates the latest events across the app (sign-ups, posts, comments,
+// tickets, challenges, training, payments) into one reverse-chronological list.
+// Each source is wrapped in try/catch so a missing table degrades gracefully
+// instead of failing the whole feed.
+router.get('/recent-activity', authenticateToken, adminOnly, async (_req: Request, res: Response) => {
+  const safe = async (sql: string, map: (r: any) => any) => {
+    try { const rows: any[] = await query(sql); return rows.map(map); } catch { return []; }
+  };
+  try {
+    const [signups, posts, comments, tickets, challenges, training, payments] = await Promise.all([
+      safe("SELECT id, name, role, created_at FROM users ORDER BY id DESC LIMIT 20",
+        r => ({ type: 'signup', title: `${r.name || 'New user'} joined${r.role && r.role !== 'user' ? ` as ${r.role}` : ''}`, created_at: r.created_at })),
+      safe("SELECT p.id, p.content, u.name, p.created_at FROM posts p LEFT JOIN users u ON u.id = p.user_id ORDER BY p.id DESC LIMIT 20",
+        r => ({ type: 'post', title: `${r.name || 'Someone'} posted in the community`, detail: r.content, created_at: r.created_at })),
+      safe("SELECT pc.id, pc.content, u.name, pc.created_at FROM post_comments pc LEFT JOIN users u ON u.id = pc.user_id ORDER BY pc.id DESC LIMIT 20",
+        r => ({ type: 'comment', title: `${r.name || 'Someone'} commented on a post`, detail: r.content, created_at: r.created_at })),
+      safe("SELECT t.id, t.subject, u.name, t.created_at FROM tickets t LEFT JOIN users u ON u.id = t.user_id ORDER BY t.id DESC LIMIT 20",
+        r => ({ type: 'ticket', title: `${r.name || 'Someone'} opened a support ticket`, detail: r.subject, created_at: r.created_at })),
+      safe("SELECT c.id, c.title, u.name, c.created_at FROM challenges c LEFT JOIN users u ON u.id = c.creator_id ORDER BY c.id DESC LIMIT 20",
+        r => ({ type: 'challenge', title: `${r.name || 'Someone'} created a challenge`, detail: r.title, created_at: r.created_at })),
+      safe("SELECT e.id, e.event_type, u.name, e.created_at FROM training_events e LEFT JOIN users u ON u.id = e.user_id ORDER BY e.id DESC LIMIT 20",
+        r => ({ type: 'training', title: `${r.name || 'Athlete'} — ${String(r.event_type || 'training update').replace(/_/g, ' ')}`, created_at: r.created_at })),
+      safe("SELECT pm.id, pm.amount, pm.status, u.name, pm.created_at FROM payments pm LEFT JOIN users u ON u.id = pm.user_id ORDER BY pm.id DESC LIMIT 20",
+        r => ({ type: 'payment', title: `${r.name || 'Someone'} — payment ${Number(r.amount) || 0} EGP (${r.status || 'pending'})`, created_at: r.created_at })),
+    ]);
+    const all = [...signups, ...posts, ...comments, ...tickets, ...challenges, ...training, ...payments]
+      .filter(a => a.created_at)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 50);
+    res.json({ activities: all });
+  } catch { res.status(500).json({ message: 'Failed to load activity' }); }
+});
+
 // ── Users ──────────────────────────────────────────────────────────────────────
 router.get('/users', authenticateToken, adminOnly, async (_req: Request, res: Response) => {
   try {
@@ -1838,10 +1872,15 @@ router.patch('/community/challenges/:id', authenticateToken, adminOnly, async (r
 
 router.delete('/community/challenges/:id', authenticateToken, adminOnly, async (req: any, res: Response) => {
   try {
+    // Remove dependent rows first so the FK on challenge_participants (and any
+    // challenge group-chat messages) doesn't block the delete.
     await run('DELETE FROM challenge_participants WHERE challenge_id = ?', [req.params.id]).catch(() => {});
+    await run('DELETE FROM messages WHERE challenge_id = ?', [req.params.id]).catch(() => {});
     await run('DELETE FROM challenges WHERE id = ?', [req.params.id]);
     res.json({ message: 'Challenge deleted' });
-  } catch { res.status(500).json({ message: 'Failed to delete challenge' }); }
+  } catch (err: any) {
+    res.status(500).json({ message: err?.message || 'Failed to delete challenge' });
+  }
 });
 
 // ── Community comments (admin) ────────────────────────────────────────────────

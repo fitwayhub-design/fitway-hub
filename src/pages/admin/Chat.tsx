@@ -60,13 +60,13 @@ export default function AdminChat() {
       }
     } catch { /* ignore */ }
   };
-  const loadAll = async () => {
-    setLoading(true);
+  const loadAll = async (silent = false) => {
+    if (!silent) setLoading(true);
     await Promise.all([loadGroups(), loadSupport()]);
     setLoading(false);
   };
   useEffect(() => { loadAll(); /* eslint-disable-next-line */ }, []);
-  useAutoRefresh(loadAll);
+  useAutoRefresh(() => loadAll(true));
 
   const loadChallengeMessages = async (id: number) => {
     setMessages([]);

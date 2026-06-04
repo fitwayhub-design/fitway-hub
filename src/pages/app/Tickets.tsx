@@ -72,8 +72,8 @@ export default function Tickets() {
   const api = (path: string, init?: RequestInit) =>
     fetch(getApiBase() + path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } });
 
-  const loadList = async () => {
-    setLoading(true);
+  const loadList = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const r = await api("/api/tickets");
       if (r.ok) {
@@ -140,7 +140,7 @@ export default function Tickets() {
   };
 
   useEffect(() => { loadList(); /* eslint-disable-next-line */ }, []);
-  useAutoRefresh(loadList);
+  useAutoRefresh(() => loadList(true));
 
   // Load coaches the athlete is subscribed to (for the compose form). Coaches
   // can't open tickets to themselves so this is skipped for them.

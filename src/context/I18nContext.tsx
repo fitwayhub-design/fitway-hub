@@ -369,6 +369,10 @@ const translations: Record<Lang, Record<string, string>> = {
     confirmed: 'Confirmed',
     recent_activity: 'Recent Activity',
     no_recent_activity: 'No recent activity yet',
+    no_activity_yet: 'No recent activity yet.',
+    customize_menu: 'Customize menu bar',
+    customize_menu_hint: 'Choose which items show in your upper menu bar. This is saved just for you.',
+    show_all: 'Show all',
     just_now: 'just now',
     mins_ago: 'm ago',
     hours_ago: 'h ago',
@@ -1579,6 +1583,10 @@ const translations: Record<Lang, Record<string, string>> = {
     confirmed: 'مؤكد',
     recent_activity: 'النشاط الأخير',
     no_recent_activity: 'لا يوجد نشاط حديث بعد',
+    no_activity_yet: 'لا يوجد نشاط حديث بعد.',
+    customize_menu: 'تخصيص شريط القوائم',
+    customize_menu_hint: 'اختر العناصر التي تظهر في شريط القوائم العلوي. يتم الحفظ لك وحدك.',
+    show_all: 'إظهار الكل',
     just_now: 'الآن',
     mins_ago: 'د مضت',
     hours_ago: 'س مضت',
@@ -2746,12 +2754,16 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     return () => observer.disconnect();
   }, [lang, translateAll, translateNode]);
 
+  // Read reactive `lang` (not langRef.current) and depend on it so t() gets a
+  // new identity whenever the language changes. Without this, components that
+  // only consume t() (not lang) kept rendering the previous language's strings
+  // until a manual refresh — e.g. switching ar→en left some words in Arabic.
   const t = useCallback((key: string, vars?: Record<string, string | number>) => {
-    let v = translations[langRef.current]?.[key] || translations.en[key] || key;
+    let v = translations[lang]?.[key] || translations.en[key] || key;
     if (vars) Object.entries(vars).forEach(([k, val]) => { v = v.replace(`{${k}}`, String(val)); });
-    if (langRef.current === 'ar') v = toEgyptianArabic(v);
+    if (lang === 'ar') v = toEgyptianArabic(v);
     return v;
-  }, []);
+  }, [lang]);
 
   return (
     <I18nContext.Provider value={{ lang, setLang, t }}>

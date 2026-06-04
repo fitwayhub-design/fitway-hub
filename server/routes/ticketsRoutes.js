@@ -12,6 +12,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { get, run, query } from '../config/database.js';
+import { containsContactInfo, CONTACT_INFO_MESSAGE } from '../utils/contentGuard.js';
 const router = Router();
 // ── helpers ────────────────────────────────────────────────────────────────
 async function notify(userId, type, title, body, link) {
@@ -84,6 +85,8 @@ router.post('/', authenticateToken, async (req, res) => {
         const { coach_id, subject, body, kind, workout_plan_id, nutrition_plan_id, exercise_key, meal_key } = req.body || {};
         if (!coach_id || !subject)
             return res.status(400).json({ message: 'coach_id and subject are required' });
+        if (containsContactInfo(subject) || containsContactInfo(body))
+            return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
         const isWorkout = !!workout_plan_id && !!exercise_key;
         const isNutrition = !!nutrition_plan_id && !!meal_key;
         if (!isWorkout && !isNutrition) {
@@ -166,6 +169,8 @@ router.post('/:id/reply', authenticateToken, async (req, res) => {
         const { body } = req.body || {};
         if (!body)
             return res.status(400).json({ message: 'body required' });
+        if (containsContactInfo(body))
+            return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
         await run('INSERT INTO ticket_replies (ticket_id, author_id, author_role, body, created_at) VALUES (?, ?, ?, ?, NOW())', [ticket.id, u.id, u.role, body]);
         await run('UPDATE tickets SET updated_at = NOW(), status = IF(status = "closed", "open", status) WHERE id = ?', [ticket.id]);
         const other = u.id === ticket.user_id ? ticket.coach_id : ticket.user_id;
@@ -228,6 +233,8 @@ router.post('/plan-comments', authenticateToken, async (req, res) => {
         const { workout_plan_id, nutrition_plan_id, exercise_key, meal_key, body, parent_id } = req.body || {};
         if (!body)
             return res.status(400).json({ message: 'body required' });
+        if (containsContactInfo(body))
+            return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
         if (!workout_plan_id && !nutrition_plan_id)
             return res.status(400).json({ message: 'plan id required' });
         const result = await run(`INSERT INTO plan_comments (workout_plan_id, nutrition_plan_id, exercise_key, meal_key, author_id, author_role, body, status, parent_id, created_at, updated_at)
