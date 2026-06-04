@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { register, login, logout, forgotPasswordGetQuestion, forgotPasswordVerify, changePassword, changeEmail, loginWithRememberToken, addOfflineSteps, updateProfile, oauthGoogleStart, oauthGoogleCallback, requestRegisterOtp, requestForgotPasswordOtp, forgotPasswordOtpReset, requestChangePasswordOtp, } from '../controllers/authController.js';
+import { register, login, logout, forgotPasswordGetQuestion, forgotPasswordVerify, changePassword, loginWithRememberToken, addOfflineSteps, updateProfile, oauthGoogleStart, oauthGoogleCallback, requestRegisterOtp, requestForgotPasswordOtp, forgotPasswordOtpReset, requestChangePasswordOtp, } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { get } from '../config/database.js';
 const router = Router();
@@ -51,7 +51,8 @@ router.post('/forgot-password/request-otp', otpRequestLimiter, requestForgotPass
 router.post('/forgot-password/otp-reset', strictLimiter, forgotPasswordOtpReset);
 router.post('/change-password', authenticateToken, changePassword);
 router.post('/change-password/request-otp', authenticateToken, otpRequestLimiter, requestChangePasswordOtp);
-router.post('/change-email', authenticateToken, changeEmail);
+// Email is fixed once an account is registered — the change-email endpoint was
+// intentionally removed so a user's email can no longer be changed.
 router.post('/login-remember', authLimiter, loginWithRememberToken);
 router.post('/offline-steps', authenticateToken, addOfflineSteps);
 router.post('/update-profile', authenticateToken, updateProfile);

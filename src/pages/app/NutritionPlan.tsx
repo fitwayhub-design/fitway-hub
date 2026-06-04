@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import PlanCommentsThread from "@/components/app/PlanCommentsThread";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -28,6 +29,9 @@ interface Meal {
   protein: string;
   note?: string;
   eaten?: boolean;
+  // Stable key matching the coach's per-meal comment thread
+  // (`<mealId>::<name>`). Only set for coach-plan meals.
+  commentKey?: string;
 }
 
 interface NutritionDay {
@@ -119,6 +123,7 @@ export default function NutritionPlan() {
   const [tab, setTab] = useState<"self" | "coach">("self");
   const [plan, setPlan] = useState<NutritionDay[]>(DEFAULT_PLAN);
   const [coachPlanData, setCoachPlanData] = useState<NutritionDay[] | null>(null);
+  const [coachNutritionPlanId, setCoachNutritionPlanId] = useState<number | null>(null);
   const [coachName, setCoachName] = useState<string>("");
   const [hasSubscription, setHasSubscription] = useState(false);
   const [hasMyPlan, setHasMyPlan] = useState(false);
@@ -151,13 +156,15 @@ export default function NutritionPlan() {
               meals.forEach((m: any, idx: number) => {
                 const day = m.day || DAYS[idx % 7];
                 if (!dayMap.has(day)) dayMap.set(day, []);
-                dayMap.get(day)!.push({ id: idx + 1, name: m.name || m.meal_name, amount: m.amount || "1 serving", calories: m.calories || 0, protein: m.protein || "0g" });
+                const name = m.name || m.meal_name;
+                dayMap.get(day)!.push({ id: idx + 1, name, amount: m.amount || "1 serving", calories: m.calories || 0, protein: m.protein || "0g", commentKey: String(m.id) + "::" + name });
               });
               const coachPlan: NutritionDay[] = DAYS.map((day, i) => ({
                 id: i + 1, day, goal: dayMap.has(day) ? "Maintain" : "Rest",
                 meals: dayMap.get(day) || [], expanded: false,
               }));
               setCoachPlanData(coachPlan);
+              setCoachNutritionPlanId(d.plan.id ?? null);
               setCoachName(d.plan.coach_name || "Your Coach");
             }
           } catch { /* leave coachPlanData null */ }
@@ -173,8 +180,9 @@ export default function NutritionPlan() {
             const meals = typeof d.plan.meals === "string" ? JSON.parse(d.plan.meals) : d.plan.meals;
             if (Array.isArray(meals) && meals.length > 0) {
               const dayMap = new Map<string, Meal[]>();
-              meals.forEach((m: any, idx: number) => { const day = m.day || DAYS[idx % 7]; if (!dayMap.has(day)) dayMap.set(day, []); dayMap.get(day)!.push({ id: idx + 1, name: m.name || m.meal_name, amount: m.amount || "1 serving", calories: m.calories || 0, protein: m.protein || "0g" }); });
+              meals.forEach((m: any, idx: number) => { const day = m.day || DAYS[idx % 7]; if (!dayMap.has(day)) dayMap.set(day, []); const name = m.name || m.meal_name; dayMap.get(day)!.push({ id: idx + 1, name, amount: m.amount || "1 serving", calories: m.calories || 0, protein: m.protein || "0g", commentKey: String(m.id) + "::" + name }); });
               setCoachPlanData(DAYS.map((day, i) => ({ id: i + 1, day, goal: dayMap.has(day) ? "Maintain" : "Rest", meals: dayMap.get(day) || [], expanded: false })));
+              setCoachNutritionPlanId(d.plan.id ?? null);
             }
           } catch {}
         }
@@ -475,8 +483,8 @@ export default function NutritionPlan() {
                     ) : (
                       <div className="mb-3 flex flex-col gap-1.5">
                         {day.meals.map((meal, idx) => (
+                          <div key={meal.id}>
                           <div
-                            key={meal.id}
                             className="flex items-center gap-2.5 rounded-md p-3 transition"
                             style={{
                               background: meal.eaten
@@ -523,6 +531,13 @@ export default function NutritionPlan() {
                                 <Trash2 size={15} />
                               </Button>
                             )}
+                          </div>
+                          {/* Coach's guidance comments for this meal */}
+                          {tab === "coach" && coachNutritionPlanId && meal.commentKey && (
+                            <div className="mt-1.5 ps-8">
+                              <PlanCommentsThread nutritionPlanId={coachNutritionPlanId} mealKey={meal.commentKey} compact />
+                            </div>
+                          )}
                           </div>
                         ))}
                       </div>

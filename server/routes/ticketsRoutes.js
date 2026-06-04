@@ -302,7 +302,13 @@ router.post('/training-events', authenticateToken, async (req, res) => {
                 plan_finished: 'Athlete finished their plan 🎉',
             };
             const title = titles[event_type] || 'Training update';
-            const body = `${u.name || 'Your athlete'} — ${title.toLowerCase()}.`;
+            // Surface how far through their plan the athlete is, so the coach can see
+            // progress at a glance in the notification itself.
+            const rawPct = payload && typeof payload.progress_percent === 'number' ? payload.progress_percent : null;
+            const pct = rawPct === null ? null : Math.max(0, Math.min(100, Math.round(rawPct)));
+            let body = `${u.name || 'Your athlete'} — ${title.toLowerCase()}.`;
+            if (pct !== null)
+                body += ` Plan progress: ${pct}% complete.`;
             await notify(coachId, event_type, title, body, `/coach/athletes/${u.id}`);
         }
         // Award completion credit when a plan is finished. Reward amount is

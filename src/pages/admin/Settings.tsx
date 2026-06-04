@@ -4,7 +4,7 @@ import {
   Lock, CreditCard, Star, LayoutDashboard,
   Upload, Eye, EyeOff, ToggleLeft, Database, Sun, Moon,
   Plus, Trash2, Smartphone, Bot, Apple, Wallet, Coins,
-  Download, Users, Globe,
+  Download, Users, Globe, ShieldCheck, Search,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
@@ -34,7 +34,7 @@ interface AppSetting {
   label: string | null;
 }
 
-type Category = "dashboard" | "access" | "features" | "pricing" | "points" | "payments" | "promo" | "system";
+type Category = "dashboard" | "access" | "features" | "pricing" | "points" | "payments" | "promo" | "moderators" | "system";
 
 const CATEGORIES: { key: Category; label: string; icon: typeof LayoutDashboard; desc: string }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, desc: "Hero, sections, visibility" },
@@ -44,7 +44,16 @@ const CATEGORIES: { key: Category; label: string; icon: typeof LayoutDashboard; 
   { key: "points",    label: "Points",    icon: Star,            desc: "Rewards & bonus points" },
   { key: "payments",  label: "Payments",  icon: CreditCard,      desc: "Payment gateways & methods" },
   { key: "promo",     label: "Promo codes", icon: Star,          desc: "Discount & gift codes" },
+  { key: "moderators", label: "Moderators", icon: ShieldCheck,   desc: "Assign moderators & access" },
   { key: "system",    label: "System",    icon: Database,        desc: "Backup, server, tools" },
+];
+
+// Moderator-controllable areas surfaced in the Moderators tab. Each maps to a
+// permission key enforced server-side; default (unset) = allowed.
+const MODERATOR_AREAS: { key: string; label: string; desc: string }[] = [
+  { key: "community_view",     label: "View community",     desc: "See community posts, comments and stats" },
+  { key: "community_moderate", label: "Moderate community", desc: "Hide / restore / delete posts and delete comments" },
+  { key: "challenges_view",    label: "Access challenges",  desc: "View and manage community challenges" },
 ];
 
 /* --- Payment helper components -------------------------------------------- */
@@ -137,6 +146,56 @@ export default function AdminSettings() {
   const [payLoading, setPayLoading] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
 
+  // Moderators tab state
+  const [modUsers, setModUsers] = useState<Array<{ id: number; name: string; email: string; role: string; avatar?: string }>>([]);
+  const [modPerms, setModPerms] = useState<Record<string, boolean>>({});
+  const [modSearch, setModSearch] = useState("");
+  const [modLoading, setModLoading] = useState(false);
+  const [modSaving, setModSaving] = useState(false);
+
+  const loadModerators = useCallback(async () => {
+    setModLoading(true);
+    try {
+      const [uRes, pRes] = await Promise.all([
+        fetch(`${API}/api/admin/users`, { headers }),
+        fetch(`${API}/api/admin/moderator-permissions`, { headers }),
+      ]);
+      const uData = await uRes.json().catch(() => ({}));
+      const pData = await pRes.json().catch(() => ({}));
+      setModUsers((uData.users || []).map((u: any) => ({ id: u.id, name: u.name, email: u.email, role: u.role, avatar: u.avatar })));
+      setModPerms(pData.permissions || {});
+    } catch {
+      // leave empty — render shows a friendly state
+    } finally {
+      setModLoading(false);
+    }
+  }, []); // eslint-disable-line
+
+  const setUserRole = async (id: number, role: string) => {
+    try {
+      const r = await fetch(`${API}/api/admin/users/${id}/role`, { method: "PATCH", headers, body: JSON.stringify({ role }) });
+      if (!r.ok) throw new Error();
+      setModUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u));
+      showFlash(role === "moderator" ? l("Moderator added", "تمت إضافة مشرف") : l("Moderator removed", "تمت إزالة المشرف"));
+    } catch {
+      showFlash(l("Failed to update role", "فشل تحديث الدور"), false);
+    }
+  };
+
+  const saveModeratorPerms = async (next: Record<string, boolean>) => {
+    setModPerms(next);
+    setModSaving(true);
+    try {
+      const r = await fetch(`${API}/api/admin/moderator-permissions`, { method: "PUT", headers, body: JSON.stringify({ permissions: next }) });
+      if (!r.ok) throw new Error();
+      showFlash(l("Access updated", "تم تحديث الصلاحيات"));
+    } catch {
+      showFlash(l("Failed to save access", "فشل حفظ الصلاحيات"), false);
+    } finally {
+      setModSaving(false);
+    }
+  };
+
   const showFlash = (msg: string, ok = true) => {
     setFlash({ msg, ok });
     setTimeout(() => setFlash(null), 3000);
@@ -173,6 +232,7 @@ export default function AdminSettings() {
 
   useEffect(() => { fetchSettings(); fetchPaymentSettings(); fetchServerUrl(); }, [fetchSettings, fetchPaymentSettings]);
   useEffect(() => { setAdminName(user?.name || ""); }, [user?.name]);
+  useEffect(() => { if (activeTab === "moderators") loadModerators(); }, [activeTab, loadModerators]);
 
   // --- System functions ---
   const fetchServerUrl = async () => {
@@ -449,6 +509,109 @@ export default function AdminSettings() {
             })}
           </Card>
         ))}
+      </div>
+    );
+  }
+
+  function renderModerators() {
+    const isAllowed = (key: string) => modPerms[key] !== false; // default = allowed
+    const toggleArea = (key: string) => saveModeratorPerms({ ...modPerms, [key]: !isAllowed(key) });
+    const moderators = modUsers.filter(u => u.role === "moderator");
+    const q = modSearch.trim().toLowerCase();
+    const candidates = q
+      ? modUsers.filter(u => u.role !== "moderator" && u.role !== "admin" && (u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)))
+      : [];
+
+    return (
+      <div className="space-y-3.5">
+        {/* Access toggles */}
+        <Card className="gap-0 overflow-hidden p-0">
+          <div className="flex items-center gap-3 bg-muted px-5 py-3.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-md bg-card text-primary"><Lock size={18} strokeWidth={2} /></span>
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-foreground">{l("What moderators can access", "ما يمكن للمشرفين الوصول إليه")}</p>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">{l("Turn an area off to block it for all moderators. Admins always have full access.", "أوقف أي قسم لمنعه عن جميع المشرفين. المسؤولون لديهم وصول كامل دائمًا.")}</p>
+            </div>
+          </div>
+          <div className="flex flex-col">
+            {MODERATOR_AREAS.map((a, i) => (
+              <div key={a.key}>
+                <div className="flex items-center justify-between gap-3 px-5 py-3.5">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-foreground">{l(a.label, a.label)}</p>
+                    <p className="mt-0.5 text-[12px] text-muted-foreground">{a.desc}</p>
+                  </div>
+                  <Switch checked={isAllowed(a.key)} disabled={modSaving} onCheckedChange={() => toggleArea(a.key)} aria-label={a.label} />
+                </div>
+                {i < MODERATOR_AREAS.length - 1 && <Separator />}
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Current moderators */}
+        <Card className="gap-0 overflow-hidden p-0">
+          <div className="flex items-center gap-3 bg-muted px-5 py-3.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-md bg-card text-primary"><ShieldCheck size={18} strokeWidth={2} /></span>
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-foreground">{l("Moderators", "المشرفون")}</p>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">{l("People who can moderate based on the access above.", "الأشخاص الذين يمكنهم الإشراف بناءً على الصلاحيات أعلاه.")}</p>
+            </div>
+          </div>
+          <div className="flex flex-col">
+            {modLoading ? (
+              <p className="px-5 py-6 text-center text-[13px] text-muted-foreground">{l("Loading...", "جاري التحميل...")}</p>
+            ) : moderators.length === 0 ? (
+              <p className="px-5 py-6 text-center text-[13px] text-muted-foreground">{l("No moderators yet. Add one below.", "لا يوجد مشرفون بعد. أضف واحدًا أدناه.")}</p>
+            ) : (
+              moderators.map((u, i) => (
+                <div key={u.id}>
+                  <div className="flex items-center justify-between gap-3 px-5 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-foreground">{u.name}</p>
+                      <p className="truncate text-[12px] text-muted-foreground">{u.email}</p>
+                    </div>
+                    <Button variant="outline" size="sm" className="text-destructive" onClick={() => setUserRole(u.id, "user")}>
+                      <Trash2 size={14} strokeWidth={2} /> {l("Remove", "إزالة")}
+                    </Button>
+                  </div>
+                  {i < moderators.length - 1 && <Separator />}
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+
+        {/* Add a moderator */}
+        <Card className="gap-0 p-5">
+          <p className="mb-2.5 text-[15px] font-semibold">{l("Add a moderator", "إضافة مشرف")}</p>
+          <div className="relative">
+            <Search size={15} strokeWidth={2} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input value={modSearch} onChange={e => setModSearch(e.target.value)} placeholder={l("Search users by name or email", "ابحث عن المستخدمين بالاسم أو البريد")} className="ps-9" />
+          </div>
+          {q && (
+            <div className="mt-3 flex flex-col">
+              {candidates.length === 0 ? (
+                <p className="py-4 text-center text-[13px] text-muted-foreground">{l("No matching users.", "لا يوجد مستخدمون مطابقون.")}</p>
+              ) : (
+                candidates.slice(0, 12).map((u, i) => (
+                  <div key={u.id}>
+                    <div className="flex items-center justify-between gap-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold text-foreground">{u.name}</p>
+                        <p className="truncate text-[12px] text-muted-foreground">{u.email}</p>
+                      </div>
+                      <Button size="sm" onClick={() => setUserRole(u.id, "moderator")}>
+                        <ShieldCheck size={14} strokeWidth={2} /> {l("Make moderator", "تعيين كمشرف")}
+                      </Button>
+                    </div>
+                    {i < Math.min(candidates.length, 12) - 1 && <Separator />}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </Card>
       </div>
     );
   }
@@ -823,6 +986,7 @@ export default function AdminSettings() {
   const isFeatures = activeTab === "features";
   const isSystem = activeTab === "system";
   const isPromo = activeTab === "promo";
+  const isModerators = activeTab === "moderators";
   const activeMeta = CATEGORIES.find(c => c.key === activeTab);
 
   return (
@@ -874,7 +1038,7 @@ export default function AdminSettings() {
               <h2 className="text-xl font-semibold tracking-tight">{activeMeta?.label}</h2>
               <p className="text-[13px] text-muted-foreground">{activeMeta?.desc}</p>
             </div>
-            {!isSystem && !isPromo && (
+            {!isSystem && !isPromo && !isModerators && (
               <Button
                 onClick={isPayments ? savePaymentSettings : saveAppSettings}
                 disabled={saving || (!isPayments && filtered.length === 0)}
@@ -885,7 +1049,7 @@ export default function AdminSettings() {
             )}
           </div>
 
-          {isSystem ? renderSystem() : isPromo ? renderPromoCodes() : isPayments ? (
+          {isModerators ? renderModerators() : isSystem ? renderSystem() : isPromo ? renderPromoCodes() : isPayments ? (
             payLoading ? (
               <Card className="p-10 text-center text-[13px] text-muted-foreground">
                 Loading...

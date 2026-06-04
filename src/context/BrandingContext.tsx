@@ -22,6 +22,7 @@ export interface Branding {
   social_tiktok: string;
   primary_color: string;
   secondary_color: string;
+  secondary_color_light: string;
   bg_primary: string;
   bg_card: string;
   btn_hover_type: string;
@@ -55,6 +56,7 @@ const defaults: Branding = {
   social_tiktok: "",
   primary_color: "#FFD600",
   secondary_color: "#3B8BFF",
+  secondary_color_light: "#2563EB",
   bg_primary: "#000000",
   bg_card: "#111111",
   btn_hover_type: "glow",
@@ -175,8 +177,36 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
 
   // Apply dynamic theme tokens from branding settings.
   useEffect(() => {
-    setCssVar("--accent", branding.primary_color);
-    setCssVar("--blue", branding.secondary_color);
+    // Primary / main colour — apply the EXACT admin-chosen colour in BOTH
+    // light and dark mode. Previously light mode kept a hardcoded darkened
+    // yellow (#C8B000) which made it differ from the chosen colour; setting
+    // --main inline here overrides the html.light default so what you pick is
+    // what shows. We set both --main (used by buttons/badges/nav) and --accent
+    // (legacy alias) so every surface follows the choice.
+    const primary = String(branding.primary_color || "").trim();
+    setCssVar("--main", primary);
+    setCssVar("--accent", primary);
+
+    // Secondary colour — a SEPARATE value per mode. Dark mode uses
+    // secondary_color, light mode uses secondary_color_light (falling back to
+    // the dark value when an admin hasn't set a light one yet).
+    const secondaryDark = String(branding.secondary_color || "").trim();
+    const secondaryLight = String(branding.secondary_color_light || "").trim() || secondaryDark;
+    const secondary = isDark ? secondaryDark : secondaryLight;
+    setCssVar("--secondary", secondary);
+    setCssVar("--blue", secondary);
+
+    // Re-derive the dim/glow tints from the chosen colours so tinted surfaces
+    // (badges, active nav pills, hover glows) track the picked colour per mode.
+    const mainDim = hexToRgba(primary, isDark ? 0.10 : 0.08);
+    const mainGlow = hexToRgba(primary, isDark ? 0.24 : 0.16);
+    if (mainDim) document.documentElement.style.setProperty("--main-dim", mainDim);
+    else document.documentElement.style.removeProperty("--main-dim");
+    if (mainGlow) document.documentElement.style.setProperty("--main-glow", mainGlow);
+    else document.documentElement.style.removeProperty("--main-glow");
+    const secDim = hexToRgba(secondary, isDark ? 0.12 : 0.10);
+    if (secDim) document.documentElement.style.setProperty("--secondary-dim", secDim);
+    else document.documentElement.style.removeProperty("--secondary-dim");
 
     // Button hover type — set data attribute on <html> for CSS selector targeting
     const hoverType = branding.btn_hover_type || "glow";
@@ -230,6 +260,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     isDark,
     branding.primary_color,
     branding.secondary_color,
+    branding.secondary_color_light,
     branding.bg_primary,
     branding.bg_card,
     branding.btn_hover_type,

@@ -31,6 +31,9 @@ interface Exercise {
   done?: boolean;
   video_url?: string;
   video_type?: "upload" | "youtube";
+  // Stable key matching the coach's per-exercise comment thread
+  // (`<exerciseId>::<name>`). Only set for coach-plan exercises.
+  commentKey?: string;
 }
 
 interface WorkoutDay {
@@ -155,7 +158,8 @@ export default function WorkoutPlan() {
               exercises.forEach((ex: any, idx: number) => {
                 const day = ex.day || DAYS[idx % 7];
                 if (!dayMap.has(day)) dayMap.set(day, []);
-                dayMap.get(day)!.push({ id: idx + 1, name: ex.name || ex.exercise, sets: ex.sets || 3, reps: ex.reps || "10", rest: ex.rest || "60s", video_url: ex.video_url || undefined, video_type: ex.video_type || undefined });
+                const name = ex.name || ex.exercise;
+                dayMap.get(day)!.push({ id: idx + 1, name, sets: ex.sets || 3, reps: ex.reps || "10", rest: ex.rest || "60s", video_url: ex.video_url || undefined, video_type: ex.video_type || undefined, commentKey: String(ex.id) + "::" + name });
               });
               const coachPlan: WorkoutDay[] = DAYS.map((day, i) => ({
                 id: i + 1, day, focus: dayMap.has(day) ? "Full" : "Rest",
@@ -193,6 +197,9 @@ export default function WorkoutPlan() {
     let firstToggleToday = false;
     let allDoneNow = false;
     let wholePlanDoneNow = false;
+    // Overall progress across the whole plan, captured after the toggle so the
+    // coach notification can report how far the athlete has come.
+    let progressPercent = 0;
     setPlan(p => {
       const nextPlan = p.map(d => {
         if (d.id !== dayId) return d;
@@ -209,16 +216,20 @@ export default function WorkoutPlan() {
       // server is idempotent per-plan_id so re-toggles can't double-credit.
       wholePlanDoneNow = nextPlan.every(d => d.exercises.length === 0 || d.exercises.every(e => e.done))
         && nextPlan.some(d => d.exercises.length > 0);
+      const allExercises = nextPlan.flatMap(d => d.exercises);
+      const doneCount = allExercises.filter(e => e.done).length;
+      progressPercent = allExercises.length > 0 ? Math.round((doneCount / allExercises.length) * 100) : 0;
       return nextPlan;
     });
     // Fire training events so the coach sees a "started training" /
-    // "finished a workout" entry. Only when we have a coach plan.
+    // "finished a workout" entry, with the athlete's overall plan progress %.
+    // Only when we have a coach plan.
     if (tab === "coach" && coachPlanId && token) {
       const post = (event_type: string) =>
         fetch(getApiBase() + "/api/tickets/training-events", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ event_type, workout_plan_id: coachPlanId }),
+          body: JSON.stringify({ event_type, workout_plan_id: coachPlanId, payload: { progress_percent: progressPercent } }),
         }).catch(() => {});
       if (firstToggleToday) post("workout_started");
       if (allDoneNow) post("workout_finished");
@@ -582,8 +593,8 @@ export default function WorkoutPlan() {
                             {/* Asana-style comments thread (coach plan only — own
                                 plan doesn't have a coach yet, so nothing to
                                 discuss). Mounted compact so users opt in. */}
-                            {tab === "coach" && coachPlanId && (
-                              <PlanCommentsThread workoutPlanId={coachPlanId} exerciseKey={String(ex.id) + "::" + ex.name} compact />
+                            {tab === "coach" && coachPlanId && ex.commentKey && (
+                              <PlanCommentsThread workoutPlanId={coachPlanId} exerciseKey={ex.commentKey} compact />
                             )}
                           </div>
                         ))}

@@ -60,7 +60,6 @@ export default function Profile() {
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
   const [showSecurity, setShowSecurity] = useState(false);
   const [securitySaving, setSecuritySaving] = useState(false);
-  const [emailSaving, setEmailSaving] = useState(false);
   const [stepGoalSaving, setStepGoalSaving] = useState(false);
   const [stepGoalDraft, setStepGoalDraft] = useState<number>((user as any)?.stepGoal || (user as any)?.step_goal || 10000);
   const [showProgressPhotos, setShowProgressPhotos] = useState(() => localStorage.getItem("profile_show_progress_photos") !== "0");
@@ -80,16 +79,8 @@ export default function Profile() {
   const [otpRequested, setOtpRequested] = useState(false);
   const [otpRequesting, setOtpRequesting] = useState(false);
   const [otpResendCooldown, setOtpResendCooldown] = useState(0);
-  const [emailForm, setEmailForm] = useState({
-    currentPassword: "",
-    newEmail: user?.email || "",
-  });
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("preferences");
-
-  useEffect(() => {
-    setEmailForm((prev) => ({ ...prev, newEmail: user?.email || "" }));
-  }, [user?.email]);
 
   useEffect(() => {
     setStepGoalDraft((user as any)?.stepGoal || (user as any)?.step_goal || 10000);
@@ -291,40 +282,6 @@ export default function Profile() {
     setSecuritySaving(false);
   };
 
-  const saveEmailSettings = async () => {
-    if (!emailForm.currentPassword || !emailForm.newEmail.trim()) {
-      flash(`❌ ${t("current_password_new_email_required")}`);
-      return;
-    }
-    const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(emailForm.newEmail.trim())) {
-      flash(`❌ ${t("valid_email_address")}`);
-      return;
-    }
-    setEmailSaving(true);
-    try {
-      const r = await fetch(`${getApiBase()}/api/auth/change-email`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          currentPassword: emailForm.currentPassword,
-          newEmail: emailForm.newEmail.trim(),
-        }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        flash(`❌ ${d?.message || t("failed_update_email")}`);
-      } else {
-        updateUser({ email: d?.email || emailForm.newEmail.trim() } as any);
-        setEmailForm({ currentPassword: "", newEmail: d?.email || emailForm.newEmail.trim() });
-        flash(`✅ ${t("email_updated_success")}`);
-      }
-    } catch {
-      flash(`❌ ${t("failed_update_email")}`);
-    }
-    setEmailSaving(false);
-  };
-
   const saveStepGoal = async () => {
     const stepGoal = Number(stepGoalDraft || 0);
     if (!stepGoal || stepGoal < 100) {
@@ -381,7 +338,7 @@ export default function Profile() {
       {/* ═══════════ HERO HEADER ═══════════ */}
       <Card className="relative mb-16 gap-0 overflow-visible p-0 shadow-soft">
         {/* Cover */}
-        <div className="relative h-40 overflow-hidden rounded-t-lg bg-muted">
+        <div className="relative h-24 overflow-hidden rounded-t-lg bg-muted">
           {/* FWH yellow accent stripe */}
           <div className="absolute inset-x-0 bottom-0 h-1 bg-primary" />
           {/* Top-end quick actions over cover */}
@@ -416,7 +373,7 @@ export default function Profile() {
         </div>
 
         {/* Identity info under cover */}
-        <div className="px-5 pt-16 pb-5">
+        <div className="px-5 pt-6 pb-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-[180px] flex-1">
               {editName ? (
@@ -791,20 +748,11 @@ export default function Profile() {
               </p>
               <div className="flex flex-col gap-3">
                 <div className="rounded-md bg-muted p-3.5">
-                  <p className="mb-2.5 text-[13px] font-semibold">{t("change_email")}</p>
-                  <div className="flex flex-col gap-3">
-                    <div className="grid gap-2">
-                      <Label htmlFor="email-new">{t("new_email_label")}</Label>
-                      <Input id="email-new" type="email" value={emailForm.newEmail} onChange={(e) => setEmailForm((p) => ({ ...p, newEmail: e.target.value }))} className="bg-card" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="email-current-pw">{t("current_password")}</Label>
-                      <Input id="email-current-pw" type="password" value={emailForm.currentPassword} onChange={(e) => setEmailForm((p) => ({ ...p, currentPassword: e.target.value }))} className="bg-card" />
-                    </div>
-                    <Button onClick={saveEmailSettings} disabled={emailSaving} variant="outline" className="w-full">
-                      {emailSaving ? t("updating_text") : t("update_email")}
-                    </Button>
+                  <p className="mb-2.5 text-[13px] font-semibold">{t("email_address") || "Email address"}</p>
+                  <div className="flex items-center gap-2">
+                    <Input value={user?.email || ""} readOnly disabled aria-label={t("email_address") || "Email address"} className="bg-card" />
                   </div>
+                  <p className="mt-2 text-[11px] text-muted-foreground">{t("email_locked_note") || "Your email is linked to your account and can't be changed."}</p>
                 </div>
 
                 <div className="rounded-md bg-muted p-3.5">

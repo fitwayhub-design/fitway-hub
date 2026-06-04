@@ -1669,8 +1669,55 @@ const adminOrModerator = (req: any, res: Response, next: any) => {
   next();
 };
 
+// Per-area moderator permissions. Admins configure these from
+// Settings → Moderators; they're stored as a JSON object in app_settings under
+// `moderator_permissions`, e.g. { "community_view": true, "community_moderate":
+// false, "challenges_view": true }. Default (no row) = everything allowed, so
+// existing moderators keep working until an admin tightens access.
+async function getModeratorPermissions(): Promise<Record<string, boolean> | null> {
+  try {
+    const row: any = await get("SELECT setting_value FROM app_settings WHERE setting_key = 'moderator_permissions'");
+    if (row?.setting_value) return JSON.parse(row.setting_value);
+  } catch { /* fall through to no restrictions */ }
+  return null;
+}
+
+// Guard that requires admin, OR a moderator who has the given area enabled.
+// An area is considered allowed unless it is explicitly set to false.
+const modPerm = (area: string) => async (req: any, res: Response, next: any) => {
+  const role = req.user?.role;
+  if (role === 'admin') return next();
+  if (role !== 'moderator') return res.status(403).json({ message: 'Access denied' });
+  const perms = await getModeratorPermissions();
+  if (!perms || perms[area] !== false) return next();
+  return res.status(403).json({ message: 'Your moderator access does not allow this action' });
+};
+
+// ── Moderator permissions (admin-managed) ───────────────────────────────────
+router.get('/moderator-permissions', authenticateToken, adminOnly, async (_req: any, res: Response) => {
+  const perms = await getModeratorPermissions();
+  res.json({ permissions: perms || {} });
+});
+
+router.put('/moderator-permissions', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    const perms = req.body?.permissions || {};
+    const value = JSON.stringify(perms);
+    const existing: any = await get("SELECT id FROM app_settings WHERE setting_key = 'moderator_permissions'");
+    if (existing) {
+      await run("UPDATE app_settings SET setting_value = ? WHERE setting_key = 'moderator_permissions'", [value]);
+    } else {
+      await run(
+        "INSERT INTO app_settings (setting_key, setting_value, setting_type, category, label) VALUES ('moderator_permissions', ?, 'json', 'access', 'Moderator permissions')",
+        [value]
+      );
+    }
+    res.json({ message: 'Moderator permissions saved', permissions: perms });
+  } catch { res.status(500).json({ message: 'Failed to save moderator permissions' }); }
+});
+
 // Community moderation endpoints
-router.get('/community/posts', authenticateToken, adminOrModerator, async (_req: any, res: Response) => {
+router.get('/community/posts', authenticateToken, modPerm('community_view'), async (_req: any, res: Response) => {
   try {
     const posts = await query(`
       SELECT p.*, u.name as user_name, u.avatar as user_avatar, u.email as user_email, u.role as user_role,
@@ -1709,7 +1756,7 @@ router.patch('/community/posts/:id/pin', authenticateToken, adminOnly, async (re
   } catch { res.status(500).json({ message: 'Failed to toggle pin' }); }
 });
 
-router.patch('/community/posts/:id/hide', authenticateToken, adminOrModerator, async (req: any, res: Response) => {
+router.patch('/community/posts/:id/hide', authenticateToken, modPerm('community_moderate'), async (req: any, res: Response) => {
   try {
     const { reason } = req.body;
     await run('UPDATE posts SET is_hidden = 1, moderated_by = ?, moderation_reason = ? WHERE id = ?', [req.user.id, reason || 'Policy violation', req.params.id]);
@@ -1717,14 +1764,14 @@ router.patch('/community/posts/:id/hide', authenticateToken, adminOrModerator, a
   } catch { res.status(500).json({ message: 'Failed to hide post' }); }
 });
 
-router.patch('/community/posts/:id/restore', authenticateToken, adminOrModerator, async (req: any, res: Response) => {
+router.patch('/community/posts/:id/restore', authenticateToken, modPerm('community_moderate'), async (req: any, res: Response) => {
   try {
     await run('UPDATE posts SET is_hidden = 0, moderated_by = NULL, moderation_reason = NULL WHERE id = ?', [req.params.id]);
     res.json({ message: 'Post restored' });
   } catch { res.status(500).json({ message: 'Failed to restore post' }); }
 });
 
-router.delete('/community/posts/:id', authenticateToken, adminOrModerator, async (req: any, res: Response) => {
+router.delete('/community/posts/:id', authenticateToken, modPerm('community_moderate'), async (req: any, res: Response) => {
   try {
     await run('DELETE FROM posts WHERE id = ?', [req.params.id]);
     res.json({ message: 'Post deleted' });
@@ -1734,7 +1781,7 @@ router.delete('/community/posts/:id', authenticateToken, adminOrModerator, async
 // (role update handled by original route above - extended to support moderator)
 
 // ── Community stats ──────────────────────────────────────────────────────────
-router.get('/community/stats', authenticateToken, adminOrModerator, async (_req: any, res: Response) => {
+router.get('/community/stats', authenticateToken, modPerm('community_view'), async (_req: any, res: Response) => {
   try {
     const [totalPosts] = await query('SELECT COUNT(*) as cnt FROM posts') as any[];
     const [hiddenPosts] = await query('SELECT COUNT(*) as cnt FROM posts WHERE is_hidden = 1') as any[];
@@ -1754,7 +1801,7 @@ router.get('/community/stats', authenticateToken, adminOrModerator, async (_req:
 });
 
 // ── Community challenges (admin) ──────────────────────────────────────────────
-router.get('/community/challenges', authenticateToken, adminOrModerator, async (_req: any, res: Response) => {
+router.get('/community/challenges', authenticateToken, modPerm('challenges_view'), async (_req: any, res: Response) => {
   try {
     const challenges = await query(`
       SELECT c.*, u.name as creator_name, u.email as creator_email, u.avatar as creator_avatar,
@@ -1766,15 +1813,39 @@ router.get('/community/challenges', authenticateToken, adminOrModerator, async (
   } catch { res.status(500).json({ message: 'Failed to fetch challenges' }); }
 });
 
+router.post('/community/challenges', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    const { title, description, start_date, end_date, image_url } = req.body || {};
+    if (!title || !String(title).trim()) return res.status(400).json({ message: 'Title is required' });
+    const ins: any = await run(
+      'INSERT INTO challenges (creator_id, title, description, start_date, end_date, image_url) VALUES (?,?,?,?,?,?)',
+      [req.user.id, String(title).trim(), description || null, start_date || null, end_date || null, image_url || null]
+    );
+    res.json({ message: 'Challenge created', id: ins?.insertId });
+  } catch { res.status(500).json({ message: 'Failed to create challenge' }); }
+});
+
+router.patch('/community/challenges/:id', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    const { title, description, start_date, end_date, image_url } = req.body || {};
+    await run(
+      'UPDATE challenges SET title = COALESCE(?, title), description = ?, start_date = ?, end_date = ?, image_url = ? WHERE id = ?',
+      [title != null ? String(title).trim() : null, description ?? null, start_date ?? null, end_date ?? null, image_url ?? null, req.params.id]
+    );
+    res.json({ message: 'Challenge updated' });
+  } catch { res.status(500).json({ message: 'Failed to update challenge' }); }
+});
+
 router.delete('/community/challenges/:id', authenticateToken, adminOnly, async (req: any, res: Response) => {
   try {
+    await run('DELETE FROM challenge_participants WHERE challenge_id = ?', [req.params.id]).catch(() => {});
     await run('DELETE FROM challenges WHERE id = ?', [req.params.id]);
     res.json({ message: 'Challenge deleted' });
   } catch { res.status(500).json({ message: 'Failed to delete challenge' }); }
 });
 
 // ── Community comments (admin) ────────────────────────────────────────────────
-router.get('/community/comments', authenticateToken, adminOrModerator, async (_req: any, res: Response) => {
+router.get('/community/comments', authenticateToken, modPerm('community_view'), async (_req: any, res: Response) => {
   try {
     const comments = await query(`
       SELECT pc.*, u.name as user_name, u.email as user_email, u.avatar as user_avatar,
@@ -1787,7 +1858,7 @@ router.get('/community/comments', authenticateToken, adminOrModerator, async (_r
   } catch { res.status(500).json({ message: 'Failed to fetch comments' }); }
 });
 
-router.delete('/community/comments/:id', authenticateToken, adminOrModerator, async (req: any, res: Response) => {
+router.delete('/community/comments/:id', authenticateToken, modPerm('community_moderate'), async (req: any, res: Response) => {
   try {
     await run('DELETE FROM post_comments WHERE id = ?', [req.params.id]);
     res.json({ message: 'Comment deleted' });
