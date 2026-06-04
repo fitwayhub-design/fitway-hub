@@ -1,9 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
-import type { CSSProperties } from "react";
-import { Bell, Send, Edit3, Trash2, Plus, CheckCircle, XCircle, RefreshCw, Users, Zap, ArrowLeft, Mail, Smartphone, MessageSquare, Inbox, CheckCheck, ExternalLink } from "lucide-react";
+import { Bell, Send, Edit3, Trash2, Plus, CheckCircle, XCircle, RefreshCw, Zap, ArrowLeft, Mail, Smartphone, MessageSquare, Inbox, CheckCheck, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { getApiBase } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const API = getApiBase();
 
@@ -332,16 +342,6 @@ export default function Notifications() {
     setSending(false);
   };
 
-  // ── Styles ────────────────────
-  const card: CSSProperties = { backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 20, marginBottom: 16 };
-  const btn: CSSProperties = { padding: "8px 16px", borderRadius: "var(--radius-full)", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 };
-  const btnAccent: CSSProperties = { ...btn, backgroundColor: "var(--accent)", color: "#000000" };
-  const btnSecondary: CSSProperties = { ...btn, backgroundColor: "var(--bg-surface)", color: "var(--text-primary)", border: "1px solid var(--border)" };
-  const input: CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", backgroundColor: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14 };
-  const textarea: CSSProperties = { ...input, minHeight: 80, resize: "vertical" as const };
-  const badge = (color: string): CSSProperties => ({ display: "inline-block", padding: "2px 8px", borderRadius: "var(--radius-full)", fontSize: 11, fontWeight: 600, backgroundColor: `${color}20`, color });
-  const tabBtn = (active: boolean): CSSProperties => ({ ...btn, backgroundColor: active ? "var(--accent)" : "var(--bg-surface)", color: active ? "#000000" : "var(--text-secondary)", border: active ? "none" : "1px solid var(--border)" });
-
   const filteredTemplates = templates.filter(t => {
     if (filterCat !== "all" && t.category !== filterCat) return false;
     if (filterTrigger !== "all" && t.trigger_type !== filterTrigger) return false;
@@ -349,71 +349,60 @@ export default function Notifications() {
     return true;
   });
 
+  const unreadInbox = inboxItems.filter(n => !n.is_read).length;
+
   return (
-    <div style={{ padding: 24, maxWidth: 1000, margin: "0 auto" }}>
-      <h1 style={{ fontFamily: "var(--font-en)", fontSize: 24, fontWeight: 700, marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-        <Bell size={22} /> {l("Push Notifications", "الإشعارات")}
+    <div className="space-y-6">
+      <h1 className="flex items-center gap-2.5 text-[28px] font-bold leading-tight tracking-tight">
+        <Bell size={24} strokeWidth={2} className="text-primary" /> {l("Push Notifications", "الإشعارات")}
       </h1>
 
       {/* FCM Status */}
       {fcmStatus && (
-        <div style={{ ...card }}>
-          <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+        <Card className="gap-0 p-5">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             {/* Status indicators */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {fcmStatus.configured ? <CheckCircle size={16} color="var(--green)" /> : <XCircle size={16} color="var(--red)" />}
-              <span style={{ fontSize: 13, fontWeight: 600 }}>
+            <div className="flex items-center gap-2">
+              {fcmStatus.configured
+                ? <CheckCircle size={16} strokeWidth={2} className="text-[var(--green)]" />
+                : <XCircle size={16} strokeWidth={2} className="text-destructive" />}
+              <span className="text-[13px] font-semibold">
                 FCM: {fcmStatus.configured ? `Configured (${fcmStatus.method})` : "Not configured"}
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Smartphone size={16} color="var(--text-secondary)" />
-              <span style={{ fontSize: 13 }}>{fcmStatus.registeredDevices} {l("registered device(s)", "جهاز مسجل")}</span>
+            <div className="flex items-center gap-2">
+              <Smartphone size={16} strokeWidth={2} className="text-muted-foreground" />
+              <span className="text-[13px]">{fcmStatus.registeredDevices} {l("registered device(s)", "جهاز مسجل")}</span>
             </div>
             {/* Test button */}
-            <button
-              onClick={handleTestPush}
-              disabled={testing}
-              style={{
-                ...btn,
-                marginLeft: "auto",
-                backgroundColor: testing ? "var(--bg-surface)" : "var(--main)",
-                color: testing ? "var(--text-muted)" : "#fff",
-                border: testing ? "1px solid var(--border)" : "none",
-                borderRadius: "var(--radius-full)",
-                padding: "8px 20px",
-                fontSize: 13,
-              }}
-            >
+            <Button variant="secondary" size="sm" onClick={handleTestPush} disabled={testing} className="ms-auto gap-1.5">
               {testing
-                ? <><RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> {l("Sending…", "جاري الإرسال…")}</>
-                : <><Send size={13} /> {l("Send Test Push", "إرسال إشعار تجريبي")}</>
+                ? <><RefreshCw size={13} strokeWidth={2} className="animate-spin" /> {l("Sending…", "جاري الإرسال…")}</>
+                : <><Send size={13} strokeWidth={2} /> {l("Send Test Push", "إرسال إشعار تجريبي")}</>
               }
-            </button>
+            </Button>
           </div>
           {/* Test result */}
           {testResult && (
-            <div style={{
-              marginTop: 12,
-              padding: "12px 14px",
-              borderRadius: "var(--radius-md)",
-              background: testResult.ok ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.1)",
-              border: `1px solid ${testResult.ok ? "var(--green)" : "var(--red)"}`,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className={cn(
+              "mt-3 rounded-md p-3.5 shadow-soft-xs",
+              testResult.ok ? "bg-[color-mix(in_srgb,var(--green)_10%,transparent)]" : "bg-[color-mix(in_srgb,var(--red)_10%,transparent)]",
+            )}>
+              <div className="flex items-center gap-2">
                 {testResult.ok
-                  ? <CheckCircle size={15} color="var(--green)" />
-                  : <XCircle size={15} color="var(--red)" />
-                }
-                <span style={{ fontSize: 13, color: testResult.ok ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
+                  ? <CheckCircle size={15} strokeWidth={2} className="text-[var(--green)]" />
+                  : <XCircle size={15} strokeWidth={2} className="text-destructive" />}
+                <span className={cn("text-[13px] font-semibold", testResult.ok ? "text-[var(--green)]" : "text-destructive")}>
                   {testResult.msg}
                 </span>
               </div>
               {testResult.devices && testResult.devices.length > 0 && (
-                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                <div className="mt-2 flex flex-col gap-1">
                   {testResult.devices.map((d: any, i: number) => (
-                    <div key={i} style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 6 }}>
-                      {d.ok ? <CheckCircle size={11} color="var(--green)" /> : <XCircle size={11} color="var(--red)" />}
+                    <div key={i} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      {d.ok
+                        ? <CheckCircle size={11} strokeWidth={2} className="text-[var(--green)]" />
+                        : <XCircle size={11} strokeWidth={2} className="text-destructive" />}
                       <span>{d.platform} — {d.token}</span>
                     </div>
                   ))}
@@ -422,339 +411,379 @@ export default function Notifications() {
             </div>
           )}
           {!fcmStatus.configured && (
-            <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
-              ⚠️ {l("Set", "قم بتعيين")} <code>FCM_SERVER_KEY</code> {l("in your", "في ملف")} <code>.env</code> {l("to enable push notifications.", "لتفعيل الإشعارات.")}
+            <p className="mt-2 text-[12px] text-muted-foreground">
+              ⚠️ {l("Set", "قم بتعيين")} <code className="rounded bg-muted px-1 py-0.5 text-[11px]">FCM_SERVER_KEY</code> {l("in your", "في ملف")} <code className="rounded bg-muted px-1 py-0.5 text-[11px]">.env</code> {l("to enable push notifications.", "لتفعيل الإشعارات.")}
             </p>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        <button style={tabBtn(view === "inbox")} onClick={() => setView("inbox")}><Inbox size={14} /> {l("Inbox", "الوارد")} {inboxItems.filter(n => !n.is_read).length > 0 ? `(${inboxItems.filter(n => !n.is_read).length})` : ""}</button>
-        <button style={tabBtn(view === "templates")} onClick={() => setView("templates")}><Zap size={14} /> {l("Templates", "القوالب")} ({templates.length})</button>
-        <button style={tabBtn(view === "welcome")} onClick={() => setView("welcome")}><Mail size={14} /> {l("Welcome Messages", "رسائل الترحيب")}</button>
-        <button style={tabBtn(view === "send")} onClick={() => setView("send")}><Send size={14} /> {l("Send Push", "إرسال إشعار")}</button>
-        <button style={tabBtn(view === "log")} onClick={() => setView("log")}><RefreshCw size={14} /> {l("Push Log", "سجل الإشعارات")}</button>
-      </div>
+      <Tabs value={view === "edit-template" ? "templates" : view === "edit-welcome" ? "welcome" : view} onValueChange={v => setView(v as View)}>
+        <TabsList className="h-auto flex-wrap">
+          <TabsTrigger value="inbox"><Inbox size={14} strokeWidth={2} /> {l("Inbox", "الوارد")} {unreadInbox > 0 ? `(${unreadInbox})` : ""}</TabsTrigger>
+          <TabsTrigger value="templates"><Zap size={14} strokeWidth={2} /> {l("Templates", "القوالب")} ({templates.length})</TabsTrigger>
+          <TabsTrigger value="welcome"><Mail size={14} strokeWidth={2} /> {l("Welcome Messages", "رسائل الترحيب")}</TabsTrigger>
+          <TabsTrigger value="send"><Send size={14} strokeWidth={2} /> {l("Send Push", "إرسال إشعار")}</TabsTrigger>
+          <TabsTrigger value="log"><RefreshCw size={14} strokeWidth={2} /> {l("Push Log", "سجل الإشعارات")}</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-      {error && <div style={{ padding: "10px 14px", backgroundColor: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.25)", borderRadius: "var(--radius-full)", color: "var(--red)", fontSize: 13, marginBottom: 16 }}>{error}</div>}
-      {success && <div style={{ padding: "10px 14px", backgroundColor: "rgba(0,200,100,0.1)", border: "1px solid rgba(0,200,100,0.25)", borderRadius: "var(--radius-full)", color: "var(--green)", fontSize: 13, marginBottom: 16 }}>{success}</div>}
+      {error && <div className="rounded-md bg-destructive/10 px-3.5 py-2.5 text-[13px] text-destructive shadow-soft-xs">{error}</div>}
+      {success && <div className="rounded-md bg-[color-mix(in_srgb,var(--green)_10%,transparent)] px-3.5 py-2.5 text-[13px] text-[var(--green)] shadow-soft-xs">{success}</div>}
 
       {/* ── Inbox view ── */}
       {view === "inbox" && (
-        <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{l("Your in-app notifications", "إشعاراتك داخل التطبيق")}</p>
-            <div style={{ display: "flex", gap: 8 }}>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] text-muted-foreground">{l("Your in-app notifications", "إشعاراتك داخل التطبيق")}</p>
+            <div className="flex gap-2">
               {inboxItems.some(n => !n.is_read) && (
-                <button style={btnSecondary} onClick={markAllInboxRead}><CheckCheck size={14} /> {l("Mark all read", "تحديد الكل كمقروء")}</button>
+                <Button variant="outline" size="sm" onClick={markAllInboxRead} className="gap-1.5"><CheckCheck size={14} strokeWidth={2} /> {l("Mark all read", "تحديد الكل كمقروء")}</Button>
               )}
-              <button style={btnSecondary} onClick={loadInbox}><RefreshCw size={14} /> {l("Refresh", "تحديث")}</button>
+              <Button variant="outline" size="sm" onClick={loadInbox} className="gap-1.5"><RefreshCw size={14} strokeWidth={2} /> {l("Refresh", "تحديث")}</Button>
             </div>
           </div>
-          {inboxLoading ? <p style={{ color: "var(--text-secondary)" }}>{l("Loading...", "جاري التحميل...")}</p> : (
+          {inboxLoading ? (
+            <div className="flex flex-col gap-2.5">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[76px] w-full rounded-lg" />)}</div>
+          ) : (
             inboxItems.length === 0 ? (
-              <div style={{ padding: 48, textAlign: "center" }}>
-                <Bell size={36} color="var(--text-muted)" style={{ opacity: 0.4, marginBottom: 12 }} />
-                <p style={{ fontSize: 14, color: "var(--text-muted)" }}>{l("No notifications yet", "لا توجد إشعارات بعد")}</p>
-              </div>
+              <Card className="items-center gap-3 p-12 text-center">
+                <div className="grid size-14 place-items-center rounded-full bg-muted">
+                  <Bell size={26} strokeWidth={2} className="text-muted-foreground" />
+                </div>
+                <p className="text-[14px] text-muted-foreground">{l("No notifications yet", "لا توجد إشعارات بعد")}</p>
+              </Card>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="flex flex-col gap-2.5">
                 {inboxItems.map(n => (
-                  <div key={n.id} onClick={() => { if (!n.is_read) markInboxRead(n.id); }}
-                    style={{ padding: "14px 16px", borderRadius: "var(--radius-full)", background: n.is_read ? "var(--bg-card)" : "rgba(59,139,255,0.06)", border: `1px solid ${n.is_read ? "var(--border)" : "rgba(59,139,255,0.2)"}`, cursor: n.is_read ? "default" : "pointer", transition: "all 0.15s" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0, background: "rgba(59,139,255,0.1)", border: "1px solid rgba(59,139,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Bell size={16} color="var(--blue)" />
+                  <div
+                    key={n.id}
+                    onClick={() => { if (!n.is_read) markInboxRead(n.id); }}
+                    className={cn(
+                      "flex items-start gap-3 rounded-lg p-4 shadow-soft-sm transition",
+                      n.is_read
+                        ? "bg-card"
+                        : "cursor-pointer bg-[var(--secondary-dim)] ring-1 ring-[color-mix(in_srgb,var(--secondary)_25%,transparent)]",
+                    )}
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--secondary-dim)]">
+                      <Bell size={16} strokeWidth={2} className="text-[var(--secondary)]" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center gap-2">
+                        <p className={cn("text-[14px] leading-snug", n.is_read ? "font-medium" : "font-bold")}>{n.title}</p>
+                        {!n.is_read && <span className="size-1.5 shrink-0 rounded-full bg-[var(--secondary)]" />}
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                          <p style={{ fontSize: 14, fontWeight: n.is_read ? 500 : 700 }}>{n.title}</p>
-                          {!n.is_read && <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--blue)", flexShrink: 0 }} />}
-                        </div>
-                        <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 4 }}>{n.body}</p>
-                        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{new Date(n.created_at).toLocaleString()}</span>
-                      </div>
+                      <p className="mb-1 text-[13px] leading-relaxed text-muted-foreground">{n.body}</p>
+                      <span className="text-[11px] text-muted-foreground">{new Date(n.created_at).toLocaleString()}</span>
                     </div>
                   </div>
                 ))}
               </div>
             )
           )}
-        </>
+        </div>
       )}
 
       {/* ── Templates view ── */}
       {view === "templates" && (
-        <>
-          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Filter by Trigger */}
-            <select style={{ ...input, width: "auto", borderRadius: "var(--radius-full)", fontSize: 12 }} value={filterTrigger} onChange={e => setFilterTrigger(e.target.value)}>
-              <option value="all">{l("All Triggers", "كل المحفزات")}</option>
-              {TRIGGERS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
+            <Select value={filterTrigger} onValueChange={setFilterTrigger}>
+              <SelectTrigger size="sm" aria-label={l("Filter by trigger", "تصفية حسب المحفز")}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{l("All Triggers", "كل المحفزات")}</SelectItem>
+                {TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
             {/* Filter by Purpose */}
-            <select style={{ ...input, width: "auto", borderRadius: "var(--radius-full)", fontSize: 12 }} value={filterPurpose} onChange={e => setFilterPurpose(e.target.value)}>
-              <option value="all">{l("All Purposes", "كل الأهداف")}</option>
-              {PURPOSES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
+            <Select value={filterPurpose} onValueChange={setFilterPurpose}>
+              <SelectTrigger size="sm" aria-label={l("Filter by purpose", "تصفية حسب الهدف")}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{l("All Purposes", "كل الأهداف")}</SelectItem>
+                {PURPOSES.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
             {/* Filter by Category */}
-            <select style={{ ...input, width: "auto", borderRadius: "var(--radius-full)", fontSize: 12 }} value={filterCat} onChange={e => setFilterCat(e.target.value)}>
-              <option value="all">{l("All Categories", "كل الفئات")}</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{categoryLabel[c]}</option>)}
-            </select>
+            <Select value={filterCat} onValueChange={setFilterCat}>
+              <SelectTrigger size="sm" aria-label={l("Filter by category", "تصفية حسب الفئة")}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{l("All Categories", "كل الفئات")}</SelectItem>
+                {CATEGORIES.map(c => <SelectItem key={c} value={c}>{categoryLabel[c]}</SelectItem>)}
+              </SelectContent>
+            </Select>
             {/* Reset */}
             {(filterTrigger !== "all" || filterPurpose !== "all" || filterCat !== "all") && (
-              <button style={{ ...btn, backgroundColor: "var(--bg-surface)", color: "var(--text-muted)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)" }}
+              <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"
                 onClick={() => { setFilterTrigger("all"); setFilterPurpose("all"); setFilterCat("all"); }}>
-                ✕ {l("Clear", "مسح")}
-              </button>
+                <X size={14} strokeWidth={2} /> {l("Clear", "مسح")}
+              </Button>
             )}
-            <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 4 }}>
+            <span className="text-[12px] text-muted-foreground">
               {filteredTemplates.length} / {templates.length}
             </span>
-            <button style={{ ...btnAccent, marginLeft: "auto", borderRadius: "var(--radius-full)" }} onClick={() => setShowNewForm(!showNewForm)}>
-              <Plus size={14} /> {l("New Template", "قالب جديد")}
-            </button>
+            <Button size="sm" className="ms-auto gap-1.5" onClick={() => setShowNewForm(!showNewForm)}>
+              <Plus size={14} strokeWidth={2} /> {l("New Template", "قالب جديد")}
+            </Button>
           </div>
 
           {showNewForm && (
-            <div style={card}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{l("New Push Template", "قالب إشعار جديد")}</h3>
-              <div style={{ display: "grid", gap: 10 }}>
-                <input style={input} placeholder={l("Slug (unique ID, e.g. my_promo)", "Slug (معرف فريد مثل my_promo)")} value={newSlug} onChange={e => setNewSlug(e.target.value)} />
-                <input style={input} placeholder={l("Title", "العنوان")} value={newTitle} onChange={e => setNewTitle(e.target.value)} />
-                <textarea style={textarea} placeholder={l("Body (use {{first_name}} etc.)", "المحتوى (استخدم {{first_name}} وغيرها)")} value={newBody} onChange={e => setNewBody(e.target.value)} />
-                <div style={{ display: "flex", gap: 10 }}>
-                  <select style={{ ...input, flex: 1 }} value={newCategory} onChange={e => setNewCategory(e.target.value)}>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{categoryLabel[c]}</option>)}
-                  </select>
-                  <select style={{ ...input, flex: 1 }} value={newTrigger} onChange={e => setNewTrigger(e.target.value)}>
-                    {TRIGGERS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
-                <button style={btnAccent} onClick={createTemplate}>{l("Create Template", "إنشاء القالب")}</button>
+            <Card className="gap-3 p-5">
+              <h3 className="text-[16px] font-bold">{l("New Push Template", "قالب إشعار جديد")}</h3>
+              <Input placeholder={l("Slug (unique ID, e.g. my_promo)", "Slug (معرف فريد مثل my_promo)")} value={newSlug} onChange={e => setNewSlug(e.target.value)} aria-label={l("Slug", "Slug")} />
+              <Input placeholder={l("Title", "العنوان")} value={newTitle} onChange={e => setNewTitle(e.target.value)} aria-label={l("Title", "العنوان")} />
+              <Textarea placeholder={l("Body (use {{first_name}} etc.)", "المحتوى (استخدم {{first_name}} وغيرها)")} value={newBody} onChange={e => setNewBody(e.target.value)} aria-label={l("Body", "المحتوى")} />
+              <div className="flex flex-wrap gap-2.5">
+                <Select value={newCategory} onValueChange={setNewCategory}>
+                  <SelectTrigger className="flex-1" aria-label={l("Category", "الفئة")}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{categoryLabel[c]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={newTrigger} onValueChange={setNewTrigger}>
+                  <SelectTrigger className="flex-1" aria-label={l("Trigger", "المحفز")}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+              <Button onClick={createTemplate} className="w-fit">{l("Create Template", "إنشاء القالب")}</Button>
+            </Card>
           )}
 
-          {loading ? <p style={{ color: "var(--text-secondary)" }}>Loading...</p> : (
-            filteredTemplates.map(t => (
-              <div key={t.id} style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ fontWeight: 700, fontSize: 15 }}>{t.title}</span>
-                    <span style={badge(t.enabled ? "var(--green)" : "var(--red)")}>{t.enabled ? "ON" : "OFF"}</span>
-                    <span style={badge("var(--accent)")}>{categoryLabel[t.category] || t.category}</span>
+          {loading ? (
+            <div className="flex flex-col gap-2.5">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[96px] w-full rounded-lg" />)}</div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {filteredTemplates.map(t => (
+                <Card key={t.id} className="flex-row items-start justify-between gap-3 p-5">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                      <span className="text-[15px] font-bold">{t.title}</span>
+                      <Badge variant={t.enabled ? "success" : "destructive"}>{t.enabled ? "ON" : "OFF"}</Badge>
+                      <Badge variant="default">{categoryLabel[t.category] || t.category}</Badge>
+                    </div>
+                    <p className="mb-1.5 text-[13px] text-muted-foreground">{t.body}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] text-muted-foreground">🎯 {triggerLabel(t.trigger_type)}</span>
+                      {purposeOfTrigger(t.trigger_type) && (
+                        <Badge variant="accent" className="text-[10px]">{purposeLabel(purposeOfTrigger(t.trigger_type))}</Badge>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">· {t.slug}</span>
+                    </div>
                   </div>
-                  <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 4 }}>{t.body}</p>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                      🎯 {triggerLabel(t.trigger_type)}
-                    </span>
-                    {purposeOfTrigger(t.trigger_type) && (
-                      <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: "var(--radius-full)", background: "var(--main-dim)", color: "var(--main)", fontWeight: 600 }}>
-                        {purposeLabel(purposeOfTrigger(t.trigger_type))}
-                      </span>
-                    )}
-                    <span style={{ fontSize: 10, color: "var(--text-muted)" }}>· {t.slug}</span>
+                  <div className="flex shrink-0 gap-1.5">
+                    <Button variant="outline" size="icon-sm" aria-label={l("Edit", "تعديل")} onClick={() => { setEditTemplate({ ...t }); setView("edit-template"); }}><Edit3 size={15} strokeWidth={2} /></Button>
+                    <Button variant="outline" size="icon-sm" aria-label={t.enabled ? l("Disable", "تعطيل") : l("Enable", "تفعيل")} onClick={() => toggleTemplate(t)}>{t.enabled ? <XCircle size={15} strokeWidth={2} /> : <CheckCircle size={15} strokeWidth={2} />}</Button>
+                    <Button variant="outline" size="icon-sm" aria-label={l("Delete", "حذف")} className="text-destructive hover:text-destructive" onClick={() => deleteTemplate(t.id)}><Trash2 size={15} strokeWidth={2} /></Button>
                   </div>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button style={btnSecondary} onClick={() => { setEditTemplate({ ...t }); setView("edit-template"); }}><Edit3 size={13} /></button>
-                  <button style={btnSecondary} onClick={() => toggleTemplate(t)}>{t.enabled ? <XCircle size={13} /> : <CheckCircle size={13} />}</button>
-                  <button style={{ ...btnSecondary, color: "var(--red)" }} onClick={() => deleteTemplate(t.id)}><Trash2 size={13} /></button>
-                </div>
-              </div>
-            ))
+                </Card>
+              ))}
+            </div>
           )}
-        </>
+        </div>
       )}
 
       {/* ── Edit template ── */}
       {view === "edit-template" && editTemplate && (
-        <div style={card}>
-          <button style={{ ...btnSecondary, marginBottom: 16 }} onClick={() => setView("templates")}><ArrowLeft size={14} /> {l("Back", "رجوع")}</button>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{l("Edit", "تعديل")}: {editTemplate.slug}</h3>
-          <div style={{ display: "grid", gap: 10 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>TITLE</label>
-              <input style={input} value={editTemplate.title} onChange={e => setEditTemplate({ ...editTemplate, title: e.target.value })} />
+        <Card className="gap-4 p-5">
+          <Button variant="ghost" size="sm" className="-ms-2 w-fit gap-1.5 text-muted-foreground" onClick={() => setView("templates")}><ArrowLeft size={14} strokeWidth={2} /> {l("Back", "رجوع")}</Button>
+          <h3 className="text-[16px] font-bold">{l("Edit", "تعديل")}: {editTemplate.slug}</h3>
+          <div className="grid gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="tpl-title">TITLE</Label>
+              <Input id="tpl-title" value={editTemplate.title} onChange={e => setEditTemplate({ ...editTemplate, title: e.target.value })} />
             </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>BODY</label>
-              <textarea style={textarea} value={editTemplate.body} onChange={e => setEditTemplate({ ...editTemplate, body: e.target.value })} />
+            <div className="grid gap-1.5">
+              <Label htmlFor="tpl-body">BODY</Label>
+              <Textarea id="tpl-body" value={editTemplate.body} onChange={e => setEditTemplate({ ...editTemplate, body: e.target.value })} />
             </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>TRIGGER</label>
-              <select style={input} value={editTemplate.trigger_type} onChange={e => setEditTemplate({ ...editTemplate, trigger_type: e.target.value })}>
-                {TRIGGERS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+            <div className="grid gap-1.5">
+              <Label htmlFor="tpl-trigger">TRIGGER</Label>
+              <Select value={editTemplate.trigger_type} onValueChange={v => setEditTemplate({ ...editTemplate, trigger_type: v })}>
+                <SelectTrigger id="tpl-trigger" className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
               {purposeOfTrigger(editTemplate.trigger_type) && (
-                <p style={{ fontSize: 11, color: "var(--main)", marginTop: 4 }}>
-                  Purpose: {purposeLabel(purposeOfTrigger(editTemplate.trigger_type))}
-                </p>
+                <p className="text-[11px] text-primary">Purpose: {purposeLabel(purposeOfTrigger(editTemplate.trigger_type))}</p>
               )}
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                <input type="checkbox" checked={!!editTemplate.enabled} onChange={e => setEditTemplate({ ...editTemplate, enabled: e.target.checked ? 1 : 0 })} /> Enabled
-              </label>
+            <div className="flex items-center gap-2.5">
+              <Switch id="tpl-enabled" checked={!!editTemplate.enabled} onCheckedChange={c => setEditTemplate({ ...editTemplate, enabled: c ? 1 : 0 })} />
+              <Label htmlFor="tpl-enabled">Enabled</Label>
             </div>
-            <button style={btnAccent} onClick={saveTemplate}>{l("Save Changes", "حفظ التغييرات")}</button>
+            <Button onClick={saveTemplate} className="w-fit">{l("Save Changes", "حفظ التغييرات")}</Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* ── Welcome messages ── */}
       {view === "welcome" && (
-        <>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>
+        <div className="space-y-4">
+          <p className="text-[13px] text-muted-foreground">
             These messages are sent automatically when a new user or coach registers. Edit content and toggle on/off.
           </p>
-          {loading ? <p style={{ color: "var(--text-secondary)" }}>{l("Loading...", "جاري التحميل...")}</p> : (
+          {loading ? (
+            <div className="flex flex-col gap-2.5">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[110px] w-full rounded-lg" />)}</div>
+          ) : (
             <>
               {["user", "coach"].map(target => (
-                <div key={target}>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, marginTop: 16, textTransform: "capitalize" }}>New {target} Messages</h3>
+                <div key={target} className="space-y-2.5">
+                  <h3 className="mt-2 text-[16px] font-bold capitalize">New {target} Messages</h3>
                   {welcomeMsgs.filter(m => m.target === target).map(m => {
                     const Icon = channelIcon[m.channel] || Bell;
                     return (
-                      <div key={m.id} style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
-                            <Icon size={16} color="var(--accent)" />
-                            <span style={{ fontWeight: 700, fontSize: 14, textTransform: "capitalize" }}>{m.channel.replace("_", "-")}</span>
-                            <span style={badge(m.enabled ? "var(--green)" : "var(--red)")}>{m.enabled ? "ON" : "OFF"}</span>
+                      <Card key={m.id} className="flex-row items-start justify-between gap-3 p-5">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                            <Icon size={16} strokeWidth={2} className="text-primary" />
+                            <span className="text-[14px] font-bold capitalize">{m.channel.replace("_", "-")}</span>
+                            <Badge variant={m.enabled ? "success" : "destructive"}>{m.enabled ? "ON" : "OFF"}</Badge>
                           </div>
-                          {m.subject && <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Subject: {m.subject}</p>}
-                          <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{m.title}</p>
-                          <p style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "pre-wrap", maxHeight: 80, overflow: "hidden" }}>{m.body}</p>
+                          {m.subject && <p className="mb-0.5 text-[13px] font-semibold">Subject: {m.subject}</p>}
+                          <p className="mb-0.5 text-[13px] font-semibold">{m.title}</p>
+                          <p className="max-h-20 overflow-hidden text-[12px] whitespace-pre-wrap text-muted-foreground">{m.body}</p>
                         </div>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button style={btnSecondary} onClick={() => { setEditWelcome({ ...m }); setView("edit-welcome"); }}><Edit3 size={13} /></button>
-                          <button style={btnSecondary} onClick={() => toggleWelcome(m)}>{m.enabled ? <XCircle size={13} /> : <CheckCircle size={13} />}</button>
+                        <div className="flex shrink-0 gap-1.5">
+                          <Button variant="outline" size="icon-sm" aria-label={l("Edit", "تعديل")} onClick={() => { setEditWelcome({ ...m }); setView("edit-welcome"); }}><Edit3 size={15} strokeWidth={2} /></Button>
+                          <Button variant="outline" size="icon-sm" aria-label={m.enabled ? l("Disable", "تعطيل") : l("Enable", "تفعيل")} onClick={() => toggleWelcome(m)}>{m.enabled ? <XCircle size={15} strokeWidth={2} /> : <CheckCircle size={15} strokeWidth={2} />}</Button>
                         </div>
-                      </div>
+                      </Card>
                     );
                   })}
                 </div>
               ))}
             </>
           )}
-        </>
+        </div>
       )}
 
       {/* ── Edit welcome message ── */}
       {view === "edit-welcome" && editWelcome && (
-        <div style={card}>
-          <button style={{ ...btnSecondary, marginBottom: 16 }} onClick={() => setView("welcome")}><ArrowLeft size={14} /> {l("Back", "رجوع")}</button>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
+        <Card className="gap-4 p-5">
+          <Button variant="ghost" size="sm" className="-ms-2 w-fit gap-1.5 text-muted-foreground" onClick={() => setView("welcome")}><ArrowLeft size={14} strokeWidth={2} /> {l("Back", "رجوع")}</Button>
+          <h3 className="text-[16px] font-bold">
             Edit: {editWelcome.target} — {editWelcome.channel.replace("_", "-")}
           </h3>
-          <div style={{ display: "grid", gap: 10 }}>
+          <div className="grid gap-4">
             {editWelcome.channel === "email" && (
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>SUBJECT</label>
-                <input style={input} value={editWelcome.subject} onChange={e => setEditWelcome({ ...editWelcome, subject: e.target.value })} />
+              <div className="grid gap-1.5">
+                <Label htmlFor="wm-subject">SUBJECT</Label>
+                <Input id="wm-subject" value={editWelcome.subject} onChange={e => setEditWelcome({ ...editWelcome, subject: e.target.value })} />
               </div>
             )}
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>TITLE</label>
-              <input style={input} value={editWelcome.title} onChange={e => setEditWelcome({ ...editWelcome, title: e.target.value })} />
+            <div className="grid gap-1.5">
+              <Label htmlFor="wm-title">TITLE</Label>
+              <Input id="wm-title" value={editWelcome.title} onChange={e => setEditWelcome({ ...editWelcome, title: e.target.value })} />
             </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>BODY (plain text)</label>
-              <textarea style={{ ...textarea, minHeight: 120 }} value={editWelcome.body} onChange={e => setEditWelcome({ ...editWelcome, body: e.target.value })} />
+            <div className="grid gap-1.5">
+              <Label htmlFor="wm-body">BODY (plain text)</Label>
+              <Textarea id="wm-body" className="min-h-[120px]" value={editWelcome.body} onChange={e => setEditWelcome({ ...editWelcome, body: e.target.value })} />
             </div>
             {editWelcome.channel === "email" && (
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>HTML BODY (optional)</label>
-                <textarea style={{ ...textarea, minHeight: 150, fontFamily: "monospace", fontSize: 12 }} value={editWelcome.html_body || ""} onChange={e => setEditWelcome({ ...editWelcome, html_body: e.target.value })} />
+              <div className="grid gap-1.5">
+                <Label htmlFor="wm-html">HTML BODY (optional)</Label>
+                <Textarea id="wm-html" className="min-h-[150px] font-mono text-[12px]" value={editWelcome.html_body || ""} onChange={e => setEditWelcome({ ...editWelcome, html_body: e.target.value })} />
               </div>
             )}
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                <input type="checkbox" checked={!!editWelcome.enabled} onChange={e => setEditWelcome({ ...editWelcome, enabled: e.target.checked ? 1 : 0 })} /> Enabled
-              </label>
+            <div className="flex items-center gap-2.5">
+              <Switch id="wm-enabled" checked={!!editWelcome.enabled} onCheckedChange={c => setEditWelcome({ ...editWelcome, enabled: c ? 1 : 0 })} />
+              <Label htmlFor="wm-enabled">Enabled</Label>
             </div>
-            <p style={{ fontSize: 11, color: "var(--text-muted)" }}>
+            <p className="text-[11px] text-muted-foreground">
               Tokens: {"{{first_name}}"}, {"{{app_url}}"}. Use them in title, body, subject, and HTML.
             </p>
-            <button style={btnAccent} onClick={saveWelcome}>{l("Save Changes", "حفظ التغييرات")}</button>
+            <Button onClick={saveWelcome} className="w-fit">{l("Save Changes", "حفظ التغييرات")}</Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* ── Send push ── */}
       {view === "send" && (
-        <div style={card}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{l("Send Push Notification", "إرسال إشعار")}</h3>
-          <div style={{ display: "grid", gap: 10 }}>
-            <input style={input} placeholder={l("Title", "العنوان")} value={sendTitle} onChange={e => setSendTitle(e.target.value)} />
-            <textarea style={textarea} placeholder={l("Body (use {{first_name}} for personalization)", "المحتوى (استخدم {{first_name}} للتخصيص)")} value={sendBody} onChange={e => setSendBody(e.target.value)} />
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>{l("SEGMENT (blast)", "الشريحة (إرسال جماعي)")}</label>
-                <select style={input} value={sendSegment} onChange={e => setSendSegment(e.target.value)}>
-                  <option value="all">{l("All Users", "كل المستخدمين")}</option>
-                  <option value="users">{l("Users Only", "المستخدمون فقط")}</option>
-                  <option value="coaches">{l("Coaches Only", "المدربون فقط")}</option>
-                  <option value="inactive">{l("Inactive (7d+)", "غير النشطين (7 أيام+)")}</option>
-                </select>
+        <Card className="gap-4 p-5">
+          <h3 className="text-[16px] font-bold">{l("Send Push Notification", "إرسال إشعار")}</h3>
+          <div className="grid gap-4">
+            <Input placeholder={l("Title", "العنوان")} value={sendTitle} onChange={e => setSendTitle(e.target.value)} aria-label={l("Title", "العنوان")} />
+            <Textarea placeholder={l("Body (use {{first_name}} for personalization)", "المحتوى (استخدم {{first_name}} للتخصيص)")} value={sendBody} onChange={e => setSendBody(e.target.value)} aria-label={l("Body", "المحتوى")} />
+            <div className="flex flex-wrap gap-4">
+              <div className="grid flex-1 gap-1.5">
+                <Label htmlFor="send-segment">{l("SEGMENT (blast)", "الشريحة (إرسال جماعي)")}</Label>
+                <Select value={sendSegment} onValueChange={setSendSegment}>
+                  <SelectTrigger id="send-segment" className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{l("All Users", "كل المستخدمين")}</SelectItem>
+                    <SelectItem value="users">{l("Users Only", "المستخدمون فقط")}</SelectItem>
+                    <SelectItem value="coaches">{l("Coaches Only", "المدربون فقط")}</SelectItem>
+                    <SelectItem value="inactive">{l("Inactive (7d+)", "غير النشطين (7 أيام+)")}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>{l("OR SPECIFIC USER ID", "أو رقم مستخدم محدد")}</label>
-                <input style={input} placeholder={l("User ID (optional)", "رقم المستخدم (اختياري)")} value={sendUserId} onChange={e => setSendUserId(e.target.value)} />
+              <div className="grid flex-1 gap-1.5">
+                <Label htmlFor="send-user-id">{l("OR SPECIFIC USER ID", "أو رقم مستخدم محدد")}</Label>
+                <Input id="send-user-id" placeholder={l("User ID (optional)", "رقم المستخدم (اختياري)")} value={sendUserId} onChange={e => setSendUserId(e.target.value)} />
               </div>
             </div>
-            <button style={btnAccent} onClick={handleSend} disabled={sending}>
-              <Send size={14} /> {sending ? l("Sending...", "جاري الإرسال...") : l("Send Push", "إرسال الإشعار")}
-            </button>
+            <Button onClick={handleSend} disabled={sending} className="w-fit gap-1.5">
+              <Send size={14} strokeWidth={2} /> {sending ? l("Sending...", "جاري الإرسال...") : l("Send Push", "إرسال الإشعار")}
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* ── Push log ── */}
       {view === "log" && (
-        <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{l("Last 100 push notifications sent", "آخر 100 إشعار تم إرسالها")}</p>
-            <button style={btnSecondary} onClick={loadLog}><RefreshCw size={14} /> {l("Refresh", "تحديث")}</button>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] text-muted-foreground">{l("Last 100 push notifications sent", "آخر 100 إشعار تم إرسالها")}</p>
+            <Button variant="outline" size="sm" onClick={loadLog} className="gap-1.5"><RefreshCw size={14} strokeWidth={2} /> {l("Refresh", "تحديث")}</Button>
           </div>
-          {loading ? <p style={{ color: "var(--text-secondary)" }}>{l("Loading...", "جاري التحميل...")}</p> : (
-            logEntries.length === 0 ? <p style={{ color: "var(--text-muted)", textAlign: "center", padding: 32 }}>{l("No push notifications sent yet", "لا توجد إشعارات مرسلة بعد")}</p> : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                      <th style={{ textAlign: "left", padding: "8px 12px", color: "var(--text-secondary)", fontWeight: 600 }}>Time</th>
-                      <th style={{ textAlign: "left", padding: "8px 12px", color: "var(--text-secondary)", fontWeight: 600 }}>User</th>
-                      <th style={{ textAlign: "left", padding: "8px 12px", color: "var(--text-secondary)", fontWeight: 600 }}>Title</th>
-                      <th style={{ textAlign: "left", padding: "8px 12px", color: "var(--text-secondary)", fontWeight: 600 }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logEntries.map(l => (
-                      <tr key={l.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                        <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{new Date(l.created_at).toLocaleString()}</td>
-                        <td style={{ padding: "8px 12px" }}>{l.user_name || l.user_email || "—"}</td>
-                        <td style={{ padding: "8px 12px" }}>
-                          <strong>{l.title}</strong>
-                          {l.template_slug && <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>({l.template_slug})</span>}
-                        </td>
-                        <td style={{ padding: "8px 12px" }}>
-                          <span style={badge(l.status === "sent" ? "var(--green)" : "var(--red)")}>{String(l.status || "").replace(/_/g, " ")}</span>
-                        </td>
+          {loading ? (
+            <div className="flex flex-col gap-2.5">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}</div>
+          ) : (
+            logEntries.length === 0 ? (
+              <Card className="items-center gap-3 p-12 text-center">
+                <div className="grid size-14 place-items-center rounded-full bg-muted">
+                  <Bell size={26} strokeWidth={2} className="text-muted-foreground" />
+                </div>
+                <p className="text-[14px] text-muted-foreground">{l("No push notifications sent yet", "لا توجد إشعارات مرسلة بعد")}</p>
+              </Card>
+            ) : (
+              <Card className="gap-0 overflow-hidden p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="shadow-soft-xs [&>th]:px-3.5 [&>th]:py-3 [&>th]:text-start [&>th]:font-semibold [&>th]:text-muted-foreground">
+                        <th>Time</th>
+                        <th>User</th>
+                        <th>Title</th>
+                        <th>Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {logEntries.map((l) => (
+                        <tr key={l.id} className="odd:bg-muted/40 [&>td]:px-3.5 [&>td]:py-3 [&>td]:align-middle">
+                          <td className="whitespace-nowrap">{new Date(l.created_at).toLocaleString()}</td>
+                          <td>{l.user_name || l.user_email || "—"}</td>
+                          <td>
+                            <strong>{l.title}</strong>
+                            {l.template_slug && <span className="ms-1.5 text-[11px] text-muted-foreground">({l.template_slug})</span>}
+                          </td>
+                          <td>
+                            <Badge variant={l.status === "sent" ? "success" : "destructive"}>{String(l.status || "").replace(/_/g, " ")}</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             )
           )}
-        </>
+        </div>
       )}
     </div>
   );

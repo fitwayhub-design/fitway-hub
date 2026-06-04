@@ -5,7 +5,8 @@
  * Handles stale closure correctly via refs.
  */
 import { useEffect, useRef, useState, useCallback } from "react";
-import { MapPin, Crosshair, X } from "lucide-react";
+import { MapPin, Crosshair, X, Check, Loader2, AlertCircle, MousePointerClick, Move } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   lat: number | null;
@@ -209,66 +210,54 @@ export default function MapLocationPicker({ lat, lng, radius, onPick }: Props) {
   };
 
   return (
-    <div style={{ marginTop: 8 }}>
+    <div className="mt-2">
 
       {/* ── Toggle button ─────────────────────────────── */}
-      <button
+      <Button
         type="button"
+        variant={open ? "default" : "secondary"}
         onClick={() => { setOpen(o => !o); setError(""); }}
-        style={{
-          display: "flex", alignItems: "center", gap: 8, width: "100%",
-          padding: "10px 14px", borderRadius: 10, cursor: "pointer",
-          border: open ? "1.5px solid var(--main, #FFD600)" : "1.5px dashed var(--border)",
-          background: open ? "rgba(255,214,0,0.08)" : "var(--bg-surface)",
-          color: open ? "#FFD600" : "var(--text-secondary)",
-          fontSize: 13, fontWeight: 600, transition: "all 0.15s",
-        }}
+        className="w-full justify-start"
       >
-        <MapPin size={15} />
-        {open ? "Close map" : "📍 Pick exact location on map"}
+        <MapPin size={16} strokeWidth={2} />
+        {open ? "Close map" : "Pick exact location on map"}
         {!open && lat != null && lng != null && (
-          <span style={{ marginInlineStart: "auto", fontSize: 11, color: "#FFD600", fontWeight: 700 }}>
-            ✓ Pinned
+          <span className="ms-auto inline-flex items-center gap-1 text-[11px] font-bold text-primary">
+            <Check size={13} strokeWidth={2.5} /> Pinned
           </span>
         )}
-        {open && (
-          <span style={{ marginInlineStart: "auto" }}><X size={14} /></span>
-        )}
-      </button>
+        {open && <X size={15} strokeWidth={2} className="ms-auto" />}
+      </Button>
 
       {/* ── Map panel ─────────────────────────────────── */}
       {open && (
-        <div style={{ marginTop: 8, borderRadius: 14, overflow: "hidden", border: "1px solid var(--border)", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
+        <div className="mt-2 overflow-hidden rounded-lg bg-card shadow-soft">
 
           {/* Toolbar */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "var(--bg-card)", borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, color: "var(--text-secondary)", minWidth: 0 }}>
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-card px-4 py-2.5">
+            <span className="min-w-0 text-[12px] text-muted-foreground">
               {lat != null && lng != null
-                ? <span><strong style={{ color: "#FFD600" }}>📍 Pinned:</strong> {nearestCity(lat, lng)} ({lat.toFixed(3)}, {lng.toFixed(3)})</span>
+                ? <span><strong className="text-foreground">Pinned:</strong> {nearestCity(lat, lng)} ({lat.toFixed(3)}, {lng.toFixed(3)})</span>
                 : <span>Click the map to drop a pin, or use your location</span>}
             </span>
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="outline"
               onClick={useMyLocation}
               disabled={geoLoading}
-              style={{
-                display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
-                padding: "7px 14px", borderRadius: 8,
-                background: "rgba(255,214,0,0.1)", border: "1px solid #FFD600",
-                color: "#FFD600", cursor: geoLoading ? "wait" : "pointer",
-                fontSize: 12, fontWeight: 700,
-              }}
             >
               {geoLoading
-                ? <><span style={{ width: 13, height: 13, borderRadius: "50%", border: "2px solid #FFD60044", borderTopColor: "#FFD600", animation: "spin 0.7s linear infinite", display: "inline-block" }} /> Getting…</>
-                : <><Crosshair size={13} /> Use my location</>}
-            </button>
+                ? <><Loader2 size={14} strokeWidth={2} className="animate-spin" /> Getting…</>
+                : <><Crosshair size={14} strokeWidth={2} /> Use my location</>}
+            </Button>
           </div>
 
           {/* Error */}
           {error && (
-            <div style={{ padding: "8px 14px", background: "rgba(255,68,68,0.08)", borderBottom: "1px solid rgba(255,68,68,0.2)", fontSize: 12, color: "var(--red, #FF4444)" }}>
-              ⚠️ {error}
+            <div className="flex items-start gap-2 bg-destructive/10 px-4 py-2 text-[12px] text-destructive">
+              <AlertCircle size={15} strokeWidth={2} className="mt-px shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -276,17 +265,21 @@ export default function MapLocationPicker({ lat, lng, radius, onPick }: Props) {
           <div style={{ position: "relative" }}>
             <div ref={mapDiv} style={{ height: 340, width: "100%" }} />
             {!leafletReady && (
-              <div style={{ position: "absolute", inset: 0, zIndex: 1000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg-surface)", gap: 12 }}>
-                <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid var(--border)", borderTopColor: "#FFD600", animation: "spin 0.7s linear infinite" }} />
-                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading map…</span>
+              <div style={{ position: "absolute", inset: 0, zIndex: 1000 }} className="flex flex-col items-center justify-center gap-3 bg-muted">
+                <Loader2 size={32} strokeWidth={2} className="animate-spin text-primary" />
+                <span className="text-[13px] text-muted-foreground">Loading map…</span>
               </div>
             )}
           </div>
 
           {/* Footer hint */}
-          <div style={{ padding: "8px 14px", background: "var(--bg-card)", borderTop: "1px solid var(--border)" }}>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
-              🖱️ <strong>Click</strong> to drop pin &nbsp;·&nbsp; <strong>Drag</strong> to reposition &nbsp;·&nbsp; Circle = your targeting radius
+          <div className="bg-card px-4 py-2">
+            <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted-foreground">
+              <MousePointerClick size={12} strokeWidth={2} /> <strong className="text-foreground">Click</strong> to drop pin
+              <span aria-hidden="true">·</span>
+              <Move size={12} strokeWidth={2} /> <strong className="text-foreground">Drag</strong> to reposition
+              <span aria-hidden="true">·</span>
+              Circle = your targeting radius
             </p>
           </div>
         </div>

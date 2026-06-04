@@ -1,4 +1,5 @@
 import { LucideIcon } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 interface StatCardProps {
   title: string;
@@ -29,52 +30,33 @@ export function StatCard({ title, value, unit, icon: Icon, color, trend, subtitl
   const c = colorMap[resolvedColor] ?? colorMap.accent;
 
   return (
-    <div
-      className="card fade-up"
-      style={{
-        padding: "18px 20px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        cursor: "default",
-        transition: "box-shadow 0.2s, transform 0.2s",
-      }}
-      onMouseOver={(e) => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = `0 4px 16px ${c.icon}25`;
-        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
-      }}
-      onMouseOut={(e) => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
-        (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+    <Card className="gap-3 p-5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
           {title}
         </span>
-        <div style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: c.iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span
+          className="grid size-9 shrink-0 place-items-center rounded-md"
+          style={{ backgroundColor: c.iconBg }}
+        >
           <Icon size={16} color={c.icon} strokeWidth={2} />
-        </div>
+        </span>
       </div>
 
       <div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-          <span style={{ fontFamily: "var(--font-en)", fontSize: 28, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1 }}>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[28px] font-bold leading-none tabular-nums tracking-tight text-foreground">
             {value}
           </span>
-          {unit && (
-            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{unit}</span>
-          )}
+          {unit && <span className="text-[13px] text-muted-foreground">{unit}</span>}
         </div>
         {trend && (
-          <p style={{ fontSize: 11, marginTop: 4, color: c.trend, fontWeight: 500 }}>
+          <p className="mt-1.5 text-[11px] font-semibold" style={{ color: c.trend }}>
             {trend}
           </p>
         )}
-        {subtitle && (
-          <p style={{ fontSize: 11, marginTop: 4, color: "var(--text-muted)" }}>{subtitle}</p>
-        )}
+        {subtitle && <p className="mt-1.5 text-[11px] text-muted-foreground">{subtitle}</p>}
       </div>
-    </div>
+    </Card>
   );
 }

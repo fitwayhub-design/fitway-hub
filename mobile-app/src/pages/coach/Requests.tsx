@@ -1,10 +1,16 @@
 import { getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
-import { CheckCircle, X, Clock, ChevronDown, ChevronUp, User, Ruler, Weight, Camera, AlertCircle, Calendar, Star } from "lucide-react";
+import { CheckCircle, X, Clock, ChevronDown, ChevronUp, User, Camera, AlertCircle, Calendar, CreditCard, ClipboardList } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import { getAvatar } from "@/lib/avatar";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 interface CoachingRequest {
   id: number; user_id: number; user_name: string; user_email: string; user_avatar: string;
@@ -36,8 +42,6 @@ interface CoachSubscriptionRequest {
 export default function CoachRequests() {
   const { token } = useAuth();
   const { t } = useI18n();
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
-  useEffect(() => { const h = () => setIsMobile(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
   const [requests, setRequests] = useState<CoachingRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -126,142 +130,157 @@ export default function CoachRequests() {
     }
   };
 
+  const statusBadge = (status: CoachingRequest["status"]) => {
+    if (status === "pending") return <Badge variant="warning"><Clock size={11} strokeWidth={2} /> {t("pending")}</Badge>;
+    if (status === "accepted") return <Badge variant="success"><CheckCircle size={11} strokeWidth={2} /> {t("accepted")}</Badge>;
+    return <Badge variant="destructive"><X size={11} strokeWidth={2} /> {t("declined")}</Badge>;
+  };
+
   const RequestCard = ({ req }: { req: CoachingRequest }) => {
     const expanded = expandedId === req.id;
     const profile = userProfiles[req.user_id];
     const isLoadingThis = loadingProfile === req.user_id;
 
     return (
-      <div style={{ backgroundColor: "var(--bg-card)", border: `1px solid ${req.status === "pending" ? "rgba(255,179,64,0.3)" : req.status === "accepted" ? "rgba(255,214,0,0.2)" : "var(--border)"}`, borderRadius: "var(--radius-full)", overflow: "hidden" }}>
+      <Card className="gap-0 overflow-hidden p-0 shadow-soft-sm">
         {/* Header row */}
-        <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }} onClick={() => toggleExpand(req)}>
-          <img src={req.user_avatar || getAvatar(req.user_email, null, (req as any).user_gender, req.user_name)} alt={req.user_name} style={{ width: 46, height: 46, borderRadius: "50%", backgroundColor: "var(--bg-surface)", flexShrink: 0 }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <p style={{ fontFamily: "var(--font-en)", fontSize: 15, fontWeight: 700 }}>{req.user_name}</p>
-              <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: "var(--radius-full)", fontWeight: 600, background: req.status === "pending" ? "rgba(255,179,64,0.1)" : req.status === "accepted" ? "rgba(255,214,0,0.1)" : "rgba(255,68,68,0.08)", color: req.status === "pending" ? "var(--amber)" : req.status === "accepted" ? "var(--accent)" : "var(--red)", border: `1px solid ${req.status === "pending" ? "rgba(255,179,64,0.3)" : req.status === "accepted" ? "rgba(255,214,0,0.25)" : "rgba(255,68,68,0.2)"}` }}>
-                {req.status === "pending" ? `⏳ ${t("pending")}` : req.status === "accepted" ? `✓ ${t("accepted")}` : `✗ ${t("declined")}`}
-              </span>
+        <div className="flex cursor-pointer items-center gap-3.5 p-4" onClick={() => toggleExpand(req)}>
+          <Avatar className="size-11 shrink-0">
+            <AvatarImage src={req.user_avatar} alt={req.user_name} />
+            <AvatarFallback>{(req.user_name || "A").slice(0, 1)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[15px] font-semibold">{req.user_name}</p>
+              {statusBadge(req.status)}
             </div>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">
               {req.plan} {t("coach_requests_plan_suffix")} · {req.booking_type === "session" ? t("coach_requests_per_session") : t("monthly_plan")} · {new Date(req.created_at).toLocaleDateString()}
             </p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <div className="flex shrink-0 items-center gap-2">
             {req.status === "pending" && (
               <>
-                <button onClick={e => { e.stopPropagation(); updateStatus(req.id, "accepted"); }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: "var(--radius-full)", background: "rgba(255,214,0,0.1)", border: "1px solid rgba(255,214,0,0.3)", color: "var(--accent)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                  <CheckCircle size={13} /> {t("accept")}
-                </button>
-                <button onClick={e => { e.stopPropagation(); updateStatus(req.id, "rejected"); }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.25)", color: "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                  <X size={13} /> {t("decline")}
-                </button>
+                <Button size="sm" onClick={e => { e.stopPropagation(); updateStatus(req.id, "accepted"); }}>
+                  <CheckCircle size={14} strokeWidth={2} /> {t("accept")}
+                </Button>
+                <Button size="sm" variant="outline" className="text-destructive" onClick={e => { e.stopPropagation(); updateStatus(req.id, "rejected"); }}>
+                  <X size={14} strokeWidth={2} /> {t("decline")}
+                </Button>
               </>
             )}
-            {expanded ? <ChevronUp size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
+            {expanded ? <ChevronUp size={16} strokeWidth={2} className="text-muted-foreground" /> : <ChevronDown size={16} strokeWidth={2} className="text-muted-foreground" />}
           </div>
         </div>
 
         {/* Expanded: full details */}
         {expanded && (
-          <div style={{ borderTop: "1px solid var(--border)", padding: "20px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+          <>
+            <Separator />
+            <div className="p-5">
+              <div className="grid gap-5 lg:grid-cols-2">
 
-              {/* Left: User Profile */}
-              <div>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                  <User size={11} /> {t("coach_requests_athlete_profile")}
-                </p>
-                {isLoadingThis ? (
-                  <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "12px 0" }}>{t("coach_requests_loading_profile")}</div>
-                ) : profile ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {/* Avatar + basic info */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", backgroundColor: "var(--bg-surface)", borderRadius: "var(--radius-full)", border: "1px solid var(--border)" }}>
-                      <img src={profile.avatar || getAvatar(profile.email, null, (profile as any).gender, profile.name)} alt={profile.name} style={{ width: 48, height: 48, borderRadius: "50%", flexShrink: 0 }} />
-                      <div>
-                        <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700 }}>{profile.name}</p>
-                        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{profile.email}</p>
+                {/* Left: User Profile */}
+                <div>
+                  <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    <User size={12} strokeWidth={2} /> {t("coach_requests_athlete_profile")}
+                  </p>
+                  {isLoadingThis ? (
+                    <div className="flex flex-col gap-2.5">
+                      <Skeleton className="h-[68px] rounded-md" />
+                      <div className="grid grid-cols-2 gap-2">
+                        {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-[52px] rounded-md" />)}
                       </div>
                     </div>
-                    {/* Stats grid */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      {[
-                        { label: t("height_label"), value: profile.height ? `${profile.height} cm` : "—", icon: "📏" },
-                        { label: t("weight_label"), value: profile.weight ? `${profile.weight} kg` : "—", icon: "⚖️" },
-                        { label: t("coach_requests_gender"), value: profile.gender ? (profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)) : "—", icon: "👤" },
-                        { label: t("points"), value: profile.points?.toLocaleString() ?? "0", icon: "⭐" },
-                        { label: t("coach_requests_steps_today"), value: profile.steps?.toLocaleString() ?? "0", icon: "🦶" },
-                        { label: t("coach_requests_age"), value: profile.age ? `${profile.age} ${t("coach_requests_years_short")}` : "—", icon: "🎂" },
-                      ].map(s => (
-                        <div key={s.label} style={{ backgroundColor: "var(--bg-surface)", borderRadius: "var(--radius-full)", padding: "10px 12px", border: "1px solid var(--border)" }}>
-                          <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>{s.icon} {s.label}</p>
-                          <p style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, color: "var(--blue)" }}>{s.value}</p>
+                  ) : profile ? (
+                    <div className="flex flex-col gap-2.5">
+                      {/* Avatar + basic info */}
+                      <div className="flex items-center gap-3 rounded-md bg-muted p-3">
+                        <Avatar className="size-12 shrink-0">
+                          <AvatarImage src={profile.avatar} alt={profile.name} />
+                          <AvatarFallback>{(profile.name || "A").slice(0, 1)}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="truncate text-[14px] font-semibold">{profile.name}</p>
+                          <p className="truncate text-[12px] text-muted-foreground">{profile.email}</p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>{t("coach_requests_profile_unavailable")}</div>
-                )}
-              </div>
-
-              {/* Right: Request Details */}
-              <div>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Calendar size={11} /> {t("coach_requests_request_details")}
-                </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-                  {[
-                    { label: t("table_date"), value: req.date || t("coach_requests_tbd") },
-                    { label: t("coach_requests_time"), value: req.time || t("coach_requests_tbd") },
-                    { label: t("plan_type"), value: req.plan || t("coach_requests_complete") },
-                    { label: t("coach_requests_level"), value: `${t("coach_requests_level")} ${req.level || "1"}` },
-                    { label: t("table_type"), value: req.booking_type === "session" ? t("coach_requests_per_session") : t("monthly_plan") },
-                    { label: t("coach_requests_requested"), value: new Date(req.created_at).toLocaleDateString() },
-                  ].map(s => (
-                    <div key={s.label} style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "10px 12px" }}>
-                      <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>{s.label}</p>
-                      <p style={{ fontFamily: "var(--font-en)", fontSize: 13, fontWeight: 700, color: "var(--blue)", textTransform: "capitalize" }}>{s.value}</p>
-                    </div>
-                  ))}
-                </div>
-                {req.note && (
-                  <div style={{ backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px", marginBottom: 12 }}>
-                    <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>💬 {t("coach_requests_message_from_athlete")}</p>
-                    <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, fontStyle: "italic" }}>"{req.note}"</p>
-                  </div>
-                )}
-
-                {/* Body photos */}
-                {(req.now_body_photo || req.dream_body_photo) && (
-                  <div>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                      <Camera size={11} /> {t("coach_requests_body_photos")}
-                    </p>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      {[
-                        { label: t("coach_requests_now_body"), src: req.now_body_photo },
-                        { label: t("coach_requests_dream_body"), src: req.dream_body_photo },
-                      ].map(p => p.src ? (
-                        <div key={p.label} style={{ cursor: "pointer" }} onClick={() => setLightboxSrc(p.src!)}>
-                          <p style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{p.label}</p>
-                          <div style={{ position: "relative", borderRadius: "var(--radius-full)", overflow: "hidden", border: "1px solid var(--border)", aspectRatio: "3/4" }}>
-                            <img src={p.src} alt={p.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0)", transition: "background 0.15s" }} onMouseOver={e => (e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.3)")} onMouseOut={e => (e.currentTarget.style.backgroundColor = "rgba(0,0,0,0)")}>
-                              <Camera size={18} color="#fff" style={{ opacity: 0 }} />
-                            </div>
+                      </div>
+                      {/* Stats grid */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: t("height_label"), value: profile.height ? `${profile.height} cm` : "—", icon: "📏" },
+                          { label: t("weight_label"), value: profile.weight ? `${profile.weight} kg` : "—", icon: "⚖️" },
+                          { label: t("coach_requests_gender"), value: profile.gender ? (profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1)) : "—", icon: "👤" },
+                          { label: t("points"), value: profile.points?.toLocaleString() ?? "0", icon: "⭐" },
+                          { label: t("coach_requests_steps_today"), value: profile.steps?.toLocaleString() ?? "0", icon: "🦶" },
+                          { label: t("coach_requests_age"), value: profile.age ? `${profile.age} ${t("coach_requests_years_short")}` : "—", icon: "🎂" },
+                        ].map(s => (
+                          <div key={s.label} className="rounded-md bg-muted px-3 py-2.5">
+                            <p className="mb-1 text-[10px] tracking-wide text-muted-foreground uppercase">{s.icon} {s.label}</p>
+                            <p className="text-[14px] font-bold text-[var(--secondary)]">{s.value}</p>
                           </div>
-                        </div>
-                      ) : null)}
+                        ))}
+                      </div>
                     </div>
+                  ) : (
+                    <div className="text-[13px] text-muted-foreground italic">{t("coach_requests_profile_unavailable")}</div>
+                  )}
+                </div>
+
+                {/* Right: Request Details */}
+                <div>
+                  <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    <Calendar size={12} strokeWidth={2} /> {t("coach_requests_request_details")}
+                  </p>
+                  <div className="mb-3 grid grid-cols-2 gap-2">
+                    {[
+                      { label: t("table_date"), value: req.date || t("coach_requests_tbd") },
+                      { label: t("coach_requests_time"), value: req.time || t("coach_requests_tbd") },
+                      { label: t("plan_type"), value: req.plan || t("coach_requests_complete") },
+                      { label: t("coach_requests_level"), value: `${t("coach_requests_level")} ${req.level || "1"}` },
+                      { label: t("table_type"), value: req.booking_type === "session" ? t("coach_requests_per_session") : t("monthly_plan") },
+                      { label: t("coach_requests_requested"), value: new Date(req.created_at).toLocaleDateString() },
+                    ].map(s => (
+                      <div key={s.label} className="rounded-md bg-muted px-3 py-2.5">
+                        <p className="mb-1 text-[10px] tracking-wide text-muted-foreground uppercase">{s.label}</p>
+                        <p className="text-[13px] font-bold text-[var(--secondary)] capitalize">{s.value}</p>
+                      </div>
+                    ))}
                   </div>
-                )}
+                  {req.note && (
+                    <div className="mb-3 rounded-md bg-muted px-3.5 py-3">
+                      <p className="mb-1.5 text-[10px] tracking-wide text-muted-foreground uppercase">💬 {t("coach_requests_message_from_athlete")}</p>
+                      <p className="text-[13px] leading-relaxed text-foreground italic">"{req.note}"</p>
+                    </div>
+                  )}
+
+                  {/* Body photos */}
+                  {(req.now_body_photo || req.dream_body_photo) && (
+                    <div>
+                      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                        <Camera size={12} strokeWidth={2} /> {t("coach_requests_body_photos")}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: t("coach_requests_now_body"), src: req.now_body_photo },
+                          { label: t("coach_requests_dream_body"), src: req.dream_body_photo },
+                        ].map(p => p.src ? (
+                          <button key={p.label} type="button" className="text-start" onClick={() => setLightboxSrc(p.src!)} aria-label={p.label}>
+                            <p className="mb-1 text-[10px] tracking-wide text-muted-foreground uppercase">{p.label}</p>
+                            <div className="relative aspect-[3/4] overflow-hidden rounded-md bg-muted transition active:scale-[0.98]">
+                              <img src={p.src} alt={p.label} className="size-full object-cover" />
+                            </div>
+                          </button>
+                        ) : null)}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
-      </div>
+      </Card>
     );
   };
 
@@ -280,129 +299,146 @@ export default function CoachRequests() {
     .slice(0, 8);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div>
-        <h1 style={{ fontFamily: "var(--font-en)", fontSize: "clamp(18px,4vw,26px)", fontWeight: 700 }}>{t("coach_requests_title")}</h1>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 3 }}>{t("coach_requests_subtitle")}</p>
-      </div>
+    <div className="mx-auto w-full max-w-[880px] px-4 pb-4">
+      <div className="space-y-5">
+        <header className="pt-1">
+          <h1 className="text-[28px] leading-tight font-bold tracking-tight">{t("coach_requests_title")}</h1>
+          <p className="mt-1 text-[13px] text-muted-foreground">{t("coach_requests_subtitle")}</p>
+        </header>
 
-      {/* Unified recent feed (subscriptions + coaching requests together) */}
-      {recentCombined.length > 0 && (
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "14px 18px" }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Recent activity</p>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-            {recentCombined.map(item => (
-              <li key={`${item.kind}-${item.id}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 12, background: "var(--bg-surface)", border: "1px solid var(--border)" }}>
-                <span style={{ fontSize: 16 }}>{item.kind === "subscription" ? "💳" : "📋"}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700 }}>{item.name}</p>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.kind === "subscription" ? "Subscription" : "Coaching request"} · {item.summary}</p>
-                </div>
-                <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "capitalize" }}>{item.status}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {message && <div style={{ padding: "10px 16px", backgroundColor: message.startsWith("✅") ? "var(--accent-dim)" : "rgba(255,68,68,0.08)", border: `1px solid ${message.startsWith("✅") ? "var(--accent)" : "var(--red)"}`, borderRadius: "var(--radius-full)", fontSize: 13, color: message.startsWith("✅") ? "var(--accent)" : "var(--red)" }}>{message}</div>}
-
-      <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "16px 18px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("coach_requests_paid_subscriptions")}</p>
-          <span style={{ fontSize: 11, color: "var(--amber)", fontWeight: 700 }}>{subscriptionRequests.length} {t("pending")}</span>
-        </div>
-        {subscriptionRequests.length === 0 ? (
-          <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "4px 0" }}>{t("coach_requests_no_paid_subscriptions")}</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {subscriptionRequests.map((sub) => (
-              <div key={sub.id} style={{ backgroundColor: "var(--bg-surface)", border: "1px solid rgba(255,179,64,0.25)", borderRadius: "var(--radius-full)", padding: "12px 14px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <img src={sub.user_avatar || getAvatar(sub.user_email, null, (sub as any).user_gender, sub.user_name)} alt={sub.user_name} style={{ width: 36, height: 36, borderRadius: "50%", backgroundColor: "var(--bg-card)" }} />
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 700 }}>{sub.user_name}</p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{sub.plan_cycle} · {sub.plan_type} · {sub.amount} {t('currency_egp')}</p>
-                    </div>
+        {/* Unified recent feed (subscriptions + coaching requests together) */}
+        {recentCombined.length > 0 && (
+          <Card className="gap-0 p-5 shadow-soft-sm">
+            <p className="mb-2.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Recent activity</p>
+            <ul className="flex flex-col gap-2">
+              {recentCombined.map(item => (
+                <li key={`${item.kind}-${item.id}`} className="flex items-center gap-2.5 rounded-md bg-muted px-3 py-2.5">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-card text-muted-foreground">
+                    {item.kind === "subscription" ? <CreditCard size={15} strokeWidth={2} /> : <ClipboardList size={15} strokeWidth={2} />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-semibold">{item.name}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">{item.kind === "subscription" ? "Subscription" : "Coaching request"} · {item.summary}</p>
                   </div>
-                  <span style={{ fontSize: 11, color: "var(--amber)", fontWeight: 700 }}>{new Date(sub.created_at).toLocaleDateString()}</span>
-                </div>
-                {sub.payment_proof && (
-                  <div style={{ marginBottom: 10 }}>
-                    <img
-                      src={sub.payment_proof.startsWith("http") ? sub.payment_proof : getApiBase() + sub.payment_proof}
-                      alt={t('payment_proof')}
-                      style={{ maxHeight: 130, borderRadius: "var(--radius-full)", border: "1px solid var(--border)" }}
-                    />
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => handleSubscriptionDecision(sub.id, "accept")} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "8px 12px", borderRadius: "var(--radius-full)", background: "rgba(255,214,0,0.12)", border: "1px solid rgba(255,214,0,0.35)", color: "var(--accent)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-                    <CheckCircle size={13} /> {t("accept")}
-                  </button>
-                  <button onClick={() => handleSubscriptionDecision(sub.id, "decline")} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "8px 12px", borderRadius: "var(--radius-full)", background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.25)", color: "var(--red)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-                    <X size={13} /> {t("coach_requests_decline_refund")}
-                  </button>
-                </div>
-              </div>
-            ))}
+                  <span className="shrink-0 text-[11px] text-muted-foreground capitalize">{item.status}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        {message && (
+          <div className={`rounded-md px-3.5 py-2.5 text-[13px] font-semibold ${message.startsWith("✅") ? "bg-[color-mix(in_srgb,var(--green)_14%,transparent)] text-[var(--green)]" : "bg-[color-mix(in_srgb,var(--red)_14%,transparent)] text-[var(--red)]"}`}>
+            {message}
           </div>
+        )}
+
+        {/* Paid subscriptions */}
+        <Card className="gap-0 p-5 shadow-soft-sm">
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t("coach_requests_paid_subscriptions")}</p>
+            <span className="text-[11px] font-bold text-[var(--amber)]">{subscriptionRequests.length} {t("pending")}</span>
+          </div>
+          {subscriptionRequests.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground">{t("coach_requests_no_paid_subscriptions")}</p>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {subscriptionRequests.map((sub) => (
+                <div key={sub.id} className="rounded-md bg-muted p-3.5">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <Avatar className="size-9 shrink-0">
+                        <AvatarImage src={sub.user_avatar} alt={sub.user_name} />
+                        <AvatarFallback>{(sub.user_name || "A").slice(0, 1)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold">{sub.user_name}</p>
+                        <p className="text-[11px] text-muted-foreground">{sub.plan_cycle} · {sub.plan_type} · {sub.amount} {t('currency_egp')}</p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-semibold text-[var(--amber)]">{new Date(sub.created_at).toLocaleDateString()}</span>
+                  </div>
+                  {sub.payment_proof && (
+                    <div className="mb-2.5">
+                      <img
+                        src={sub.payment_proof.startsWith("http") ? sub.payment_proof : getApiBase() + sub.payment_proof}
+                        alt={t('payment_proof')}
+                        className="max-h-[130px] rounded-md object-cover"
+                      />
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1" onClick={() => handleSubscriptionDecision(sub.id, "accept")}>
+                      <CheckCircle size={14} strokeWidth={2} /> {t("accept")}
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 text-destructive" onClick={() => handleSubscriptionDecision(sub.id, "decline")}>
+                      <X size={14} strokeWidth={2} /> {t("coach_requests_decline_refund")}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Status counters */}
+        <div className="flex flex-wrap gap-3">
+          {[
+            { label: t("pending"), count: pending.length, cls: "text-[var(--amber)]" },
+            { label: t("accepted"), count: accepted.length, cls: "text-primary" },
+            { label: t("declined"), count: rejected.length, cls: "text-muted-foreground" },
+          ].map(s => (
+            <Card key={s.label} className="min-w-[100px] flex-1 gap-0 p-4 shadow-soft-sm">
+              <p className="mb-1 text-[11px] tracking-wide text-muted-foreground uppercase">{s.label}</p>
+              <p className={`text-[26px] leading-none font-bold tabular-nums ${s.cls}`}>{s.count}</p>
+            </Card>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-[76px] rounded-lg" />)}
+          </div>
+        ) : requests.length === 0 ? (
+          <Card className="items-center gap-2 py-10 text-center shadow-soft-sm">
+            <AlertCircle size={40} strokeWidth={1.5} className="text-muted-foreground" />
+            <p className="text-[15px] text-muted-foreground">{t("coach_requests_empty")}</p>
+          </Card>
+        ) : (
+          <>
+            {pending.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-[var(--amber)] uppercase">
+                  <Clock size={12} strokeWidth={2} /> {t("coach_requests_awaiting_review")} ({pending.length})
+                </p>
+                {pending.map(r => <RequestCard key={r.id} req={r} />)}
+              </div>
+            )}
+            {accepted.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-primary uppercase">
+                  <CheckCircle size={12} strokeWidth={2} /> {t("accepted")} ({accepted.length})
+                </p>
+                {accepted.map(r => <RequestCard key={r.id} req={r} />)}
+              </div>
+            )}
+            {rejected.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t("declined")} ({rejected.length})</p>
+                {rejected.map(r => <RequestCard key={r.id} req={r} />)}
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        {[{ label: t("pending"), count: pending.length, color: "var(--amber)" }, { label: t("accepted"), count: accepted.length, color: "var(--accent)" }, { label: t("declined"), count: rejected.length, color: "var(--text-muted)" }].map(s => (
-          <div key={s.label} style={{ flex: 1, minWidth: 100, backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 16px" }}>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{s.label}</p>
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 26, fontWeight: 700, color: s.color }}>{s.count}</p>
-          </div>
-        ))}
-      </div>
-
-      {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>{t("coach_requests_loading")}</div>
-      ) : requests.length === 0 ? (
-        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 40, textAlign: "center" }}>
-          <AlertCircle size={40} strokeWidth={1} color="var(--text-muted)" style={{ margin: "0 auto 12px" }} />
-          <p style={{ fontFamily: "var(--font-en)", fontSize: 15, color: "var(--text-muted)" }}>{t("coach_requests_empty")}</p>
-        </div>
-      ) : (
-        <>
-          {pending.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: 6 }}>
-                <Clock size={12} /> {t("coach_requests_awaiting_review")} ({pending.length})
-              </p>
-              {pending.map(r => <div key={r.id}><RequestCard req={r} /></div>)}
-            </div>
-          )}
-          {accepted.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: 6 }}>
-                <CheckCircle size={12} /> {t("accepted")} ({accepted.length})
-              </p>
-              {accepted.map(r => <div key={r.id}><RequestCard req={r} /></div>)}
-            </div>
-          )}
-          {rejected.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{t("declined")} ({rejected.length})</p>
-              {rejected.map(r => <div key={r.id}><RequestCard req={r} /></div>)}
-            </div>
-          )}
-        </>
-      )}
-
       {/* Lightbox */}
-      {lightboxSrc && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, backgroundColor: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setLightboxSrc(null)}>
-          <img src={lightboxSrc} alt={t('body_photo')} style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: "var(--radius-full)", objectFit: "contain" }} />
-          <button style={{ position: "absolute", top: 20, insetInlineEnd: 20, width: 40, height: 40, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.15)", border: "none", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <X size={20} />
-          </button>
-        </div>
-      )}
+      <Dialog open={!!lightboxSrc} onOpenChange={(o) => { if (!o) setLightboxSrc(null); }}>
+        <DialogContent className="max-w-[min(92vw,640px)] bg-transparent p-0 shadow-none ring-0">
+          <DialogTitle className="sr-only">{t('body_photo')}</DialogTitle>
+          {lightboxSrc && <img src={lightboxSrc} alt={t('body_photo')} className="max-h-[88dvh] w-full rounded-lg object-contain" />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

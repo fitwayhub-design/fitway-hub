@@ -8,6 +8,14 @@ import {
   Flame, Zap, User, TrendingUp, Heart, Eye,
 } from "lucide-react";
 import VideoPlayer from "@/components/app/VideoPlayer";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface Video {
   id: number; title: string; description: string;
@@ -100,35 +108,43 @@ function formatRelative(d: Date): string {
   return d.toLocaleDateString();
 }
 
+/* Section header — quiet icon + bold title, matching the Dashboard rhythm. */
+function SectionTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <h2 className="flex items-center gap-2 text-[19px] font-bold leading-none tracking-tight">
+      <span className="text-primary">{icon}</span>
+      {children}
+    </h2>
+  );
+}
+
 /* Tiny helper for a chip row. Single-select with an "All" reset chip. */
 function ChipRow<T extends { value: string; label: string }>({
   label, items, value, onChange,
 }: { label: string; items: T[]; value: string; onChange: (v: string) => void }) {
   return (
-    <div style={{ marginBottom: 10 }}>
-      <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</p>
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 0 4px", scrollbarWidth: "none" }}>
+    <div className="mb-2.5">
+      <p className="mb-1.5 text-[11px] tracking-[0.06em] text-muted-foreground uppercase">{label}</p>
+      <div className="scroll-x flex gap-2 pb-1">
         <button
           onClick={() => onChange("")}
-          style={{
-            flexShrink: 0, padding: "6px 12px", borderRadius: 99,
-            border: `1px solid ${!value ? "var(--accent)" : "var(--border)"}`,
-            background: !value ? "var(--accent-dim)" : "var(--bg-card)",
-            color: !value ? "var(--accent)" : "var(--text-secondary)",
-            fontWeight: !value ? 700 : 500, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap",
-          }}
+          className={cn(
+            "shrink-0 rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition",
+            !value
+              ? "bg-primary/15 font-bold text-primary"
+              : "bg-card font-medium text-muted-foreground shadow-soft-sm",
+          )}
         >All</button>
         {items.map(it => {
           const active = value === it.value;
           return (
             <button key={it.value} onClick={() => onChange(active ? "" : it.value)}
-              style={{
-                flexShrink: 0, padding: "6px 12px", borderRadius: 99,
-                border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                background: active ? "var(--accent-dim)" : "var(--bg-card)",
-                color: active ? "var(--accent)" : "var(--text-secondary)",
-                fontWeight: active ? 700 : 500, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap",
-              }}>
+              className={cn(
+                "shrink-0 rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition",
+                active
+                  ? "bg-primary/15 font-bold text-primary"
+                  : "bg-card font-medium text-muted-foreground shadow-soft-sm",
+              )}>
               {it.label}
             </button>
           );
@@ -412,13 +428,14 @@ export default function Workouts() {
     return (
       <button
         onClick={(e) => { e.stopPropagation(); toggleSaved(id); }}
-        style={{
-          width: 30, height: 30, borderRadius: 99,
-          background: light ? "rgba(0,0,0,0.55)" : "var(--bg-surface)",
-          border: light ? "none" : "1px solid var(--border)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer", color: saved ? "var(--accent)" : (light ? "#fff" : "var(--text-secondary)"),
-        }}
+        className={cn(
+          "grid size-[30px] place-items-center rounded-full transition active:scale-95",
+          light
+            ? "bg-black/55 text-white backdrop-blur"
+            : "bg-muted shadow-soft-sm",
+          saved && (light ? "text-primary" : "text-primary"),
+          !saved && !light && "text-muted-foreground",
+        )}
         aria-label={saved ? "Unsave" : "Save"}
       >
         <BookmarkCheck size={14} fill={saved ? "currentColor" : "none"} />
@@ -431,14 +448,14 @@ export default function Workouts() {
     return (
       <button
         onClick={(e) => { e.stopPropagation(); toggleLiked(id); }}
-        style={{
-          height: 30, padding: "0 10px", borderRadius: 99,
-          background: light ? "rgba(0,0,0,0.55)" : "var(--bg-surface)",
-          border: light ? "none" : "1px solid var(--border)",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
-          cursor: "pointer", color: liked ? "#FB7185" : (light ? "#fff" : "var(--text-secondary)"),
-          fontSize: 11, fontWeight: 700,
-        }}
+        className={cn(
+          "inline-flex h-[30px] items-center justify-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition active:scale-95",
+          light
+            ? "bg-black/55 text-white backdrop-blur"
+            : "bg-muted shadow-soft-sm",
+          liked && "text-[#FB7185]",
+          !liked && !light && "text-muted-foreground",
+        )}
         aria-label={liked ? "Unlike" : "Like"}
       >
         <Heart size={13} fill={liked ? "currentColor" : "none"} />
@@ -453,8 +470,8 @@ export default function Workouts() {
     const pct = Math.min(100, Math.max(0, (p.position_seconds / p.duration_seconds) * 100));
     if (pct < 1) return null;
     return (
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, background: "rgba(0,0,0,0.4)" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)" }} />
+      <div className="absolute inset-x-0 bottom-0 h-[3px] bg-black/40">
+        <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
       </div>
     );
   };
@@ -464,81 +481,78 @@ export default function Workouts() {
     const prog = progressFor(v.id);
     const hasProgress = !!prog && prog.position_seconds > 5 && !prog.completed;
     return (
-      <div key={v.id} onClick={() => openPlayer(v)}
-        style={{ display: "flex", flexDirection: "column", borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--border)", overflow: "hidden", cursor: "pointer" }}>
-        <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", background: "var(--bg-surface)" }}>
+      <Card key={v.id} onClick={() => openPlayer(v)}
+        className="cursor-pointer gap-0 overflow-hidden p-0 shadow-soft-sm transition active:scale-[0.99]">
+        <div className="relative aspect-video w-full bg-muted">
           {v.thumbnail
-            ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20`, display: "flex", alignItems: "center", justifyContent: "center" }}><Play size={28} color={CAT_COLORS[v.category] || "var(--accent)"} /></div>}
+            ? <img src={resolveAssetUrl(v.thumbnail)} alt="" className="size-full object-cover" />
+            : <div className="grid size-full place-items-center" style={{ background: `${CAT_COLORS[v.category] || "#FFD600"}20` }}><Play size={28} color={CAT_COLORS[v.category] || "var(--accent)"} /></div>}
           {v.duration && (
-            <span style={{ position: "absolute", bottom: 8, right: 8, fontSize: 11, padding: "3px 8px", borderRadius: 6, background: "rgba(0,0,0,0.75)", color: "#fff", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+            <span className="absolute end-2 bottom-2 inline-flex items-center gap-1 rounded-md bg-black/75 px-2 py-0.5 text-[11px] font-semibold text-white">
               <Clock size={10} /> {v.duration}
             </span>
           )}
-          <div style={{ position: "absolute", top: 8, right: 8 }}>
+          <div className="absolute end-2 top-2">
             <SaveBtn id={v.id} light />
           </div>
           <ProgressBar id={v.id} />
         </div>
-        <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</p>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 99, background: `${CAT_COLORS[v.category] || "#FFD600"}15`, color: CAT_COLORS[v.category] || "var(--accent)", fontWeight: 600 }}>{v.category}</span>
-            {v.level && <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "capitalize" }}>· {v.level}</span>}
+        <div className="flex flex-col gap-1.5 px-2.5 pt-2 pb-2.5">
+          <p className="line-clamp-2 text-[13px] leading-snug font-bold">{v.title}</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: `${CAT_COLORS[v.category] || "#FFD600"}15`, color: CAT_COLORS[v.category] || "var(--accent)" }}>{v.category}</span>
+            {v.level && <span className="text-[10px] text-muted-foreground capitalize">· {v.level}</span>}
             {v.coach_name && (
-              <span style={{ fontSize: 10, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 3 }}>
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <User size={9} /> {v.coach_name}
               </span>
             )}
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--text-muted)", fontSize: 10 }}>
-            {(v.views_count || 0) > 0 && <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Eye size={11} /> {v.views_count}</span>}
-            {(v.likes_count || 0) > 0 && <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Heart size={11} /> {v.likes_count}</span>}
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            {(v.views_count || 0) > 0 && <span className="flex items-center gap-1"><Eye size={11} /> {v.views_count}</span>}
+            {(v.likes_count || 0) > 0 && <span className="flex items-center gap-1"><Heart size={11} /> {v.likes_count}</span>}
           </div>
-          <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
-            <button
+          <div className="mt-0.5 flex gap-1.5">
+            <Button
+              size="sm"
               onClick={(e) => { e.stopPropagation(); openPlayer(v); }}
-              style={{
-                flex: 1, padding: "6px 10px", borderRadius: 8,
-                border: "none", background: "var(--accent)", color: "#000",
-                fontWeight: 700, fontSize: 12, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-              }}>
-              <Play size={11} fill="#000" /> {hasProgress ? "Continue" : "Start"}
-            </button>
+              className="h-8 flex-1 text-xs"
+            >
+              <Play size={11} fill="currentColor" /> {hasProgress ? "Continue" : "Start"}
+            </Button>
             <LikeBtn id={v.id} />
           </div>
         </div>
-      </div>
+      </Card>
     );
   };
 
   /* Short card: tall portrait thumbnail, minimal meta, designed for fast scrolling. */
   const renderShortCard = (v: Video) => (
     <div key={v.id} onClick={() => openPlayer(v)}
-      style={{ display: "flex", flexDirection: "column", cursor: "pointer" }}>
-      <div style={{ position: "relative", width: "100%", aspectRatio: "9 / 16", borderRadius: 14, overflow: "hidden", background: "var(--bg-card)", border: "1px solid var(--border)", marginBottom: 6 }}>
+      className="flex cursor-pointer flex-col">
+      <div className="relative mb-1.5 aspect-[9/16] w-full overflow-hidden rounded-md bg-card shadow-soft-sm">
         {v.thumbnail
-          ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20`, display: "flex", alignItems: "center", justifyContent: "center" }}><Play size={24} color={CAT_COLORS[v.category] || "var(--accent)"} /></div>}
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 45%)" }} />
+          ? <img src={resolveAssetUrl(v.thumbnail)} alt="" className="size-full object-cover" />
+          : <div className="grid size-full place-items-center" style={{ background: `${CAT_COLORS[v.category] || "#FFD600"}20` }}><Play size={24} color={CAT_COLORS[v.category] || "var(--accent)"} /></div>}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent to-45%" />
         {v.duration && (
-          <span style={{ position: "absolute", top: 6, left: 6, fontSize: 10, padding: "2px 6px", borderRadius: 6, background: "rgba(0,0,0,0.7)", color: "#fff", fontWeight: 700 }}>
+          <span className="absolute start-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
             {v.duration}
           </span>
         )}
-        <div style={{ position: "absolute", top: 6, right: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+        <div className="absolute end-1.5 top-1.5 flex flex-col gap-1.5">
           <SaveBtn id={v.id} light />
           <LikeBtn id={v.id} light count={v.likes_count} />
         </div>
-        <div style={{ position: "absolute", left: 8, right: 8, bottom: 8, color: "#fff" }}>
-          <p style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.3, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</p>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 3, opacity: 0.85, fontSize: 10 }}>
+        <div className="absolute inset-x-2 bottom-2 text-white">
+          <p className="line-clamp-2 text-xs leading-snug font-bold">{v.title}</p>
+          <div className="mt-0.5 flex items-center gap-2 text-[10px] opacity-85">
             {v.coach_name && (
-              <span style={{ display: "flex", alignItems: "center", gap: 3 }}><User size={9} /> {v.coach_name}</span>
+              <span className="flex items-center gap-1"><User size={9} /> {v.coach_name}</span>
             )}
             {(v.views_count || 0) > 0 && (
-              <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Eye size={10} /> {v.views_count}</span>
+              <span className="flex items-center gap-1"><Eye size={10} /> {v.views_count}</span>
             )}
           </div>
         </div>
@@ -558,39 +572,34 @@ export default function Workouts() {
         : <><Sparkles size={13} /> Recommended for you</>);
     return (
       <div onClick={() => openPlayer(v)}
-        style={{
-          position: "relative", borderRadius: 18, overflow: "hidden", cursor: "pointer",
-          aspectRatio: mode === "short" ? "4 / 5" : "16 / 9",
-          maxHeight: mode === "short" ? 320 : 240,
-          background: "var(--bg-card)", border: "1px solid var(--border)",
-        }}>
+        className={cn(
+          "relative cursor-pointer overflow-hidden rounded-lg bg-card shadow-soft transition active:scale-[0.99]",
+          mode === "short" ? "aspect-[4/5] max-h-[320px]" : "aspect-video max-h-[240px]",
+        )}>
         {v.thumbnail
-          ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}30` }} />}
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.1) 55%, rgba(0,0,0,0.35) 100%)" }} />
-        <span style={{ position: "absolute", top: 14, left: 14, fontSize: 11, padding: "5px 10px", borderRadius: 99, background: "var(--accent)", color: "#000", fontWeight: 800, display: "flex", alignItems: "center", gap: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          ? <img src={resolveAssetUrl(v.thumbnail)} alt="" className="size-full object-cover" />
+          : <div className="size-full" style={{ background: `${CAT_COLORS[v.category] || "#FFD600"}30` }} />}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/35" />
+        <span className="absolute start-3.5 top-3.5 inline-flex items-center gap-1.5 rounded-full bg-primary px-2.5 py-1 text-[11px] font-extrabold tracking-wide text-primary-foreground uppercase">
           {labelIcon}
         </span>
-        <div style={{ position: "absolute", left: 16, right: 16, bottom: 16, color: "#fff" }}>
-          <p style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.2, margin: 0, marginBottom: 6, fontFamily: "var(--font-heading)" }}>{v.title}</p>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-            <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 99, background: "rgba(255,255,255,0.18)", fontWeight: 600 }}>{v.category}</span>
-            {v.duration && <span style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4, opacity: 0.9 }}><Clock size={11} /> {v.duration}</span>}
-            {v.level && <span style={{ fontSize: 11, opacity: 0.9, textTransform: "capitalize" }}>· {v.level}</span>}
-            {v.coach_name && <span style={{ fontSize: 11, opacity: 0.9, display: "flex", alignItems: "center", gap: 4 }}><User size={11} /> {v.coach_name}</span>}
-            {(v.views_count || 0) > 0 && <span style={{ fontSize: 11, opacity: 0.9, display: "flex", alignItems: "center", gap: 4 }}><Eye size={11} /> {v.views_count}</span>}
-            {(v.likes_count || 0) > 0 && <span style={{ fontSize: 11, opacity: 0.9, display: "flex", alignItems: "center", gap: 4 }}><Heart size={11} /> {v.likes_count}</span>}
+        <div className="absolute inset-x-4 bottom-4 text-white">
+          <p className="mb-1.5 text-[20px] leading-tight font-extrabold tracking-tight">{v.title}</p>
+          <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
+            <span className="rounded-full bg-white/[0.18] px-2.5 py-0.5 text-[11px] font-semibold">{v.category}</span>
+            {v.duration && <span className="flex items-center gap-1 text-[11px] opacity-90"><Clock size={11} /> {v.duration}</span>}
+            {v.level && <span className="text-[11px] opacity-90 capitalize">· {v.level}</span>}
+            {v.coach_name && <span className="flex items-center gap-1 text-[11px] opacity-90"><User size={11} /> {v.coach_name}</span>}
+            {(v.views_count || 0) > 0 && <span className="flex items-center gap-1 text-[11px] opacity-90"><Eye size={11} /> {v.views_count}</span>}
+            {(v.likes_count || 0) > 0 && <span className="flex items-center gap-1 text-[11px] opacity-90"><Heart size={11} /> {v.likes_count}</span>}
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button
+          <div className="flex items-center gap-2">
+            <Button
               onClick={(e) => { e.stopPropagation(); openPlayer(v); }}
-              style={{
-                padding: "9px 18px", borderRadius: 99, border: "none",
-                background: "#fff", color: "#000", fontWeight: 800, fontSize: 13,
-                cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
-              }}>
-              <Play size={13} fill="#000" /> {mode === "short" ? "Begin workout now" : (hasResume ? "Resume" : "Start")}
-            </button>
+              className="rounded-full bg-white text-black hover:bg-white/90"
+            >
+              <Play size={13} fill="currentColor" /> {mode === "short" ? "Begin workout now" : (hasResume ? "Resume" : "Start")}
+            </Button>
             <LikeBtn id={v.id} light count={v.likes_count} />
             <SaveBtn id={v.id} light />
           </div>
@@ -603,28 +612,29 @@ export default function Workouts() {
   /* ── Render ────────────────────────────────────────────────────────────── */
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 24 }}>
+    <div className="mx-auto w-full max-w-[860px] pb-6">
       {/* Header + search (unchanged) */}
-      <div style={{ padding: "16px", display: "flex", alignItems: "center", gap: 10 }}>
+      <div className="flex items-center gap-2.5 px-4 py-4">
         {searching ? (
           <>
-            <input value={q} onChange={e => setQ(e.target.value)} autoFocus placeholder={t("search_workouts_ph")}
-              style={{ flex: 1, padding: "10px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 15, outline: "none" }} />
-            <button onClick={() => { setSearching(false); setQ(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}><X size={22} /></button>
+            <Input value={q} onChange={e => setQ(e.target.value)} autoFocus placeholder={t("search_workouts_ph")} className="flex-1" />
+            <Button variant="ghost" size="icon" onClick={() => { setSearching(false); setQ(""); }} aria-label="Close search">
+              <X size={22} />
+            </Button>
           </>
         ) : (
           <>
-            <h1 style={{ fontSize: 24, fontWeight: 800, flex: 1, fontFamily: "var(--font-heading)" }}>{t("workouts")}</h1>
-            <button onClick={() => setSearching(true)} style={{ width: 40, height: 40, borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)" }}>
+            <h1 className="flex-1 text-[26px] font-bold tracking-tight">{t("workouts")}</h1>
+            <Button variant="outline" size="icon" onClick={() => setSearching(true)} aria-label="Search workouts">
               <Search size={18} />
-            </button>
+            </Button>
           </>
         )}
       </div>
 
       {/* Primary toggle: Shorts vs Long Videos */}
-      <div style={{ padding: "0 16px 12px" }}>
-        <div role="tablist" style={{ display: "flex", padding: 4, borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      <div className="px-4 pb-3">
+        <div role="tablist" className="flex gap-1 rounded-md bg-muted p-1">
           {([
             { key: "long", label: "Long Videos", icon: <Play size={14} /> },
             { key: "short", label: "Shorts", icon: <Zap size={14} /> },
@@ -632,15 +642,12 @@ export default function Workouts() {
             const active = mode === opt.key;
             return (
               <button key={opt.key} role="tab" aria-selected={active} onClick={() => setMode(opt.key)}
-                style={{
-                  flex: 1, padding: "10px 12px", borderRadius: 10,
-                  border: "none",
-                  background: active ? "var(--accent)" : "transparent",
-                  color: active ? "#000" : "var(--text-secondary)",
-                  fontWeight: 700, fontSize: 13, cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  transition: "background 0.15s ease",
-                }}>
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-[8px] px-3 py-2.5 text-[13px] font-bold transition",
+                  active
+                    ? "bg-card text-foreground shadow-soft-sm"
+                    : "text-muted-foreground",
+                )}>
                 {opt.icon} {opt.label}
               </button>
             );
@@ -649,59 +656,54 @@ export default function Workouts() {
       </div>
 
 
-      {loading && <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>{t("loading_ellipsis")}</div>}
+      {loading && (
+        <div className="space-y-6 px-4 pt-2">
+          <Skeleton className="aspect-video w-full rounded-lg" />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="aspect-[4/3] w-full rounded-lg" />)}
+          </div>
+        </div>
+      )}
 
       {/* Featured hero — only on the un-filtered, un-searched view */}
       {!loading && !activeFilterCount && !q && featured && (
-        <section style={{ padding: "0 16px", marginBottom: 24 }}>
+        <section className="mb-6 px-4">
           {renderFeatured(featured)}
         </section>
       )}
 
       {/* Continue watching strip — long-form only, when the user has history */}
       {!loading && mode === "long" && !activeFilterCount && !q && continueList.length > 0 && (
-        <section style={{ marginBottom: 24 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 12px" }}>
-            <p style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-              <Play size={14} color="var(--accent)" /> Continue watching
-            </p>
+        <section className="mb-6">
+          <div className="px-4 pb-3">
+            <SectionTitle icon={<Play size={16} />}>Continue watching</SectionTitle>
           </div>
-          <div style={{ display: "flex", gap: 12, overflowX: "auto", padding: "0 16px", scrollSnapType: "x mandatory", scrollbarWidth: "none" }}>
+          <div className="scroll-x flex snap-x snap-mandatory gap-3 px-4">
             {continueList.map(v => {
               const p = progressFor(v.id);
               const lastWatched = p?.updated_at ? new Date(p.updated_at) : null;
               const relTime = lastWatched ? formatRelative(lastWatched) : null;
               return (
                 <div key={v.id} onClick={() => openPlayer(v)}
-                  style={{ flexShrink: 0, width: 220, scrollSnapAlign: "start", cursor: "pointer" }}>
-                  <div style={{ position: "relative", height: 124, borderRadius: 14, overflow: "hidden", background: "var(--bg-card)", border: "1px solid var(--border)", marginBottom: 8 }}>
+                  className="w-[220px] shrink-0 snap-start cursor-pointer">
+                  <div className="relative mb-2 h-[124px] overflow-hidden rounded-md bg-card shadow-soft-sm">
                     {v.thumbnail
-                      ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
+                      ? <img src={resolveAssetUrl(v.thumbnail)} alt="" className="size-full object-cover" />
+                      : <div className="size-full" style={{ background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
                     <ProgressBar id={v.id} />
                   </div>
-                  <p style={{
-                    fontSize: 13, fontWeight: 600, lineHeight: 1.3, marginBottom: 2,
-                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-                    overflow: "hidden", textOverflow: "ellipsis", wordBreak: "break-word",
-                  }}>{v.title}</p>
-                  <p style={{
-                    fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4,
-                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                  }}>
+                  <p className="mb-0.5 line-clamp-2 text-[13px] leading-snug font-semibold break-words">{v.title}</p>
+                  <p className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
                     <Clock size={11} /> {v.duration || ""}{v.coach_name ? ` · ${v.coach_name}` : ""}
                     {relTime ? ` · ${relTime}` : ""}
                   </p>
-                  <button
+                  <Button
+                    size="sm"
                     onClick={(e) => { e.stopPropagation(); openPlayer(v); }}
-                    style={{
-                      marginTop: 6, padding: "5px 10px", borderRadius: 8,
-                      border: "none", background: "var(--accent)", color: "#000",
-                      fontWeight: 700, fontSize: 11, cursor: "pointer",
-                      display: "inline-flex", alignItems: "center", gap: 4,
-                    }}>
-                    <Play size={10} fill="#000" /> Resume
-                  </button>
+                    className="mt-1.5 h-7 px-2.5 text-[11px]"
+                  >
+                    <Play size={10} fill="currentColor" /> Resume
+                  </Button>
                 </div>
               );
             })}
@@ -711,53 +713,58 @@ export default function Workouts() {
 
       {/* Coach groupings — long-form only */}
       {!loading && mode === "long" && !activeFilterCount && !q && coachGroups.length > 0 && (
-        <section style={{ padding: "0 16px", marginBottom: 24 }}>
-          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-            <User size={14} color="var(--accent)" /> Browse by coach
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+        <section className="mb-6 px-4">
+          <div className="mb-2.5">
+            <SectionTitle icon={<User size={16} />}>Browse by coach</SectionTitle>
+          </div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2.5">
             {coachGroups.map(([name, list]) => (
-              <button key={name} onClick={() => { setQ(name); setSearching(true); }}
-                style={{ padding: "14px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--bg-card)", textAlign: "start", cursor: "pointer" }}>
-                <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{name}</p>
-                <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{list.length} workout{list.length !== 1 ? "s" : ""}</p>
-              </button>
+              <Card key={name} asChild className="gap-0 p-0 shadow-soft-sm">
+                <button onClick={() => { setQ(name); setSearching(true); }}
+                  className="cursor-pointer p-3.5 text-start transition active:scale-[0.98]">
+                  <p className="mb-1 text-sm font-bold">{name}</p>
+                  <p className="text-[11px] text-muted-foreground">{list.length} workout{list.length !== 1 ? "s" : ""}</p>
+                </button>
+              </Card>
             ))}
           </div>
         </section>
       )}
 
       {/* Main list */}
-      <section style={{ padding: "0 16px", marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <p style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-            {mode === "short" ? <Flame size={14} color="var(--accent)" /> : <Play size={14} color="var(--accent)" />}
+      <section className="mb-6 px-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <SectionTitle icon={mode === "short" ? <Flame size={16} /> : <Play size={16} />}>
             {fType || (mode === "short" ? "All shorts" : "All workouts")} · {sorted.length}
-          </p>
+          </SectionTitle>
           {mode === "long" && (
-            <select value={sort} onChange={e => setSort(e.target.value as SortMode)}
-              style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-secondary)", fontSize: 12 }}>
-              <option value="newest">Newest</option>
-              <option value="shortest">Shortest first</option>
-              <option value="longest">Longest first</option>
-            </select>
+            <Select value={sort} onValueChange={(v) => setSort(v as SortMode)}>
+              <SelectTrigger size="sm" className="text-xs" aria-label="Sort workouts">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest</SelectItem>
+                <SelectItem value="shortest">Shortest first</SelectItem>
+                <SelectItem value="longest">Longest first</SelectItem>
+              </SelectContent>
+            </Select>
           )}
         </div>
         {sorted.length > 0 ? (
           mode === "short" ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))", gap: 10 }}>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2.5">
               {sorted.map(renderShortCard)}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
               {sorted.map(renderLongCard)}
             </div>
           )
         ) : (
           !loading && (
-            <div style={{ padding: "32px 0", textAlign: "center", color: "var(--text-muted)" }}>
-              <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>{t("no_workouts_found")}</p>
-              <p style={{ fontSize: 12 }}>{t("try_different_filter")}</p>
+            <div className="py-8 text-center text-muted-foreground">
+              <p className="mb-1.5 text-sm font-semibold text-foreground">{t("no_workouts_found")}</p>
+              <p className="text-xs">{t("try_different_filter")}</p>
             </div>
           )
         )}
@@ -765,16 +772,16 @@ export default function Workouts() {
 
       {/* Saved (client-side) — lower section */}
       {savedList.length > 0 && (
-        <section style={{ padding: "0 16px", marginBottom: 24 }}>
-          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-            <BookmarkCheck size={14} color="var(--accent)" /> Saved
-          </p>
+        <section className="mb-6 px-4">
+          <div className="mb-2.5">
+            <SectionTitle icon={<BookmarkCheck size={16} />}>Saved</SectionTitle>
+          </div>
           {mode === "short" ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))", gap: 10 }}>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2.5">
               {savedList.slice(0, 6).map(renderShortCard)}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
               {savedList.slice(0, 4).map(renderLongCard)}
             </div>
           )}
@@ -783,28 +790,24 @@ export default function Workouts() {
 
       {/* Recently watched (server-side progress) — separate from "Saved" */}
       {mode === "long" && continueList.length > 0 && (activeFilterCount > 0 || q) && (
-        <section style={{ padding: "0 16px", marginBottom: 24 }}>
-          <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-            <BookmarkCheck size={14} color="var(--accent)" /> Recently watched
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <section className="mb-6 px-4">
+          <div className="mb-2.5">
+            <SectionTitle icon={<BookmarkCheck size={16} />}>Recently watched</SectionTitle>
+          </div>
+          <div className="flex flex-col gap-2.5">
             {continueList.slice(0, 5).map(v => (
-              <div key={v.id} onClick={() => openPlayer(v)}
-                style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--border)", cursor: "pointer" }}>
-                <div style={{ position: "relative", width: 84, height: 64, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "var(--bg-surface)" }}>
-                  {v.thumbnail ? <img src={resolveAssetUrl(v.thumbnail)} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
+              <Card key={v.id} onClick={() => openPlayer(v)}
+                className="flex cursor-pointer flex-row items-center gap-3 p-3 shadow-soft-sm transition active:scale-[0.99]">
+                <div className="relative h-16 w-[84px] shrink-0 overflow-hidden rounded-md bg-muted">
+                  {v.thumbnail ? <img src={resolveAssetUrl(v.thumbnail)} alt="" className="size-full object-cover" /> : <div className="size-full" style={{ background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}
                   <ProgressBar id={v.id} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{
-                    fontSize: 14, fontWeight: 600, lineHeight: 1.3, marginBottom: 4,
-                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-                    overflow: "hidden", textOverflow: "ellipsis", wordBreak: "break-word",
-                  }}>{v.title}</p>
-                  <p style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.duration}{v.coach_name ? ` · ${v.coach_name}` : ""}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1 line-clamp-2 text-sm leading-snug font-semibold break-words">{v.title}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">{v.duration}{v.coach_name ? ` · ${v.coach_name}` : ""}</p>
                 </div>
-                <ChevronRight size={16} color="var(--text-muted)" />
-              </div>
+                <ChevronRight size={16} className="text-muted-foreground" />
+              </Card>
             ))}
           </div>
         </section>
@@ -812,13 +815,13 @@ export default function Workouts() {
 
       {/* Player modal */}
       {playing && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.95)", display: "flex", flexDirection: "column" }}
+        <div className="fixed inset-0 z-[200] flex flex-col bg-black/95"
           onClick={closePlayer}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "56px 20px 16px" }} onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{playing.title}</p>
-            <button onClick={closePlayer} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 99, padding: "8px 16px", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>{t("done")}</button>
+          <div className="flex items-center justify-between gap-3 px-5 pt-14 pb-4" onClick={e => e.stopPropagation()}>
+            <p className="min-w-0 flex-1 truncate text-base font-bold text-white">{playing.title}</p>
+            <Button variant="secondary" onClick={closePlayer} className="rounded-full bg-white/15 text-white hover:bg-white/25">{t("done")}</Button>
           </div>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }} onClick={e => e.stopPropagation()}>
+          <div className="flex flex-1 items-center justify-center px-4" onClick={e => e.stopPropagation()}>
             <VideoPlayer
               url={playing.source_type === "youtube"
                 ? (playing.youtube_url || playing.url)
@@ -831,8 +834,8 @@ export default function Workouts() {
               style={{ borderRadius: 16 }}
             />
           </div>
-          <div style={{ padding: "16px 20px 32px" }} onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", lineHeight: 1.6 }}>{playing.description}</p>
+          <div className="px-5 pt-4 pb-8" onClick={e => e.stopPropagation()}>
+            <p className="text-[13px] leading-relaxed text-white/60">{playing.description}</p>
           </div>
         </div>
       )}

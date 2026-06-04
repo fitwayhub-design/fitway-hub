@@ -163,4 +163,34 @@ router.post('/progress-photos', authenticateToken, upload.single('photo'), optim
   } catch { res.status(500).json({ message: 'Failed to upload progress photo' }); }
 });
 
+// ── Per-account preferences (key/value, scoped to the logged-in user) ────────
+// Used for things like an admin's customized upper menu bar so the choice
+// follows the account across devices instead of living in localStorage.
+const PREF_KEY_RE = /^[a-z0-9_]{1,80}$/i;
+
+router.get('/preferences/:key', authenticateToken, async (req: any, res: any) => {
+  try {
+    const key = String(req.params.key || '');
+    if (!PREF_KEY_RE.test(key)) return res.status(400).json({ message: 'Invalid preference key' });
+    const row = await get<any>('SELECT pref_value FROM user_preferences WHERE user_id = ? AND pref_key = ?', [req.user.id, key]);
+    let value: any = null;
+    if (row?.pref_value != null) { try { value = JSON.parse(row.pref_value); } catch { value = row.pref_value; } }
+    res.json({ value });
+  } catch { res.status(500).json({ message: 'Failed to load preference' }); }
+});
+
+router.put('/preferences/:key', authenticateToken, async (req: any, res: any) => {
+  try {
+    const key = String(req.params.key || '');
+    if (!PREF_KEY_RE.test(key)) return res.status(400).json({ message: 'Invalid preference key' });
+    const value = JSON.stringify(req.body?.value ?? null);
+    await run(
+      `INSERT INTO user_preferences (user_id, pref_key, pref_value) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE pref_value = VALUES(pref_value)`,
+      [req.user.id, key, value]
+    );
+    res.json({ ok: true });
+  } catch { res.status(500).json({ message: 'Failed to save preference' }); }
+});
+
 export default router;

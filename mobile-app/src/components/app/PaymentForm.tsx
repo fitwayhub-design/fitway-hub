@@ -1,7 +1,11 @@
 import { getApiBase } from "@/lib/api";
 import React, { useState, useEffect, useRef } from "react";
-import { Smartphone, CheckCircle, Upload, X, AlertCircle } from "lucide-react";
+import { Smartphone, CheckCircle, Upload, X, AlertCircle, ShieldCheck } from "lucide-react";
 import { detectPlatform, isNativeApp } from "@/lib/iap";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 declare global {
   interface Window { paypal?: any; }
@@ -20,12 +24,6 @@ interface PaymentFormProps {
   /** Package id (e.g. community_premium, pt_basic) selected by athlete */
   packageId?: string;
 }
-
-const iStyle: React.CSSProperties = {
-  backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)",
-  padding: "11px 14px", width: "100%", fontSize: 14, color: "var(--text-primary)",
-  fontFamily: "var(--font-en)", outline: "none", boxSizing: "border-box",
-};
 
 // ── Main PaymentForm ─────────────────────────────────────────────────────────
 export default function PaymentForm({ amount, plan, type, token, onSuccess, onError, coachId, coachName, packageId }: PaymentFormProps) {
@@ -231,62 +229,63 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
   // ── Success state ───────────────────────────────────────────────────────────
   if (ewalletSuccess) {
     return (
-      <div style={{ textAlign: "center", padding: "28px 16px" }}>
-        <div style={{ width: 64, height: 64, borderRadius: "50%", backgroundColor: "rgba(255,179,64,0.12)", border: "2px solid rgba(255,179,64,0.4)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-          <CheckCircle size={32} color="var(--amber)" />
+      <div className="px-4 py-7 text-center">
+        <div className="mx-auto mb-4 grid size-16 place-items-center rounded-full bg-[color-mix(in_srgb,var(--amber)_16%,transparent)]">
+          <CheckCircle size={32} strokeWidth={2} className="text-[var(--amber)]" />
         </div>
-        <p style={{ fontFamily: "var(--font-en)", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Proof Submitted!</p>
-        <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 20 }}>
+        <p className="mb-2 text-[18px] font-bold text-foreground">Proof Submitted!</p>
+        <p className="mb-5 text-[14px] leading-relaxed text-muted-foreground">
           Your payment screenshot was sent for admin review.<br/>
-          <strong style={{ color: "var(--amber)" }}>
+          <strong className="text-[var(--amber)]">
             {coachId
               ? "Admin will verify payment, then your coach can accept or decline the request."
               : "Your account will be activated once approved."}
           </strong>
         </p>
-        <button onClick={onSuccess} style={{ padding: "11px 28px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", color: "var(--text-secondary)", cursor: "pointer", fontSize: 14 }}>Close</button>
+        <Button variant="secondary" onClick={onSuccess}>Close</Button>
       </div>
     );
   }
 
   // ── Method button helper ────────────────────────────────────────────────────
   const methodBtn = (m: Method, icon: React.ReactNode, label: string, sublabel?: string) => (
-    <button type="button" onClick={() => { setMethod(m); paypalRendered.current = false; }}
-      style={{
-        flex: 1, padding: "10px 6px", borderRadius: "var(--radius-full)", minWidth: 0,
-        border: `2px solid ${method === m ? "var(--accent)" : "var(--border)"}`,
-        backgroundColor: method === m ? "var(--accent-dim)" : "var(--bg-surface)",
-        color: method === m ? "var(--accent)" : "var(--text-secondary)",
-        cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center",
-        gap: 4, fontSize: 11, fontWeight: 600, transition: "all 0.15s",
-      }}>
+    <button
+      type="button"
+      onClick={() => { setMethod(m); paypalRendered.current = false; }}
+      aria-pressed={method === m}
+      className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-md px-1.5 py-2.5 text-[11px] font-semibold transition-all active:scale-[0.97] ${
+        method === m
+          ? "bg-primary/15 text-primary ring-1 ring-inset ring-primary/40"
+          : "bg-muted text-muted-foreground ring-1 ring-inset ring-border"
+      }`}
+    >
       {icon}
-      <span style={{ lineHeight: 1.2, textAlign: "center" }}>{label}</span>
-      {sublabel && <span style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 400 }}>{sublabel}</span>}
+      <span className="text-center leading-tight">{label}</span>
+      {sublabel && <span className="text-[9px] font-normal text-muted-foreground">{sublabel}</span>}
     </button>
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div className="flex flex-col gap-5">
       {/* ── Payment Method Selector ──────────────────────────────────── */}
       <div>
-        <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Payment Method</p>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <p className="mb-2.5 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">Payment Method</p>
+        <div className="flex flex-wrap gap-1.5">
           {(enabledMethods.pm_vodafone_cash || enabledMethods.pm_orange_cash || enabledMethods.pm_we_pay) && methodBtn("ewallet",
-            <Smartphone size={18} />,
+            <Smartphone size={18} strokeWidth={2} />,
             "E-Wallet"
           )}
           {enabledMethods.pm_paypal && methodBtn("paypal",
-            <img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.jpg" alt="PayPal" style={{ height: 18, borderRadius: "var(--radius-full)" }} />,
+            <img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.jpg" alt="PayPal" className="h-[18px] rounded-sm" />,
             "PayPal"
           )}
           {enabledMethods.pm_apple_pay && !coachId && (platform === "ios" || !native) && methodBtn("apple_iap",
-            <span style={{ fontSize: 18 }}>🍎</span>,
+            <span className="text-[18px]">🍎</span>,
             "Apple Pay",
             native ? "" : "iOS App"
           )}
           {enabledMethods.pm_google_pay && !coachId && (platform === "android" || !native) && methodBtn("google_iap",
-            <span style={{ fontSize: 18 }}>▶️</span>,
+            <span className="text-[18px]">▶️</span>,
             "Google Pay",
             native ? "" : "Android"
           )}
@@ -297,18 +296,18 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
       {method === "paypal" && (
         <div>
           {!settingsLoaded ? (
-            <div style={{ textAlign: "center", padding: 24, color: "var(--text-muted)", fontSize: 13 }}>Loading payment options…</div>
+            <div className="px-4 py-6 text-center text-[13px] text-muted-foreground">Loading payment options…</div>
           ) : !paypalClientId ? (
-            <div style={{ padding: "16px 18px", backgroundColor: "rgba(255,170,0,0.08)", border: "1px solid rgba(255,170,0,0.3)", borderRadius: "var(--radius-full)", display: "flex", gap: 12, alignItems: "flex-start" }}>
-              <AlertCircle size={20} color="#FFAA00" style={{ marginTop: 1, flexShrink: 0 }} />
+            <div className="flex items-start gap-3 rounded-md bg-[color-mix(in_srgb,var(--amber)_10%,transparent)] px-[18px] py-4">
+              <AlertCircle size={20} strokeWidth={2} className="mt-px shrink-0 text-[var(--amber)]" />
               <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: "#FFAA00", marginBottom: 4 }}>PayPal Not Configured</p>
-                <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Please use another payment method.</p>
+                <p className="mb-1 text-[14px] font-semibold text-[var(--amber)]">PayPal Not Configured</p>
+                <p className="text-[13px] text-muted-foreground">Please use another payment method.</p>
               </div>
             </div>
           ) : (
             <>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 14, textAlign: "center" }}>You'll be redirected to PayPal to complete your payment securely.</p>
+              <p className="mb-3.5 text-center text-[13px] text-muted-foreground">You'll be redirected to PayPal to complete your payment securely.</p>
               <div ref={paypalContainerRef} style={{ minHeight: 50 }} />
             </>
           )}
@@ -317,127 +316,141 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
 
       {/* ── E-Wallet ───────────────────────────────────────────────────── */}
       {method === "ewallet" && (
-        <form onSubmit={handleEwalletSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <form onSubmit={handleEwalletSubmit} className="flex flex-col gap-4">
           <div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Select Wallet</p>
-            <div style={{ display: "flex", gap: 8 }}>
+            <p className="mb-2.5 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">Select Wallet</p>
+            <div className="flex gap-2">
               {([
                 { id: "vodafone" as const, label: "Vodafone Cash", icon: "🔴", color: "#E60000", key: "pm_vodafone_cash" },
                 { id: "orange" as const, label: "Orange Cash", icon: "🟠", color: "#FF6900", key: "pm_orange_cash" },
                 { id: "we" as const, label: "WE Pay", icon: "🟣", color: "#7B2D8E", key: "pm_we_pay" },
               ]).filter(w => enabledMethods[w.key]).map(w => (
-                <button key={w.id} type="button" onClick={() => setWalletType(w.id)} style={{
-                  flex: 1, padding: "12px 6px", borderRadius: "var(--radius-full)",
-                  border: `2px solid ${walletType === w.id ? w.color : "var(--border)"}`,
-                  backgroundColor: walletType === w.id ? `${w.color}18` : "var(--bg-surface)",
-                  cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                }}>
-                  <span style={{ fontSize: 22 }}>{w.icon}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: w.color }}>{w.label}</span>
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={() => setWalletType(w.id)}
+                  aria-pressed={walletType === w.id}
+                  className="flex flex-1 flex-col items-center gap-1.5 rounded-md bg-muted px-1.5 py-3 ring-1 ring-inset transition-all active:scale-[0.97]"
+                  style={{
+                    backgroundColor: walletType === w.id ? `${w.color}18` : undefined,
+                    ["--tw-ring-color" as any]: walletType === w.id ? w.color : "var(--border)",
+                  }}
+                >
+                  <span className="text-[22px]">{w.icon}</span>
+                  <span className="text-[11px] font-bold" style={{ color: w.color }}>{w.label}</span>
                 </button>
               ))}
             </div>
           </div>
-          <div style={{ padding: "16px", backgroundColor: `${walletColor}14`, border: `1px solid ${walletColor}44`, borderRadius: "var(--radius-full)" }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 12 }}>📱 Transfer Instructions</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontSize: 13, color: "var(--text-primary)" }}>1. Send <strong style={{ color: walletColor }}>{amount} EGP</strong> to:</div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", backgroundColor: "var(--bg-surface)", borderRadius: "var(--radius-full)", border: `1px solid ${walletColor}44` }}>
-                <span style={{ fontFamily: "monospace", fontSize: 20, fontWeight: 800, color: walletColor, letterSpacing: 2 }}>{ewalletPhones[walletType] || "—"}</span>
-                <button type="button" onClick={() => navigator.clipboard?.writeText(ewalletPhones[walletType] || "")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--text-muted)", padding: "4px 8px", borderRadius: "var(--radius-full)", backgroundColor: "var(--bg-card)" }}>Copy</button>
+          <div className="rounded-md p-4" style={{ backgroundColor: `${walletColor}14` }}>
+            <p className="mb-3 text-[12px] font-bold text-foreground">📱 Transfer Instructions</p>
+            <div className="flex flex-col gap-2.5">
+              <div className="text-[13px] text-foreground">1. Send <strong style={{ color: walletColor }}>{amount} EGP</strong> to:</div>
+              <div className="flex items-center justify-between rounded-md bg-card px-4 py-3 shadow-soft-sm">
+                <span className="font-mono text-[20px] font-extrabold tracking-[2px]" style={{ color: walletColor }}>{ewalletPhones[walletType] || "—"}</span>
+                <Button type="button" variant="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(ewalletPhones[walletType] || "")}>Copy</Button>
               </div>
-              <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>2. Take a screenshot of the confirmation</div>
-              <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>3. Upload it below</div>
+              <div className="text-[13px] text-muted-foreground">2. Take a screenshot of the confirmation</div>
+              <div className="text-[13px] text-muted-foreground">3. Upload it below</div>
             </div>
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", display: "block", marginBottom: 5 }}>Your Wallet Number</label>
-            <input type="tel" value={senderNumber} onChange={(e) => setSenderNumber(e.target.value.replace(/[\s]/g, "").slice(0, 15))} placeholder="e.g. 01012345678" style={iStyle} />
+            <Label htmlFor="ewallet-sender" className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Your Wallet Number</Label>
+            <Input id="ewallet-sender" type="tel" value={senderNumber} onChange={(e) => setSenderNumber(e.target.value.replace(/[\s]/g, "").slice(0, 15))} placeholder="e.g. 01012345678" />
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", display: "block", marginBottom: 8 }}>Transaction Screenshot *</label>
+            <Label className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Transaction Screenshot *</Label>
             <input type="file" ref={fileInputRef} accept="image/*" onChange={handleFileChange} style={{ display: "none" }} />
             {proofPreview ? (
-              <div style={{ position: "relative" }}>
-                <img src={proofPreview} alt="Proof" style={{ width: "100%", maxHeight: 200, objectFit: "contain", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", backgroundColor: "var(--bg-surface)" }} />
-                <button type="button" onClick={() => { setProofFile(null); setProofPreview(null); }} style={{ position: "absolute", top: 8, insetInlineEnd: 8, width: 28, height: 28, borderRadius: "50%", backgroundColor: "rgba(0,0,0,0.6)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <X size={14} color="#fff" />
-                </button>
+              <div className="relative">
+                <img src={proofPreview} alt="Payment proof" className="max-h-[200px] w-full rounded-md bg-muted object-contain shadow-soft-sm" />
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="secondary"
+                  aria-label="Remove screenshot"
+                  onClick={() => { setProofFile(null); setProofPreview(null); }}
+                  className="absolute top-2 end-2 rounded-full bg-black/60 text-white hover:bg-black/70"
+                >
+                  <X size={14} strokeWidth={2} />
+                </Button>
               </div>
             ) : (
-              <button type="button" onClick={() => fileInputRef.current?.click()} style={{ width: "100%", padding: "24px", borderRadius: "var(--radius-full)", border: "2px dashed var(--border)", backgroundColor: "var(--bg-surface)", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                <Upload size={24} color="var(--text-muted)" />
-                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Click to upload screenshot</span>
-                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>JPG or PNG — max 5 MB</span>
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex w-full flex-col items-center gap-2 rounded-md bg-muted p-6 ring-1 ring-inset ring-border transition-colors hover:bg-accent">
+                <Upload size={24} strokeWidth={2} className="text-muted-foreground" />
+                <span className="text-[13px] text-muted-foreground">Click to upload screenshot</span>
+                <span className="text-[10px] text-muted-foreground">JPG or PNG — max 5 MB</span>
               </button>
             )}
           </div>
-          {ewalletError && <div style={{ padding: "10px 14px", backgroundColor: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.25)", borderRadius: "var(--radius-full)", fontSize: 13, color: "var(--red)" }}>{ewalletError}</div>}
-          <button type="submit" disabled={ewalletProcessing || !proofFile} style={{ padding: "14px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent)", color: "#000000", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, border: "none", cursor: ewalletProcessing ? "not-allowed" : "pointer", opacity: (ewalletProcessing || !proofFile) ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <CheckCircle size={15} /> {ewalletProcessing ? "Submitting…" : "Submit Payment Proof"}
-          </button>
+          {ewalletError && <div className="rounded-md bg-destructive/10 px-3.5 py-2.5 text-[13px] text-destructive">{ewalletError}</div>}
+          <Button type="submit" disabled={ewalletProcessing || !proofFile} size="lg" className="w-full">
+            <CheckCircle size={16} strokeWidth={2} /> {ewalletProcessing ? "Submitting…" : "Submit Payment Proof"}
+          </Button>
         </form>
       )}
 
       {/* ── Apple IAP ──────────────────────────────────────────────────── */}
       {method === "apple_iap" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ padding: "16px", backgroundColor: "rgba(100,100,100,0.06)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", textAlign: "center" }}>
-            <span style={{ fontSize: 40 }}>🍎</span>
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700, marginTop: 8, marginBottom: 6 }}>Apple In-App Purchase</p>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+        <div className="flex flex-col gap-3.5">
+          <Card className="gap-0 p-4 text-center shadow-soft-sm">
+            <span className="text-[40px]">🍎</span>
+            <p className="mt-2 mb-1.5 text-[16px] font-bold text-foreground">Apple In-App Purchase</p>
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
               {native
                 ? "Complete your purchase using your Apple ID payment method. Charged directly through the App Store."
                 : "Apple Pay is available in the FitWay Hub iOS app. Download from the App Store to use Apple's secure in-app purchases."}
             </p>
-          </div>
+          </Card>
           {iapError && (
-            <div style={{ padding: "10px 14px", backgroundColor: "rgba(255,170,0,0.08)", border: "1px solid rgba(255,170,0,0.3)", borderRadius: "var(--radius-full)", fontSize: 13, color: "var(--amber)" }}>
+            <div className="rounded-md bg-[color-mix(in_srgb,var(--amber)_10%,transparent)] px-3.5 py-2.5 text-[13px] text-[var(--amber)]">
               {iapError}
             </div>
           )}
-          <button onClick={handleIAPPurchase} disabled={iapProcessing} style={{
-            padding: "14px", borderRadius: "var(--radius-full)", backgroundColor: "#000", color: "#fff",
-            fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, border: "1px solid #333",
-            cursor: iapProcessing ? "not-allowed" : "pointer", opacity: iapProcessing ? 0.7 : 1,
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-          }}>
+          <Button
+            onClick={handleIAPPurchase}
+            disabled={iapProcessing}
+            size="lg"
+            className="w-full bg-black text-white hover:bg-black/90"
+          >
             🍎 {iapProcessing ? "Processing…" : `Buy with Apple Pay — ${amount} EGP`}
-          </button>
+          </Button>
         </div>
       )}
 
       {/* ── Google IAP ─────────────────────────────────────────────────── */}
       {method === "google_iap" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ padding: "16px", backgroundColor: "rgba(100,100,100,0.06)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", textAlign: "center" }}>
-            <span style={{ fontSize: 40 }}>▶️</span>
-            <p style={{ fontFamily: "var(--font-en)", fontSize: 16, fontWeight: 700, marginTop: 8, marginBottom: 6 }}>Google Play Purchase</p>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+        <div className="flex flex-col gap-3.5">
+          <Card className="gap-0 p-4 text-center shadow-soft-sm">
+            <span className="text-[40px]">▶️</span>
+            <p className="mt-2 mb-1.5 text-[16px] font-bold text-foreground">Google Play Purchase</p>
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
               {native
                 ? "Complete your purchase using your Google account payment method. Charged directly through Google Play."
                 : "Google Play payments are available in the FitWay Hub Android app. Download from Google Play to use in-app purchases."}
             </p>
-          </div>
+          </Card>
           {iapError && (
-            <div style={{ padding: "10px 14px", backgroundColor: "rgba(255,170,0,0.08)", border: "1px solid rgba(255,170,0,0.3)", borderRadius: "var(--radius-full)", fontSize: 13, color: "var(--amber)" }}>
+            <div className="rounded-md bg-[color-mix(in_srgb,var(--amber)_10%,transparent)] px-3.5 py-2.5 text-[13px] text-[var(--amber)]">
               {iapError}
             </div>
           )}
-          <button onClick={handleIAPPurchase} disabled={iapProcessing} style={{
-            padding: "14px", borderRadius: "var(--radius-full)", background: "linear-gradient(135deg, #34A853, #1B873B)", color: "#fff",
-            fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, border: "none",
-            cursor: iapProcessing ? "not-allowed" : "pointer", opacity: iapProcessing ? 0.7 : 1,
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-          }}>
+          <Button
+            onClick={handleIAPPurchase}
+            disabled={iapProcessing}
+            size="lg"
+            className="w-full text-white"
+            style={{ background: "linear-gradient(135deg, #34A853, #1B873B)" }}
+          >
             ▶️ {iapProcessing ? "Processing…" : `Buy with Google Play — ${amount} EGP`}
-          </button>
+          </Button>
         </div>
       )}
 
       {/* ── Security note ──────────────────────────────────────────────── */}
-      <p style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.6 }}>
-        🔒 All payments are secured with 256-bit SSL encryption.
+      <p className="inline-flex items-center justify-center gap-1.5 text-center text-[11px] leading-relaxed text-muted-foreground">
+        <ShieldCheck size={13} strokeWidth={2} className="shrink-0 text-[var(--green)]" />
+        All payments are secured with 256-bit SSL encryption.
         {method === "apple_iap" ? " Managed by Apple." : ""}
         {method === "google_iap" ? " Managed by Google." : ""}
         {" "}Cancel anytime.

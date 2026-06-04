@@ -369,6 +369,10 @@ const translations: Record<Lang, Record<string, string>> = {
     confirmed: 'Confirmed',
     recent_activity: 'Recent Activity',
     no_recent_activity: 'No recent activity yet',
+    no_activity_yet: 'No recent activity yet.',
+    customize_menu: 'Customize menu bar',
+    customize_menu_hint: 'Choose which items show in your upper menu bar. This is saved just for you.',
+    show_all: 'Show all',
     just_now: 'just now',
     mins_ago: 'm ago',
     hours_ago: 'h ago',
@@ -1190,6 +1194,10 @@ const translations: Record<Lang, Record<string, string>> = {
     new_email_label: 'New Email',
     updating_text: 'Updating...',
     update_email: 'Update Email',
+    email_address: 'Email address',
+    email_locked_note: "Your email is linked to your account and can't be changed.",
+    save_to_comment: 'Save the plan to add comments on this exercise.',
+    save_to_comment_meal: 'Save the plan to add comments on this meal.',
     confirm_new_password: 'Confirm New Password',
     update_password: 'Update Password',
     section_fitness: 'Fitness',
@@ -1575,6 +1583,10 @@ const translations: Record<Lang, Record<string, string>> = {
     confirmed: 'مؤكد',
     recent_activity: 'النشاط الأخير',
     no_recent_activity: 'لا يوجد نشاط حديث بعد',
+    no_activity_yet: 'لا يوجد نشاط حديث بعد.',
+    customize_menu: 'تخصيص شريط القوائم',
+    customize_menu_hint: 'اختر العناصر التي تظهر في شريط القوائم العلوي. يتم الحفظ لك وحدك.',
+    show_all: 'إظهار الكل',
     just_now: 'الآن',
     mins_ago: 'د مضت',
     hours_ago: 'س مضت',
@@ -2395,6 +2407,10 @@ const translations: Record<Lang, Record<string, string>> = {
     new_email_label: 'الإيميل الجديد',
     updating_text: 'بيحدّث...',
     update_email: 'حدّث الإيميل',
+    email_address: 'البريد الإلكتروني',
+    email_locked_note: 'بريدك الإلكتروني مرتبط بحسابك ولا يمكن تغييره.',
+    save_to_comment: 'احفظ الخطة لإضافة تعليقات على هذا التمرين.',
+    save_to_comment_meal: 'احفظ الخطة لإضافة تعليقات على هذه الوجبة.',
     confirm_new_password: 'تأكيد كلمة المرور الجديدة',
     update_password: 'حدّث كلمة المرور',
     section_fitness: 'اللياقة',
@@ -2701,7 +2717,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     const fontAr = getComputedStyle(document.documentElement).getPropertyValue('--font-ar').trim() || "'Cairo', sans-serif";
     document.body.style.fontFamily = lang === 'ar' ? `${fontAr}, ${fontEn}` : fontEn;
 
-    // translate existing DOM
+    // translate existing DOM. Reset the "already translated" set first: nodes
+    // converted to Arabic were being skipped on the way back to English (the
+    // guard in translateNode short-circuits known nodes), which left stray
+    // Arabic words on screen until a full refresh. Clearing the set forces
+    // every node to be re-evaluated for the new language.
+    translatedNodes.current = new WeakSet<Node>();
     requestAnimationFrame(() => translateAll());
 
     // observe new/changed DOM nodes for dynamic content (debounced to avoid lag)
@@ -2738,12 +2759,16 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     return () => observer.disconnect();
   }, [lang, translateAll, translateNode]);
 
+  // Read reactive `lang` (not langRef.current) and depend on it so t() gets a
+  // new identity whenever the language changes. Without this, components that
+  // only consume t() (not lang) kept rendering the previous language's strings
+  // until a manual refresh — e.g. switching ar→en left some words in Arabic.
   const t = useCallback((key: string, vars?: Record<string, string | number>) => {
-    let v = translations[langRef.current]?.[key] || translations.en[key] || key;
+    let v = translations[lang]?.[key] || translations.en[key] || key;
     if (vars) Object.entries(vars).forEach(([k, val]) => { v = v.replace(`{${k}}`, String(val)); });
-    if (langRef.current === 'ar') v = toEgyptianArabic(v);
+    if (lang === 'ar') v = toEgyptianArabic(v);
     return v;
-  }, []);
+  }, [lang]);
 
   return (
     <I18nContext.Provider value={{ lang, setLang, t }}>

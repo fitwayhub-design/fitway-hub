@@ -2,6 +2,117 @@
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@100;200;300;400;500;600;700;800;900&family=Archivo+Black&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800;900&family=Barlow:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   APP REDESIGN · shadcn/ui + Apple-HIG bridge
+   ---------------------------------------------------------------------------
+   Maps shadcn's semantic tokens onto FitWay's existing brand variables so the
+   components under src/components/ui inherit the dark-first theme and auto-flip
+   in light mode. These tokens only take effect on elements that opt in via
+   Tailwind utilities — i.e. the redesigned /app section and ui/* components —
+   so the public website is left untouched.
+   Design language: Apple HIG · minimal · 8px spacing · 12px radius ·
+   soft shadows only · no heavy borders · large type · dark-mode first.
+═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
+  --card: var(--bg-card);
+  --card-foreground: var(--text-primary);
+  --popover: #18181b;
+  --popover-foreground: var(--text-primary);
+  --primary: var(--main);
+  --primary-foreground: #0a0a0a;
+  --secondary-surface: rgba(255, 255, 255, 0.07);
+  --secondary-surface-foreground: var(--text-primary);
+  --muted-surface: rgba(255, 255, 255, 0.045);
+  --muted-foreground: var(--text-secondary);
+  --accent-surface: rgba(255, 255, 255, 0.06);
+  --accent-surface-foreground: var(--text-primary);
+  --destructive: var(--red);
+  --destructive-foreground: #ffffff;
+  --ring: var(--main);
+  --radius: 12px;
+}
+
+html.light {
+  --popover: #ffffff;
+  --secondary-surface: rgba(0, 0, 0, 0.05);
+  --muted-surface: rgba(0, 0, 0, 0.035);
+  --accent-surface: rgba(0, 0, 0, 0.045);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary-surface);
+  --color-secondary-foreground: var(--secondary-surface-foreground);
+  --color-muted: var(--muted-surface);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent-surface);
+  --color-accent-foreground: var(--accent-surface-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--border-light);
+  --color-ring: var(--ring);
+}
+
+@theme {
+  /* Apple-style soft shadow scale — exposed as shadow-soft* utilities. The only
+     elevation system the redesigned app uses (no heavy borders). */
+  --shadow-soft-xs: 0 1px 2px rgba(0, 0, 0, 0.16);
+  --shadow-soft-sm: 0 1px 3px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-soft: 0 4px 14px rgba(0, 0, 0, 0.24), 0 1px 3px rgba(0, 0, 0, 0.16);
+  --shadow-soft-md: 0 8px 26px rgba(0, 0, 0, 0.30), 0 2px 8px rgba(0, 0, 0, 0.18);
+  --shadow-soft-lg: 0 18px 48px rgba(0, 0, 0, 0.42), 0 6px 16px rgba(0, 0, 0, 0.22);
+}
+
+html.light {
+  --shadow-soft-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-soft-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-soft: 0 4px 14px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-soft-md: 0 8px 26px rgba(0, 0, 0, 0.09);
+  --shadow-soft-lg: 0 18px 48px rgba(0, 0, 0, 0.13);
+}
+
+/* Accordion + spring animation tokens for the redesigned app's shadcn/ui parts */
+@theme {
+  --animate-accordion-down: accordion-down 0.22s var(--ease-out-soft, ease-out);
+  --animate-accordion-up: accordion-up 0.22s var(--ease-out-soft, ease-out);
+}
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+
+/* ── Flat-at-rest interaction model (app redesign) ──────────────────────────
+   Buttons and cards/shapes carry NO shadow at rest — surfaces are separated by
+   fill alone (e.g. #fff cards on the #f8f8f8 light background, or #111 on #000
+   in dark). A soft shadow appears only on hover, and only on hover-capable
+   devices, so touch screens stay perfectly flat. Overlays and the floating nav
+   use shadow-soft-md / shadow-soft-lg, which are intentionally NOT flattened so
+   menus, dialogs and the tab bar keep the elevation that makes them read as
+   floating above the page. */
+.app-fwh :is(.shadow-soft-xs, .shadow-soft-sm, .shadow-soft) {
+  box-shadow: none;
+}
+@media (hover: hover) {
+  .app-fwh :is(.shadow-soft-sm, .shadow-soft):hover {
+    box-shadow: var(--shadow-soft);
+  }
+}
 
 /* ── Custom brand fonts ── */
 @font-face { font-family: 'Gotham'; src: url('/fonts/GothamBook.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
@@ -98,7 +209,7 @@
    Secondary: Ocean Blue        #2563EB
 ═══════════════════════════════════════════════════════════ */
 html.light {
-  --bg-primary:    #F5F5F0;
+  --bg-primary:    #f8f8f8;
   --bg-surface:    #FFFFFF;
   --bg-card:       #FFFFFF;
   --bg-card-hover: #EDEDEA;
@@ -439,14 +550,12 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 /* ═══════════════════════════════════════════════════════════
    UTILITY CLASSES
 ═══════════════════════════════════════════════════════════ */
-.bg-primary     { background-color: var(--bg-primary); }
-.bg-surface     { background-color: var(--bg-surface); }
+/* NOTE: legacy color utility classes (.bg-primary/.bg-surface/.bg-accent/
+   .bg-accent-dim) were removed here — they had zero usages and collided with
+   shadcn's Tailwind utilities of the same name (e.g. bg-primary → yellow). */
 .bg-card        { background-color: var(--bg-card); }
-.text-accent    { color: var(--main); }
 .text-main      { color: var(--main); }
 .text-secondary-color { color: var(--secondary); }
-.bg-accent      { background-color: var(--main); }
-.bg-accent-dim  { background-color: var(--main-dim); }
 .accent-glow    { box-shadow: 0 0 24px var(--main-glow); }
 .rounded-full-force { border-radius: var(--radius-pill) !important; }
 
@@ -763,11 +872,11 @@ a:active { transform: scale(0.98); }
 }
 
 .user-panel-header {
-  box-shadow: 0 8px 20px rgba(0,0,0,0.14);
+  box-shadow: 0 0.5px 0 var(--border);
 }
 
 .panel-topbar {
-  box-shadow: 0 8px 20px rgba(0,0,0,0.14);
+  box-shadow: 0 0.5px 0 var(--border);
 }
 
 .panel-sync-nav {
@@ -826,26 +935,24 @@ a:active { transform: scale(0.98); }
   max-width: 560px;
   /* Plain rgba so older WebViews accept the value. The bar sits over the
      scrolling page; the lower opacity + the blur do the work. */
-  background: rgba(20, 20, 20, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: color-mix(in srgb, var(--bg-card) 60%, transparent);
   border-radius: 999px;
   display: flex;
   align-items: stretch;
   justify-content: space-between;
   padding: 6px;
   pointer-events: all;
-  backdrop-filter: blur(8px);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
   box-shadow:
-    0 14px 42px rgba(0, 0, 0, 0.45),
+    var(--shadow-soft-lg),
     0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 }
 
 html.light .app-bottom-nav-inner {
-  background: rgba(255, 255, 255, 0.55);
-  border-color: rgba(0, 0, 0, 0.06);
   box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.10),
-    0 0 0 1px rgba(0, 0, 0, 0.04) inset;
+    var(--shadow-soft-lg),
+    0 0 0 1px rgba(0, 0, 0, 0.05) inset;
 }
 
 .app-nav-item {
@@ -986,7 +1093,7 @@ html.light .app-bottom-nav-inner {
 html.light .app-nav-center .app-nav-center-bubble {
   box-shadow:
     0 14px 32px rgba(200, 176, 0, 0.32),
-    0 0 0 6px #f5f5f0;
+    0 0 0 6px #f8f8f8;
 }
 html.light .app-nav-center .app-nav-center-bubble::after {
   background: radial-gradient(circle, rgba(200, 176, 0, 0.45) 0%, rgba(200, 176, 0, 0) 70%);
@@ -1000,16 +1107,18 @@ html.light .app-nav-center .app-nav-center-bubble::after {
   right: 0;
   z-index: 90;
   padding-top: env(safe-area-inset-top);
-  background: rgba(15, 15, 15, 0.55);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
+  /* Apple-style frosted bar: a hairline drawn with a shadow (the global reset
+     forces border-color: transparent) plus a faint depth shadow. No border. */
+  box-shadow: 0 0.5px 0 var(--border), 0 10px 24px -18px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  backdrop-filter: blur(8px);
+  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
 }
 
 html.light .app-top-bar {
-  background: rgba(255, 255, 255, 0.55);
-  border-bottom-color: rgba(0, 0, 0, 0.06);
+  background: color-mix(in srgb, var(--bg-primary) 72%, transparent);
 }
 
 .app-top-bar-inner {
@@ -1055,18 +1164,16 @@ html.light .app-top-bar {
   scroll-snap-align: start;
   white-space: nowrap;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: transparent;
-  transition: background 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-              color 0.22s, border-color 0.22s;
+  background: var(--muted-surface);
+  transition: background 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+              color 0.22s, box-shadow 0.22s;
   color: var(--text-secondary);
   font-weight: 500;
 }
 
 .app-top-scroll-item:hover {
-  background: var(--bg-card);
+  background: var(--accent-surface);
   color: var(--text-primary);
-  border-color: var(--border-light);
 }
 
 .app-top-scroll-item:hover .app-top-scroll-icon-wrap {
@@ -1077,7 +1184,7 @@ html.light .app-top-bar {
   background: var(--main-dim);
   color: var(--main);
   font-weight: 600;
-  border-color: color-mix(in srgb, var(--main) 35%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--main) 24%, transparent);
 }
 
 .app-top-scroll-icon-wrap {
@@ -2212,7 +2319,7 @@ html.light .web-bold [data-bold="card"] {
 html.light .web-fwh {
   /* Clean "normal white" version — true white surfaces with subtle warm borders
      rather than the previous cream/parchment palette. */
-  --fwh-bg:        #ffffff;
+  --fwh-bg:        #f8f8f8;
   --fwh-s1:        #fafafa;
   --fwh-s2:        #f3f3f1;
   --fwh-s3:        #ebebe7;
@@ -2355,7 +2462,12 @@ html.light .web-fwh .fwh-btn-outline { border-color: rgba(0,0,0,0.18); backgroun
   border-radius: 50%;
   background: var(--fwh-ac); color: var(--fwh-ac-fg);
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700;
+  font-size: 15px; font-weight: 700;
+  line-height: 1;
+  /* Pull the unicode arrow glyph back to optical center — most fonts
+     render "↗" with extra space on the left/bottom of its bounding box. */
+  padding-bottom: 2px;
+  padding-right: 1px;
   transition: transform 0.3s;
 }
 .web-fwh .fwh-btn-outline:hover .fwh-btn-outline-arr { transform: rotate(-45deg); }
@@ -2399,7 +2511,15 @@ html.light .web-fwh .fwh-btn-mini { border-color: rgba(0,0,0,0.12); }
   gap: 6px;
 }
 .web-fwh .fwh-circle-cta:hover { transform: scale(1.06) rotate(-8deg); }
-.web-fwh .fwh-circle-cta .fwh-circle-arr { font-size: 28px; line-height: 1; font-family: var(--fwh-sans); font-weight: 400; }
+.web-fwh .fwh-circle-cta .fwh-circle-arr {
+  font-size: 28px; line-height: 1;
+  font-family: var(--fwh-sans); font-weight: 400;
+  /* Same optical-center nudge as the small arrow chips — the "↗" glyph
+     in most fonts has extra space on the bottom-left of its box. */
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1em; height: 1em;
+  padding-bottom: 0.07em; padding-right: 0.04em;
+}
 
 /* Photo placeholder — for missing images */
 .web-fwh .fwh-photo {
@@ -2722,7 +2842,11 @@ html.light .web-fwh .fwh-gate-btn { border-color: rgba(0,0,0,0.18); background: 
   background: var(--fwh-ac);
   color: var(--fwh-ac-fg);
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700;
+  font-size: 15px; font-weight: 700;
+  line-height: 1;
+  /* Optical-center the "↗" glyph inside the yellow circle. */
+  padding-bottom: 2px;
+  padding-right: 1px;
   transition: transform 0.3s;
 }
 .web-fwh .fwh-gate-btn:hover .fwh-gate-btn-arr { transform: rotate(-45deg); }
@@ -2739,9 +2863,13 @@ html.light .web-fwh .fwh-gate-btn { border-color: rgba(0,0,0,0.18); background: 
      Match the admin-panel preview where Gotham is the default web font. */
   font-family: var(--font-en);
   font-weight: 700;
-  font-size: clamp(56px, 10vw, 168px);
-  line-height: 0.95;
+  font-size: clamp(58px, 10.5vw, 184px);
+  line-height: 0.98;
   letter-spacing: -0.035em;
+  /* The top padding keeps the cap-height of letters like "O" from rising
+     into the kicker/eyebrow above (was visible on Our Blog where the
+     "THE JOURNAL" eyebrow overlapped the "O" of the title). */
+  padding-top: 6px;
   margin: 28px 0 36px;
   color: var(--fwh-text);
 }
@@ -2766,8 +2894,12 @@ html.light .web-fwh .fwh-gate-btn { border-color: rgba(0,0,0,0.18); background: 
 }
 .web-fwh.rtl .fwh-s-h { font-family: var(--font-ar); font-weight: 800; letter-spacing: 0; line-height: 1.05; }
 
-/* Container */
+/* Container — widens on larger screens so the design doesn't look
+   stranded inside a 1400px column on 2K/4K displays. */
 .web-fwh .fwh-con { max-width: 1400px; margin: 0 auto; }
+@media (min-width: 1600px) { .web-fwh .fwh-con { max-width: 1560px; } }
+@media (min-width: 1920px) { .web-fwh .fwh-con { max-width: 1720px; } }
+@media (min-width: 2200px) { .web-fwh .fwh-con { max-width: 1880px; } }
 .web-fwh section.fwh-section { padding: 100px 24px; position: relative; }
 @media (max-width: 880px) { .web-fwh section.fwh-section { padding: 70px 20px; } }
 /* Keep section content above the CMS-driven background overlay. */
@@ -2806,6 +2938,46 @@ html.light .web-fwh .fwh-huge-text { color: rgba(0,0,0,0.05); }
 /* About page mission split — responsive stack */
 @media (max-width: 880px) {
   .web-fwh .fwh-about-split { grid-template-columns: 1fr !important; gap: 40px !important; }
+}
+
+/* ── Responsive shrink for FWH editorial layout ───────────────────────────
+   On tablets and phones, the desktop-tuned padding/sizes (hero h1 up to
+   184px, header height 96, footer logo 96) get cramped or push CTAs off
+   screen. These rules dial them down without touching the desktop look. */
+@media (max-width: 1140px) {
+  /* Matches the JS hamburger-mode breakpoint in WebsiteLayout so the
+     header shrinks at the same width the centered nav would otherwise
+     start overlapping the right-side action buttons. */
+  .web-fwh .web-header > div { height: 84px !important; }
+  .web-fwh .web-header > div > a img { height: 60px !important; }
+  .web-fwh footer img { height: 76px !important; }
+}
+@media (max-width: 768px) {
+  .web-fwh .web-header > div { height: 72px !important; padding: 0 18px !important; }
+  .web-fwh .web-header > div > a img { height: 48px !important; }
+  .web-fwh footer img { height: 64px !important; }
+  .web-fwh footer > div { padding: 60px 18px 32px !important; }
+  .web-fwh .fwh-hero { padding: 110px 20px 60px; min-height: auto; }
+  .web-fwh .fwh-hero-h1 { font-size: clamp(40px, 12vw, 68px) !important; line-height: 1; padding-top: 4px; margin: 18px 0 24px; }
+  .web-fwh .fwh-hero-sub { font-size: 15px; margin-bottom: 28px; }
+  .web-fwh .fwh-gate { padding: 90px 20px 60px; min-height: auto; }
+  .web-fwh .fwh-gate-h { font-size: clamp(38px, 11vw, 64px) !important; margin-bottom: 36px; }
+  .web-fwh .fwh-gate-buttons { flex-direction: column; align-items: stretch; }
+  .web-fwh .fwh-gate-btn { justify-content: space-between; }
+  .web-fwh .fwh-s-h { font-size: clamp(32px, 9vw, 56px) !important; }
+  .web-fwh .fwh-stat-num { font-size: clamp(42px, 13vw, 64px) !important; }
+  .web-fwh .fwh-stat-cell { padding: 28px 18px; }
+  .web-fwh .fwh-section-meta { font-size: 9px; }
+  .web-fwh .fwh-marq-item { font-size: clamp(40px, 14vw, 64px); padding: 0 28px; }
+  .web-fwh .fwh-circle-cta { width: 160px; height: 160px; }
+  .web-fwh .fwh-circle-cta .fwh-circle-arr { font-size: 22px; }
+}
+@media (max-width: 480px) {
+  .web-fwh .web-header > div > a img { height: 44px !important; }
+  .web-fwh footer img { height: 56px !important; }
+  .web-fwh .fwh-hero-h1 { font-size: clamp(34px, 11vw, 54px) !important; }
+  .web-fwh .fwh-gate-h { font-size: clamp(32px, 10vw, 50px) !important; }
+  .web-fwh .fwh-stats-grid { grid-template-columns: 1fr !important; }
 }
 
 /* Reduced motion */

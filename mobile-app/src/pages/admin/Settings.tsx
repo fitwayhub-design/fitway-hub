@@ -1,13 +1,25 @@
-import { useState, useEffect, useCallback, useRef, type CSSProperties, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import {
   Settings, Save, RefreshCw, CheckCircle, XCircle,
-  Palette, Lock, CreditCard, Star, LayoutDashboard,
+  Lock, CreditCard, Star, LayoutDashboard,
   Upload, Eye, EyeOff, ToggleLeft, Database, Sun, Moon,
+  Plus, Trash2, Smartphone, Bot, Apple, Wallet, Coins,
+  Download, Users, Globe, ShieldCheck, Search,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useTheme } from "@/context/ThemeContext";
 import { getApiBase } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 const API = getApiBase();
 
@@ -22,9 +34,9 @@ interface AppSetting {
   label: string | null;
 }
 
-type Category = "dashboard" | "access" | "features" | "pricing" | "points" | "payments" | "promo" | "system";
+type Category = "dashboard" | "access" | "features" | "pricing" | "points" | "payments" | "promo" | "moderators" | "system";
 
-const CATEGORIES: { key: Category; label: string; icon: typeof Palette; desc: string }[] = [
+const CATEGORIES: { key: Category; label: string; icon: typeof LayoutDashboard; desc: string }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, desc: "Hero, sections, visibility" },
   { key: "access",    label: "Access",    icon: Lock,            desc: "Free limits, uploads" },
   { key: "features",  label: "Features",  icon: ToggleLeft,      desc: "Toggle app features on/off" },
@@ -32,89 +44,59 @@ const CATEGORIES: { key: Category; label: string; icon: typeof Palette; desc: st
   { key: "points",    label: "Points",    icon: Star,            desc: "Rewards & bonus points" },
   { key: "payments",  label: "Payments",  icon: CreditCard,      desc: "Payment gateways & methods" },
   { key: "promo",     label: "Promo codes", icon: Star,          desc: "Discount & gift codes" },
+  { key: "moderators", label: "Moderators", icon: ShieldCheck,   desc: "Assign moderators & access" },
   { key: "system",    label: "System",    icon: Database,        desc: "Backup, server, tools" },
+];
+
+// Moderator-controllable areas surfaced in the Moderators tab. Each maps to a
+// permission key enforced server-side; default (unset) = allowed.
+const MODERATOR_AREAS: { key: string; label: string; desc: string }[] = [
+  { key: "community_view",     label: "View community",     desc: "See community posts, comments and stats" },
+  { key: "community_moderate", label: "Moderate community", desc: "Hide / restore / delete posts and delete comments" },
+  { key: "challenges_view",    label: "Access challenges",  desc: "View and manage community challenges" },
 ];
 
 /* --- Payment helper components -------------------------------------------- */
 
-function SectionCard({ color, emoji, title, sub, children }: { color: string; emoji: string; title: string; sub: string; children: ReactNode }) {
+function SectionCard({ icon: Icon, title, sub, children }: { icon: typeof Wallet; title: string; sub: string; children: ReactNode }) {
   return (
-    <div style={{ border: `1px solid ${color}22`, borderRadius: 14, overflow: "hidden" }}>
-      <div style={{ padding: "14px 18px", background: `${color}0A`, borderBottom: `1px solid ${color}22`, display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 18 }}>{emoji}</span>
-        <div>
-          <p style={{ fontWeight: 700, fontSize: 14 }}>{title}</p>
-          <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>{sub}</p>
+    <Card className="gap-0 overflow-hidden p-0">
+      <div className="flex items-center gap-3 bg-muted px-5 py-3.5">
+        <span className="grid size-9 shrink-0 place-items-center rounded-md bg-card text-primary">
+          <Icon size={18} strokeWidth={2} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[15px] font-semibold text-foreground">{title}</p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">{sub}</p>
         </div>
       </div>
-      <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 14 }}>{children}</div>
-    </div>
+      <div className="flex flex-col gap-4 p-5">{children}</div>
+    </Card>
   );
 }
 
-function ModeBlock({ enabled, onToggle, badge, badgeColor, desc, children }: { enabled: boolean; onToggle: () => void; badge: string; badgeColor: string; desc: string; children: ReactNode }) {
+function ModeBlock({ enabled, onToggle, badge, badgeVariant, desc, children }: { enabled: boolean; onToggle: () => void; badge: string; badgeVariant: "success" | "warning" | "secondary" | "accent"; desc: string; children: ReactNode }) {
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: badgeColor, background: `${badgeColor}18`, padding: "3px 10px", borderRadius: 99 }}>{badge}</span>
-        <button type="button" onClick={onToggle} style={{ width: 42, height: 24, borderRadius: 99, border: "none", background: enabled ? "var(--green)" : "var(--bg-surface)", position: "relative", cursor: "pointer", transition: "background .2s" }}>
-          <span style={{ position: "absolute", top: 3, left: enabled ? 21 : 3, width: 18, height: 18, borderRadius: 99, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }} />
-        </button>
+    <div className="rounded-md bg-muted p-3.5">
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <Badge variant={badgeVariant}>{badge}</Badge>
+        <Switch checked={enabled} onCheckedChange={onToggle} aria-label={badge} />
       </div>
-      <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: enabled ? 12 : 0, lineHeight: 1.5 }}>{desc}</p>
-      {enabled && <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{children}</div>}
+      <p className={`text-[13px] leading-relaxed text-muted-foreground ${enabled ? "mb-3" : ""}`}>{desc}</p>
+      {enabled && <div className="flex flex-col gap-3">{children}</div>}
     </div>
   );
 }
 
-function PayField({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
+function PayField({ id, label, hint, children }: { id: string; label: string; hint: string; children: ReactNode }) {
   return (
-    <div>
-      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", display: "block", marginBottom: 3 }}>{label}</label>
-      <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 5 }}>{hint}</p>
+    <div className="grid gap-1.5">
+      <Label htmlFor={id} className="text-[13px]">{label}</Label>
+      <p className="text-[11px] text-muted-foreground">{hint}</p>
       {children}
     </div>
   );
 }
-
-function WebhookInfo({ url }: { url: string }) {
-  return (
-    <div style={{ padding: "8px 12px", background: "var(--bg-surface)", borderRadius: 8, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6 }}>
-      <strong>Webhook URL:</strong> <code style={{ wordBreak: "break-all" }}>{url}</code>
-    </div>
-  );
-}
-
-/* --- Styles --------------------------------------------------------------- */
-
-const card: CSSProperties = {
-  background: "var(--bg-card)",
-  border: "1px solid var(--border)",
-  borderRadius: 16,
-  overflow: "hidden",
-};
-
-const inputStyle: CSSProperties = {
-  width: "100%",
-  padding: "9px 12px",
-  borderRadius: 10,
-  border: "1px solid var(--border)",
-  background: "var(--bg-surface)",
-  color: "var(--text-primary)",
-  fontSize: 13,
-  outline: "none",
-  boxSizing: "border-box",
-};
-
-const labelStyle: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 600,
-  color: "var(--text-muted)",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  display: "block",
-  marginBottom: 4,
-};
 
 /* ========================================================================== */
 
@@ -164,6 +146,56 @@ export default function AdminSettings() {
   const [payLoading, setPayLoading] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
 
+  // Moderators tab state
+  const [modUsers, setModUsers] = useState<Array<{ id: number; name: string; email: string; role: string; avatar?: string }>>([]);
+  const [modPerms, setModPerms] = useState<Record<string, boolean>>({});
+  const [modSearch, setModSearch] = useState("");
+  const [modLoading, setModLoading] = useState(false);
+  const [modSaving, setModSaving] = useState(false);
+
+  const loadModerators = useCallback(async () => {
+    setModLoading(true);
+    try {
+      const [uRes, pRes] = await Promise.all([
+        fetch(`${API}/api/admin/users`, { headers }),
+        fetch(`${API}/api/admin/moderator-permissions`, { headers }),
+      ]);
+      const uData = await uRes.json().catch(() => ({}));
+      const pData = await pRes.json().catch(() => ({}));
+      setModUsers((uData.users || []).map((u: any) => ({ id: u.id, name: u.name, email: u.email, role: u.role, avatar: u.avatar })));
+      setModPerms(pData.permissions || {});
+    } catch {
+      // leave empty — render shows a friendly state
+    } finally {
+      setModLoading(false);
+    }
+  }, []); // eslint-disable-line
+
+  const setUserRole = async (id: number, role: string) => {
+    try {
+      const r = await fetch(`${API}/api/admin/users/${id}/role`, { method: "PATCH", headers, body: JSON.stringify({ role }) });
+      if (!r.ok) throw new Error();
+      setModUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u));
+      showFlash(role === "moderator" ? l("Moderator added", "تمت إضافة مشرف") : l("Moderator removed", "تمت إزالة المشرف"));
+    } catch {
+      showFlash(l("Failed to update role", "فشل تحديث الدور"), false);
+    }
+  };
+
+  const saveModeratorPerms = async (next: Record<string, boolean>) => {
+    setModPerms(next);
+    setModSaving(true);
+    try {
+      const r = await fetch(`${API}/api/admin/moderator-permissions`, { method: "PUT", headers, body: JSON.stringify({ permissions: next }) });
+      if (!r.ok) throw new Error();
+      showFlash(l("Access updated", "تم تحديث الصلاحيات"));
+    } catch {
+      showFlash(l("Failed to save access", "فشل حفظ الصلاحيات"), false);
+    } finally {
+      setModSaving(false);
+    }
+  };
+
   const showFlash = (msg: string, ok = true) => {
     setFlash({ msg, ok });
     setTimeout(() => setFlash(null), 3000);
@@ -180,7 +212,7 @@ export default function AdminSettings() {
       for (const s of rows) map[s.setting_key] = s.setting_value ?? "";
       setEditMap(map);
     } catch {
-      showFlash(l("Failed to load settings", "\u0641\u0634\u0644 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a"), false);
+      showFlash(l("Failed to load settings", "فشل تحميل الإعدادات"), false);
     }
     setLoading(false);
   }, [token]);
@@ -200,6 +232,7 @@ export default function AdminSettings() {
 
   useEffect(() => { fetchSettings(); fetchPaymentSettings(); fetchServerUrl(); }, [fetchSettings, fetchPaymentSettings]);
   useEffect(() => { setAdminName(user?.name || ""); }, [user?.name]);
+  useEffect(() => { if (activeTab === "moderators") loadModerators(); }, [activeTab, loadModerators]);
 
   // --- System functions ---
   const fetchServerUrl = async () => {
@@ -274,9 +307,9 @@ export default function AdminSettings() {
         method: "PUT", headers, body: JSON.stringify(payload),
       });
       if (!r.ok) throw new Error();
-      showFlash(l("Settings saved", "\u062a\u0645 \u062d\u0641\u0638 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a"));
+      showFlash(l("Settings saved", "تم حفظ الإعدادات"));
     } catch {
-      showFlash(l("Failed to save", "\u0641\u0634\u0644 \u0627\u0644\u062d\u0641\u0638"), false);
+      showFlash(l("Failed to save", "فشل الحفظ"), false);
     }
     setSaving(false);
   }
@@ -288,9 +321,9 @@ export default function AdminSettings() {
         method: "PUT", headers, body: JSON.stringify(paySettings),
       });
       if (!r.ok) throw new Error();
-      showFlash(l("Payment settings saved", "\u062a\u0645 \u062d\u0641\u0638 \u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u062f\u0641\u0639"));
+      showFlash(l("Payment settings saved", "تم حفظ إعدادات الدفع"));
     } catch {
-      showFlash(l("Failed to save payment settings", "\u0641\u0634\u0644 \u062d\u0641\u0638 \u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u062f\u0641\u0639"), false);
+      showFlash(l("Failed to save payment settings", "فشل حفظ إعدادات الدفع"), false);
     }
     setSaving(false);
   }
@@ -308,9 +341,9 @@ export default function AdminSettings() {
       if (!r.ok) throw new Error();
       const d = await r.json();
       setEditMap(m => ({ ...m, [key]: d.url }));
-      showFlash(l("Image uploaded", "\u062a\u0645 \u0631\u0641\u0639 \u0627\u0644\u0635\u0648\u0631\u0629"));
+      showFlash(l("Image uploaded", "تم رفع الصورة"));
     } catch {
-      showFlash(l("Upload failed", "\u0641\u0634\u0644 \u0627\u0644\u0631\u0641\u0639"), false);
+      showFlash(l("Upload failed", "فشل الرفع"), false);
     }
     setUploading(null);
   }
@@ -335,44 +368,29 @@ export default function AdminSettings() {
     setUploading(null);
   }
 
-  function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-    return (
-      <button type="button" onClick={() => onChange(!value)} style={{
-        width: 44, height: 24, borderRadius: 99, border: "none",
-        background: value ? "var(--main)" : "var(--bg-surface)",
-        position: "relative", cursor: "pointer", transition: "background .2s", flexShrink: 0,
-      }}>
-        <span style={{
-          position: "absolute", top: 3, left: value ? 23 : 3,
-          width: 18, height: 18, borderRadius: 99, background: "#fff",
-          transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.2)",
-        }} />
-      </button>
-    );
-  }
-
   function renderField(s: AppSetting) {
     const val = editMap[s.setting_key] ?? "";
     const set = (v: string) => setEditMap(m => ({ ...m, [s.setting_key]: v }));
     const isOn = val === "1" || val === "true";
+    const fieldId = `setting-${s.setting_key}`;
 
     if (s.setting_type === "boolean") {
       return (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>{s.label || s.setting_key}</span>
-          <Toggle value={isOn} onChange={v => set(v ? "1" : "0")} />
+        <div className="flex items-center justify-between gap-3 px-5 py-3.5">
+          <Label htmlFor={fieldId} className="text-[15px] font-medium">{s.label || s.setting_key}</Label>
+          <Switch id={fieldId} checked={isOn} onCheckedChange={v => set(v ? "1" : "0")} />
         </div>
       );
     }
 
     if (s.setting_type === "color") {
       return (
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-          <label style={labelStyle}>{s.label || s.setting_key}</label>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <input type="color" value={val || "#000000"} onChange={e => set(e.target.value)}
-              style={{ width: 36, height: 36, border: "1px solid var(--border)", borderRadius: 8, padding: 2, cursor: "pointer", background: "var(--bg-surface)" }} />
-            <input type="text" value={val} onChange={e => set(e.target.value)} style={{ ...inputStyle, flex: 1 }} placeholder="#hex" />
+        <div className="grid gap-2 px-5 py-3.5">
+          <Label htmlFor={fieldId} className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{s.label || s.setting_key}</Label>
+          <div className="flex items-center gap-2.5">
+            <input type="color" id={`${fieldId}-swatch`} value={val || "#000000"} onChange={e => set(e.target.value)} aria-label={`${s.label || s.setting_key} color`}
+              className="size-10 cursor-pointer rounded-md bg-muted p-1 ring-1 ring-inset ring-border" />
+            <Input id={fieldId} type="text" value={val} onChange={e => set(e.target.value)} className="flex-1" placeholder="#hex" />
           </div>
         </div>
       );
@@ -380,27 +398,24 @@ export default function AdminSettings() {
 
     if (s.setting_type === "image" || ((s.setting_type === "url") && s.setting_key.includes("image")) || s.setting_key.includes("logo")) {
       return (
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-          <label style={labelStyle}>{s.label || s.setting_key}</label>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input type="url" value={val} onChange={e => set(e.target.value)} style={{ ...inputStyle, flex: 1 }} placeholder="Image URL or upload..." />
-            <label style={{
-              display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", borderRadius: 10,
-              border: "1px dashed var(--border)", background: "var(--bg-surface)",
-              color: uploading === s.setting_key ? "var(--text-muted)" : "var(--main)",
-              fontSize: 12, fontWeight: 600, cursor: uploading === s.setting_key ? "not-allowed" : "pointer", whiteSpace: "nowrap", flexShrink: 0,
-            }}>
-              <Upload size={13} />
-              {uploading === s.setting_key ? "Uploading..." : "Upload"}
-              <input type="file" accept="image/*" hidden
-                onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(s.setting_key, f); e.target.value = ""; }}
-                disabled={uploading === s.setting_key} />
-            </label>
+        <div className="grid gap-2 px-5 py-3.5">
+          <Label htmlFor={fieldId} className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{s.label || s.setting_key}</Label>
+          <div className="flex items-center gap-2">
+            <Input id={fieldId} type="url" value={val} onChange={e => set(e.target.value)} className="flex-1" placeholder="Image URL or upload..." />
+            <Button asChild variant="outline" size="sm" disabled={uploading === s.setting_key}>
+              <label className={uploading === s.setting_key ? "cursor-not-allowed" : "cursor-pointer"}>
+                <Upload size={14} strokeWidth={2} />
+                {uploading === s.setting_key ? "Uploading..." : "Upload"}
+                <input type="file" accept="image/*" hidden
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(s.setting_key, f); e.target.value = ""; }}
+                  disabled={uploading === s.setting_key} />
+              </label>
+            </Button>
           </div>
-          <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>JPG, PNG, or WebP — recommended 800×400px, max 2 MB</p>
+          <p className="text-[11px] text-muted-foreground">JPG, PNG, or WebP — recommended 800×400px, max 2 MB</p>
           {val && (
-            <div style={{ marginTop: 8, width: 100, height: 60, borderRadius: 8, overflow: "hidden", border: "1px solid var(--border)", background: "var(--bg-surface)" }}>
-              <img src={val} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <div className="mt-1 h-[60px] w-[100px] overflow-hidden rounded-md bg-muted ring-1 ring-inset ring-border">
+              <img src={val} alt="" className="size-full object-cover" />
             </div>
           )}
         </div>
@@ -416,29 +431,30 @@ export default function AdminSettings() {
         ? ["Gotham", "Orbitron", "Rajdhani", "Exo 2", "Teko", "Russo One", "Plus Jakarta Sans", "Syne", "Inter"]
         : ["Gotham", "Plus Jakarta Sans", "Inter", "Poppins", "Roboto", "Montserrat", "DM Sans", "Nunito", "Lato", "Open Sans"];
       return (
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-          <label style={labelStyle}>{s.label || s.setting_key}</label>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <select value={presetFonts.includes(val) ? val : "__custom"} onChange={e => { if (e.target.value !== "__custom") set(e.target.value); }}
-              style={{ ...inputStyle, flex: 1 }}>
-              {presetFonts.map(f => <option key={f} value={f}>{f}</option>)}
-              {!presetFonts.includes(val) && val && <option value="__custom">{val} (custom)</option>}
-            </select>
-            <label style={{
-              display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", borderRadius: 10,
-              border: "1px dashed var(--border)", background: "var(--bg-surface)",
-              color: uploading === s.setting_key ? "var(--text-muted)" : "var(--main)",
-              fontSize: 12, fontWeight: 600, cursor: uploading === s.setting_key ? "not-allowed" : "pointer", whiteSpace: "nowrap", flexShrink: 0,
-            }}>
-              <Upload size={13} />
-              {uploading === s.setting_key ? "Uploading..." : "Upload"}
-              <input type="file" accept=".ttf,.otf,.woff,.woff2" hidden
-                onChange={e => { const f = e.target.files?.[0]; if (f) uploadFont(s.setting_key, f); e.target.value = ""; }}
-                disabled={uploading === s.setting_key} />
-            </label>
+        <div className="grid gap-2 px-5 py-3.5">
+          <Label htmlFor={fieldId} className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{s.label || s.setting_key}</Label>
+          <div className="flex items-center gap-2">
+            <Select value={presetFonts.includes(val) ? val : "__custom"} onValueChange={v => { if (v !== "__custom") set(v); }}>
+              <SelectTrigger id={fieldId} className="h-11 flex-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {presetFonts.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                {!presetFonts.includes(val) && val && <SelectItem value="__custom">{val} (custom)</SelectItem>}
+              </SelectContent>
+            </Select>
+            <Button asChild variant="outline" size="sm" disabled={uploading === s.setting_key}>
+              <label className={uploading === s.setting_key ? "cursor-not-allowed" : "cursor-pointer"}>
+                <Upload size={14} strokeWidth={2} />
+                {uploading === s.setting_key ? "Uploading..." : "Upload"}
+                <input type="file" accept=".ttf,.otf,.woff,.woff2" hidden
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadFont(s.setting_key, f); e.target.value = ""; }}
+                  disabled={uploading === s.setting_key} />
+              </label>
+            </Button>
           </div>
           {val && (
-            <p style={{ marginTop: 8, fontFamily: val, fontSize: 16, color: "var(--text-primary)" }}>
+            <p className="mt-1 text-[16px] text-foreground" style={{ fontFamily: val }}>
               {isArabic ? "معاينة الخط العربي — ١٢٣٤٥" : "Preview Font — Aa Bb Cc 12345"}
             </p>
           )}
@@ -447,13 +463,13 @@ export default function AdminSettings() {
     }
 
     return (
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-        <label style={labelStyle}>{s.label || s.setting_key}</label>
-        <input
+      <div className="grid gap-2 px-5 py-3.5">
+        <Label htmlFor={fieldId} className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{s.label || s.setting_key}</Label>
+        <Input
+          id={fieldId}
           type={s.setting_type === "number" ? "number" : "text"}
           value={val}
           onChange={e => set(e.target.value)}
-          style={inputStyle}
           placeholder={`Enter ${s.setting_type || "text"}...`}
         />
       </div>
@@ -466,29 +482,136 @@ export default function AdminSettings() {
     const other = filtered.filter(s => !s.setting_key.startsWith("feature_user_") && !s.setting_key.startsWith("feature_coach_"));
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="flex flex-col gap-4">
         {[
           { title: "User App", items: userFeatures },
           { title: "Coach Panel", items: coachFeatures },
           ...(other.length ? [{ title: "Other", items: other }] : []),
         ].map(group => group.items.length > 0 && (
-          <div key={group.title} style={card}>
-            <div style={{ padding: "12px 16px", background: "var(--bg-surface)", borderBottom: "1px solid var(--border)" }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "var(--main)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{group.title}</p>
+          <Card key={group.title} className="gap-0 overflow-hidden p-0">
+            <div className="bg-muted px-5 py-3">
+              <p className="text-[11px] font-semibold tracking-wider text-primary uppercase">{group.title}</p>
             </div>
-            {group.items.map(s => {
+            {group.items.map((s, i) => {
               const val = editMap[s.setting_key] ?? "";
               const isOn = val === "1" || val === "true";
               const niceName = (s.label || s.setting_key).replace(/^(User: |Coach: )/, "");
+              const fid = `feature-${s.setting_key}`;
               return (
-                <div key={s.setting_key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>{niceName}</span>
-                  <Toggle value={isOn} onChange={v => setEditMap(m => ({ ...m, [s.setting_key]: v ? "1" : "0" }))} />
+                <div key={s.setting_key}>
+                  <div className="flex items-center justify-between gap-3 px-5 py-3">
+                    <Label htmlFor={fid} className="text-[15px] font-medium">{niceName}</Label>
+                    <Switch id={fid} checked={isOn} onCheckedChange={v => setEditMap(m => ({ ...m, [s.setting_key]: v ? "1" : "0" }))} />
+                  </div>
+                  {i < group.items.length - 1 && <Separator />}
                 </div>
               );
             })}
-          </div>
+          </Card>
         ))}
+      </div>
+    );
+  }
+
+  function renderModerators() {
+    const isAllowed = (key: string) => modPerms[key] !== false; // default = allowed
+    const toggleArea = (key: string) => saveModeratorPerms({ ...modPerms, [key]: !isAllowed(key) });
+    const moderators = modUsers.filter(u => u.role === "moderator");
+    const q = modSearch.trim().toLowerCase();
+    const candidates = q
+      ? modUsers.filter(u => u.role !== "moderator" && u.role !== "admin" && (u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)))
+      : [];
+
+    return (
+      <div className="space-y-3.5">
+        {/* Access toggles */}
+        <Card className="gap-0 overflow-hidden p-0">
+          <div className="flex items-center gap-3 bg-muted px-5 py-3.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-md bg-card text-primary"><Lock size={18} strokeWidth={2} /></span>
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-foreground">{l("What moderators can access", "ما يمكن للمشرفين الوصول إليه")}</p>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">{l("Turn an area off to block it for all moderators. Admins always have full access.", "أوقف أي قسم لمنعه عن جميع المشرفين. المسؤولون لديهم وصول كامل دائمًا.")}</p>
+            </div>
+          </div>
+          <div className="flex flex-col">
+            {MODERATOR_AREAS.map((a, i) => (
+              <div key={a.key}>
+                <div className="flex items-center justify-between gap-3 px-5 py-3.5">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-foreground">{l(a.label, a.label)}</p>
+                    <p className="mt-0.5 text-[12px] text-muted-foreground">{a.desc}</p>
+                  </div>
+                  <Switch checked={isAllowed(a.key)} disabled={modSaving} onCheckedChange={() => toggleArea(a.key)} aria-label={a.label} />
+                </div>
+                {i < MODERATOR_AREAS.length - 1 && <Separator />}
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Current moderators */}
+        <Card className="gap-0 overflow-hidden p-0">
+          <div className="flex items-center gap-3 bg-muted px-5 py-3.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-md bg-card text-primary"><ShieldCheck size={18} strokeWidth={2} /></span>
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-foreground">{l("Moderators", "المشرفون")}</p>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">{l("People who can moderate based on the access above.", "الأشخاص الذين يمكنهم الإشراف بناءً على الصلاحيات أعلاه.")}</p>
+            </div>
+          </div>
+          <div className="flex flex-col">
+            {modLoading ? (
+              <p className="px-5 py-6 text-center text-[13px] text-muted-foreground">{l("Loading...", "جاري التحميل...")}</p>
+            ) : moderators.length === 0 ? (
+              <p className="px-5 py-6 text-center text-[13px] text-muted-foreground">{l("No moderators yet. Add one below.", "لا يوجد مشرفون بعد. أضف واحدًا أدناه.")}</p>
+            ) : (
+              moderators.map((u, i) => (
+                <div key={u.id}>
+                  <div className="flex items-center justify-between gap-3 px-5 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-foreground">{u.name}</p>
+                      <p className="truncate text-[12px] text-muted-foreground">{u.email}</p>
+                    </div>
+                    <Button variant="outline" size="sm" className="text-destructive" onClick={() => setUserRole(u.id, "user")}>
+                      <Trash2 size={14} strokeWidth={2} /> {l("Remove", "إزالة")}
+                    </Button>
+                  </div>
+                  {i < moderators.length - 1 && <Separator />}
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+
+        {/* Add a moderator */}
+        <Card className="gap-0 p-5">
+          <p className="mb-2.5 text-[15px] font-semibold">{l("Add a moderator", "إضافة مشرف")}</p>
+          <div className="relative">
+            <Search size={15} strokeWidth={2} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input value={modSearch} onChange={e => setModSearch(e.target.value)} placeholder={l("Search users by name or email", "ابحث عن المستخدمين بالاسم أو البريد")} className="ps-9" />
+          </div>
+          {q && (
+            <div className="mt-3 flex flex-col">
+              {candidates.length === 0 ? (
+                <p className="py-4 text-center text-[13px] text-muted-foreground">{l("No matching users.", "لا يوجد مستخدمون مطابقون.")}</p>
+              ) : (
+                candidates.slice(0, 12).map((u, i) => (
+                  <div key={u.id}>
+                    <div className="flex items-center justify-between gap-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold text-foreground">{u.name}</p>
+                        <p className="truncate text-[12px] text-muted-foreground">{u.email}</p>
+                      </div>
+                      <Button size="sm" onClick={() => setUserRole(u.id, "moderator")}>
+                        <ShieldCheck size={14} strokeWidth={2} /> {l("Make moderator", "تعيين كمشرف")}
+                      </Button>
+                    </div>
+                    {i < Math.min(candidates.length, 12) - 1 && <Separator />}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </Card>
       </div>
     );
   }
@@ -516,48 +639,48 @@ export default function AdminSettings() {
     const remove = (i: number) => persist(list.filter((_, idx) => idx !== i));
 
     return (
-      <div style={{ ...card, padding: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+      <Card className="gap-0 p-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-[13px] text-muted-foreground">
             Promo & gift codes are stored as a JSON blob in app settings — admin can add, edit, or remove them here without touching code. Changes save instantly.
           </p>
-          <button onClick={add} style={{
-            display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10,
-            border: "none", background: "var(--main)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer",
-          }}>
-            + Add code
-          </button>
+          <Button size="sm" onClick={add} className="shrink-0">
+            <Plus size={14} strokeWidth={2} /> Add code
+          </Button>
         </div>
         {list.length === 0 ? (
-          <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "40px 0", fontSize: 13 }}>
+          <p className="py-10 text-center text-[13px] text-muted-foreground">
             No promo codes yet. Click "Add code" to create one.
           </p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="flex flex-col gap-2.5">
             {/* Column headers — aligned with the same grid below */}
-            <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 2fr auto", gap: 8, padding: "0 14px", alignItems: "center" }}>
+            <div className="grid grid-cols-[1.3fr_1fr_1fr_1fr_2fr_auto] items-center gap-2 px-3.5">
               {["Code", "Type", "Value", "Uses left", "Description (internal)", ""].map((h, hi) => (
-                <div key={hi} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{h}</div>
+                <div key={hi} className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">{h}</div>
               ))}
             </div>
             {list.map((p, i) => (
-              <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px", display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 2fr auto", gap: 8, alignItems: "center" }}>
-                <input value={p.code} onChange={e => update(i, { code: e.target.value.toUpperCase() })} placeholder="CODE" style={{ ...inputStyle, fontWeight: 700, letterSpacing: "0.1em" }} />
-                <select value={p.type} onChange={e => update(i, { type: e.target.value as "percent" | "amount" })} style={inputStyle}>
-                  <option value="percent">% off</option>
-                  <option value="amount">EGP off</option>
-                </select>
-                <input type="number" min={0} value={p.value} onChange={e => update(i, { value: Number(e.target.value) || 0 })} placeholder="Value" style={inputStyle} />
-                <input type="number" min={0} value={p.uses_left} onChange={e => update(i, { uses_left: Number(e.target.value) || 0 })} placeholder="Uses left" style={inputStyle} />
-                <input value={p.description} onChange={e => update(i, { description: e.target.value })} placeholder="Description (internal)" style={inputStyle} />
-                <button onClick={() => remove(i)} title="Delete" style={{
-                  background: "rgba(248,113,113,0.1)", border: "1px solid var(--red)", borderRadius: 10, padding: "7px 10px", color: "var(--red)", cursor: "pointer", fontSize: 12,
-                }}>✕</button>
+              <div key={i} className="grid grid-cols-[1.3fr_1fr_1fr_1fr_2fr_auto] items-center gap-2 rounded-md bg-muted p-3.5">
+                <Input value={p.code} onChange={e => update(i, { code: e.target.value.toUpperCase() })} placeholder="CODE" aria-label="Promo code" className="bg-card font-bold tracking-wider" />
+                <Select value={p.type} onValueChange={v => update(i, { type: v as "percent" | "amount" })}>
+                  <SelectTrigger className="h-11 w-full bg-card" aria-label="Discount type"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percent">% off</SelectItem>
+                    <SelectItem value="amount">EGP off</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input type="number" min={0} value={p.value} onChange={e => update(i, { value: Number(e.target.value) || 0 })} placeholder="Value" aria-label="Discount value" className="bg-card" />
+                <Input type="number" min={0} value={p.uses_left} onChange={e => update(i, { uses_left: Number(e.target.value) || 0 })} placeholder="Uses left" aria-label="Uses left" className="bg-card" />
+                <Input value={p.description} onChange={e => update(i, { description: e.target.value })} placeholder="Description (internal)" aria-label="Description" className="bg-card" />
+                <Button variant="destructive" size="icon" onClick={() => remove(i)} aria-label="Delete promo code">
+                  <Trash2 size={16} strokeWidth={2} />
+                </Button>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Card>
     );
   }
 
@@ -566,29 +689,26 @@ export default function AdminSettings() {
     const set = (key: string, val: string) => setPaySettings(s => ({ ...s, [key]: val }));
     const tog = (key: string) => set(key, ps[key] === "1" ? "0" : "1");
     const inp = (key: string, label: string, hint: string, type = "text") => (
-      <PayField label={label} hint={hint}>
-        <input style={inputStyle} type={type === "secret" ? (showSecrets ? "text" : "password") : type} value={ps[key] || ""} onChange={e => set(key, e.target.value)} placeholder="..." />
+      <PayField id={`pay-${key}`} label={label} hint={hint}>
+        <Input id={`pay-${key}`} type={type === "secret" ? (showSecrets ? "text" : "password") : type} value={ps[key] || ""} onChange={e => set(key, e.target.value)} placeholder="..." />
       </PayField>
     );
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <button type="button" onClick={() => setShowSecrets(s => !s)} style={{
-            background: "none", border: "1px solid var(--border)", borderRadius: 10, padding: "6px 12px",
-            cursor: "pointer", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 5, fontSize: 12,
-          }}>
-            {showSecrets ? <EyeOff size={13} /> : <Eye size={13} />} {showSecrets ? "Hide" : "Show"} secrets
-          </button>
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" size="sm" onClick={() => setShowSecrets(s => !s)}>
+            {showSecrets ? <EyeOff size={14} strokeWidth={2} /> : <Eye size={14} strokeWidth={2} />} {showSecrets ? "Hide" : "Show"} secrets
+          </Button>
         </div>
 
         {/* Manual e-wallet — primary payment path for Egypt. Users transfer
             to one of the published wallet numbers from their phone wallet
             and upload a screenshot. An admin reviews + activates.
             (The Paymob automated processor was removed in v3.0.) */}
-        <SectionCard color="#00A8E0" emoji="&#128241;" title="Mobile Wallet (Manual)" sub="Vodafone Cash · Orange Cash · WE Pay">
+        <SectionCard icon={Smartphone} title="Mobile Wallet (Manual)" sub="Vodafone Cash · Orange Cash · WE Pay">
           <ModeBlock enabled={true} onToggle={() => {}}
-            badge="&#128336; Reviewed by admin" badgeColor="var(--amber)"
+            badge="Reviewed by admin" badgeVariant="warning"
             desc="Users transfer to your wallets and upload a screenshot. Admin reviews and activates.">
             {inp("ewallet_phone_vodafone", "Vodafone Cash number", "Your registered Vodafone Cash number", "tel")}
             {inp("ewallet_phone_orange", "Orange Cash number", "Your registered Orange Cash number", "tel")}
@@ -601,34 +721,34 @@ export default function AdminSettings() {
             Mobile Wallet block above) replaces it. Google Play / App Store
             IAP stay below for Android / iOS native subscription flows. */}
 
-        <SectionCard color="#34A853" emoji="&#129302;" title="Google Play (Android IAP)" sub="In-app purchase for Android">
+        <SectionCard icon={Bot} title="Google Play (Android IAP)" sub="In-app purchase for Android">
           <ModeBlock enabled={ps.google_play_enabled === "1"} onToggle={() => tog("google_play_enabled")}
-            badge="Android" badgeColor="var(--green)"
+            badge="Android" badgeVariant="success"
             desc="Android users see a native Google Play purchase button.">
             {inp("google_play_product_id_monthly", "Monthly Subscription ID", "Google Play Console > Monetize > Subscriptions")}
             {inp("google_play_product_id_annual", "Annual Subscription ID", "Separate subscription product for annual")}
           </ModeBlock>
         </SectionCard>
 
-        <SectionCard color="#555" emoji="&#127822;" title="App Store (iOS IAP)" sub="In-app purchase for iOS">
+        <SectionCard icon={Apple} title="App Store (iOS IAP)" sub="In-app purchase for iOS">
           <ModeBlock enabled={ps.apple_pay_enabled === "1"} onToggle={() => tog("apple_pay_enabled")}
-            badge="iOS" badgeColor="var(--text-secondary)"
+            badge="iOS" badgeVariant="secondary"
             desc="iOS users see a native App Store purchase button.">
             {inp("apple_pay_product_id_monthly", "Monthly Subscription ID", "App Store Connect > Subscriptions")}
             {inp("apple_pay_product_id_annual", "Annual Subscription ID", "Separate subscription group for annual")}
           </ModeBlock>
         </SectionCard>
 
-        <SectionCard color="var(--green)" emoji="&#128176;" title="Revenue Split" sub="Earnings split between coaches and platform">
-          <div style={{ display: "flex", gap: 14 }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Coach receives (%)</label>
-              <input style={inputStyle} type="number" min="0" max="100" value={ps.coach_cut_percentage || ""} onChange={e => set("coach_cut_percentage", e.target.value)} />
-              <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>Platform keeps {100 - Number(ps.coach_cut_percentage || 85)}%</p>
+        <SectionCard icon={Coins} title="Revenue Split" sub="Earnings split between coaches and platform">
+          <div className="flex gap-4">
+            <div className="flex-1 grid gap-1.5">
+              <Label htmlFor="pay-coach-cut" className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Coach receives (%)</Label>
+              <Input id="pay-coach-cut" type="number" min="0" max="100" value={ps.coach_cut_percentage || ""} onChange={e => set("coach_cut_percentage", e.target.value)} />
+              <p className="text-[11px] text-muted-foreground">Platform keeps {100 - Number(ps.coach_cut_percentage || 85)}%</p>
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>EGP to USD rate</label>
-              <input style={inputStyle} type="number" step="0.01" value={ps.egp_usd_rate || ""} onChange={e => set("egp_usd_rate", e.target.value)} placeholder="Leave empty for live rate" />
+            <div className="flex-1 grid gap-1.5">
+              <Label htmlFor="pay-egp-rate" className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">EGP to USD rate</Label>
+              <Input id="pay-egp-rate" type="number" step="0.01" value={ps.egp_usd_rate || ""} onChange={e => set("egp_usd_rate", e.target.value)} placeholder="Leave empty for live rate" />
             </div>
           </div>
         </SectionCard>
@@ -637,74 +757,68 @@ export default function AdminSettings() {
   }
 
   function renderSystem() {
-    const sysCard: CSSProperties = { backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: "20px 22px" };
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="flex flex-col gap-4">
 
         {/* Database Backup */}
-        <div style={sysCard}>
-          <p style={{ fontFamily: "var(--font-heading)", fontSize: 15, fontWeight: 700, marginBottom: 6 }}>🗄️ Database Backup</p>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16, lineHeight: 1.6 }}>
+        <Card className="gap-0 p-5">
+          <p className="mb-1.5 flex items-center gap-2 text-[15px] font-semibold"><Database size={16} strokeWidth={2} className="text-muted-foreground" /> Database Backup</p>
+          <p className="mb-4 text-[13px] leading-relaxed text-muted-foreground">
             Download a full SQL dump of the database. Includes all tables and rows — safe to restore on any MySQL server.
           </p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <a href={`${API}/api/admin/backup/database`} download
-              onClick={async e => {
-                e.preventDefault();
-                const btn = e.currentTarget;
-                const origText = btn.textContent;
-                btn.textContent = "⏳ Generating backup…";
-                try {
-                  const res = await fetch(`${API}/api/admin/backup/database`, { headers: { Authorization: `Bearer ${token}` } });
-                  if (!res.ok) throw new Error(await res.text());
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-                  a.download = `fitwayhub-backup-${ts}.sql`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                } catch (err: any) { alert("Backup failed: " + err.message); }
-                finally { btn.textContent = origText || "⬇ Download .sql"; }
-              }}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 22px", borderRadius: 99,
-                background: "var(--main)", color: "#fff", textDecoration: "none",
-                fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 14px var(--main-glow)" }}>
-              ⬇ Download Database (.sql)
-            </a>
-            <button onClick={() => restoreInputRef.current?.click()} disabled={restoringDb}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 22px", borderRadius: 99,
-                background: "var(--bg-surface)", color: restoringDb ? "var(--text-muted)" : "var(--text-primary)",
-                cursor: restoringDb ? "not-allowed" : "pointer",
-                fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 14, border: "1px solid var(--border)" }}>
-              {restoringDb ? "⏳ Restoring…" : "⬆ Upload Database (.sql)"}
-            </button>
+          <div className="flex flex-wrap gap-2.5">
+            <Button asChild>
+              <a href={`${API}/api/admin/backup/database`} download
+                onClick={async e => {
+                  e.preventDefault();
+                  const btn = e.currentTarget;
+                  const origText = btn.textContent;
+                  btn.textContent = "⏳ Generating backup…";
+                  try {
+                    const res = await fetch(`${API}/api/admin/backup/database`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (!res.ok) throw new Error(await res.text());
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+                    a.download = `fitwayhub-backup-${ts}.sql`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  } catch (err: any) { alert("Backup failed: " + err.message); }
+                  finally { btn.textContent = origText || "⬇ Download .sql"; }
+                }}>
+                <Download size={16} strokeWidth={2} /> Download Database (.sql)
+              </a>
+            </Button>
+            <Button variant="outline" onClick={() => restoreInputRef.current?.click()} disabled={restoringDb}>
+              <Upload size={16} strokeWidth={2} /> {restoringDb ? "Restoring…" : "Upload Database (.sql)"}
+            </Button>
             <input ref={restoreInputRef} type="file" accept=".sql" hidden
               onChange={e => { handleDatabaseRestore(e.target.files?.[0]); }} />
           </div>
-          <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 12 }}>💡 Store backups securely. This file contains all user data.</p>
-        </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">💡 Store backups securely. This file contains all user data.</p>
+        </Card>
 
         {/* Fake Accounts Generator */}
-        <div style={sysCard}>
-          <p style={{ fontFamily: "var(--font-heading)", fontSize: 15, fontWeight: 700, marginBottom: 6 }}>👥 Fake Accounts Generator</p>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16, lineHeight: 1.6 }}>
+        <Card className="gap-0 p-5">
+          <p className="mb-1.5 flex items-center gap-2 text-[15px] font-semibold"><Users size={16} strokeWidth={2} className="text-muted-foreground" /> Fake Accounts Generator</p>
+          <p className="mb-4 text-[13px] leading-relaxed text-muted-foreground">
             Generate realistic fake user accounts with complete onboarding profiles for testing.
           </p>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="flex flex-wrap items-center gap-2.5">
             {[5, 10, 20, 50, 100].map(n => (
-              <button key={n} onClick={() => setGenCount(n)}
-                style={{ padding: "8px 16px", borderRadius: 10, border: `1.5px solid ${genCount === n ? "var(--main)" : "var(--border)"}`, background: genCount === n ? "var(--main-dim)" : "var(--bg-surface)", color: genCount === n ? "var(--main)" : "var(--text-secondary)", fontWeight: genCount === n ? 700 : 400, fontSize: 13, cursor: "pointer" }}>
+              <Button key={n} variant={genCount === n ? "default" : "outline"} size="sm" onClick={() => setGenCount(n)}>
                 {n}
-              </button>
+              </Button>
             ))}
-            <input type="number" min={1} max={500} value={genCount}
+            <Input type="number" min={1} max={500} value={genCount}
               onChange={e => setGenCount(Math.min(500, Math.max(1, +e.target.value)))}
-              style={{ width: 80, padding: "8px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13 }} />
-            <button onClick={async () => {
+              aria-label="Fake user count"
+              className="w-20" />
+            <Button onClick={async () => {
               setGenLoading(true); setGenMsg("");
               try {
                 const res = await api("/api/admin/generate-fake-users", { method: "POST", body: JSON.stringify({ count: genCount }) });
@@ -713,12 +827,10 @@ export default function AdminSettings() {
                 else setGenMsg("❌ " + (d.message || "Failed"));
               } catch { setGenMsg("❌ Request failed"); }
               setGenLoading(false);
-            }} disabled={genLoading}
-              style={{ padding: "10px 22px", borderRadius: 99, background: genLoading ? "var(--bg-surface)" : "var(--main)",
-                color: genLoading ? "var(--text-muted)" : "#fff", fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 14, border: "none", cursor: genLoading ? "not-allowed" : "pointer" }}>
-              {genLoading ? "Generating…" : `+ Add ${genCount} Fake Users`}
-            </button>
-            <button onClick={async () => {
+            }} disabled={genLoading}>
+              <Plus size={16} strokeWidth={2} /> {genLoading ? "Generating…" : `Add ${genCount} Fake Users`}
+            </Button>
+            <Button variant="destructive" size="sm" onClick={async () => {
               if (!confirm("Remove ALL fake users now?")) return;
               setRemoveFakeLoading(true); setGenMsg("");
               try {
@@ -728,26 +840,24 @@ export default function AdminSettings() {
                 else setGenMsg(`❌ ${d?.message || "Failed to remove fake users"}`);
               } catch { setGenMsg("❌ Failed to remove fake users"); }
               finally { setRemoveFakeLoading(false); }
-            }} disabled={removeFakeLoading}
-              style={{ padding: "10px 18px", borderRadius: 99, background: removeFakeLoading ? "var(--bg-surface)" : "rgba(255,68,68,0.1)",
-                color: removeFakeLoading ? "var(--text-muted)" : "var(--red)", fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 13,
-                border: "1px solid rgba(255,68,68,0.35)", cursor: removeFakeLoading ? "not-allowed" : "pointer" }}>
-              {removeFakeLoading ? "Removing…" : "🗑 Remove All Fake Accounts"}
-            </button>
+            }} disabled={removeFakeLoading}>
+              <Trash2 size={16} strokeWidth={2} /> {removeFakeLoading ? "Removing…" : "Remove All Fake Accounts"}
+            </Button>
           </div>
-          {genMsg && <p style={{ fontSize: 13, marginTop: 12, color: genMsg.startsWith("✅") ? "var(--green)" : "var(--red)" }}>{genMsg}</p>}
-          <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>⚠️ Fake accounts use the password <code>FakePass!2025</code> and are tagged with <code>fake.</code> email prefix.</p>
+          {genMsg && <p className={`mt-3 text-[13px] font-semibold ${genMsg.startsWith("✅") ? "text-[var(--green)]" : "text-destructive"}`}>{genMsg}</p>}
+          <p className="mt-2.5 text-[11px] text-muted-foreground">⚠️ Fake accounts use the password <code>FakePass!2025</code> and are tagged with <code>fake.</code> email prefix.</p>
 
           {/* Fake-coach button — moved here from the Dashboard per the May
               meeting. Lives next to the fake-user controls so all the
               testing helpers are in one place. */}
-          <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px dashed var(--border)" }}>
-            <p style={{ fontFamily: "var(--font-heading)", fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Fake coaches</p>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>
+          <Separator className="my-4" />
+          <div>
+            <p className="mb-2 text-[14px] font-semibold">Fake coaches</p>
+            <p className="mb-3 text-[13px] text-muted-foreground">
               Spin up demo coach profiles so the coach-side flows can be tested.
             </p>
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
-              <button onClick={async () => {
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Button onClick={async () => {
                 setGenLoading(true); setGenMsg("");
                 try {
                   const res = await api("/api/admin/generate-coach-profiles", { method: "POST", body: JSON.stringify({ count: 5 }) });
@@ -756,12 +866,10 @@ export default function AdminSettings() {
                   else setGenMsg(`❌ ${d?.message || "Failed to add coaches"}`);
                 } catch { setGenMsg("❌ Request failed"); }
                 finally { setGenLoading(false); }
-              }} disabled={genLoading}
-                style={{ padding: "10px 22px", borderRadius: 99, background: genLoading ? "var(--bg-surface)" : "var(--cyan)",
-                  color: genLoading ? "var(--text-muted)" : "#072226", fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 14, border: "none", cursor: genLoading ? "not-allowed" : "pointer" }}>
-                + Add 5 Fake Coaches
-              </button>
-              <button onClick={async () => {
+              }} disabled={genLoading}>
+                <Plus size={16} strokeWidth={2} /> Add 5 Fake Coaches
+              </Button>
+              <Button variant="outline" onClick={async () => {
                 if (!confirm("Remove ALL fake coaches? This will delete every coach with an @fitwayhub.coach email and cascade their posts, subscriptions, ads, and reviews. This cannot be undone.")) return;
                 setGenLoading(true); setGenMsg("");
                 try {
@@ -772,11 +880,10 @@ export default function AdminSettings() {
                 } catch { setGenMsg("❌ Request failed"); }
                 finally { setGenLoading(false); }
               }} disabled={genLoading}
-                style={{ padding: "10px 22px", borderRadius: 99, background: genLoading ? "var(--bg-surface)" : "transparent",
-                  color: genLoading ? "var(--text-muted)" : "var(--red)", fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 14, border: "1px solid var(--red)", cursor: genLoading ? "not-allowed" : "pointer" }}>
-                − Remove Fake Coaches
-              </button>
-              <button onClick={async () => {
+                className="text-destructive ring-destructive/40 hover:bg-destructive/10 hover:text-destructive">
+                <Trash2 size={16} strokeWidth={2} /> Remove Fake Coaches
+              </Button>
+              <Button variant="outline" onClick={async () => {
                 setGenLoading(true); setGenMsg("");
                 try {
                   const res = await api("/api/admin/generate-fake-subs", { method: "POST" });
@@ -786,95 +893,91 @@ export default function AdminSettings() {
                 } catch { setGenMsg("❌ Request failed"); }
                 finally { setGenLoading(false); }
               }} disabled={genLoading}
-                style={{ padding: "10px 22px", borderRadius: 99, background: genLoading ? "var(--bg-surface)" : "var(--main-dim)",
-                  color: genLoading ? "var(--text-muted)" : "var(--main)", fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 14, border: "1px solid var(--main)", cursor: genLoading ? "not-allowed" : "pointer" }}>
+                className="text-primary ring-primary/40 hover:bg-primary/10 hover:text-primary">
                 🎯 Seed Fake Subscriptions
-              </button>
+              </Button>
             </div>
-            <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>
+            <p className="mt-2.5 text-[11px] text-muted-foreground">
               Fake subscriptions only apply to fake users — real accounts are never modified.
             </p>
           </div>
-        </div>
+        </Card>
 
         {/* Admin Preferences */}
-        <div style={sysCard}>
-          <p style={{ fontFamily: "var(--font-heading)", fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Admin Preferences</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
-              <label style={labelStyle}>Name</label>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input className="input-base" type="text" value={adminName} onChange={e => setAdminName(e.target.value)} placeholder="Admin name" style={{ flex: 1 }} />
-                <button onClick={saveAdminName}
-                  style={{ padding: "10px 14px", borderRadius: 99, backgroundColor: "var(--accent)", color: "#000000", border: "none", fontFamily: "var(--font-heading)", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+        <Card className="gap-0 p-5">
+          <p className="mb-4 text-[15px] font-semibold">Admin Preferences</p>
+          <div className="flex flex-col gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="admin-name" className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Name</Label>
+              <div className="flex gap-2">
+                <Input id="admin-name" type="text" value={adminName} onChange={e => setAdminName(e.target.value)} placeholder="Admin name" className="flex-1" />
+                <Button onClick={saveAdminName} className="shrink-0">
                   Save Name
-                </button>
+                </Button>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 2 }}>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 600 }}>Mode</p>
-                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Toggle between light and dark theme</p>
+            <Separator />
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[14px] font-semibold">Mode</p>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">Toggle between light and dark theme</p>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Sun size={16} color={!isDark ? "var(--amber)" : "var(--text-muted)"} />
-                <button className={`theme-toggle ${!isDark ? "active" : ""}`} onClick={toggleTheme} />
-                <Moon size={16} color={isDark ? "var(--blue)" : "var(--text-muted)"} />
+              <div className="flex items-center gap-2.5">
+                <Sun size={16} strokeWidth={2} className={!isDark ? "text-[var(--amber)]" : "text-muted-foreground"} />
+                <Switch checked={isDark} onCheckedChange={toggleTheme} aria-label="Toggle dark mode" />
+                <Moon size={16} strokeWidth={2} className={isDark ? "text-[var(--secondary)]" : "text-muted-foreground"} />
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 600 }}>Language</p>
-                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Choose admin panel language</p>
+            <Separator />
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[14px] font-semibold">Language</p>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">Choose admin panel language</p>
               </div>
-              <select value={lang} onChange={e => setLang(e.target.value as any)} className="input-base"
-                style={{ width: 150, padding: "8px 10px", fontSize: 12 }}>
-                <option value="en">English</option>
-                <option value="ar">العربية</option>
-              </select>
+              <Select value={lang} onValueChange={v => setLang(v as any)}>
+                <SelectTrigger className="h-10 w-[150px]" aria-label="Admin panel language"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="ar">العربية</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Backend Server URL */}
-        <div style={sysCard}>
-          <p style={{ fontFamily: "var(--font-heading)", fontSize: 15, fontWeight: 700, marginBottom: 4 }}>🌐 Backend Server URL</p>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16, lineHeight: 1.5 }}>
+        <Card className="gap-0 p-5">
+          <p className="mb-1 flex items-center gap-2 text-[15px] font-semibold"><Globe size={16} strokeWidth={2} className="text-muted-foreground" /> Backend Server URL</p>
+          <p className="mb-4 text-[13px] leading-relaxed text-muted-foreground">
             Set the full backend URL for mobile (Capacitor) builds. Leave empty to use relative paths (default for web).
             <br />Example: <strong>https://api.fitwayhub.com</strong> or <strong>http://192.168.1.100:3000</strong>
           </p>
-          <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
-            <input className="input-base" type="url" value={serverUrl} onChange={e => setServerUrl(e.target.value)} placeholder="https://api.fitwayhub.com" style={{ flex: 1 }} />
-            <button onClick={testServerUrl} disabled={serverUrlTesting}
-              style={{ padding: "10px 16px", borderRadius: 99, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-secondary)", fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 12, cursor: serverUrlTesting ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: serverUrlTesting ? 0.6 : 1 }}>
-              {serverUrlTesting ? "Testing…" : "🔗 Test"}
-            </button>
+          <div className="grid gap-2">
+            <Label htmlFor="server-url" className="sr-only">Backend server URL</Label>
+            <div className="flex items-stretch gap-2.5">
+              <Input id="server-url" type="url" value={serverUrl} onChange={e => setServerUrl(e.target.value)} placeholder="https://api.fitwayhub.com" className="flex-1" />
+              <Button variant="outline" onClick={testServerUrl} disabled={serverUrlTesting} className="shrink-0">
+                <RefreshCw size={14} strokeWidth={2} /> {serverUrlTesting ? "Testing…" : "Test"}
+              </Button>
+            </div>
           </div>
           {serverUrlMsg && (
-            <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 99,
-              backgroundColor: serverUrlMsg.startsWith("✅") ? "rgba(0,220,130,0.1)" : serverUrlMsg.startsWith("⚠") ? "rgba(255,170,0,0.1)" : "rgba(255,68,68,0.1)",
-              border: `1px solid ${serverUrlMsg.startsWith("✅") ? "rgba(0,220,130,0.3)" : serverUrlMsg.startsWith("⚠") ? "rgba(255,170,0,0.3)" : "rgba(255,68,68,0.3)"}`,
-              fontSize: 13, fontWeight: 600,
-              color: serverUrlMsg.startsWith("✅") ? "var(--accent)" : serverUrlMsg.startsWith("⚠") ? "var(--amber)" : "var(--red)" }}>
+            <div className={`mt-3 rounded-md px-3.5 py-2.5 text-[13px] font-semibold ${serverUrlMsg.startsWith("✅") ? "bg-[color-mix(in_srgb,var(--green)_14%,transparent)] text-[var(--green)]" : serverUrlMsg.startsWith("⚠") ? "bg-[color-mix(in_srgb,var(--amber)_14%,transparent)] text-[var(--amber)]" : "bg-destructive/12 text-destructive"}`}>
               {serverUrlMsg}
             </div>
           )}
-          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-            <button onClick={saveServerUrl} disabled={serverUrlSaving}
-              style={{ flex: 1, padding: "11px", borderRadius: 99, backgroundColor: "var(--accent)", color: "#000000",
-                fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 13, border: "none",
-                cursor: serverUrlSaving ? "not-allowed" : "pointer", opacity: serverUrlSaving ? 0.7 : 1,
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <Save size={14} /> {serverUrlSaving ? "Saving…" : "Save Server URL"}
-            </button>
+          <div className="mt-3.5 flex gap-2.5">
+            <Button onClick={saveServerUrl} disabled={serverUrlSaving} className="flex-1">
+              <Save size={16} strokeWidth={2} /> {serverUrlSaving ? "Saving…" : "Save Server URL"}
+            </Button>
             {serverUrl && (
-              <button onClick={() => { setServerUrl(""); localStorage.removeItem("fitway_server_url"); setServerUrlMsg("✅ Cleared — using relative paths (web mode)"); setTimeout(() => setServerUrlMsg(""), 4000); }}
-                style={{ padding: "11px 18px", borderRadius: 99, border: "1px solid rgba(255,68,68,0.3)", background: "rgba(255,68,68,0.06)", color: "var(--red)", fontFamily: "var(--font-heading)", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+              <Button variant="outline" onClick={() => { setServerUrl(""); localStorage.removeItem("fitway_server_url"); setServerUrlMsg("✅ Cleared — using relative paths (web mode)"); setTimeout(() => setServerUrlMsg(""), 4000); }}
+                className="text-destructive ring-destructive/40 hover:bg-destructive/10 hover:text-destructive">
                 Clear
-              </button>
+              </Button>
             )}
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -883,103 +986,92 @@ export default function AdminSettings() {
   const isFeatures = activeTab === "features";
   const isSystem = activeTab === "system";
   const isPromo = activeTab === "promo";
+  const isModerators = activeTab === "moderators";
+  const activeMeta = CATEGORIES.find(c => c.key === activeTab);
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto", padding: "24px 16px 48px" }}>
+    <div className="space-y-6">
       {flash && (
-        <div style={{
-          position: "fixed", top: 16, right: 16, zIndex: 9999,
-          background: "var(--bg-card)", border: `1px solid ${flash.ok ? "#4ADE80" : "#FB7185"}`,
-          borderRadius: 12, padding: "12px 18px", fontSize: 13, fontWeight: 600,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.3)", color: "var(--text-primary)",
-          display: "flex", alignItems: "center", gap: 8,
-        }}>
-          {flash.ok ? <CheckCircle size={15} color="#4ADE80" /> : <XCircle size={15} color="#FB7185" />}
+        <div className={`fixed end-4 top-4 z-[9999] flex items-center gap-2 rounded-md bg-card px-4 py-3 text-[13px] font-semibold text-foreground shadow-soft-lg ring-1 ring-inset ${flash.ok ? "ring-[color-mix(in_srgb,var(--green)_40%,transparent)]" : "ring-destructive/40"}`}>
+          {flash.ok ? <CheckCircle size={16} strokeWidth={2} className="text-[var(--green)]" /> : <XCircle size={16} strokeWidth={2} className="text-destructive" />}
           {flash.msg}
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 12, background: "var(--main-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Settings size={20} color="var(--main)" />
-          </div>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-md bg-primary/15 text-primary">
+            <Settings size={20} strokeWidth={2} />
+          </span>
           <div>
-            <h1 style={{ fontFamily: "var(--font-heading)", fontSize: 22, fontWeight: 800, margin: 0 }}>{l("Settings", "\u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a")}</h1>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>{l("Manage application configuration", "\u0625\u062f\u0627\u0631\u0629 \u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u062a\u0637\u0628\u064a\u0642")}</p>
+            <h1 className="text-[26px] leading-tight font-bold tracking-tight">{l("Settings", "الإعدادات")}</h1>
+            <p className="text-[13px] text-muted-foreground">{l("Manage application configuration", "إدارة إعدادات التطبيق")}</p>
           </div>
         </div>
-        <button onClick={() => { fetchSettings(); fetchPaymentSettings(); }} style={{
-          display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10,
-          border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer",
-        }}>
-          <RefreshCw size={13} /> {l("Refresh", "\u062a\u062d\u062f\u064a\u062b")}
-        </button>
+        <Button variant="outline" size="sm" onClick={() => { fetchSettings(); fetchPaymentSettings(); }}>
+          <RefreshCw size={14} strokeWidth={2} /> {l("Refresh", "تحديث")}
+        </Button>
       </div>
 
-      <div className="admin-settings-grid" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-        <div className="admin-settings-side" style={{ ...card, width: 200, flexShrink: 0 }}>
-          {CATEGORIES.map(({ key, label, icon: Icon, desc }) => (
-            <button key={key} onClick={() => setActiveTab(key)} style={{
-              width: "100%", display: "flex", alignItems: "center", gap: 10,
-              padding: "12px 14px", background: activeTab === key ? "var(--main-dim)" : "transparent",
-              border: "none", cursor: "pointer", textAlign: "left",
-              borderLeft: activeTab === key ? "3px solid var(--main)" : "3px solid transparent",
-              transition: "all 0.15s",
-            }}>
-              <Icon size={15} color={activeTab === key ? "var(--main)" : "var(--text-muted)"} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: activeTab === key ? "var(--main)" : "var(--text-primary)" }}>{label}</div>
-                <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{desc}</div>
-              </div>
-            </button>
-          ))}
-        </div>
+      <div className="admin-settings-grid flex items-start gap-4">
+        {/* Section nav */}
+        <Card className="admin-settings-side w-[220px] shrink-0 gap-0 p-2">
+          {CATEGORIES.map(({ key, label, icon: Icon, desc }) => {
+            const active = activeTab === key;
+            return (
+              <button key={key} onClick={() => setActiveTab(key)} aria-current={active ? "page" : undefined}
+                className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-start transition-colors ${active ? "bg-primary/15" : "hover:bg-muted"}`}>
+                <Icon size={16} strokeWidth={2} className={active ? "text-primary" : "text-muted-foreground"} />
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[13px] font-semibold ${active ? "text-primary" : "text-foreground"}`}>{label}</div>
+                  <div className="truncate text-[11px] text-muted-foreground">{desc}</div>
+                </div>
+              </button>
+            );
+          })}
+        </Card>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <div>
-              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
-                {CATEGORIES.find(c => c.key === activeTab)?.label}
-              </h2>
-              <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 0" }}>
-                {CATEGORIES.find(c => c.key === activeTab)?.desc}
-              </p>
+        <div className="min-w-0 flex-1 space-y-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-xl font-semibold tracking-tight">{activeMeta?.label}</h2>
+              <p className="text-[13px] text-muted-foreground">{activeMeta?.desc}</p>
             </div>
-            {!isSystem && !isPromo && <button
-              onClick={isPayments ? savePaymentSettings : saveAppSettings}
-              disabled={saving || (!isPayments && filtered.length === 0)}
-              style={{
-                display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10,
-                border: "none", background: saving ? "var(--bg-surface)" : "var(--main)",
-                color: saving ? "var(--text-muted)" : "#fff", fontSize: 12, fontWeight: 700,
-                cursor: saving ? "not-allowed" : "pointer", fontFamily: "var(--font-heading)",
-              }}
-            >
-              <Save size={13} /> {saving ? l("Saving...", "\u062c\u0627\u0631\u064a \u0627\u0644\u062d\u0641\u0638...") : l("Save", "\u062d\u0641\u0638")}
-            </button>}
+            {!isSystem && !isPromo && !isModerators && (
+              <Button
+                onClick={isPayments ? savePaymentSettings : saveAppSettings}
+                disabled={saving || (!isPayments && filtered.length === 0)}
+                className="shrink-0"
+              >
+                <Save size={16} strokeWidth={2} /> {saving ? l("Saving...", "جاري الحفظ...") : l("Save", "حفظ")}
+              </Button>
+            )}
           </div>
 
-          {isSystem ? renderSystem() : isPromo ? renderPromoCodes() : isPayments ? (
+          {isModerators ? renderModerators() : isSystem ? renderSystem() : isPromo ? renderPromoCodes() : isPayments ? (
             payLoading ? (
-              <div style={{ ...card, padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+              <Card className="p-10 text-center text-[13px] text-muted-foreground">
                 Loading...
-              </div>
+              </Card>
             ) : renderPayments()
           ) : loading ? (
-            <div style={{ ...card, padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+            <Card className="p-10 text-center text-[13px] text-muted-foreground">
               Loading settings...
-            </div>
+            </Card>
           ) : filtered.length === 0 ? (
-            <div style={{ ...card, padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
-              {l("No settings in this category yet.", "\u0644\u0627 \u062a\u0648\u062c\u062f \u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0641\u064a \u0647\u0630\u0627 \u0627\u0644\u0642\u0633\u0645.")}
-            </div>
+            <Card className="p-10 text-center text-[13px] text-muted-foreground">
+              {l("No settings in this category yet.", "لا توجد إعدادات في هذا القسم.")}
+            </Card>
           ) : isFeatures ? renderFeatures() : (
-            <div style={card}>
-              {filtered.map(s => (
-                <div key={s.setting_key}>{renderField(s)}</div>
+            <Card className="gap-0 overflow-hidden p-0">
+              {filtered.map((s, i) => (
+                <div key={s.setting_key}>
+                  {renderField(s)}
+                  {i < filtered.length - 1 && <Separator />}
+                </div>
               ))}
-            </div>
+            </Card>
           )}
         </div>
       </div>

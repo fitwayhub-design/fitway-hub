@@ -1,11 +1,44 @@
 import { getApiBase } from "@/lib/api";
-import { Calendar, MessageSquare, Star, Lock, X, Search, SlidersHorizontal, Camera, UserPlus, UserCheck, Gift, Flag } from "lucide-react";
+import { Calendar, MessageSquare, Star, Search, Camera, UserPlus, UserCheck, Gift, Flag, MapPin, BadgeCheck, Clock, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useMemo, useEffect } from "react";
 import PaymentForm from "@/components/app/PaymentForm";
 import { getAvatar } from "@/lib/avatar";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+
+/* Filled star-rating display — filled stars in the brand accent (yellow). */
+function Stars({ value, size = 12 }: { value: number; size?: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-hidden="true">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <Star
+          key={s}
+          size={size}
+          strokeWidth={2}
+          className={cn(s <= Math.round(value) ? "fill-primary text-primary" : "fill-transparent text-muted-foreground")}
+        />
+      ))}
+    </span>
+  );
+}
 
 const specialties = ["All", "Strength & Conditioning", "HIIT & Weight Loss", "Yoga & Mobility", "Nutrition & Fitness", "Cardio & Endurance"];
 const locations = ["All Locations", "Cairo", "Alexandria", "Giza"];

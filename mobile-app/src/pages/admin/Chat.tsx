@@ -10,7 +10,15 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { getAvatar } from "@/lib/avatar";
-import { Send, Search, Users, LifeBuoy } from "lucide-react";
+import { Send, Search, Users, LifeBuoy, Trophy, MessageCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Challenge { id: number; title: string; image_url?: string; cover_image?: string; participant_count?: number; members_count?: number }
 interface Message { id: number; sender_id: number; sender_name?: string; sender_avatar?: string; content: string; created_at: string }
@@ -52,13 +60,13 @@ export default function AdminChat() {
       }
     } catch { /* ignore */ }
   };
-  const loadAll = async () => {
-    setLoading(true);
+  const loadAll = async (silent = false) => {
+    if (!silent) setLoading(true);
     await Promise.all([loadGroups(), loadSupport()]);
     setLoading(false);
   };
   useEffect(() => { loadAll(); /* eslint-disable-next-line */ }, []);
-  useAutoRefresh(loadAll);
+  useAutoRefresh(() => loadAll(true));
 
   const loadChallengeMessages = async (id: number) => {
     setMessages([]);
@@ -95,121 +103,157 @@ export default function AdminChat() {
   const filteredSupport = supportUsers.filter(u => (u.name || "").toLowerCase().includes(search.toLowerCase()) || (u.email || "").toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-      <h1 style={{ fontFamily: "var(--font-heading)", fontSize: 22, fontWeight: 800, marginBottom: 16 }}>Chat</h1>
+    <div className="space-y-6">
+      <h1 className="text-[28px] font-bold leading-tight tracking-tight">Chat</h1>
 
       {/* Tabs */}
-      <div style={{ display: "inline-flex", padding: 4, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 99, marginBottom: 16 }}>
-        {([
-          { id: "groups" as const,  label: "Groups",  Icon: Users },
-          { id: "support" as const, label: "Support", Icon: LifeBuoy },
-        ]).map(({ id, label, Icon }) => (
-          <button key={id} onClick={() => { setTab(id); setActiveChallenge(null); setActiveUser(null); setMessages([]); }} style={{
-            padding: "8px 18px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
-            background: tab === id ? "var(--main)" : "transparent",
-            color: tab === id ? "#0a0a0a" : "var(--text-secondary)",
-            display: "flex", alignItems: "center", gap: 6,
-          }}><Icon size={13} /> {label}</button>
-        ))}
-      </div>
+      <Tabs value={tab} onValueChange={v => { setTab(v as "groups" | "support"); setActiveChallenge(null); setActiveUser(null); setMessages([]); }}>
+        <TabsList>
+          <TabsTrigger value="groups"><Users size={16} strokeWidth={2} /> Groups</TabsTrigger>
+          <TabsTrigger value="support"><LifeBuoy size={16} strokeWidth={2} /> Support</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 16, height: "70vh" }}>
+      <div className="grid h-[70vh] grid-cols-1 gap-4 md:grid-cols-[320px_1fr]">
         {/* Side list */}
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ padding: 12, borderBottom: "1px solid var(--border)" }}>
-            <div style={{ position: "relative" }}>
-              <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder={tab === "groups" ? "Search groups…" : "Search support contacts…"}
-                style={{ width: "100%", padding: "8px 12px 8px 30px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 12 }} />
+        <Card className="flex flex-col gap-0 overflow-hidden py-0">
+          <div className="p-3">
+            <div className="relative">
+              <Search size={16} strokeWidth={2} className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted-foreground start-3.5" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={tab === "groups" ? "Search groups…" : "Search support contacts…"}
+                aria-label={tab === "groups" ? "Search groups" : "Search support contacts"}
+                className="h-10 ps-10"
+              />
             </div>
           </div>
-          <div style={{ overflowY: "auto", flex: 1 }}>
+          <ScrollArea className="flex-1">
             {loading ? (
-              <p style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Loading…</p>
+              <p className="p-5 text-center text-[13px] text-muted-foreground">Loading…</p>
             ) : tab === "groups" ? (
               filteredChallenges.length === 0 ? (
-                <p style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No challenges/groups yet.</p>
+                <p className="p-5 text-center text-[13px] text-muted-foreground">No challenges/groups yet.</p>
               ) : filteredChallenges.map(c => (
-                <button key={c.id} onClick={() => { setActiveChallenge(c); setActiveUser(null); loadChallengeMessages(c.id); }} style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: "none",
-                  background: activeChallenge?.id === c.id ? "var(--main-dim)" : "transparent",
-                  borderBottom: "1px solid var(--border)", cursor: "pointer", textAlign: "left",
-                  borderLeft: activeChallenge?.id === c.id ? "3px solid var(--main)" : "3px solid transparent",
-                }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--bg-surface)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
-                    {c.cover_image ? <img src={c.cover_image} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover" }} /> : "🏆"}
+                <button
+                  key={c.id}
+                  onClick={() => { setActiveChallenge(c); setActiveUser(null); loadChallengeMessages(c.id); }}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start transition-colors",
+                    activeChallenge?.id === c.id ? "bg-[var(--main-dim)]" : "hover:bg-muted",
+                  )}
+                >
+                  <div className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
+                    {c.cover_image
+                      ? <img src={c.cover_image} alt="" className="size-9 rounded-md object-cover" />
+                      : <Trophy size={16} strokeWidth={2} className="text-muted-foreground" />}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{c.members_count || c.participant_count || 0} members</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold">{c.title}</p>
+                    <p className="text-[11px] text-muted-foreground">{c.members_count || c.participant_count || 0} members</p>
                   </div>
                 </button>
               ))
             ) : (
               filteredSupport.length === 0 ? (
-                <p style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No active support requests.</p>
+                <p className="p-5 text-center text-[13px] text-muted-foreground">No active support requests.</p>
               ) : filteredSupport.map(u => (
-                <button key={u.id} onClick={() => { setActiveUser(u); setActiveChallenge(null); loadDmMessages(u.id); }} style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: "none",
-                  background: activeUser?.id === u.id ? "var(--main-dim)" : "transparent",
-                  borderBottom: "1px solid var(--border)", cursor: "pointer", textAlign: "left",
-                  borderLeft: activeUser?.id === u.id ? "3px solid var(--main)" : "3px solid transparent",
-                }}>
-                  <img src={u.avatar || getAvatar(u.email, null, null, u.name)} alt="" style={{ width: 36, height: 36, borderRadius: "50%" }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.name}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.last_message || u.email}</p>
+                <button
+                  key={u.id}
+                  onClick={() => { setActiveUser(u); setActiveChallenge(null); loadDmMessages(u.id); }}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-start transition-colors",
+                    activeUser?.id === u.id ? "bg-[var(--main-dim)]" : "hover:bg-muted",
+                  )}
+                >
+                  <Avatar className="size-9 shrink-0">
+                    <AvatarImage src={u.avatar || getAvatar(u.email, null, null, u.name)} alt="" />
+                    <AvatarFallback>{(u.name || "U").slice(0, 1)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold">{u.name}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">{u.last_message || u.email}</p>
                   </div>
                   {!!u.unread_count && u.unread_count > 0 && (
-                    <span style={{ background: "var(--main)", color: "#0a0a0a", borderRadius: 99, padding: "1px 6px", fontSize: 10, fontWeight: 800 }}>{u.unread_count}</span>
+                    <Badge className="shrink-0">{u.unread_count}</Badge>
                   )}
                 </button>
               ))
             )}
-          </div>
-        </div>
+          </ScrollArea>
+        </Card>
 
         {/* Thread */}
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <Card className="flex flex-col gap-0 overflow-hidden py-0">
           {!activeChallenge && !activeUser ? (
-            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>
-              {tab === "groups" ? "Pick a group to monitor or post." : "Pick a support contact to reply."}
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
+              <div className="grid size-12 place-items-center rounded-full bg-muted">
+                <MessageCircle size={22} strokeWidth={2} className="text-muted-foreground" />
+              </div>
+              <p className="text-[13px]">
+                {tab === "groups" ? "Pick a group to monitor or post." : "Pick a support contact to reply."}
+              </p>
             </div>
           ) : (
             <>
-              <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-                <p style={{ fontSize: 14, fontWeight: 700 }}>
-                  {activeChallenge ? `🏆 ${activeChallenge.title}` : `🛟 ${activeUser?.name}`}
-                </p>
-                <p style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                  {activeChallenge ? `${activeChallenge.members_count || activeChallenge.participant_count || 0} members` : activeUser?.email}
-                </p>
-              </div>
-              <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-                {messages.length === 0 ? (
-                  <p style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 13, padding: 20 }}>No messages yet.</p>
-                ) : messages.map(m => (
-                  <div key={m.id} style={{ display: "flex", gap: 8 }}>
-                    <img src={m.sender_avatar || getAvatar(m.sender_id, null, null, m.sender_name)} alt="" style={{ width: 28, height: 28, borderRadius: "50%" }} />
-                    <div style={{ flex: 1, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "8px 12px" }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, marginBottom: 2 }}>{m.sender_name}</p>
-                      <p style={{ fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{m.content}</p>
-                      <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>{new Date(m.created_at).toLocaleString()}</p>
-                    </div>
+              <div className="flex items-center gap-2.5 px-4 py-3 shadow-soft-xs">
+                {activeChallenge ? (
+                  <div className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
+                    {activeChallenge.cover_image
+                      ? <img src={activeChallenge.cover_image} alt="" className="size-9 rounded-md object-cover" />
+                      : <Trophy size={16} strokeWidth={2} className="text-muted-foreground" />}
                   </div>
-                ))}
+                ) : (
+                  <Avatar className="size-9 shrink-0">
+                    <AvatarImage src={activeUser?.avatar || getAvatar(activeUser?.email, null, null, activeUser?.name)} alt="" />
+                    <AvatarFallback>{(activeUser?.name || "U").slice(0, 1)}</AvatarFallback>
+                  </Avatar>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-semibold">
+                    {activeChallenge ? activeChallenge.title : activeUser?.name}
+                  </p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {activeChallenge ? `${activeChallenge.members_count || activeChallenge.participant_count || 0} members` : activeUser?.email}
+                  </p>
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid var(--border)" }}>
-                <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter") send(); }} placeholder="Message as Admin…"
-                  style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13 }} />
-                <button onClick={send} disabled={busy || !draft.trim()}
-                  style={{ padding: "9px 14px", borderRadius: 8, border: "none", background: "var(--main)", color: "#0a0a0a", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Send size={13} /> Send
-                </button>
+              <ScrollArea className="flex-1">
+                <div className="flex flex-col gap-2.5 p-3.5">
+                  {messages.length === 0 ? (
+                    <p className="p-5 text-center text-[13px] text-muted-foreground">No messages yet.</p>
+                  ) : messages.map(m => (
+                    <div key={m.id} className="flex gap-2.5">
+                      <Avatar className="size-8 shrink-0">
+                        <AvatarImage src={m.sender_avatar || getAvatar(m.sender_id, null, null, m.sender_name)} alt="" />
+                        <AvatarFallback className="text-[11px]">{(m.sender_name || "U").slice(0, 1)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1 rounded-2xl bg-muted px-3.5 py-2.5">
+                        <p className="mb-0.5 text-[11px] font-semibold text-muted-foreground">{m.sender_name}</p>
+                        <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                        <p className="mt-1 text-[10px] text-muted-foreground">{new Date(m.created_at).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              <div className="flex items-center gap-2 p-3 shadow-soft-xs">
+                <Input
+                  value={draft}
+                  onChange={e => setDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") send(); }}
+                  placeholder="Message as Admin…"
+                  aria-label="Message as Admin"
+                  className="h-10 flex-1"
+                />
+                <Button onClick={send} disabled={busy || !draft.trim()} size="sm" className="gap-1.5">
+                  <Send size={14} strokeWidth={2} /> Send
+                </Button>
               </div>
             </>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -1119,6 +1119,19 @@ async function initTables() {
       INDEX idx_training_events_user (user_id, created_at),
       INDEX idx_training_events_coach (coach_id, created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
+    // Generic per-account key/value preferences (e.g. an admin's customized
+    // upper menu bar). Stored server-side so a user's choices follow their
+    // account across devices instead of living in the browser's localStorage.
+    `CREATE TABLE IF NOT EXISTS user_preferences (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      pref_key VARCHAR(80) NOT NULL,
+      pref_value TEXT,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_user_pref (user_id, pref_key),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   ];
   for (const sql of migrations) {
     try { await p.execute(sql); } catch { /* already applied */ }

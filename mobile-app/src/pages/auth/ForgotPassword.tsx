@@ -2,10 +2,13 @@ import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, ShieldQuestion, Activity, ArrowLeft, Eye, EyeOff, CheckCircle, KeyRound } from "lucide-react";
 import { getApiBase } from "@/lib/api";
-import { fetchWithTimeout } from "@/lib/nativeAuth";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type Step = "email" | "answer" | "otp" | "done";
 type Method = "otp" | "security";
@@ -46,7 +49,7 @@ export default function ForgotPassword() {
   const localizedQuestion = questionMap[question] || question;
 
   const requestEmailOtp = async () => {
-    const res = await fetchWithTimeout(getApiBase() + "/api/auth/forgot-password/request-otp", {
+    const res = await fetch(getApiBase() + "/api/auth/forgot-password/request-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -136,93 +139,83 @@ export default function ForgotPassword() {
     }
   };
 
+  const fieldLabel = "text-[12px] font-semibold tracking-wide text-muted-foreground uppercase";
+
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "var(--bg-primary)", display: "flex" }}>
+    <div className="flex min-h-[100dvh] bg-background">
       {/* Left panel */}
-      <div className="hidden lg:flex" style={{ width: "45%", backgroundColor: "var(--bg-surface)", borderInlineEnd: "1px solid var(--border)", flexDirection: "column", justifyContent: "space-between", padding: "48px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", bottom: "20%", insetInlineStart: "5%", width: 300, height: 300, borderRadius: "50%", backgroundColor: "var(--accent)", opacity: 0.07, filter: "blur(80px)", pointerEvents: "none" }} />
+      <div className="relative hidden w-[45%] flex-col justify-between overflow-hidden bg-card p-12 lg:flex">
+        <div className="pointer-events-none absolute bottom-[20%] start-[5%] size-[300px] rounded-full bg-primary opacity-[0.07] blur-[80px]" />
         {brandLogo ? (
-          <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} style={{ height: 38, borderRadius: 8, objectFit: "contain", alignSelf: "flex-start" }} />
+          <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} className="h-9 self-start rounded-lg object-contain" />
         ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ backgroundColor: "var(--accent)", width: 32, height: 32, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Activity size={18} color="#000000" />
-            </div>
-            <span style={{ fontFamily: "var(--font-en)", fontSize: 20, fontWeight: 700, letterSpacing: "0.04em" }}>{branding.app_name || t("fitway_hub")}</span>
+          <div className="flex items-center gap-2.5">
+            <div className="grid size-8 place-items-center rounded-full bg-primary"><Activity size={18} className="text-primary-foreground" /></div>
+            <span className="text-[20px] font-bold tracking-wide">{branding.app_name || t("fitway_hub")}</span>
           </div>
         )}
         <div>
-          <p style={{ fontFamily: "var(--font-en)", fontSize: 32, fontWeight: 700, lineHeight: 1.2, marginBottom: 16 }}>
-            {t("dont_worry")}<br /><span style={{ color: "var(--accent)" }}>{t("weve_got_you")}</span>
+          <p className="mb-4 text-[32px] font-bold leading-[1.15] tracking-tight">
+            {t("dont_worry")}<br /><span className="text-primary">{t("weve_got_you")}</span>
           </p>
-          <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 340 }}>
-            {t("forgot_password_helper")}
-          </p>
+          <p className="max-w-[340px] text-[14px] leading-relaxed text-muted-foreground">{t("forgot_password_helper")}</p>
         </div>
         <div />
       </div>
 
       {/* Right: form */}
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 24px" }}>
-        <div className="fade-up" style={{ width: "100%", maxWidth: 420 }}>
-          <button type="button" onClick={() => navigate("/auth/login")} style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 16, background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 13, padding: 0 }}>
-            <ArrowLeft size={14} /> {t("back_to_login")}
+      <div className="flex flex-1 items-center justify-center px-6 py-10">
+        <div className="fade-up w-full max-w-[420px]">
+          <button type="button" onClick={() => navigate("/auth/login")} className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
+            <ArrowLeft size={14} className="rtl:rotate-180" /> {t("back_to_login")}
           </button>
 
-          <div className="lg:hidden" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
+          <Link to="/" aria-label="Home" className="mb-8 flex items-center gap-2.5 no-underline text-inherit lg:hidden">
             {brandLogo ? (
-              <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} style={{ height: 32, borderRadius: 8, objectFit: "contain" }} />
+              <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} className="h-8 rounded-lg object-contain" />
             ) : (
               <>
-                <div style={{ backgroundColor: "var(--accent)", width: 28, height: 28, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Activity size={15} color="#000000" />
-                </div>
-                <span style={{ fontFamily: "var(--font-en)", fontSize: 18, fontWeight: 700 }}>{branding.app_name || t("fitway_hub")}</span>
+                <div className="grid size-7 place-items-center rounded-full bg-primary"><Activity size={15} className="text-primary-foreground" /></div>
+                <span className="text-[18px] font-bold">{branding.app_name || t("fitway_hub")}</span>
               </>
             )}
-          </div>
+          </Link>
 
           {step === "done" ? (
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <div style={{ width: 64, height: 64, borderRadius: "50%", backgroundColor: "rgba(255,214,0,0.12)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-                <CheckCircle size={32} color="var(--accent)" />
+            <div className="py-10 text-center">
+              <div className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-primary/15">
+                <CheckCircle size={32} className="text-primary" />
               </div>
-              <h1 style={{ fontFamily: "var(--font-en)", fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{t("password_reset_success")}</h1>
-              <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 28 }}>{t("password_reset_success_desc")}</p>
-              <button onClick={() => navigate("/auth/login")} className="btn-accent" style={{ padding: "13px 32px", fontSize: 14 }}>
-                {t("sign_in_now")}
-              </button>
+              <h1 className="mb-2 text-[24px] font-bold tracking-tight">{t("password_reset_success")}</h1>
+              <p className="mb-7 text-[14px] text-muted-foreground">{t("password_reset_success_desc")}</p>
+              <Button onClick={() => navigate("/auth/login")} size="lg" className="px-8">{t("sign_in_now")}</Button>
             </div>
           ) : (
             <>
-              <h1 style={{ fontFamily: "var(--font-en)", fontSize: 28, fontWeight: 700, marginBottom: 6 }}>
+              <h1 className="mb-1.5 text-[28px] font-bold tracking-tight">
                 {step === "email" ? t("forgot_password_title") : t("verify_identity")}
               </h1>
-              <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 28 }}>
+              <p className="mb-7 text-[14px] text-muted-foreground">
                 {step === "email" ? t("forgot_password_step_desc") : t("verify_identity_step_desc")}
               </p>
 
               {/* Progress dots */}
-              <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-                <div style={{ width: 40, height: 4, borderRadius: "var(--radius-full)", backgroundColor: "var(--accent)" }} />
-                <div style={{ width: 40, height: 4, borderRadius: "var(--radius-full)", backgroundColor: step === "answer" || step === "otp" ? "var(--accent)" : "var(--border)" }} />
+              <div className="mb-6 flex gap-2">
+                <div className="h-1 w-10 rounded-full bg-primary" />
+                <div className={cn("h-1 w-10 rounded-full", step === "answer" || step === "otp" ? "bg-primary" : "bg-border")} />
               </div>
 
               {error && (
-                <div style={{ padding: "12px 16px", backgroundColor: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.25)", borderRadius: "var(--radius-full)", color: "var(--red)", fontSize: 13, marginBottom: 20 }}>
-                  {error}
-                </div>
+                <div className="mb-5 rounded-md bg-destructive/10 p-3.5 text-[13px] text-destructive ring-1 ring-inset ring-destructive/20">{error}</div>
               )}
               {info && !error && (
-                <div style={{ padding: "12px 16px", backgroundColor: "rgba(255,214,0,0.08)", border: "1px solid rgba(255,214,0,0.25)", borderRadius: "var(--radius-full)", color: "var(--accent)", fontSize: 13, marginBottom: 20 }}>
-                  {info}
-                </div>
+                <div className="mb-5 rounded-md bg-primary/10 p-3.5 text-[13px] text-primary ring-1 ring-inset ring-primary/25">{info}</div>
               )}
 
               {step === "email" && (
                 <>
-                  {/* Recovery method toggle. Default is email OTP; security question stays as a fallback. */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16, padding: 4, backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)" }}>
+                  {/* Recovery method toggle. Default is email OTP; security question is a fallback. */}
+                  <div className="mb-4 grid grid-cols-2 gap-1.5 rounded-full bg-muted p-1">
                     {([
                       { val: "otp" as const, label: "Email code", Icon: Mail },
                       { val: "security" as const, label: "Security question", Icon: ShieldQuestion },
@@ -231,77 +224,66 @@ export default function ForgotPassword() {
                         key={val}
                         type="button"
                         onClick={() => setMethod(val)}
-                        style={{
-                          padding: "10px 12px",
-                          borderRadius: "var(--radius-full)",
-                          border: "none",
-                          backgroundColor: method === val ? "var(--accent)" : "transparent",
-                          color: method === val ? "#000" : "var(--text-secondary)",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 6,
-                          transition: "all 0.15s",
-                        }}
+                        className={cn(
+                          "flex items-center justify-center gap-1.5 rounded-full px-3 py-2.5 text-[13px] font-semibold transition",
+                          method === val ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+                        )}
                       >
                         <Icon size={14} />
                         {label}
                       </button>
                     ))}
                   </div>
-                  <form onSubmit={handleSubmitEmail} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("email_or_username")}</label>
-                    <div style={{ position: "relative" }}>
-                      <Mail size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                      <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} className="input-base" style={{ paddingInlineStart: 40 }} placeholder="you@example.com" required autoFocus />
+                  <form onSubmit={handleSubmitEmail} className="flex flex-col gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="fp-email" className={fieldLabel}>{t("email_or_username")}</Label>
+                      <div className="relative">
+                        <Mail size={16} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input id="fp-email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} className="ps-10" placeholder="you@example.com" required autoFocus />
+                      </div>
                     </div>
-                  </div>
-                  <button type="submit" disabled={isLoading} className="btn-accent" style={{ padding: "13px", fontSize: 14, marginTop: 4 }}>
-                    {isLoading ? t("looking_up") : t("continue_label")}
-                  </button>
-                </form>
+                    <Button type="submit" size="lg" disabled={isLoading} className="mt-1 w-full">
+                      {isLoading ? t("looking_up") : t("continue_label")}
+                    </Button>
+                  </form>
                 </>
               )}
 
               {step === "otp" && (
-                <form onSubmit={handleOtpReset} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <div style={{ padding: "14px 16px", backgroundColor: "rgba(255,214,0,0.06)", border: "1px solid rgba(255,214,0,0.2)", borderRadius: "var(--radius-full)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <Mail size={16} color="var(--accent)" />
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Check your email</span>
+                <form onSubmit={handleOtpReset} className="flex flex-col gap-4">
+                  <div className="rounded-md bg-primary/8 p-4 ring-1 ring-inset ring-primary/20">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <Mail size={16} className="text-primary" />
+                      <span className="text-[12px] font-semibold tracking-wide text-primary uppercase">Check your email</span>
                     </div>
-                    <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>If <strong style={{ color: "var(--text-primary)" }}>{email}</strong> has an account, we sent a 6-digit code. It expires in 2 minutes.</p>
+                    <p className="text-[13px] leading-relaxed text-muted-foreground">If <strong className="text-foreground">{email}</strong> has an account, we sent a 6-digit code. It expires in 2 minutes.</p>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>Verification code</label>
-                    <div style={{ position: "relative" }}>
-                      <KeyRound size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                      <input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} className="input-base" style={{ paddingInlineStart: 40, letterSpacing: "0.5em", fontFamily: "monospace", fontSize: 18 }} placeholder="000000" required autoFocus />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fp-otp" className={fieldLabel}>Verification code</Label>
+                    <div className="relative">
+                      <KeyRound size={16} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="fp-otp" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} className="ps-10 font-mono text-[18px] tracking-[0.5em]" placeholder="000000" required autoFocus />
                     </div>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("new_password")}</label>
-                    <div style={{ position: "relative" }}>
-                      <Lock size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                      <input type={showPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input-base" style={{ paddingInlineStart: 40, paddingInlineEnd: 44 }} placeholder={t("min_chars")} required />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", insetInlineEnd: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fp-newpass" className={fieldLabel}>{t("new_password")}</Label>
+                    <div className="relative">
+                      <Lock size={16} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="fp-newpass" type={showPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="ps-10 pe-11" placeholder={t("min_chars")} required />
+                      <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(!showPassword)} className="absolute end-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:text-foreground">
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
                   </div>
 
-                  <button type="submit" disabled={isLoading || otp.length !== 6} className="btn-accent" style={{ padding: "13px", fontSize: 14, marginTop: 4 }}>
+                  <Button type="submit" size="lg" disabled={isLoading || otp.length !== 6} className="mt-1 w-full">
                     {isLoading ? t("verifying") : t("reset_password")}
-                  </button>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-                    <button type="button" onClick={() => { setStep("email"); setError(""); setInfo(""); setOtp(""); }} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 0 }}>← {t("try_different_email")}</button>
-                    <button type="button" onClick={handleResendOtp} disabled={resendCooldown > 0 || isLoading} style={{ background: "none", border: "none", color: resendCooldown > 0 ? "var(--text-muted)" : "var(--accent)", cursor: resendCooldown > 0 ? "default" : "pointer", padding: 0, fontWeight: 600 }}>
+                  </Button>
+                  <div className="flex items-center justify-between text-[13px]">
+                    <button type="button" onClick={() => { setStep("email"); setError(""); setInfo(""); setOtp(""); }} className="text-muted-foreground transition-colors hover:text-foreground">← {t("try_different_email")}</button>
+                    <button type="button" onClick={handleResendOtp} disabled={resendCooldown > 0 || isLoading} className={cn("font-semibold", resendCooldown > 0 ? "text-muted-foreground" : "text-primary")}>
                       {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
                     </button>
                   </div>
@@ -309,42 +291,42 @@ export default function ForgotPassword() {
               )}
 
               {step === "answer" && (
-                <form onSubmit={handleVerifyAndReset} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <form onSubmit={handleVerifyAndReset} className="flex flex-col gap-4">
                   {/* Show the question */}
-                  <div style={{ padding: "14px 16px", backgroundColor: "rgba(255,214,0,0.06)", border: "1px solid rgba(255,214,0,0.2)", borderRadius: "var(--radius-full)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <ShieldQuestion size={16} color="var(--accent)" />
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t("security_question_label")}</span>
+                  <div className="rounded-md bg-primary/8 p-4 ring-1 ring-inset ring-primary/20">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <ShieldQuestion size={16} className="text-primary" />
+                      <span className="text-[12px] font-semibold tracking-wide text-primary uppercase">{t("security_question_label")}</span>
                     </div>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{localizedQuestion}</p>
+                    <p className="text-[14px] font-semibold text-foreground">{localizedQuestion}</p>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("your_answer")}</label>
-                    <div style={{ position: "relative" }}>
-                      <ShieldQuestion size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                      <input type="text" value={securityAnswer} onChange={(e) => setSecurityAnswer(e.target.value)} className="input-base" style={{ paddingInlineStart: 40 }} placeholder={t("type_your_answer")} required autoFocus />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fp-answer" className={fieldLabel}>{t("your_answer")}</Label>
+                    <div className="relative">
+                      <ShieldQuestion size={16} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="fp-answer" type="text" value={securityAnswer} onChange={(e) => setSecurityAnswer(e.target.value)} className="ps-10" placeholder={t("type_your_answer")} required autoFocus />
                     </div>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("new_password")}</label>
-                    <div style={{ position: "relative" }}>
-                      <Lock size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                      <input type={showPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input-base" style={{ paddingInlineStart: 40, paddingInlineEnd: 44 }} placeholder={t("min_chars")} required />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", insetInlineEnd: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fp-newpass2" className={fieldLabel}>{t("new_password")}</Label>
+                    <div className="relative">
+                      <Lock size={16} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="fp-newpass2" type={showPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="ps-10 pe-11" placeholder={t("min_chars")} required aria-invalid={newPassword.length > 0 && newPassword.length < 8} />
+                      <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(!showPassword)} className="absolute end-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:text-foreground">
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
                     {newPassword.length > 0 && newPassword.length < 8 && (
-                      <p style={{ fontSize: 11, color: "var(--red)", marginTop: 4 }}>⚠ {8 - newPassword.length} {lang === "ar" ? "حرف كمان" : `more character${8 - newPassword.length !== 1 ? "s" : ""} needed`}</p>
+                      <p className="mt-1 text-[11px] text-destructive">⚠ {8 - newPassword.length} {lang === "ar" ? "حرف كمان" : `more character${8 - newPassword.length !== 1 ? "s" : ""} needed`}</p>
                     )}
                   </div>
 
-                  <button type="submit" disabled={isLoading} className="btn-accent" style={{ padding: "13px", fontSize: 14, marginTop: 4 }}>
+                  <Button type="submit" size="lg" disabled={isLoading} className="mt-1 w-full">
                     {isLoading ? t("verifying") : t("reset_password")}
-                  </button>
-                  <button type="button" onClick={() => { setStep("email"); setError(""); }} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 13, cursor: "pointer", marginTop: 4 }}>
+                  </Button>
+                  <button type="button" onClick={() => { setStep("email"); setError(""); }} className="mt-1 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
                     ← {t("try_different_email")}
                   </button>
                 </form>
@@ -352,9 +334,9 @@ export default function ForgotPassword() {
             </>
           )}
 
-          <p style={{ marginTop: 28, textAlign: "center", fontSize: 14, color: "var(--text-secondary)" }}>
+          <p className="mt-7 text-center text-[14px] text-muted-foreground">
             {t("remember_your_password")}{" "}
-            <Link to="/auth/login" style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}>{t("sign_in_link")}</Link>
+            <Link to="/auth/login" className="font-semibold text-primary no-underline">{t("sign_in_link")}</Link>
           </p>
         </div>
       </div>

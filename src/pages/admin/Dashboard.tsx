@@ -81,17 +81,18 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   // Per-admin customization of the upper menu (tab) bar. `visibleTabs === null`
   // means "show all" (default); otherwise it's the explicit set this admin
-  // chose to keep. Persisted in localStorage keyed by the admin's user id so
-  // it's separate per admin / per device. "overview" is always shown.
-  const tabStorageKey = user?.id ? `admin_topbar_tabs_${user.id}` : "admin_topbar_tabs";
+  // chose to keep. Persisted server-side per account (not localStorage) so the
+  // choice follows the admin across devices. "overview" is always shown.
+  const TAB_PREF_KEY = "admin_topbar_tabs";
   const [visibleTabs, setVisibleTabs] = useState<string[] | null>(null);
   const [showTabCustomize, setShowTabCustomize] = useState(false);
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(tabStorageKey);
-      setVisibleTabs(raw ? JSON.parse(raw) : null);
-    } catch { setVisibleTabs(null); }
-  }, [tabStorageKey]);
+    if (!token) return;
+    fetch(`${getApiBase()}/api/user/preferences/${TAB_PREF_KEY}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => (r.ok ? r.json() : { value: null }))
+      .then(d => setVisibleTabs(Array.isArray(d?.value) ? d.value : null))
+      .catch(() => setVisibleTabs(null));
+  }, [token]);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   useEffect(() => { const h = () => setIsMobile(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
   const pathToTab = (p: string): Tab => {
@@ -576,7 +577,11 @@ export default function AdminDashboard() {
   const shownTabs = tabDef.filter(td => isTabVisible(td.id));
   const persistVisibleTabs = (next: string[]) => {
     setVisibleTabs(next);
-    try { localStorage.setItem(tabStorageKey, JSON.stringify(next)); } catch { /* ignore quota */ }
+    fetch(`${getApiBase()}/api/user/preferences/${TAB_PREF_KEY}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ value: next }),
+    }).catch(() => { /* best-effort; UI already updated */ });
   };
   const toggleTabVisible = (id: Tab) => {
     if (id === "overview") return; // always visible

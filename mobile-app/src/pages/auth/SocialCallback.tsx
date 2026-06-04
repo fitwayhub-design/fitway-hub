@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 export default function SocialCallback() {
   const [searchParams] = useSearchParams();
@@ -37,24 +40,26 @@ export default function SocialCallback() {
   }, [searchParams, completeSocialLogin, navigate]);
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "var(--bg-primary)", padding: 24 }}>
-      <div style={{ width: "100%", maxWidth: 460, backgroundColor: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 10, color: "var(--text-primary)" }}>Completing sign in...</h1>
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-6">
+      <Card className="w-full max-w-[420px] items-center gap-4 p-8 text-center shadow-soft-lg">
         {error ? (
           <>
-            <p style={{ color: "var(--red)", fontSize: 14, marginBottom: 16 }}>{error}</p>
-            <button
-              onClick={() => navigate("/auth/login", { replace: true })}
-              className="btn-accent"
-              style={{ padding: "10px 14px", fontSize: 14 }}
-            >
+            <h1 className="text-[20px] font-bold tracking-tight">Couldn't sign you in</h1>
+            <p className="text-[14px] text-destructive">{error}</p>
+            <Button onClick={() => navigate("/auth/login", { replace: true })} className="mt-1">
               Back to login
-            </button>
+            </Button>
           </>
         ) : (
-          <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>Please wait while we sign you into FitWay Hub.</p>
+          <>
+            <span className="grid size-12 place-items-center rounded-full bg-primary/15">
+              <Loader2 className="size-6 animate-spin text-primary" />
+            </span>
+            <h1 className="text-[20px] font-bold tracking-tight">Completing sign in…</h1>
+            <p className="text-[14px] text-muted-foreground">Please wait while we sign you into FitWay Hub.</p>
+          </>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

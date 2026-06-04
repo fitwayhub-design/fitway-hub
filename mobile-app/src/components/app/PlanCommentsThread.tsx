@@ -14,6 +14,11 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/lib/api";
 import { getAvatar } from "@/lib/avatar";
 import { Check, MessageCircle, X, RefreshCw, Send } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 
 interface Comment {
   id: number;
@@ -45,6 +50,7 @@ export default function PlanCommentsThread({ workoutPlanId, nutritionPlanId, exe
   const [open, setOpen] = useState(!compact);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const planId = workoutPlanId || nutritionPlanId;
   const key = exerciseKey || mealKey;
 
@@ -77,7 +83,8 @@ export default function PlanCommentsThread({ workoutPlanId, nutritionPlanId, exe
       if (exerciseKey) body.exercise_key = exerciseKey;
       if (mealKey) body.meal_key = mealKey;
       const r = await api("/api/tickets/plan-comments", { method: "POST", body: JSON.stringify(body) });
-      if (r.ok) { setDraft(""); await load(); }
+      if (r.ok) { setDraft(""); setErr(""); await load(); }
+      else { const d = await r.json().catch(() => ({})); setErr(d.message || "Couldn't post comment."); }
     } finally { setBusy(false); }
   };
   const resolve = async (id: number, status: "open" | "resolved") => {
@@ -92,57 +99,97 @@ export default function PlanCommentsThread({ workoutPlanId, nutritionPlanId, exe
   };
 
   const openCount = comments.filter(c => c.status === "open").length;
+  const myId = Number(user?.id);
 
   if (!planId) return null;
 
   return (
-    <div style={{ marginTop: 8, borderTop: compact && !open ? "none" : "1px dashed var(--border)", paddingTop: compact && !open ? 0 : 8 }}>
-      <button onClick={() => setOpen(v => !v)}
-        style={{ background: "none", border: "none", display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: openCount ? "var(--main)" : "var(--text-muted)", cursor: "pointer", padding: 0, fontWeight: 600 }}>
-        <MessageCircle size={12} /> {comments.length === 0 ? "Add comment" : `${comments.length} comment${comments.length === 1 ? "" : "s"}${openCount > 0 ? ` · ${openCount} open` : ""}`}
+    <div className={compact && !open ? "mt-2" : "mt-2 pt-2"}>
+      {!(compact && !open) && <Separator className="mb-2" />}
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className={`inline-flex min-h-10 items-center gap-1.5 text-[13px] font-semibold transition-opacity hover:opacity-80 ${openCount ? "text-primary" : "text-muted-foreground"}`}
+      >
+        <MessageCircle size={15} strokeWidth={2} />
+        {comments.length === 0 ? "Add comment" : `${comments.length} comment${comments.length === 1 ? "" : "s"}${openCount > 0 ? ` · ${openCount} open` : ""}`}
       </button>
+
       {open && (
-        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-          {comments.map(c => (
-            <div key={c.id} style={{ display: "flex", gap: 8, padding: "8px 10px", borderRadius: 10, background: c.status === "resolved" ? "rgba(74,222,128,0.08)" : "var(--bg-surface)", border: `1px solid ${c.status === "resolved" ? "rgba(74,222,128,0.25)" : "var(--border)"}` }}>
-              <img src={c.author_avatar || getAvatar(c.author_id, null, null, c.author_name)} alt="" style={{ width: 26, height: 26, borderRadius: "50%" }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700 }}>{c.author_name}</span>
-                  <span style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{c.author_role}</span>
-                  {c.status === "resolved" && <Check size={11} color="var(--green)" />}
-                </div>
-                <p style={{ fontSize: 12, color: "var(--text-primary)", lineHeight: 1.5, whiteSpace: "pre-wrap", textDecoration: c.status === "resolved" ? "line-through" : "none", opacity: c.status === "resolved" ? 0.65 : 1 }}>{c.body}</p>
-                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                  {c.status === "open" ? (
-                    <button onClick={() => resolve(c.id, "resolved")} disabled={busy}
-                      style={{ background: "none", border: "none", fontSize: 10, color: "var(--green)", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 3 }}>
-                      <Check size={11} /> Mark done
-                    </button>
-                  ) : (
-                    <button onClick={() => resolve(c.id, "open")} disabled={busy}
-                      style={{ background: "none", border: "none", fontSize: 10, color: "var(--text-muted)", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 3 }}>
-                      <RefreshCw size={10} /> Reopen
-                    </button>
-                  )}
-                  {c.author_id === user?.id && (
-                    <button onClick={() => remove(c.id)} disabled={busy}
-                      style={{ background: "none", border: "none", fontSize: 10, color: "var(--red)", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 3 }}>
-                      <X size={10} /> Delete
-                    </button>
-                  )}
+        <div className="mt-1 flex flex-col gap-2">
+          {comments.map(c => {
+            const resolved = c.status === "resolved";
+            return (
+              <div
+                key={c.id}
+                className={`flex gap-2.5 rounded-md p-3 ${resolved ? "bg-[color-mix(in_srgb,var(--green)_8%,transparent)] ring-1 ring-inset ring-[color-mix(in_srgb,var(--green)_25%,transparent)]" : "bg-muted"}`}
+              >
+                <Avatar className="size-7">
+                  <AvatarImage src={c.author_avatar || getAvatar(c.author_id, null, null, c.author_name)} alt="" />
+                  <AvatarFallback className="text-[10px]">{(c.author_name || "U").slice(0, 1)}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[13px] font-semibold text-foreground">{c.author_name}</span>
+                    <Badge variant="muted" className="px-1.5 py-0 text-[9px] uppercase tracking-[0.08em]">{c.author_role}</Badge>
+                    {resolved && <Check size={12} strokeWidth={2.5} className="text-[var(--green)]" aria-label="Resolved" />}
+                  </div>
+                  <p className={`whitespace-pre-wrap text-[13px] leading-relaxed ${resolved ? "text-muted-foreground line-through opacity-80" : "text-foreground"}`}>
+                    {c.body}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+                    {c.status === "open" ? (
+                      <button
+                        type="button"
+                        onClick={() => resolve(c.id, "resolved")}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--green)] transition-opacity hover:opacity-80 disabled:opacity-50"
+                      >
+                        <Check size={12} strokeWidth={2.5} /> Mark done
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => resolve(c.id, "open")}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground transition-opacity hover:opacity-80 disabled:opacity-50"
+                      >
+                        <RefreshCw size={11} strokeWidth={2} /> Reopen
+                      </button>
+                    )}
+                    {c.author_id === myId && (
+                      <button
+                        type="button"
+                        onClick={() => remove(c.id)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-destructive transition-opacity hover:opacity-80 disabled:opacity-50"
+                      >
+                        <X size={11} strokeWidth={2.5} /> Delete
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-            <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter") submit(); }} placeholder="Write a comment…"
-              style={{ flex: 1, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 12 }} />
-            <button onClick={submit} disabled={busy || !draft.trim()}
-              style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "var(--main)", color: "#000", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700 }}>
-              <Send size={11} /> Send
-            </button>
+            );
+          })}
+          <div className="mt-1 flex items-center gap-2">
+            <Input
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") submit(); }}
+              placeholder="Write a comment…"
+              className="h-10 flex-1 text-[13px]"
+            />
+            <Button
+              size="icon-sm"
+              onClick={submit}
+              disabled={busy || !draft.trim()}
+              aria-label="Send comment"
+            >
+              <Send size={16} strokeWidth={2} />
+            </Button>
           </div>
+          {err && <p className="mt-1.5 text-[12px] text-[var(--red)]">{err}</p>}
         </div>
       )}
     </div>

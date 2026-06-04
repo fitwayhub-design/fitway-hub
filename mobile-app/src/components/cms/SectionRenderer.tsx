@@ -354,7 +354,16 @@ function CardsSection({ c, lang }: { c: any; lang: RenderLang }) {
 function ContactInfoSection({ c, lang }: { c: any; lang: RenderLang }) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const faqs: { q: string; a: string }[] = c.faqs || [];
-  const inputStyle: CSSProperties = { backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "12px 14px", width: "100%", fontSize: 14, color: "var(--text-primary)", fontFamily: "var(--font-en)", outline: "none" };
+  // Form inputs:
+  // - generous vertical padding so the native <select>'s selected text is
+  //   not clipped vertically on Chromium (was 12px → too tight).
+  // - explicit `lineHeight` ensures the chosen value sits inside the
+  //   padding box rather than poking through the border on light theme.
+  const inputStyle: CSSProperties = { backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "14px 18px", width: "100%", fontSize: 14, lineHeight: 1.4, color: "var(--text-primary)", fontFamily: "var(--font-en)", outline: "none", boxSizing: "border-box" };
+  // The native <select> caret on Chrome eats horizontal padding, so widen
+  // the right side and stretch the height so the chosen option renders
+  // fully inside the rounded pill.
+  const selectStyle: CSSProperties = { ...inputStyle, cursor: "pointer", padding: "14px 36px 14px 18px", appearance: "none", WebkitAppearance: "none", MozAppearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 16px center", minHeight: 46 };
   const formTitle = pickText(c, "formTitle", lang) || (lang === "ar" ? "راسلنا" : "Send us a message");
   const nameLabel = pickText(c, "nameLabel", lang) || (lang === "ar" ? "الاسم" : "Name");
   const emailLabel = pickText(c, "emailLabel", lang) || (lang === "ar" ? "البريد الإلكتروني" : "Email");
@@ -389,7 +398,7 @@ function ContactInfoSection({ c, lang }: { c: any; lang: RenderLang }) {
             </div>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>{subjectLabel}</label>
-              <select style={{ ...inputStyle, cursor: "pointer" }}>
+              <select style={selectStyle}>
                 {subjects.map((subject) => <option key={subject}>{subject}</option>)}
               </select>
             </div>

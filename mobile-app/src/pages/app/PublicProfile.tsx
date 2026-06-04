@@ -14,6 +14,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getApiBase } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { ChevronLeft, Heart, Clock, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Post {
   id: number; content?: string; media_url?: string;
@@ -40,59 +44,75 @@ export default function PublicProfile() {
   }, [id, token]);
 
   return (
-    <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px 60px" }}>
-      <button onClick={() => navigate(-1)}
-        style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", marginBottom: 14, fontSize: 13 }}>
-        <ChevronLeft size={16} /> Back
-      </button>
+    <div className="mx-auto w-full max-w-[680px] px-4 pb-16">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate(-1)}
+        className="mb-4 -ms-2 text-muted-foreground"
+      >
+        <ChevronLeft size={16} strokeWidth={2} /> Back
+      </Button>
 
       {loading ? (
-        <p style={{ color: "var(--text-muted)" }}>Loading…</p>
+        <div className="space-y-5">
+          <Card className="flex-row items-center gap-4 p-5">
+            <Skeleton className="size-14 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-40 rounded-md" />
+              <Skeleton className="h-3 w-28 rounded-md" />
+            </div>
+          </Card>
+          <Skeleton className="h-3 w-32 rounded-md" />
+          <Skeleton className="h-20 w-full rounded-lg" />
+        </div>
       ) : error ? (
-        <p style={{ color: "var(--red)" }}>{error}</p>
+        <Card className="p-6 text-center text-[15px] text-destructive">{error}</Card>
       ) : !user ? (
-        <p style={{ color: "var(--text-muted)" }}>Profile not found.</p>
+        <Card className="p-6 text-center text-[15px] text-muted-foreground">Profile not found.</Card>
       ) : (
         <>
           {/* Bare identity — no avatar by design (the May meeting
               specifically excluded profile photos from public view). */}
-          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: "20px 22px", marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--accent-dim)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <User size={24} color="var(--accent)" />
-              </div>
-              <div>
-                <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--accent)", fontFamily: "var(--font-en)" }}>{user.name}</h1>
-                <p style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "var(--font-mono, monospace)", marginTop: 2 }}>Community member</p>
+          <Card className="mb-6 p-5">
+            <div className="flex items-center gap-4">
+              <Avatar className="size-14 ring-1 ring-primary/25">
+                <AvatarFallback className="bg-primary/15 text-primary">
+                  <User size={24} strokeWidth={2} />
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <h1 className="truncate text-[22px] font-bold tracking-tight text-primary">{user.name}</h1>
+                <p className="mt-1 text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">Community member</p>
               </div>
             </div>
-          </div>
+          </Card>
 
-          <p style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 8, fontFamily: "var(--font-mono, monospace)" }}>
+          <p className="mb-3 text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
             Community posts
           </p>
           {posts.length === 0 ? (
-            <p style={{ color: "var(--text-muted)", padding: 16, textAlign: "center", background: "var(--bg-card)", borderRadius: 12, border: "1px solid var(--border)" }}>
+            <Card className="p-6 text-center text-[15px] text-muted-foreground">
               Hasn't posted yet.
-            </p>
+            </Card>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="flex flex-col gap-3">
               {posts.map(p => (
-                <div key={p.id} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
-                      <Clock size={11} /> {new Date(p.created_at).toLocaleString()}
+                <Card key={p.id} className="gap-0 p-4">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <Clock size={11} strokeWidth={2} /> {new Date(p.created_at).toLocaleString()}
                     </p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 3 }}>
-                      <Heart size={11} /> {p.likes || 0}
+                    <p className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Heart size={11} strokeWidth={2} /> {p.likes || 0}
                     </p>
                   </div>
-                  {p.content && <p style={{ fontSize: 14, color: "var(--text-primary)", lineHeight: 1.55, marginBottom: p.media_url || p.hashtags ? 8 : 0, whiteSpace: "pre-wrap" }}>{p.content}</p>}
+                  {p.content && <p className={`text-[15px] leading-relaxed whitespace-pre-wrap text-foreground ${p.media_url || p.hashtags ? "mb-2" : ""}`}>{p.content}</p>}
                   {p.media_url && (
-                    <img src={p.media_url} alt="" style={{ width: "100%", maxHeight: 280, objectFit: "cover", borderRadius: 10, border: "1px solid var(--border)", marginBottom: p.hashtags ? 8 : 0 }} />
+                    <img src={p.media_url} alt="" className={`max-h-[280px] w-full rounded-md object-cover ${p.hashtags ? "mb-2" : ""}`} />
                   )}
-                  {p.hashtags && <p style={{ fontSize: 12, color: "var(--blue)", wordBreak: "break-word" }}>{p.hashtags}</p>}
-                </div>
+                  {p.hashtags && <p className="text-[13px] break-words text-[var(--secondary)]">{p.hashtags}</p>}
+                </Card>
               ))}
             </div>
           )}

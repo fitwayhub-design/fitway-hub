@@ -6,6 +6,11 @@ import { useI18n } from "@/context/I18nContext";
 import { Bell, CheckCheck, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { resolveNotificationLink } from "@/lib/notificationLinks";
+import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Notification {
   id: number;
@@ -83,90 +88,84 @@ export default function Notifications() {
   };
 
   return (
-    <div style={{ padding: "16px 16px 24px", maxWidth: 600, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Bell size={22} />
-          <h1 style={{ fontSize: 22, fontWeight: 800, fontFamily: "var(--font-heading)" }}>Notifications</h1>
-          {unreadCount > 0 && (
-            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: "var(--red)", color: "#fff" }}>
-              {unreadCount}
-            </span>
-          )}
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-4">
+      {/* Header */}
+      <header className="mb-6 flex items-center justify-between gap-3 pt-1">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-[26px] font-bold leading-none tracking-tight">{t("notifications") || "Notifications"}</h1>
+          {unreadCount > 0 && <Badge variant="destructive" className="px-2">{unreadCount}</Badge>}
         </div>
         {unreadCount > 0 && (
-          <button onClick={markAllRead} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px solid var(--border)", borderRadius: 99, padding: "6px 12px", fontSize: 12, color: "var(--text-secondary)", cursor: "pointer", fontWeight: 600 }}>
-            <CheckCheck size={13} /> Mark all read
-          </button>
+          <Button variant="outline" size="sm" onClick={markAllRead} className="gap-1.5">
+            <CheckCheck size={14} /> Mark all read
+          </Button>
         )}
-      </div>
+      </header>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Loading…</div>
+        <div className="space-y-2.5">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[84px] w-full rounded-lg" />)}
+        </div>
       ) : notifications.length === 0 ? (
-        <div style={{ padding: 60, textAlign: "center" }}>
-          <Bell size={40} color="var(--text-muted)" style={{ opacity: 0.4, marginBottom: 12 }} />
-          <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>No notifications yet</p>
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>You'll see updates about your activity here</p>
+        <div className="py-16 text-center">
+          <div className="mx-auto mb-3 grid size-14 place-items-center rounded-full bg-muted">
+            <Bell size={26} className="text-muted-foreground" />
+          </div>
+          <p className="text-[15px] font-semibold text-foreground">No notifications yet</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">You'll see updates about your activity here</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ marginBottom: 10 }}>
-            <p style={{ fontSize: 12, fontWeight: 800, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Feature Highlights</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="space-y-5">
+          {/* Feature highlights */}
+          <section>
+            <p className="mb-2.5 text-[12px] font-bold tracking-wider text-muted-foreground uppercase">Feature Highlights</p>
+            <div className="space-y-2.5">
               {promoNotifications.map(p => (
-                <div key={p.id} style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,214,0,0.25)", background: "linear-gradient(135deg, rgba(255,214,0,0.08), rgba(59,139,255,0.06))" }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{p.title}</p>
-                  <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>{p.body}</p>
-                </div>
+                <Card key={p.id} className="gap-1 bg-gradient-to-br from-primary/10 to-[var(--secondary-dim)] p-4 shadow-soft-sm">
+                  <p className="text-[13px] font-bold">{p.title}</p>
+                  <p className="text-[12px] leading-relaxed text-muted-foreground">{p.body}</p>
+                </Card>
               ))}
             </div>
-          </div>
-          {notifications.map(n => (
-            <div
-              key={n.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => openNotification(n)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openNotification(n); } }}
-              style={{
-                padding: "14px 16px",
-                borderRadius: 14,
-                background: n.is_read ? "var(--bg-card)" : "rgba(59,139,255,0.06)",
-                border: `1px solid ${n.is_read ? "var(--border)" : "rgba(59,139,255,0.2)"}`,
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-                  background: `${typeColors[n.type] || "var(--blue)"}15`,
-                  border: `1px solid ${typeColors[n.type] || "var(--blue)"}30`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <Bell size={16} color={typeColors[n.type] || "var(--blue)"} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                    <p style={{ fontSize: 14, fontWeight: n.is_read ? 500 : 700, lineHeight: 1.3 }}>{n.title}</p>
-                    {!n.is_read && <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--blue)", flexShrink: 0 }} />}
-                  </div>
-                  <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 4 }}>{n.body}</p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                      {new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                    {resolveNotificationLink(n) && (
-                      <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--blue)", fontWeight: 600 }}>
-                        View <ExternalLink size={10} />
+          </section>
+
+          {/* Notifications */}
+          <section className="space-y-2.5">
+            {notifications.map(n => {
+              const color = typeColors[n.type] || "var(--blue)";
+              return (
+                <button
+                  key={n.id}
+                  onClick={() => openNotification(n)}
+                  className={cn(
+                    "flex w-full items-start gap-3 rounded-lg p-4 text-start shadow-soft-sm transition active:scale-[0.99]",
+                    n.is_read ? "bg-card" : "bg-[var(--secondary-dim)] ring-1 ring-[color-mix(in_srgb,var(--secondary)_25%,transparent)]",
+                  )}
+                >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full" style={{ background: `color-mix(in srgb, ${color} 16%, transparent)` }}>
+                    <Bell size={16} style={{ color }} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <p className={cn("text-[14px] leading-snug", n.is_read ? "font-medium" : "font-bold")}>{n.title}</p>
+                      {!n.is_read && <span className="size-1.5 shrink-0 rounded-full bg-[var(--secondary)]" />}
+                    </div>
+                    <p className="mb-1.5 text-[13px] leading-relaxed text-muted-foreground">{n.body}</p>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </span>
-                    )}
+                      {resolveNotificationLink(n) && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--secondary)]">
+                          View <ExternalLink size={10} />
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          ))}
+                </button>
+              );
+            })}
+          </section>
         </div>
       )}
     </div>
