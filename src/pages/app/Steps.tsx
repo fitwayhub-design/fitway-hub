@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Entry { id: number; date: string; steps: number; calories_burned?: number; distance_km?: number; tracking_mode?: string; }
 
@@ -59,9 +60,9 @@ export default function Steps() {
 
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
 
-  const load = async () => {
+  const load = async (silent = false) => {
     if (!token) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const [todayR, histR] = await Promise.all([
         fetch(`${getApiBase()}/api/steps/${today}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
@@ -73,7 +74,8 @@ export default function Steps() {
   };
 
   useEffect(() => { load(); }, [token]);
-  useAutoRefresh(load);
+  // Silent refresh — update in place without flashing the loading state.
+  useAutoRefresh(() => load(true));
 
   // Ticking timer for live tracking
   useEffect(() => {
@@ -208,7 +210,11 @@ export default function Steps() {
 
       {tab === "history" && (
         <div>
-          {loading && <p className="py-8 text-center text-[13px] text-muted-foreground">Loading…</p>}
+          {loading && (
+            <div className="flex flex-col gap-2.5">
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+            </div>
+          )}
           {!loading && history.length === 0 && (
             <div className="py-10 text-center">
               <Activity size={48} className="mx-auto mb-3 text-muted-foreground" strokeWidth={1.75} />

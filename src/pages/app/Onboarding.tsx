@@ -23,7 +23,7 @@ import {
 const goalSchema = z.object({ goal: z.enum(["lose_weight", "maintain_weight", "gain_weight", "build_muscle"]) });
 const personalSchema = z.object({ gender: z.enum(["male", "female"]), dob: z.string().min(1), height: z.number().min(100).max(250), weight: z.number().min(30).max(300) });
 const activitySchema = z.object({ activityLevel: z.enum(["sedentary", "light", "moderate", "active", "very_active"]), medicalHistory: z.string().optional() });
-const targetSchema = z.object({ targetWeight: z.number().min(30).max(300), weeklyGoal: z.enum(["0.25", "0.5", "0.75", "1"]), dailySteps: z.enum(["5000", "10000", "15000"]) });
+const targetSchema = z.object({ targetWeight: z.number().min(30).max(300), weeklyGoal: z.enum(["0.25", "0.5", "0.75", "1"]), dailySteps: z.string().regex(/^\d{3,6}$/, "Enter your daily step goal (e.g. 8000)") });
 
 type OnboardingData = z.infer<typeof goalSchema> & z.infer<typeof personalSchema> & z.infer<typeof activitySchema> & z.infer<typeof targetSchema>;
 
@@ -360,11 +360,9 @@ export default function Onboarding() {
           {step === 4 && (() => {
             const { register, handleSubmit, watch, setValue } = useForm({ resolver: zodResolver(targetSchema), defaultValues: { targetWeight: formData.targetWeight, weeklyGoal: formData.weeklyGoal, dailySteps: formData.dailySteps } });
             const weeklyGoal = watch("weeklyGoal");
-            const dailySteps = watch("dailySteps");
             return (
               <form onSubmit={handleSubmit(handleNext)} className="flex flex-col gap-5">
                 <input type="hidden" {...register("weeklyGoal")} />
-                <input type="hidden" {...register("dailySteps")} />
                 {[{ label: t("target_weight"), type: "number", key: "targetWeight" }].map((f) => (
                   <div key={f.key} className="grid gap-2">
                     <Label htmlFor={`target-${f.key}`}>{f.label}</Label>
@@ -387,16 +385,7 @@ export default function Onboarding() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="daily-steps">{t("daily_steps_goal")}</Label>
-                  <Select value={dailySteps} onValueChange={(v) => setValue("dailySteps", v as z.infer<typeof targetSchema>["dailySteps"], { shouldValidate: true })}>
-                    <SelectTrigger id="daily-steps" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="5000">5,000 steps</SelectItem>
-                      <SelectItem value="10000">10,000 steps</SelectItem>
-                      <SelectItem value="15000">15,000 steps</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input id="daily-steps" type="number" inputMode="numeric" min={500} max={100000} step={500} placeholder="e.g. 8000" {...register("dailySteps")} />
                 </div>
                 <div className="mt-1 flex gap-2.5">
                   <Button type="button" variant="outline" onClick={() => setStep(s => s - 1)} size="lg" className="flex-1">

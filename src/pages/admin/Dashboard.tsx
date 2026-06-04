@@ -7,7 +7,8 @@ import { Users, DollarSign, TrendingUp, Trash2, Shield, UserCheck, Gift, Sun, Mo
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useI18n } from "@/context/I18nContext";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { SlidersHorizontal } from "lucide-react";
 import { getAvatar } from "@/lib/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -56,11 +57,41 @@ function StatLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{children}</p>;
 }
 
+/* Recent-activity feed presentation helpers. */
+const ACTIVITY_ICON: Record<string, string> = {
+  signup: "👤", post: "📝", comment: "💬", ticket: "🎫", challenge: "🏆", training: "🏋️", payment: "💳",
+};
+function timeAgo(d?: string): string {
+  if (!d) return "";
+  const ts = new Date(d).getTime();
+  if (Number.isNaN(ts)) return "";
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`;
+  const dd = Math.floor(h / 24); if (dd < 30) return `${dd}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
 export default function AdminDashboard() {
   const { token, user, updateUser } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
   const location = useLocation();
+  const navigate = useNavigate();
+  // Per-admin customization of the upper menu (tab) bar. `visibleTabs === null`
+  // means "show all" (default); otherwise it's the explicit set this admin
+  // chose to keep. Persisted in localStorage keyed by the admin's user id so
+  // it's separate per admin / per device. "overview" is always shown.
+  const tabStorageKey = user?.id ? `admin_topbar_tabs_${user.id}` : "admin_topbar_tabs";
+  const [visibleTabs, setVisibleTabs] = useState<string[] | null>(null);
+  const [showTabCustomize, setShowTabCustomize] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(tabStorageKey);
+      setVisibleTabs(raw ? JSON.parse(raw) : null);
+    } catch { setVisibleTabs(null); }
+  }, [tabStorageKey]);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   useEffect(() => { const h = () => setIsMobile(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
   const pathToTab = (p: string): Tab => {
@@ -135,6 +166,7 @@ export default function AdminDashboard() {
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
   const [communityComments, setCommunityComments] = useState<any[]>([]);
   const [communityChallenges, setCommunityChallenges] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [communityStats, setCommunityStats] = useState<any>(null);
   const [communitySubTab, setCommunitySubTab] = useState<"posts" | "challenges" | "comments">("posts");
   const [communitySearch, setCommunitySearch] = useState("");
@@ -198,17 +230,21 @@ export default function AdminDashboard() {
   };
 
 
-  const fetchAll = async () => {
-    setLoading(true);
+  // `silent` skips the loading state so the periodic auto-refresh updates the
+  // data in place without flashing the whole dashboard to a loading screen.
+  const fetchAll = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      const [usersRes, videosRes, adsRes, paymentsRes, giftsRes, trainingsRes] = await Promise.all([
+      const [usersRes, videosRes, adsRes, paymentsRes, giftsRes, trainingsRes, activityRes] = await Promise.all([
         api("/api/admin/users"),
         api("/api/admin/videos"),
         api("/api/admin/ads"),
         api("/api/admin/payments"),
         api("/api/admin/gifts"),
         api("/api/admin/trainings"),
+        api("/api/admin/recent-activity"),
       ]);
+      if (activityRes.ok) { const d = await activityRes.json(); setRecentActivity(d.activities || []); }
       const usersData = await usersRes.json();
       if (usersData.users) {
         setUsers(usersData.users);
@@ -244,7 +280,7 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => { fetchAll(); }, []);
-  useAutoRefresh(fetchAll);
+  useAutoRefresh(() => fetchAll(true));
 
   const showMsg = (msg: string) => { setMessage(msg); setTimeout(() => setMessage(""), 3000); };
 
@@ -524,14 +560,34 @@ export default function AdminDashboard() {
   };
 
   const filtered = users.filter(u => u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase()));
+  // Catalog of upper-menu items. "Coaches" was dropped (coach management lives
+  // under Users + Coach Requests now). "Chat" navigates to the dedicated
+  // /admin/chat page (same as the sidebar) instead of an outdated inline tab.
   const tabDef: { id: Tab; label: string }[] = [
-    { id: "overview", label: t("overview") }, { id: "users", label: t("users") }, { id: "coaches", label: t("coaches") },
+    { id: "overview", label: t("overview") }, { id: "users", label: t("users") },
     { id: "payments", label: t("payments") }, { id: "subscriptions", label: `📋 ${t("subscriptions")}` }, { id: "withdrawals", label: `💸 ${t("withdrawals")}` },
     { id: "videos", label: t("videos") }, { id: "ads", label: t("coach_ads") },
     { id: "chat", label: t("chat") },
     { id: "gifts", label: t("gifts") }, { id: "community", label: `🛡 ${t("community")}` },
     { id: "website", label: `🌐 ${t("website_config")}` },
   ];
+  const ROUTE_TABS: Partial<Record<Tab, string>> = { chat: "/admin/chat" };
+  const isTabVisible = (id: Tab) => id === "overview" || !visibleTabs || visibleTabs.includes(id);
+  const shownTabs = tabDef.filter(td => isTabVisible(td.id));
+  const persistVisibleTabs = (next: string[]) => {
+    setVisibleTabs(next);
+    try { localStorage.setItem(tabStorageKey, JSON.stringify(next)); } catch { /* ignore quota */ }
+  };
+  const toggleTabVisible = (id: Tab) => {
+    if (id === "overview") return; // always visible
+    const base = visibleTabs ?? tabDef.map(t => t.id as string);
+    persistVisibleTabs(base.includes(id) ? base.filter(x => x !== id) : [...base, id]);
+  };
+  const onTabClick = (id: Tab) => {
+    const route = ROUTE_TABS[id];
+    if (route) { navigate(route); return; }
+    setTab(id);
+  };
 
   /* Status → Badge variant, used by payment / subscription / withdrawal rows. */
   const payStatusVariant = (status: string): "success" | "warning" | "destructive" =>
@@ -557,25 +613,71 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ═══════ TAB BAR ═══════════════════════════ */}
-      <div className="scroll-x -mx-1 overflow-x-auto px-1 pb-1">
-        <div className="flex w-max min-w-full gap-1 rounded-md bg-muted p-1">
-          {tabDef.map(td => {
-            const active = tab === td.id;
-            const pendingAds = td.id === "ads" ? ads.filter(a => a.status === "pending").length : 0;
-            return (
-              <button
-                key={td.id}
-                onClick={() => setTab(td.id)}
-                aria-pressed={active}
-                className={`whitespace-nowrap rounded-[8px] px-3.5 py-2 text-[13px] font-semibold transition-all ${active ? "bg-card text-foreground shadow-soft-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {td.label}{pendingAds > 0 ? ` (${pendingAds})` : ""}
-              </button>
-            );
-          })}
+      {/* ═══════ TAB BAR (upper menu) ═══════════════ */}
+      <div className="flex items-center gap-2">
+        <div className="scroll-x -mx-1 min-w-0 flex-1 overflow-x-auto px-1 pb-1">
+          <div className="flex w-max min-w-full gap-1 rounded-md bg-muted p-1">
+            {shownTabs.map(td => {
+              const active = tab === td.id && !ROUTE_TABS[td.id];
+              const pendingAds = td.id === "ads" ? ads.filter(a => a.status === "pending").length : 0;
+              return (
+                <button
+                  key={td.id}
+                  onClick={() => onTabClick(td.id)}
+                  aria-pressed={active}
+                  className={`whitespace-nowrap rounded-[8px] px-3.5 py-2 text-[13px] font-semibold transition-all ${active ? "bg-card text-foreground shadow-soft-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {td.label}{pendingAds > 0 ? ` (${pendingAds})` : ""}
+                </button>
+              );
+            })}
+          </div>
         </div>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          className="shrink-0"
+          onClick={() => setShowTabCustomize(true)}
+          aria-label={t("customize_menu") || "Customize menu"}
+          title={t("customize_menu") || "Customize menu"}
+        >
+          <SlidersHorizontal size={15} strokeWidth={2} />
+        </Button>
       </div>
+
+      {/* Upper-menu customize dialog (per-admin) */}
+      <Dialog open={showTabCustomize} onOpenChange={setShowTabCustomize}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle>{t("customize_menu") || "Customize menu bar"}</DialogTitle>
+          </DialogHeader>
+          <p className="-mt-1 text-[13px] text-muted-foreground">
+            {t("customize_menu_hint") || "Choose which items show in your upper menu bar. This is saved just for you."}
+          </p>
+          <div className="mt-1 flex flex-col divide-y divide-border/60">
+            {tabDef.map(td => {
+              const mandatory = td.id === "overview";
+              return (
+                <div key={td.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <span className="text-[13px] font-medium text-foreground">{td.label}</span>
+                  <Switch
+                    checked={isTabVisible(td.id)}
+                    disabled={mandatory}
+                    onCheckedChange={() => toggleTabVisible(td.id)}
+                    aria-label={`Toggle ${td.label}`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { persistVisibleTabs(tabDef.map(t => t.id as string)); }}>
+              {t("show_all") || "Show all"}
+            </Button>
+            <Button onClick={() => setShowTabCustomize(false)}>{t("done") || "Done"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {message && (
         <div className="rounded-md bg-primary/15 px-4 py-2.5 text-[13px] font-medium text-primary">{message}</div>
@@ -599,6 +701,33 @@ export default function AdminDashboard() {
               </Card>
             ))}
           </div>
+
+          {/* Recent activity — every notable event across the app */}
+          <Card className="gap-0 p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[15px] font-semibold">{t("recent_activity") || "Recent activity"}</p>
+              <Button variant="ghost" size="icon-sm" onClick={() => fetchAll(true)} aria-label="Refresh activity" className="text-muted-foreground">
+                <RefreshCw size={15} strokeWidth={2} />
+              </Button>
+            </div>
+            {recentActivity.length === 0 ? (
+              <p className="py-4 text-[13px] text-muted-foreground">{t("no_activity_yet") || "No recent activity yet."}</p>
+            ) : (
+              <div className="-my-1 flex max-h-[440px] flex-col divide-y divide-border/60 overflow-y-auto">
+                {recentActivity.map((a: any, i: number) => (
+                  <div key={i} className="flex items-start gap-3 py-2.5">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-[15px]" aria-hidden>{ACTIVITY_ICON[a.type] || "•"}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-medium text-foreground">{a.title}</p>
+                      {a.detail && <p className="truncate text-[12px] text-muted-foreground">{a.detail}</p>}
+                    </div>
+                    <span className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground">{timeAgo(a.created_at)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card className="gap-0 p-5">
               <div className="mb-4 flex items-center justify-between">
@@ -1391,7 +1520,16 @@ export default function AdminDashboard() {
                           <span>📅 {ch.start_date} → {ch.end_date}</span>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={async () => { if (!confirm("Delete this challenge?")) return; await api(`/api/admin/community/challenges/${ch.id}`, { method: "DELETE" }); setCommunityChallenges(prev => prev.filter(x => x.id !== ch.id)); showMsg("Challenge deleted"); }} className="bg-destructive/12 text-destructive">
+                      <Button variant="ghost" size="sm" onClick={async () => {
+                        if (!confirm("Delete this challenge?")) return;
+                        try {
+                          const r = await api(`/api/admin/community/challenges/${ch.id}`, { method: "DELETE" });
+                          if (!r.ok) { const d = await r.json().catch(() => ({})); showMsg(`❌ ${d?.message || "Failed to delete challenge"}`); return; }
+                          setCommunityChallenges(prev => prev.filter(x => x.id !== ch.id));
+                          showMsg("🗑️ Challenge deleted");
+                          fetchCommunityAll();
+                        } catch { showMsg("❌ Failed to delete challenge"); }
+                      }} className="bg-destructive/12 text-destructive">
                         <Trash2 size={16} strokeWidth={2} /> Delete
                       </Button>
                     </div>

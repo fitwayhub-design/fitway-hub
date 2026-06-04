@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { query, get, run } from '../config/database.js';
 import { uploadToR2 } from '../middleware/upload.js';
 import { sendPushFromTemplate } from '../notificationService.js';
+import { containsContactInfo, CONTACT_INFO_MESSAGE } from '../utils/contentGuard.js';
 
 export const getPosts = async (req: Request, res: Response) => {
   try {
@@ -98,6 +99,7 @@ export const createPost = async (req: Request, res: Response) => {
     const files = (req as any).files as Express.Multer.File[] | undefined;
     const mediaUrl = files && files.length > 0 ? await uploadToR2(files[0], 'community') : null;
     if (!content && !mediaUrl) return res.status(400).json({ message: 'Content or media is required' });
+    if (containsContactInfo(content)) return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
     const { insertId } = await run('INSERT INTO posts (user_id, content, media_url, hashtags) VALUES (?, ?, ?, ?)', [userId, content, mediaUrl, hashtags]);
     const newPost = await get(`SELECT p.*, u.name as user_name, u.avatar as user_avatar, u.role as user_role FROM posts p LEFT JOIN users u ON p.user_id = u.id WHERE p.id = ?`, [insertId]);
     res.status(201).json(newPost);
@@ -206,6 +208,7 @@ export const addComment = async (req: Request, res: Response) => {
     const postId = req.params.id;
     const { content } = req.body;
     if (!content.trim()) return res.status(400).json({ message: 'Comment content is required' });
+    if (containsContactInfo(content)) return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
     const { insertId } = await run('INSERT INTO post_comments (post_id, user_id, content) VALUES (?, ?, ?)', [postId, userId, content]);
     const newComment = await get(`SELECT pc.*, u.name as user_name, u.avatar as user_avatar FROM post_comments pc LEFT JOIN users u ON pc.user_id = u.id WHERE pc.id = ?`, [insertId]);
     // Notify post author about comment (fire-and-forget)

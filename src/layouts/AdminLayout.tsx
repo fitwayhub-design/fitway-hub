@@ -2,7 +2,7 @@ import { Outlet, Link, NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Settings, Activity,
   Gift, DollarSign, Video, Megaphone, UserCheck, Globe, MessageCircle, FileText,
-  ClipboardList, Wallet, Bell, ShieldCheck, Flag, Image as ImageIcon, Mail, Trophy,
+  ClipboardList, Wallet, Bell, ShieldCheck, Flag, Image as ImageIcon, Mail, Trophy, MessagesSquare,
 } from "lucide-react";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useI18n } from "@/context/I18nContext";
@@ -16,6 +16,7 @@ const navItems: NavItem[] = [
   // Coaches register, upload their papers, admin approves/declines here.
   { path: "/admin/coach-requests", icon: ShieldCheck, label: "Coach Requests" },
   { path: "/admin/coach-reports", icon: Flag, label: "Coach Reports" },
+  { path: "/admin/community", icon: MessagesSquare,  label: "Community" },
   { path: "/admin/tickets",   icon: MessageCircle,   label: "Tickets" },
   { path: "/admin/payments",  icon: DollarSign,      label: "Payments" },
   { path: "/admin/videos",    icon: Video,           label: "Videos" },
@@ -66,6 +67,7 @@ export function AdminLayout() {
     // moderation reports against active coaches.
     { path: "/admin/coach-requests", icon: ShieldCheck, label: "Coach Requests" },
     { path: "/admin/coach-reports", icon: Flag, label: t("coach_reports") },
+    { path: "/admin/community", icon: MessagesSquare,  label: t("community") },
     { path: "/admin/tickets",   icon: MessageCircle,   label: "Tickets" },
     { path: "/admin/payments",  icon: DollarSign,      label: t("payments") },
     { path: "/admin/videos",    icon: Video,           label: t("videos") },

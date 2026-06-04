@@ -12,6 +12,7 @@
 import { Router, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { get, run, query } from '../config/database.js';
+import { containsContactInfo, CONTACT_INFO_MESSAGE } from '../utils/contentGuard.js';
 
 const router = Router();
 
@@ -93,6 +94,7 @@ router.post('/', authenticateToken, async (req: any, res: Response) => {
     const u = req.user;
     const { coach_id, subject, body, kind, workout_plan_id, nutrition_plan_id, exercise_key, meal_key } = req.body || {};
     if (!coach_id || !subject) return res.status(400).json({ message: 'coach_id and subject are required' });
+    if (containsContactInfo(subject) || containsContactInfo(body)) return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
     const isWorkout = !!workout_plan_id && !!exercise_key;
     const isNutrition = !!nutrition_plan_id && !!meal_key;
     if (!isWorkout && !isNutrition) {
@@ -183,6 +185,7 @@ router.post('/:id/reply', authenticateToken, async (req: any, res: Response) => 
     if (!(await canSeeTicket(req, ticket))) return res.status(403).json({ message: 'Forbidden' });
     const { body } = req.body || {};
     if (!body) return res.status(400).json({ message: 'body required' });
+    if (containsContactInfo(body)) return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
     await run(
       'INSERT INTO ticket_replies (ticket_id, author_id, author_role, body, created_at) VALUES (?, ?, ?, ?, NOW())',
       [ticket.id, u.id, u.role, body]
@@ -239,6 +242,7 @@ router.post('/plan-comments', authenticateToken, async (req: any, res: Response)
     const u = req.user;
     const { workout_plan_id, nutrition_plan_id, exercise_key, meal_key, body, parent_id } = req.body || {};
     if (!body) return res.status(400).json({ message: 'body required' });
+    if (containsContactInfo(body)) return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
     if (!workout_plan_id && !nutrition_plan_id) return res.status(400).json({ message: 'plan id required' });
     const result: any = await run(
       `INSERT INTO plan_comments (workout_plan_id, nutrition_plan_id, exercise_key, meal_key, author_id, author_role, body, status, parent_id, created_at, updated_at)

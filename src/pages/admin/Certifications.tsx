@@ -24,8 +24,8 @@ export default function AdminCertifications() {
   const api = (path: string, opts?: RequestInit) =>
     fetch(getApiBase() + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
 
-  const fetchRequests = async () => {
-    setLoading(true);
+  const fetchRequests = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const r = await api("/api/admin/certification-requests");
       if (r.ok) {
@@ -37,7 +37,7 @@ export default function AdminCertifications() {
   };
 
   useEffect(() => { fetchRequests(); }, []);
-  useAutoRefresh(fetchRequests);
+  useAutoRefresh(() => fetchRequests(true));
 
   const handleAction = async (id: number, action: "approve" | "reject") => {
     setActionLoading(id);
