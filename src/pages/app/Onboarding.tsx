@@ -157,7 +157,14 @@ export default function Onboarding() {
           className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 to-black/65"
         />
       )}
-      <Card className="relative w-full max-w-[480px] gap-0 overflow-hidden p-0 shadow-soft-lg">
+      <Card
+        className="relative w-full max-w-[480px] gap-0 overflow-hidden p-0 shadow-soft-lg"
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--bg-card) 82%, transparent)",
+          backdropFilter: "blur(18px)",
+          WebkitBackdropFilter: "blur(18px)",
+        }}
+      >
         {/* Progress bar */}
         <Progress value={(step / totalSteps) * 100} className="h-1 rounded-none" />
 

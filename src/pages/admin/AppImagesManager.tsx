@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Image as ImageIcon, Upload, Trash2, RefreshCw, Plus, CheckCircle, AlertTriangle } from "lucide-react";
+import { Image as ImageIcon, Upload, Trash2, RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useAppImages } from "@/context/AppImagesContext";
@@ -7,7 +7,6 @@ import { getApiBase } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -38,7 +37,6 @@ export default function AppImagesManager() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [uploadingSlug, setUploadingSlug] = useState<string | null>(null);
-  const [customSlug, setCustomSlug] = useState("");
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const notify = (kind: "ok" | "err", text: string) => {
@@ -233,47 +231,6 @@ export default function AppImagesManager() {
           </Card>
         );
       })}
-
-      {/* Custom slug upload */}
-      <Card className="gap-0 p-5">
-        <div className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
-          <Plus size={16} strokeWidth={2} /> {l("Add Custom Slot", "إضافة فتحة مخصصة")}
-        </div>
-        <p className="mt-1.5 mb-3 text-[12px] text-muted-foreground">
-          {l("Enter a slug (lowercase letters, digits, underscores) then pick an image. Use these slugs in code via <AppImage slug=\"...\"/>.", "أدخل معرفًا (أحرف صغيرة وأرقام وشرطة سفلية) ثم اختر صورة. استخدم المعرف في الكود عبر <AppImage slug=\"...\"/>.")}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Label htmlFor="custom-slug" className="sr-only">{l("Custom slot slug", "معرف الفتحة المخصصة")}</Label>
-          <Input
-            id="custom-slug"
-            value={customSlug}
-            onChange={e => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
-            placeholder="e.g. home_hero_badge"
-            maxLength={64}
-            className="min-w-[200px] flex-1 font-mono text-[13px]"
-          />
-          <Button asChild disabled={!customSlug}>
-            <label className={customSlug ? "cursor-pointer" : "cursor-not-allowed"}>
-              <Upload size={14} strokeWidth={2} />
-              {l("Choose image", "اختر صورة")}
-              <input
-                type="file"
-                accept="image/*"
-                disabled={!customSlug}
-                hidden
-                onChange={e => {
-                  const f = e.target.files?.[0];
-                  if (f && customSlug) {
-                    upload(customSlug, f, "custom");
-                    setCustomSlug("");
-                  }
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          </Button>
-        </div>
-      </Card>
 
       {loading && (
         <div className="grid gap-3.5 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">

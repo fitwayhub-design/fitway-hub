@@ -772,15 +772,18 @@ router.get('/users/:id/workout-plan', authenticateToken, coachOrAdmin, async (re
 router.post('/users/:id/workout-plan', authenticateToken, coachOrAdmin, requireActiveCoachMembershipForDeals, async (req: any, res) => {
   const { title, description, days_per_week, exercises } = req.body;
   const exercisesJson = JSON.stringify(exercises || []);
-  const existing = await get('SELECT id FROM workout_plans WHERE user_id = ?', [req.params.id]);
+  const existing: any = await get('SELECT id FROM workout_plans WHERE user_id = ?', [req.params.id]);
+  let planId: number;
   if (existing) {
     await run('UPDATE workout_plans SET title=?, description=?, days_per_week=?, exercises=?, coach_id=? WHERE user_id=?',
       [title, description, days_per_week, exercisesJson, req.user.id, req.params.id]);
+    planId = existing.id;
   } else {
-    await run('INSERT INTO workout_plans (user_id, coach_id, title, description, days_per_week, exercises) VALUES (?,?,?,?,?,?)',
+    const ins: any = await run('INSERT INTO workout_plans (user_id, coach_id, title, description, days_per_week, exercises) VALUES (?,?,?,?,?,?)',
       [req.params.id, req.user.id, title, description, days_per_week, exercisesJson]);
+    planId = ins?.insertId;
   }
-  res.json({ message: 'Workout plan saved' });
+  res.json({ message: 'Workout plan saved', plan_id: planId });
 });
 
 router.get('/users/:id/nutrition-plan', authenticateToken, coachOrAdmin, async (req, res) => {
@@ -792,15 +795,18 @@ router.get('/users/:id/nutrition-plan', authenticateToken, coachOrAdmin, async (
 router.post('/users/:id/nutrition-plan', authenticateToken, coachOrAdmin, requireActiveCoachMembershipForDeals, async (req: any, res) => {
   const { title, daily_calories, protein_g, carbs_g, fat_g, meals, notes } = req.body;
   const mealsJson = JSON.stringify(meals || []);
-  const existing = await get('SELECT id FROM nutrition_plans WHERE user_id = ?', [req.params.id]);
+  const existing: any = await get('SELECT id FROM nutrition_plans WHERE user_id = ?', [req.params.id]);
+  let planId: number;
   if (existing) {
     await run('UPDATE nutrition_plans SET title=?, daily_calories=?, protein_g=?, carbs_g=?, fat_g=?, meals=?, notes=?, coach_id=? WHERE user_id=?',
       [title, daily_calories, protein_g, carbs_g, fat_g, mealsJson, notes, req.user.id, req.params.id]);
+    planId = existing.id;
   } else {
-    await run('INSERT INTO nutrition_plans (user_id, coach_id, title, daily_calories, protein_g, carbs_g, fat_g, meals, notes) VALUES (?,?,?,?,?,?,?,?,?)',
+    const ins: any = await run('INSERT INTO nutrition_plans (user_id, coach_id, title, daily_calories, protein_g, carbs_g, fat_g, meals, notes) VALUES (?,?,?,?,?,?,?,?,?)',
       [req.params.id, req.user.id, title, daily_calories, protein_g, carbs_g, fat_g, mealsJson, notes]);
+    planId = ins?.insertId;
   }
-  res.json({ message: 'Nutrition plan saved' });
+  res.json({ message: 'Nutrition plan saved', plan_id: planId });
 });
 
 router.patch('/users/:id/step-goal', authenticateToken, coachOrAdmin, requireActiveCoachMembershipForDeals, async (req, res) => {

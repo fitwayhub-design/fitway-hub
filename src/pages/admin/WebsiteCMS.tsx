@@ -284,7 +284,7 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
     try {
       const keys = [
         "app_name", "app_tagline", "logo_url_en_light", "logo_url_en_dark", "logo_url_ar_light", "logo_url_ar_dark", "favicon_url", "footer_text", "copyright_text",
-        "primary_color", "secondary_color", "bg_primary", "bg_card",
+        "primary_color", "secondary_color", "secondary_color_light", "bg_primary", "bg_card",
         "btn_hover_type", "btn_hover_color",
         "font_en", "font_ar", "font_heading",
         "social_instagram", "social_facebook", "social_twitter", "social_youtube", "social_tiktok",
@@ -304,8 +304,23 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
         }
       }
 
+      // Ensure the light-mode secondary colour key exists on older installs
+      // (it's seeded for fresh ones) so the PUT below actually persists it.
+      if (!("secondary_color_light" in brandingForm)) {
+        try {
+          await api("/api/admin/app-settings/add", {
+            method: "POST",
+            body: JSON.stringify({ key: "secondary_color_light", value: "#2563EB", type: "color", category: "branding", label: "Secondary Color (Light mode)" }),
+          });
+        } catch {
+          // Ignore if key already exists.
+        }
+      }
+
       const payload: Record<string, string> = {};
-      for (const k of keys) payload[k] = brandingForm[k] || "";
+      // Never blank the light-mode secondary colour: fall back to a sensible
+      // default so it always holds a valid colour even if untouched.
+      for (const k of keys) payload[k] = brandingForm[k] || (k === "secondary_color_light" ? "#2563EB" : "");
       const r = await api("/api/admin/app-settings", { method: "PUT", body: JSON.stringify(payload) });
       if (!r.ok) throw new Error("save failed");
       showMsg(t("cms_branding_saved"));
@@ -1474,7 +1489,8 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
               <p className="text-xs font-bold tracking-wider text-primary uppercase">{t("cms_colors_fonts")}</p>
               {[
                 [t("cms_primary_color"), "primary_color"],
-                [t("cms_secondary_color"), "secondary_color"],
+                [l("Secondary Color (Dark mode)", "اللون الثانوي (الوضع الداكن)"), "secondary_color"],
+                [l("Secondary Color (Light mode)", "اللون الثانوي (الوضع الفاتح)"), "secondary_color_light"],
                 [t("cms_bg_primary"), "bg_primary"],
                 [t("cms_bg_card"), "bg_card"],
               ].map(([label, key]) => (

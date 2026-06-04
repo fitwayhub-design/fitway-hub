@@ -7,7 +7,6 @@ import {
   forgotPasswordGetQuestion,
   forgotPasswordVerify,
   changePassword,
-  changeEmail,
   loginWithRememberToken,
   addOfflineSteps,
   updateProfile,
@@ -74,7 +73,8 @@ router.post('/forgot-password/request-otp', otpRequestLimiter, requestForgotPass
 router.post('/forgot-password/otp-reset', strictLimiter, forgotPasswordOtpReset);
 router.post('/change-password', authenticateToken, changePassword);
 router.post('/change-password/request-otp', authenticateToken, otpRequestLimiter, requestChangePasswordOtp);
-router.post('/change-email', authenticateToken, changeEmail);
+// Email is fixed once an account is registered — the change-email endpoint was
+// intentionally removed so a user's email can no longer be changed.
 router.post('/login-remember', authLimiter, loginWithRememberToken);
 router.post('/offline-steps', authenticateToken, addOfflineSteps);
 router.post('/update-profile', authenticateToken, updateProfile);

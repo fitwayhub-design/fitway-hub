@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import PlanCommentsThread from "@/components/app/PlanCommentsThread";
 
 interface Athlete {
   id: number; name: string; email: string; avatar: string;
@@ -80,6 +81,11 @@ export default function CoachAthletes() {
 
   const [workoutPlan, setWorkoutPlan] = useState({ title: "", description: "", days_per_week: 3, exercises: [] as Exercise[] });
   const [nutritionPlan, setNutritionPlan] = useState({ title: "", daily_calories: 2000, protein_g: 150, carbs_g: 250, fat_g: 65, meals: [] as Meal[], notes: "" });
+  // Saved plan ids — needed so the coach can attach per-exercise / per-meal
+  // comments. Null until a plan exists for the athlete (comments require a
+  // saved plan to hang off of).
+  const [workoutPlanId, setWorkoutPlanId] = useState<number | null>(null);
+  const [nutritionPlanId, setNutritionPlanId] = useState<number | null>(null);
 
   const api = (path: string, opts?: RequestInit) => fetch(getApiBase() + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
 
@@ -105,6 +111,8 @@ export default function CoachAthletes() {
     setEditingStepGoal(false);
     setWorkoutPlan({ title: t('workout_plan_title', { name: a.name }), description: "", days_per_week: 3, exercises: [] });
     setNutritionPlan({ title: t('nutrition_plan_title', { name: a.name }), daily_calories: 2000, protein_g: 150, carbs_g: 250, fat_g: 65, meals: [], notes: "" });
+    setWorkoutPlanId(null);
+    setNutritionPlanId(null);
     // Load existing plans and profile
     try {
       const [wp, np, profile] = await Promise.all([
@@ -116,6 +124,7 @@ export default function CoachAthletes() {
         setSelected(s => s ? { ...s, ...profile.user, step_goal: profile.user.step_goal || 10000 } : s);
       }
       if (wp.plan) {
+        setWorkoutPlanId(wp.plan.id ?? null);
         setWorkoutPlan({
           title: wp.plan.title || t('workout_plan_title', { name: a.name }),
           description: wp.plan.description || "",
@@ -124,6 +133,7 @@ export default function CoachAthletes() {
         });
       }
       if (np.plan) {
+        setNutritionPlanId(np.plan.id ?? null);
         setNutritionPlan({
           title: np.plan.title || t('nutrition_plan_title', { name: a.name }),
           daily_calories: np.plan.daily_calories || 2000,
@@ -144,7 +154,11 @@ export default function CoachAthletes() {
     setSaving(true);
     try {
       const r = await api(`/api/coach/users/${selected.id}/workout-plan`, { method: "POST", body: JSON.stringify(workoutPlan) });
-      if (r.ok) showMsg(t("workout_saved")); else showMsg(t("failed_save"));
+      if (r.ok) {
+        const d = await r.json().catch(() => ({}));
+        if (d?.plan_id) setWorkoutPlanId(d.plan_id);
+        showMsg(t("workout_saved"));
+      } else showMsg(t("failed_save"));
     } catch { showMsg(t("failed_save")); }
     finally { setSaving(false); }
   };
@@ -154,7 +168,11 @@ export default function CoachAthletes() {
     setSaving(true);
     try {
       const r = await api(`/api/coach/users/${selected.id}/nutrition-plan`, { method: "POST", body: JSON.stringify(nutritionPlan) });
-      if (r.ok) showMsg(t("nutrition_saved")); else showMsg(t("failed_save"));
+      if (r.ok) {
+        const d = await r.json().catch(() => ({}));
+        if (d?.plan_id) setNutritionPlanId(d.plan_id);
+        showMsg(t("nutrition_saved"));
+      } else showMsg(t("failed_save"));
     } catch { showMsg(t("failed_save")); }
     finally { setSaving(false); }
   };
@@ -449,6 +467,15 @@ export default function CoachAthletes() {
                         )}
                         {ex.video_url && <a href={ex.video_url} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap text-[11px] text-[var(--secondary)]">🔗 {t("preview") || "Preview"}</a>}
                       </div>
+                      {/* Per-exercise coaching comments to guide the athlete */}
+                      {workoutPlanId ? (
+                        <>
+                          <Separator className="my-2.5" />
+                          <PlanCommentsThread workoutPlanId={workoutPlanId} exerciseKey={String(ex.id) + "::" + ex.name} compact />
+                        </>
+                      ) : (
+                        <p className="mt-2 text-[11px] text-muted-foreground">{t("save_to_comment") || "Save the plan to add comments on this exercise."}</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -495,6 +522,15 @@ export default function CoachAthletes() {
                         <Button variant="outline" size="icon-sm" className="text-destructive" onClick={() => removeMeal(m.id)} aria-label={t("coach_athletes_add_meal")}><Trash2 size={14} strokeWidth={2} /></Button>
                       </div>
                       <Input value={m.foods} onChange={e => updateMeal(m.id, "foods", e.target.value)} placeholder={t('foods_placeholder')} className="h-9 bg-card text-[13px]" aria-label={t('foods_placeholder')} />
+                      {/* Per-meal coaching comments to guide the athlete */}
+                      {nutritionPlanId ? (
+                        <>
+                          <Separator className="my-1.5" />
+                          <PlanCommentsThread nutritionPlanId={nutritionPlanId} mealKey={String(m.id) + "::" + m.name} compact />
+                        </>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground">{t("save_to_comment_meal") || "Save the plan to add comments on this meal."}</p>
+                      )}
                     </div>
                   ))}
                 </div>

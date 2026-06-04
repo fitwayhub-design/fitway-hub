@@ -2,7 +2,7 @@ import { Outlet, Link, NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Settings, Activity,
   Gift, DollarSign, Video, Megaphone, UserCheck, Globe, MessageCircle, FileText,
-  ClipboardList, Wallet, Bell, ShieldCheck, Flag, Image as ImageIcon, Mail,
+  ClipboardList, Wallet, Bell, ShieldCheck, Flag, Image as ImageIcon, Mail, Trophy,
 } from "lucide-react";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useI18n } from "@/context/I18nContext";
@@ -25,6 +25,7 @@ const navItems: NavItem[] = [
   { path: "/admin/gifts",     icon: Gift,            label: "Gifts" },
   { path: "/admin/blogs",          icon: FileText,        label: "Our Blog" },
   { path: "/admin/website",        icon: Globe,           label: "Website" },
+  { path: "/admin/challenges",     icon: Trophy,          label: "Challenges" },
   { path: "/admin/app-images",     icon: ImageIcon,       label: "App Images" },
   { path: "/admin/subscriptions",  icon: ClipboardList,   label: "Subscriptions" },
   { path: "/admin/withdrawals",    icon: Wallet,          label: "Withdrawals" },
@@ -73,6 +74,7 @@ export function AdminLayout() {
     { path: "/admin/gifts",     icon: Gift,            label: t("gifts") },
     { path: "/admin/blogs",          icon: FileText,        label: "Our Blog" },
     { path: "/admin/website",        icon: Globe,           label: t("website") },
+    { path: "/admin/challenges",     icon: Trophy,          label: t("challenges") || "Challenges" },
     { path: "/admin/app-images",     icon: ImageIcon,       label: t("app_images") || "App Images" },
     { path: "/admin/subscriptions",  icon: ClipboardList,   label: t("subscriptions") || "Subscriptions" },
     { path: "/admin/withdrawals",    icon: Wallet,          label: t("withdrawals") || "Withdrawals" },
