@@ -6,6 +6,11 @@ import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
 import { getApiBase } from "@/lib/api";
 import { Eye, EyeOff, Mail, Lock, User, Activity, CheckCircle2, Dumbbell, Trophy, Chrome, ArrowLeft, ShieldQuestion, KeyRound } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const SECURITY_QUESTIONS = [
   "What was the name of your first pet?",
@@ -129,227 +134,223 @@ export default function Register() {
     "What was the make of your first car?": t("security_question_6"),
   };
 
+  const stats = [
+    { v: liveStats.members > 0 ? `${liveStats.members.toLocaleString()}+` : "—", l: t("members") },
+    { v: liveStats.programs > 0 ? `${liveStats.programs}+` : "—", l: t("programs") },
+    { v: `${liveStats.rating}★`, l: t("rating") },
+  ];
+
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "var(--bg-primary)", display: "flex" }}>
-      <div className="hidden lg:flex" style={{ width: "45%", backgroundColor: "var(--bg-surface)", borderInlineEnd: "1px solid var(--border)", flexDirection: "column", justifyContent: "space-between", padding: "48px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: "30%", insetInlineEnd: "-10%", width: 300, height: 300, borderRadius: "50%", backgroundColor: "var(--accent)", opacity: 0.07, filter: "blur(80px)", pointerEvents: "none" }} />
+    <div className="flex min-h-[100dvh] bg-background">
+      {/* Left decorative panel */}
+      <div className="relative hidden w-[45%] flex-col justify-between overflow-hidden bg-card p-12 lg:flex">
+        <div className="pointer-events-none absolute top-[30%] end-[-10%] size-[300px] rounded-full bg-primary opacity-[0.07] blur-[80px]" />
         {brandLogo ? (
-          <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} style={{ height: 38, borderRadius: 8, objectFit: "contain", alignSelf: "flex-start" }} />
+          <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} className="h-9 self-start rounded-lg object-contain" />
         ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ backgroundColor: "var(--accent)", width: 32, height: 32, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Activity size={18} color="#000000" />
-            </div>
-            <span style={{ fontFamily: "var(--font-en)", fontSize: 20, fontWeight: 700, letterSpacing: "0.04em" }}>{branding.app_name || t("fitway_hub")}</span>
+          <div className="flex items-center gap-2.5">
+            <div className="grid size-8 place-items-center rounded-full bg-primary"><Activity size={18} className="text-primary-foreground" /></div>
+            <span className="text-[20px] font-bold tracking-wide">{branding.app_name || t("fitway_hub")}</span>
           </div>
         )}
-        <div style={{ position: "relative", zIndex: 1 }}>
-          <p style={{ fontFamily: "var(--font-en)", fontSize: 32, fontWeight: 700, lineHeight: 1.2, marginBottom: 28 }}>
-            {t("join_members_prefix")}<br /><span style={{ color: "var(--accent)" }}>{t("join_members_highlight")}</span>
+        <div className="relative z-10">
+          <p className="mb-7 text-[32px] font-bold leading-[1.15] tracking-tight">
+            {t("join_members_prefix")}<br /><span className="text-primary">{t("join_members_highlight")}</span>
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="flex flex-col gap-3">
             {perks.map((p) => (
-              <div key={p} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <CheckCircle2 size={16} color="var(--accent)" style={{ flexShrink: 0 }} />
-                <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>{p}</span>
+              <div key={p} className="flex items-center gap-2.5">
+                <CheckCircle2 size={16} className="shrink-0 text-primary" />
+                <span className="text-[14px] text-muted-foreground">{p}</span>
               </div>
             ))}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 24 }}>
-          {[{ v: liveStats.members > 0 ? `${liveStats.members.toLocaleString()}+` : "—", l: t("members") }, { v: liveStats.programs > 0 ? `${liveStats.programs}+` : "—", l: t("programs") }, { v: `${liveStats.rating}★`, l: t("rating") }].map((s) => (
+        <div className="flex gap-6">
+          {stats.map((s) => (
             <div key={s.l}>
-              <p style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700, color: "var(--accent)" }}>{s.v}</p>
-              <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>{s.l}</p>
+              <p className="text-[22px] font-bold tabular-nums text-primary">{s.v}</p>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">{s.l}</p>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 24px" }}>
-        <div className="fade-up" style={{ width: "100%", maxWidth: 420 }}>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 16, background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 13, padding: 0 }}
-          >
-            <ArrowLeft size={14} /> {t("back")}
+      {/* Right: form */}
+      <div className="flex flex-1 items-center justify-center px-6 py-10">
+        <div className="fade-up w-full max-w-[420px]">
+          <button type="button" onClick={() => navigate(-1)} className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
+            <ArrowLeft size={14} className="rtl:rotate-180" /> {t("back")}
           </button>
 
-          <div className="lg:hidden" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
+          <Link to="/" aria-label="Home" className="mb-8 flex items-center gap-2.5 no-underline text-inherit lg:hidden">
             {brandLogo ? (
-              <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} style={{ height: 32, borderRadius: 8, objectFit: "contain" }} />
+              <img src={brandLogo} alt={branding.app_name || t("fitway_hub")} className="h-8 rounded-lg object-contain" />
             ) : (
               <>
-                <div style={{ backgroundColor: "var(--accent)", width: 28, height: 28, borderRadius: "var(--radius-full)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Activity size={15} color="#000000" />
-                </div>
-                <span style={{ fontFamily: "var(--font-en)", fontSize: 18, fontWeight: 700 }}>{branding.app_name || t("fitway_hub")}</span>
+                <div className="grid size-7 place-items-center rounded-full bg-primary"><Activity size={15} className="text-primary-foreground" /></div>
+                <span className="text-[18px] font-bold">{branding.app_name || t("fitway_hub")}</span>
               </>
             )}
-          </div>
+          </Link>
 
-          <h1 style={{ fontFamily: "var(--font-en)", fontSize: 28, fontWeight: 700, marginBottom: 6 }}>{t("create_account")}</h1>
-          <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 24 }}>{t("join_community_start")}</p>
+          <h1 className="mb-1.5 text-[28px] font-bold tracking-tight">{t("create_account")}</h1>
+          <p className="mb-6 text-[14px] text-muted-foreground">{t("join_community_start")}</p>
 
           {/* Role Selection */}
-          <div style={{ marginBottom: 24 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 10 }}>{t("joining_as")}</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div className="mb-6">
+            <p className="mb-2.5 text-[12px] font-semibold tracking-wide text-muted-foreground uppercase">{t("joining_as")}</p>
+            <div className="grid grid-cols-2 gap-2.5">
               {([
                 { val: "user", label: t("athlete"), desc: t("train_progress"), Icon: Trophy },
                 { val: "coach", label: t("coach"), desc: t("membership_required"), Icon: Dumbbell },
-              ] as const).map(({ val, label, desc, Icon }) => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => setRole(val)}
-                  style={{
-                    padding: "14px 12px", borderRadius: "var(--radius-full)",
-                    border: `2px solid ${role === val ? "var(--accent)" : "var(--border)"}`,
-                    backgroundColor: role === val ? "var(--accent-dim)" : "var(--bg-card)",
-                    cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "all 0.15s",
-                  }}
-                >
-                  <div style={{ width: 38, height: 38, borderRadius: "var(--radius-full)", backgroundColor: role === val ? "var(--accent)" : "var(--bg-surface)", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
-                    <Icon size={18} color={role === val ? "#000000" : "var(--text-muted)"} />
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: role === val ? "var(--accent)" : "var(--text-primary)" }}>{label}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>{desc}</p>
-                  </div>
-                </button>
-              ))}
+              ] as const).map(({ val, label, desc, Icon }) => {
+                const active = role === val;
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setRole(val)}
+                    className={cn(
+                      "flex flex-col items-center gap-2 rounded-md p-3.5 text-center transition active:scale-[0.98]",
+                      active ? "bg-primary/10 ring-2 ring-inset ring-primary" : "bg-muted",
+                    )}
+                  >
+                    <div className={cn("grid size-10 place-items-center rounded-full transition-colors", active ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground")}>
+                      <Icon size={18} />
+                    </div>
+                    <div>
+                      <p className={cn("text-[13px] font-bold", active ? "text-primary" : "text-foreground")}>{label}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">{desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {error && (
-            <div style={{ padding: "12px 16px", backgroundColor: "rgba(255,68,68,0.1)", border: "1px solid rgba(255,68,68,0.25)", borderRadius: "var(--radius-full)", color: "var(--red)", fontSize: 13, marginBottom: 20 }}>
-              {error}
-            </div>
+            <div className="mb-5 rounded-md bg-destructive/10 p-3.5 text-[13px] text-destructive ring-1 ring-inset ring-destructive/20">{error}</div>
           )}
           {info && !error && (
-            <div style={{ padding: "12px 16px", backgroundColor: "rgba(255,214,0,0.08)", border: "1px solid rgba(255,214,0,0.25)", borderRadius: "var(--radius-full)", color: "var(--accent)", fontSize: 13, marginBottom: 20 }}>
-              {info}
-            </div>
+            <div className="mb-5 rounded-md bg-primary/10 p-3.5 text-[13px] text-primary ring-1 ring-inset ring-primary/25">{info}</div>
           )}
 
           {otpStep ? (
-            <form onSubmit={handleVerifyAndRegister} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ padding: "14px 16px", backgroundColor: "rgba(255,214,0,0.06)", border: "1px solid rgba(255,214,0,0.2)", borderRadius: "var(--radius-full)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <Mail size={16} color="var(--accent)" />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Check your email</span>
+            <form onSubmit={handleVerifyAndRegister} className="flex flex-col gap-4">
+              <div className="rounded-md bg-primary/8 p-4 ring-1 ring-inset ring-primary/20">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <Mail size={16} className="text-primary" />
+                  <span className="text-[12px] font-semibold tracking-wide text-primary uppercase">Check your email</span>
                 </div>
-                <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>We sent a 6-digit code to <strong style={{ color: "var(--text-primary)" }}>{email}</strong>. It expires in 2 minutes.</p>
+                <p className="text-[13px] leading-relaxed text-muted-foreground">We sent a 6-digit code to <strong className="text-foreground">{email}</strong>. It expires in 2 minutes.</p>
               </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>Verification code</label>
-                <div style={{ position: "relative" }}>
-                  <KeyRound size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                  <input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} className="input-base" style={{ paddingInlineStart: 40, letterSpacing: "0.5em", fontFamily: "monospace", fontSize: 18 }} placeholder="000000" required autoFocus />
+              <div className="space-y-1.5">
+                <Label htmlFor="otp" className="text-[12px] font-semibold tracking-wide text-muted-foreground uppercase">Verification code</Label>
+                <div className="relative">
+                  <KeyRound size={16} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="otp" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} className="ps-10 font-mono text-[18px] tracking-[0.5em]" placeholder="000000" required autoFocus />
                 </div>
               </div>
-              <button type="submit" disabled={isLoading || otp.length !== 6} className="btn-accent" style={{ marginTop: 4, padding: "13px", fontSize: 14 }}>
+              <Button type="submit" size="lg" disabled={isLoading || otp.length !== 6} className="mt-1 w-full">
                 {isLoading ? t("creating_account") : "Verify & create account"}
-              </button>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-                <button type="button" onClick={() => { setOtpStep(false); setOtp(""); setInfo(""); }} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 0 }}>← Back</button>
-                <button type="button" onClick={handleResendOtp} disabled={resendCooldown > 0 || isLoading} style={{ background: "none", border: "none", color: resendCooldown > 0 ? "var(--text-muted)" : "var(--accent)", cursor: resendCooldown > 0 ? "default" : "pointer", padding: 0, fontWeight: 600 }}>
+              </Button>
+              <div className="flex items-center justify-between text-[13px]">
+                <button type="button" onClick={() => { setOtpStep(false); setOtp(""); setInfo(""); }} className="text-muted-foreground transition-colors hover:text-foreground">← Back</button>
+                <button type="button" onClick={handleResendOtp} disabled={resendCooldown > 0 || isLoading} className={cn("font-semibold", resendCooldown > 0 ? "text-muted-foreground" : "text-primary")}>
                   {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
                 </button>
               </div>
             </form>
           ) : (
-          <form onSubmit={handleContinueToOtp} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("full_name")}</label>
-              <div style={{ position: "relative" }}>
-                <User size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-base" style={{ paddingInlineStart: 40 }} placeholder={lang === "ar" ? "اسمك بالكامل" : "John Doe"} required />
-              </div>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("email_label")}</label>
-              <div style={{ position: "relative" }}>
-                <Mail size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-base" style={{ paddingInlineStart: 40 }} placeholder="you@example.com" required />
-              </div>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("password_label")}</label>
-              <div style={{ position: "relative" }}>
-                <Lock size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="input-base" style={{ paddingInlineStart: 40, paddingInlineEnd: 44, borderColor: password && password.length < 8 ? "var(--red)" : undefined }} placeholder={t("min_chars")} required />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", insetInlineEnd: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}>
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
-                {[
-                  { ok: password.length >= 8, label: lang === "ar" ? "٨ أحرف على الأقل" : "At least 8 characters" },
-                  { ok: /[A-Z]/.test(password), label: lang === "ar" ? "حرف كبير واحد على الأقل" : "At least one uppercase letter" },
-                  { ok: /[0-9]/.test(password), label: lang === "ar" ? "رقم واحد على الأقل" : "At least one number" },
-                  { ok: /[^A-Za-z0-9]/.test(password), label: lang === "ar" ? "رمز خاص واحد على الأقل" : "At least one special character" },
-                ].map((rule) => (
-                  <p key={rule.label} style={{ fontSize: 11, color: !password ? "var(--text-muted)" : rule.ok ? "var(--accent)" : "var(--red)", display: "flex", alignItems: "center", gap: 4 }}>
-                    {!password ? "○" : rule.ok ? "✓" : "✗"} {rule.label}
-                  </p>
-                ))}
-              </div>
-            </div>
-            {/* Security Question */}
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("security_question_label")}</label>
-              <div style={{ position: "relative" }}>
-                <ShieldQuestion size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
-                <select value={securityQuestion} onChange={(e) => setSecurityQuestion(e.target.value)} className="input-base" style={{ paddingInlineStart: 40, cursor: "pointer" }} required>
-                  <option value="">{t("security_question_pick")}</option>
-                  {SECURITY_QUESTIONS.map((q) => (
-                    <option key={q} value={q}>{securityQuestionLabels[q] || q}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {securityQuestion && (
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.05em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>{t("your_answer")}</label>
-                <div style={{ position: "relative" }}>
-                  <Lock size={15} style={{ position: "absolute", insetInlineStart: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                  <input type="text" value={securityAnswer} onChange={(e) => setSecurityAnswer(e.target.value)} className="input-base" style={{ paddingInlineStart: 40 }} placeholder={t("security_answer_placeholder")} required />
+            <form onSubmit={handleContinueToOtp} className="flex flex-col gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="reg-name" className="text-[12px] font-semibold tracking-wide text-muted-foreground uppercase">{t("full_name")}</Label>
+                <div className="relative">
+                  <User size={16} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="reg-name" type="text" value={name} onChange={(e) => setName(e.target.value)} className="ps-10" placeholder={lang === "ar" ? "اسمك بالكامل" : "John Doe"} required />
                 </div>
               </div>
-            )}
-            <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              {t("agree_terms")}{" "}
-              <a href="#" style={{ color: "var(--accent)", textDecoration: "none" }}>{t("terms")}</a> and{" "}
-              <a href="#" style={{ color: "var(--accent)", textDecoration: "none" }}>{t("privacy_policy")}</a>.
-            </p>
-            <button type="submit" disabled={isLoading} className="btn-accent" style={{ marginTop: 4, padding: "13px", fontSize: 14 }}>
-              {isLoading ? "Sending code..." : "Continue"}
-            </button>
+              <div className="space-y-1.5">
+                <Label htmlFor="reg-email" className="text-[12px] font-semibold tracking-wide text-muted-foreground uppercase">{t("email_label")}</Label>
+                <div className="relative">
+                  <Mail size={16} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="reg-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="ps-10" placeholder="you@example.com" required />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="reg-password" className="text-[12px] font-semibold tracking-wide text-muted-foreground uppercase">{t("password_label")}</Label>
+                <div className="relative">
+                  <Lock size={16} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="reg-password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} className="ps-10 pe-11" placeholder={t("min_chars")} required aria-invalid={!!password && password.length < 8} />
+                  <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(!showPassword)} className="absolute end-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:text-foreground">
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-col gap-1">
+                  {[
+                    { ok: password.length >= 8, label: lang === "ar" ? "٨ أحرف على الأقل" : "At least 8 characters" },
+                    { ok: /[A-Z]/.test(password), label: lang === "ar" ? "حرف كبير واحد على الأقل" : "At least one uppercase letter" },
+                    { ok: /[0-9]/.test(password), label: lang === "ar" ? "رقم واحد على الأقل" : "At least one number" },
+                    { ok: /[^A-Za-z0-9]/.test(password), label: lang === "ar" ? "رمز خاص واحد على الأقل" : "At least one special character" },
+                  ].map((rule) => (
+                    <p key={rule.label} className="flex items-center gap-1.5 text-[11px]" style={{ color: !password ? "var(--text-muted)" : rule.ok ? "var(--green)" : "var(--red)" }}>
+                      {!password ? "○" : rule.ok ? "✓" : "✗"} {rule.label}
+                    </p>
+                  ))}
+                </div>
+              </div>
+              {/* Security Question */}
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-semibold tracking-wide text-muted-foreground uppercase">{t("security_question_label")}</Label>
+                <Select value={securityQuestion} onValueChange={setSecurityQuestion} required>
+                  <SelectTrigger className="w-full">
+                    <span className="flex items-center gap-2.5 truncate">
+                      <ShieldQuestion size={16} className="shrink-0 text-muted-foreground" />
+                      <SelectValue placeholder={t("security_question_pick")} />
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SECURITY_QUESTIONS.map((q) => (
+                      <SelectItem key={q} value={q}>{securityQuestionLabels[q] || q}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {securityQuestion && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="reg-answer" className="text-[12px] font-semibold tracking-wide text-muted-foreground uppercase">{t("your_answer")}</Label>
+                  <div className="relative">
+                    <Lock size={16} className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="reg-answer" type="text" value={securityAnswer} onChange={(e) => setSecurityAnswer(e.target.value)} className="ps-10" placeholder={t("security_answer_placeholder")} required />
+                  </div>
+                </div>
+              )}
+              <p className="text-[12px] text-muted-foreground">
+                {t("agree_terms")}{" "}
+                <a href="#" className="font-medium text-primary no-underline">{t("terms")}</a> and{" "}
+                <a href="#" className="font-medium text-primary no-underline">{t("privacy_policy")}</a>.
+              </p>
+              <Button type="submit" size="lg" disabled={isLoading} className="mt-1 w-full">
+                {isLoading ? "Sending code..." : "Continue"}
+              </Button>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
-              <div style={{ flex: 1, height: 1, backgroundColor: "var(--border)" }} />
-              <span style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{t("or")}</span>
-              <div style={{ flex: 1, height: 1, backgroundColor: "var(--border)" }} />
-            </div>
+              <div className="mt-1 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[12px] tracking-wide text-muted-foreground uppercase">{t("or")}</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
 
-            <button
-              type="button"
-              className="input-base"
-              onClick={() => startSocialSignup("google")}
-              style={{ padding: "12px", fontSize: 14, fontWeight: 600, cursor: "pointer", backgroundColor: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-            >
-              <Chrome size={16} />
-              {t("sign_up_google")}
-            </button>
-          </form>
+              <Button type="button" variant="outline" size="lg" className="w-full gap-2" onClick={() => startSocialSignup("google")}>
+                <Chrome size={16} />
+                {t("sign_up_google")}
+              </Button>
+            </form>
           )}
 
-          <p style={{ marginTop: 28, textAlign: "center", fontSize: 14, color: "var(--text-secondary)" }}>
+          <p className="mt-7 text-center text-[14px] text-muted-foreground">
             {t("have_account")}{" "}
-            <Link to="/auth/login" style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}>{t("sign_in_link")}</Link>
+            <Link to="/auth/login" className="font-semibold text-primary no-underline">{t("sign_in_link")}</Link>
           </p>
         </div>
       </div>
