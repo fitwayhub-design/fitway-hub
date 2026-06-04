@@ -79,6 +79,7 @@ export default function Community() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
+  const [postErr, setPostErr] = useState("");
   const [showComposer, setShowComposer] = useState(false);
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
   const [newChallenge, setNewChallenge] = useState({ title: "", description: "", startDate: "", endDate: "" });
@@ -139,19 +140,26 @@ export default function Community() {
   const createPost = async () => {
     if (!newPostContent.trim() && !selectedFile) return;
     setIsPosting(true);
+    setPostErr("");
     try {
+      let r: Response;
       if (selectedFile) {
         const fd = new FormData();
         fd.append("media", selectedFile);
         fd.append("content", newPostContent);
         fd.append("hashtags", newPostHashtags);
-        await fetch(getApiBase() + "/api/community/posts", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+        r = await fetch(getApiBase() + "/api/community/posts", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
       } else {
-        await fetch(getApiBase() + "/api/community/posts", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ content: newPostContent, hashtags: newPostHashtags }) });
+        r = await fetch(getApiBase() + "/api/community/posts", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ content: newPostContent, hashtags: newPostHashtags }) });
       }
-      setNewPostContent(""); setNewPostHashtags(""); setSelectedFile(null); setFilePreview(null); setShowComposer(false);
-      fetchPosts(activeTag);
-    } catch {}
+      if (r.ok) {
+        setNewPostContent(""); setNewPostHashtags(""); setSelectedFile(null); setFilePreview(null); setShowComposer(false);
+        fetchPosts(activeTag);
+      } else {
+        const d = await r.json().catch(() => ({}));
+        setPostErr(d.message || "Couldn't post.");
+      }
+    } catch { setPostErr("Couldn't post."); }
     setIsPosting(false);
   };
 
@@ -182,9 +190,14 @@ export default function Community() {
     const content = commentInputs[postId];
     if (!content?.trim()) return;
     try {
-      await fetch(getApiBase() + `/api/community/posts/${postId}/comments`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ content }) });
-      setCommentInputs(prev => ({ ...prev, [postId]: "" }));
-      fetchPosts(activeTag);
+      const r = await fetch(getApiBase() + `/api/community/posts/${postId}/comments`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ content }) });
+      if (r.ok) {
+        setCommentInputs(prev => ({ ...prev, [postId]: "" }));
+        fetchPosts(activeTag);
+      } else {
+        const d = await r.json().catch(() => ({}));
+        alert(d.message || "Couldn't post comment.");
+      }
     } catch {}
   };
 
@@ -433,6 +446,7 @@ export default function Community() {
                     {isPosting ? "Posting…" : <><Send size={13} strokeWidth={2} /> Post</>}
                   </Button>
                 </div>
+                {postErr && <p className="mt-2 text-[12px] text-[var(--red)]">{postErr}</p>}
               </>
             )}
           </Card>

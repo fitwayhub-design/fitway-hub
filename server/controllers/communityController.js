@@ -133,6 +133,8 @@ export const createChallenge = async (req, res) => {
         const imageUrl = imgFiles && imgFiles.length > 0 ? await uploadToR2(imgFiles[0], 'community') : null;
         if (!title)
             return res.status(400).json({ message: 'Title is required' });
+        if (containsContactInfo(title) || containsContactInfo(description))
+            return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
         const { insertId } = await run('INSERT INTO challenges (creator_id, title, description, start_date, end_date, image_url) VALUES (?, ?, ?, ?, ?, ?)', [userId, title, description, startDate, endDate, imageUrl]);
         await run('INSERT INTO challenge_participants (challenge_id, user_id) VALUES (?, ?)', [insertId, userId]);
         const newChallenge = await get(`SELECT c.*, u.name as creator_name, u.avatar as creator_avatar, (SELECT COUNT(*) FROM challenge_participants WHERE challenge_id = c.id) as participant_count FROM challenges c LEFT JOIN users u ON c.creator_id = u.id WHERE c.id = ?`, [insertId]);
