@@ -60,5 +60,21 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Permission prompts. iOS terminates the app if a permission-gated API is
+	     used without a matching usage description, so these are required for the
+	     features below to work and for App Store review. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>FitWayHub uses your location to track your walks and runs and to set your location on your profile.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>FitWayHub needs camera access so you can take profile and progress photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FitWayHub needs photo library access so you can upload profile, progress and community photos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>FitWayHub saves photos to your library when you choose to.</string>
+	<!-- Allow remote (push) notifications to be delivered while backgrounded. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
