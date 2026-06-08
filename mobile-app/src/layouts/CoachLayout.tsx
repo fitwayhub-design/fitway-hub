@@ -102,7 +102,7 @@ function CoachPaywall({ onPay }: { onPay: () => void }) {
           <CreditCard size={17} /> Choose Payment Method
         </button>
         <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 14, lineHeight: 1.6 }}>
-          💳 <strong>PayPal / Card</strong> = instant activation &nbsp;·&nbsp; 📱 <strong>E-Wallet</strong> = pending admin review
+          📱 <strong>E-Wallet</strong> = reviewed by admin &nbsp;·&nbsp; 🍎/▶️ <strong>In-App Purchase</strong> = instant in the mobile app
         </p>
       </div>
     </div>
@@ -138,7 +138,7 @@ function CoachPaymentModal({ onClose, onSuccess }: { onClose: () => void; onSucc
         </div>
 
         <div style={{ padding: "10px 14px", backgroundColor: "rgba(255,179,64,0.07)", border: "1px solid rgba(255,179,64,0.2)", borderRadius: "var(--radius-full)", marginBottom: 18, fontSize: 12, color: "var(--amber)" }}>
-          ⚡ <strong>PayPal</strong> = instant activation &nbsp;|&nbsp; 📱 <strong>E-Wallet</strong> = admin must approve before you get access
+          📱 <strong>E-Wallet</strong> = admin must approve before you get access &nbsp;|&nbsp; 🍎/▶️ <strong>In-App Purchase</strong> = instant in the mobile app
         </div>
 
         <PaymentForm
