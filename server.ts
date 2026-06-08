@@ -22,6 +22,7 @@ import healthRoutes from './server/routes/healthRoutes.js';
 import aiRoutes from './server/routes/aiRoutes.js';
 import chatRoutes from './server/routes/chatRoutes.js';
 import communityRoutes from './server/routes/communityRoutes.js';
+import challengeRoutes from './server/routes/challengeRoutes.js';
 import stepsRoutes from './server/routes/stepsRoutes.js';
 import trackRoutes from './server/routes/trackRoutes.js';
 import analyticsRoutes from './server/routes/analyticsRoutes.js';
@@ -313,6 +314,7 @@ async function startServer() {
   app.use('/api/ai', aiRoutes);
   app.use('/api/chat', chatRoutes);
   app.use('/api/community', communityRoutes);
+  app.use('/api/challenges', challengeRoutes);
   app.use('/api/track', trackRoutes);
   app.use('/api/analytics', analyticsRoutes);
   app.use('/api/coaching', coachingRoutes);
