@@ -89,3 +89,56 @@ Remaining manual steps for push (Apple-side, can't be scripted):
    your push provider.
 3. Xcode flips `aps-environment` to `production` automatically for release
    builds.
+
+### Native push notifications setup (the one step nobody but the Firebase owner can do)
+
+In-app notifications (the bell icon, the notifications page) and **web** push
+already work with no extra setup. **Native OS push** (the banner that pops up on
+your phone when the app is closed) additionally needs Firebase's per-app config
+file, which is tied to your Firebase account and can't be generated from code.
+
+The plumbing is already done: the app uses `@capacitor/push-notifications`, the
+manifests/entitlements are in place, and CI will switch native push on
+automatically once the config below is provided. You only supply the file(s):
+
+**Android (required for Android push):**
+
+1. Go to the [Firebase console](https://console.firebase.google.com/) → project
+   **fitwayhubpn** → *Project settings* (gear icon) → *Your apps*.
+2. If there's no Android app, click *Add app → Android* and use the package name
+   **`com.peetrix.fitwayhub`** (anything else won't match the build).
+3. Download the generated **`google-services.json`**.
+4. Add it to the build one of two ways:
+   - **Recommended (CI):** in GitHub → repo *Settings → Secrets and variables →
+     Actions → New repository secret*, name it
+     **`ANDROID_GOOGLE_SERVICES_JSON`**, and paste the whole file contents. The
+     next build turns native push on by itself.
+   - **Local build:** drop the file at
+     `mobile-app/android/app/google-services.json` and build with
+     `VITE_ENABLE_NATIVE_PUSH=true`.
+
+**iOS (required for iOS push):**
+
+1. Same console → add/select an **iOS** app with bundle id
+   **`com.peetrix.fitwayhub`**, download **`GoogleService-Info.plist`**.
+2. Either add a GitHub secret **`IOS_GOOGLE_SERVICE_INFO_PLIST`** with the file
+   contents (CI writes it automatically), or place it at
+   `mobile-app/ios/App/App/GoogleService-Info.plist` for a local build. iOS push
+   also needs the APNs key from the Apple steps above.
+
+Both config files are gitignored on purpose so they're never committed — CI
+injects them from the secrets at build time.
+
+## Step / GPS activity tracker
+
+The Activity page has two modes:
+
+- **Manual entry** — type steps/distance; always available, no permissions.
+- **GPS Track** — live route + distance + calories. Tapping **Start Live
+  Tracking** triggers the native location permission dialog (via
+  `@capacitor/geolocation`). The permission then appears under *Settings → Apps →
+  FitWayHub → Permissions → Location*. The map only asks for location when you
+  press Start, not when you open the tab.
+
+All location access goes through `src/lib/geo.ts`, which uses the native
+Capacitor plugin on device and the browser API on the web.

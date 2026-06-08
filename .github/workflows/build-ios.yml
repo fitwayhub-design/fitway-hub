@@ -56,6 +56,7 @@ jobs:
         env:
           CAPACITOR_BUILD: 'true'
           VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+          VITE_ENABLE_NATIVE_PUSH: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_PLIST != '' }}
 
       - name: Add iOS platform if missing
         run: |
@@ -65,6 +66,18 @@ jobs:
 
       - name: Sync Capacitor
         run: npx cap sync ios
+
+      # Write Firebase iOS config so FCM push works. No-op without secret.
+      - name: Configure Firebase (iOS)
+        env:
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            printf '%s' "$GOOGLE_SERVICE_INFO_PLIST" > ios/App/App/GoogleService-Info.plist
+            echo "Wrote ios/App/App/GoogleService-Info.plist (native push enabled)."
+          else
+            echo "IOS_GOOGLE_SERVICE_INFO_PLIST secret not set — native push disabled."
+          fi
 
       - name: Install CocoaPods
         working-directory: mobile-app/ios/App

@@ -1,15 +1,11 @@
 import { getApiBase } from "@/lib/api";
 import React, { useState, useEffect, useRef } from "react";
-import { Smartphone, CheckCircle, Upload, X, AlertCircle, ShieldCheck } from "lucide-react";
+import { Smartphone, CheckCircle, Upload, X, ShieldCheck } from "lucide-react";
 import { detectPlatform, isNativeApp } from "@/lib/iap";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-declare global {
-  interface Window { paypal?: any; }
-}
 
 interface PaymentFormProps {
   amount: number;
@@ -26,8 +22,11 @@ interface PaymentFormProps {
 }
 
 // ── Main PaymentForm ─────────────────────────────────────────────────────────
-export default function PaymentForm({ amount, plan, type, token, onSuccess, onError, coachId, coachName, packageId }: PaymentFormProps) {
-  type Method = "paypal" | "ewallet" | "apple_iap" | "google_iap";
+// Payment methods: manual E-Wallet (Vodafone / Orange / WE Pay, reviewed by an
+// admin) and Apple / Google in-app purchase. PayPal was removed — the platform
+// settles in EGP, which PayPal does not support.
+export default function PaymentForm({ amount, plan, type, token, onSuccess, onError, coachId, packageId }: PaymentFormProps) {
+  type Method = "ewallet" | "apple_iap" | "google_iap";
   const platform = detectPlatform();
   const native = isNativeApp();
 
@@ -35,9 +34,7 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
   const defaultMethod: Method = coachId ? "ewallet" : (platform === "ios" ? "apple_iap" : platform === "android" ? "google_iap" : "ewallet");
   const [method, setMethod] = useState<Method>(defaultMethod);
 
-  const [paypalClientId, setPaypalClientId] = useState<string | null>(null);
   const [ewalletPhones, setEwalletPhones] = useState<Record<string, string>>({ vodafone: "", orange: "", we: "" });
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const [walletType, setWalletType] = useState<"vodafone" | "orange" | "we">("vodafone");
   const [senderNumber, setSenderNumber] = useState("");
@@ -48,29 +45,20 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
   const [ewalletSuccess, setEwalletSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const paypalContainerRef = useRef<HTMLDivElement>(null);
-  const paypalRendered = useRef(false);
-  const loadedClientId = useRef<string | null>(null);
-
   const [iapProcessing, setIapProcessing] = useState(false);
   const [iapError, setIapError] = useState("");
 
   const [enabledMethods, setEnabledMethods] = useState<Record<string, boolean>>({
     pm_orange_cash: true, pm_vodafone_cash: true, pm_we_pay: true,
-    pm_paypal: true, pm_credit_card: false, pm_google_pay: true, pm_apple_pay: true,
+    pm_google_pay: true, pm_apple_pay: true,
   });
-
-  const api = (path: string, opts?: RequestInit) =>
-    fetch(getApiBase() + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
 
   // ── Load configs ────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch(getApiBase() + "/api/payments/public-settings")
-      .then(r => r.json())
+      .then((r): any => (r.ok ? r.json() : {}))
       .then(data => {
         const s = data.settings || {};
-        const clientIdKey = type === "coach" ? "paypal_coach_client_id" : "paypal_user_client_id";
-        if (s[clientIdKey]) setPaypalClientId(s[clientIdKey]);
         setEwalletPhones({
           vodafone: s.ewallet_phone_vodafone || s.ewallet_phone || "",
           orange: s.ewallet_phone_orange || s.ewallet_phone || "",
@@ -78,7 +66,7 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
         });
         // Load payment method toggles
         const pm: Record<string, boolean> = {};
-        for (const k of ['pm_orange_cash', 'pm_vodafone_cash', 'pm_we_pay', 'pm_paypal', 'pm_credit_card', 'pm_google_pay', 'pm_apple_pay']) {
+        for (const k of ['pm_orange_cash', 'pm_vodafone_cash', 'pm_we_pay', 'pm_google_pay', 'pm_apple_pay']) {
           pm[k] = s[k] !== '0'; // default is enabled unless explicitly "0"
         }
         setEnabledMethods(pm);
@@ -87,7 +75,6 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
         const ewalletOn = pm.pm_vodafone_cash || pm.pm_orange_cash || pm.pm_we_pay;
         const methodAvail: [Method, boolean][] = [
           ["ewallet", ewalletOn],
-          ["paypal", pm.pm_paypal],
           ["apple_iap", pm.pm_apple_pay && !coachId && (platform === "ios" || !native)],
           ["google_iap", pm.pm_google_pay && !coachId && (platform === "android" || !native)],
         ];
@@ -105,59 +92,9 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
         if (walletAvail.length && !walletAvail.includes(walletType)) {
           setWalletType(walletAvail[0]);
         }
-
-        setSettingsLoaded(true);
       })
-      .catch(() => setSettingsLoaded(true));
+      .catch(() => { /* keep defaults */ });
   }, [type]);
-
-  // ── PayPal rendering ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (method !== "paypal" || !paypalClientId || !settingsLoaded) return;
-    if (paypalRendered.current && loadedClientId.current === paypalClientId) return;
-
-    const renderButtons = () => {
-      if (!window.paypal || !paypalContainerRef.current) { setTimeout(renderButtons, 200); return; }
-      paypalContainerRef.current.innerHTML = "";
-      paypalRendered.current = false;
-      loadedClientId.current = paypalClientId;
-      paypalRendered.current = true;
-      window.paypal.Buttons({
-        style: { layout: "vertical", color: "gold", shape: "rect", label: "pay", height: 45 },
-        createOrder: async () => {
-          const res = await api("/api/payments/paypal/create-order", { method: "POST", body: JSON.stringify({ amount: amount.toFixed(2), plan, type, coachId, coachName }) });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message || "Failed to create order");
-          return data.id;
-        },
-        onApprove: async (data: any) => {
-          const res = await api("/api/payments/paypal/capture-order", { method: "POST", body: JSON.stringify({ orderId: data.orderID, plan, type, amount, coachId }) });
-          const result = await res.json();
-          if (!res.ok) { onError?.(result.message || "Capture failed"); return; }
-          onSuccess();
-        },
-        onError: () => { onError?.("PayPal encountered an error. Please try another method."); },
-        onCancel: () => { onError?.("Payment was cancelled."); },
-      }).render(paypalContainerRef.current);
-    };
-
-    const existingScript = document.querySelector(`script[src*="paypal.com/sdk"]`);
-    if (existingScript && !existingScript.getAttribute("src")?.includes(paypalClientId)) {
-      existingScript.remove();
-      (window as any).paypal = undefined;
-      paypalRendered.current = false;
-    }
-
-    if (!document.querySelector(`script[src*="${paypalClientId}"]`)) {
-      const script = document.createElement("script");
-      script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=USD`;
-      script.async = true;
-      script.onload = renderButtons;
-      document.head.appendChild(script);
-    } else {
-      renderButtons();
-    }
-  }, [method, paypalClientId, settingsLoaded, amount]);
 
   // ── Apple / Google IAP ──────────────────────────────────────────────────────
   const handleIAPPurchase = async () => {
@@ -166,7 +103,7 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
     try {
       const Capacitor = (window as any).Capacitor;
       if (!Capacitor?.isNativePlatform?.()) {
-        setIapError(`In-app purchases are only available in the mobile app. Please use E-Wallet or PayPal on web.`);
+        setIapError(`In-app purchases are only available in the mobile app. Please use E-Wallet on web.`);
         return;
       }
       setIapError(`To complete your purchase, please use the FitWay Hub mobile app from the ${platform === "ios" ? "App Store" : "Google Play Store"}.`);
@@ -251,7 +188,7 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
   const methodBtn = (m: Method, icon: React.ReactNode, label: string, sublabel?: string) => (
     <button
       type="button"
-      onClick={() => { setMethod(m); paypalRendered.current = false; }}
+      onClick={() => { setMethod(m); }}
       aria-pressed={method === m}
       className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-md px-1.5 py-2.5 text-[11px] font-semibold transition-all active:scale-[0.97] ${
         method === m
@@ -275,10 +212,6 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
             <Smartphone size={18} strokeWidth={2} />,
             "E-Wallet"
           )}
-          {enabledMethods.pm_paypal && methodBtn("paypal",
-            <img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.jpg" alt="PayPal" className="h-[18px] rounded-sm" />,
-            "PayPal"
-          )}
           {enabledMethods.pm_apple_pay && !coachId && (platform === "ios" || !native) && methodBtn("apple_iap",
             <span className="text-[18px]">🍎</span>,
             "Apple Pay",
@@ -291,28 +224,6 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
           )}
         </div>
       </div>
-
-      {/* ── PayPal ─────────────────────────────────────────────────────── */}
-      {method === "paypal" && (
-        <div>
-          {!settingsLoaded ? (
-            <div className="px-4 py-6 text-center text-[13px] text-muted-foreground">Loading payment options…</div>
-          ) : !paypalClientId ? (
-            <div className="flex items-start gap-3 rounded-md bg-[color-mix(in_srgb,var(--amber)_10%,transparent)] px-[18px] py-4">
-              <AlertCircle size={20} strokeWidth={2} className="mt-px shrink-0 text-[var(--amber)]" />
-              <div>
-                <p className="mb-1 text-[14px] font-semibold text-[var(--amber)]">PayPal Not Configured</p>
-                <p className="text-[13px] text-muted-foreground">Please use another payment method.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <p className="mb-3.5 text-center text-[13px] text-muted-foreground">You'll be redirected to PayPal to complete your payment securely.</p>
-              <div ref={paypalContainerRef} style={{ minHeight: 50 }} />
-            </>
-          )}
-        </div>
-      )}
 
       {/* ── E-Wallet ───────────────────────────────────────────────────── */}
       {method === "ewallet" && (

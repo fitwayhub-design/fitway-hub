@@ -76,6 +76,10 @@ jobs:
         env:
           CAPACITOR_BUILD: 'true'
           VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+          # Enable native push automatically when the Firebase Android config
+          # secret is configured. (Only the presence of the secret is read here,
+          # not its contents.)
+          VITE_ENABLE_NATIVE_PUSH: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON != '' }}
 
       - name: Add Android platform if missing
         run: |
@@ -85,6 +89,19 @@ jobs:
 
       - name: Sync Capacitor
         run: npx cap sync android
+
+      # Write the Firebase config so FCM push works in the built APK. No-op when
+      # the secret isn't set (native push simply stays disabled — see README).
+      - name: Configure Firebase (Android)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            echo "Wrote android/app/google-services.json (native push enabled)."
+          else
+            echo "ANDROID_GOOGLE_SERVICES_JSON secret not set — native push disabled."
+          fi
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -126,6 +143,9 @@ jobs:
         env:
           CAPACITOR_BUILD: 'true'
           VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+          # Enable native push automatically when the Firebase iOS config secret
+          # is configured. (Only the presence of the secret is read here.)
+          VITE_ENABLE_NATIVE_PUSH: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_PLIST != '' }}
 
       - name: Add iOS platform if missing
         run: |
@@ -148,6 +168,19 @@ jobs:
             npx cap add ios
           fi
           npx cap sync ios
+
+      # Write the Firebase iOS config so FCM push works in the built app. No-op
+      # when the secret isn't set (native push simply stays disabled).
+      - name: Configure Firebase (iOS)
+        env:
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            printf '%s' "$GOOGLE_SERVICE_INFO_PLIST" > ios/App/App/GoogleService-Info.plist
+            echo "Wrote ios/App/App/GoogleService-Info.plist (native push enabled)."
+          else
+            echo "IOS_GOOGLE_SERVICE_INFO_PLIST secret not set — native push disabled."
+          fi
 
       - name: Install CocoaPods
         working-directory: mobile-app/ios/App

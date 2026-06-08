@@ -43,6 +43,7 @@ jobs:
         env:
           CAPACITOR_BUILD: 'true'
           VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+          VITE_ENABLE_NATIVE_PUSH: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON != '' }}
 
       - name: Add Android platform if missing
         run: |
@@ -52,6 +53,18 @@ jobs:
 
       - name: Sync Capacitor
         run: npx cap sync android
+
+      # Write Firebase config so FCM push works in the APK. No-op without secret.
+      - name: Configure Firebase (Android)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            echo "Wrote android/app/google-services.json (native push enabled)."
+          else
+            echo "ANDROID_GOOGLE_SERVICES_JSON secret not set — native push disabled."
+          fi
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
