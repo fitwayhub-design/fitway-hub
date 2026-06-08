@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { MapPin, ShieldCheck } from "lucide-react";
 import { getApiBase } from "@/lib/api";
+import { getCurrentPosition } from "@/lib/geo";
 import {
   Dialog,
   DialogContent,
@@ -26,38 +27,36 @@ interface Props {
 export default function LocationPermissionModal({ token, onDismiss }: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "denied">("idle");
 
-  const requestLocation = () => {
-    if (!navigator.geolocation) { setStatus("denied"); return; }
+  const requestLocation = async () => {
     setStatus("loading");
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        try {
-          // Reverse geocode with a free API
-          const geo = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-            { headers: { "Accept-Language": "en" } }
-          ).then(r => r.json()).catch(() => ({}));
+    try {
+      // Triggers the native OS permission dialog on device (Capacitor plugin),
+      // or the browser's inline prompt on web.
+      const pos = await getCurrentPosition({ timeout: 15000, enableHighAccuracy: true, maximumAge: 0 });
+      const { latitude, longitude } = pos.coords;
+      try {
+        // Reverse geocode with a free API
+        const geo = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+          { headers: { "Accept-Language": "en" } }
+        ).then((r): any => (r.ok ? r.json() : {})).catch(() => ({}));
 
-          const city    = geo?.address?.city || geo?.address?.town || geo?.address?.village || "";
-          const country = geo?.address?.country || "";
+        const city    = geo?.address?.city || geo?.address?.town || geo?.address?.village || "";
+        const country = geo?.address?.country || "";
 
-          await fetch(`${getApiBase()}/api/user/location`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ latitude, longitude, city, country }),
-          });
-        } catch {}
-        localStorage.setItem(LOCATION_ASKED_KEY, String(Date.now()));
-        setStatus("done");
-        setTimeout(onDismiss, 1200);
-      },
-      () => {
-        localStorage.setItem(LOCATION_ASKED_KEY, String(Date.now()));
-        setStatus("denied");
-      },
-      { timeout: 15000, enableHighAccuracy: true, maximumAge: 0 }
-    );
+        await fetch(`${getApiBase()}/api/user/location`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ latitude, longitude, city, country }),
+        });
+      } catch {}
+      localStorage.setItem(LOCATION_ASKED_KEY, String(Date.now()));
+      setStatus("done");
+      setTimeout(onDismiss, 1200);
+    } catch {
+      localStorage.setItem(LOCATION_ASKED_KEY, String(Date.now()));
+      setStatus("denied");
+    }
   };
 
   const dismiss = () => {

@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { MapPin, Crosshair, X, Check, Loader2, AlertCircle, MousePointerClick, Move } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getCurrentPosition } from "@/lib/geo";
 
 interface Props {
   lat: number | null;
@@ -174,39 +175,36 @@ export default function MapLocationPicker({ lat, lng, radius, onPick }: Props) {
   }, [lat, lng, placePinAt]);
 
   // ── Use browser location ──────────────────────────────────────────────────────
-  const useMyLocation = () => {
-    if (!navigator.geolocation) { setError("Geolocation not supported by your browser."); return; }
+  const useMyLocation = async () => {
     setGeoLoading(true);
     setError("");
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        placePinAt(latitude, longitude);
-        mapInst.current?.setView([latitude, longitude], 14, { animate: true });
+    try {
+      const pos = await getCurrentPosition({ timeout: 15000, enableHighAccuracy: true, maximumAge: 0 });
+      const { latitude, longitude } = pos.coords;
+      placePinAt(latitude, longitude);
+      mapInst.current?.setView([latitude, longitude], 14, { animate: true });
 
-        // Reverse geocode to get real city name
-        let city = nearestCity(latitude, longitude);
-        try {
-          const geo = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-            { headers: { "Accept-Language": "en" } }
-          ).then(r => r.json());
-          city = geo?.address?.city || geo?.address?.town || geo?.address?.village || geo?.address?.county || city;
-        } catch {}
+      // Reverse geocode to get real city name
+      let city = nearestCity(latitude, longitude);
+      try {
+        const geo = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+          { headers: { "Accept-Language": "en" } }
+        ).then((r): any => (r.ok ? r.json() : {}));
+        city = geo?.address?.city || geo?.address?.town || geo?.address?.village || geo?.address?.county || city;
+      } catch {}
 
-        onPickRef.current(latitude, longitude, city);
-        setGeoLoading(false);
-      },
-      (err) => {
-        const msg =
-          err.code === 1 ? "Location permission denied. Allow location access in your browser settings." :
-          err.code === 2 ? "Location unavailable. Try moving to an area with better signal." :
-          "Location request timed out. Try again.";
-        setError(msg);
-        setGeoLoading(false);
-      },
-      { timeout: 15000, enableHighAccuracy: true, maximumAge: 0 }
-    );
+      onPickRef.current(latitude, longitude, city);
+      setGeoLoading(false);
+    } catch (err: any) {
+      const code = err?.code;
+      const msg =
+        code === 1 ? "Location permission denied. Enable location access for FitWayHub in your device Settings." :
+        code === 2 ? "Location unavailable. Try moving to an area with better signal." :
+        "Location request timed out. Try again.";
+      setError(msg);
+      setGeoLoading(false);
+    }
   };
 
   return (

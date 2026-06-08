@@ -4,6 +4,21 @@ dist
 .env.local
 .env.*.local
 
+# ── Secrets & signing material — NEVER commit these ──────────────────────────
+# (a server .env with DB credentials was previously committed here by mistake;
+#  these patterns make sure no credential or signing key is tracked again.)
+*.env
+firebase-service-account.json
+google-services.json
+ios/App/App/GoogleService-Info.plist
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+*.cer
+*.certSigningRequest
+android/key.properties
+
 # Capacitor native projects are committed so external CI scripts that
 # expect android/ and ios/ to exist (e.g. zip-upload builders) work
 # without first running 'npx cap add'. Build artefacts inside them are

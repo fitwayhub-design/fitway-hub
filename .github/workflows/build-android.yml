@@ -1,11 +1,10 @@
 name: Build Android APK
 
+# Manual-only. Pushes to main are handled by the combined "Build mobile apps"
+# workflow (build.yml), which builds Android + iOS in one run. This standalone
+# workflow stays available via the Actions tab for on-demand Android-only
+# rebuilds without spending a macOS runner on iOS.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'mobile-app/**'
-      - '.github/workflows/build-android.yml'
   workflow_dispatch:
 
 jobs:

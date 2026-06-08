@@ -395,7 +395,6 @@ export default function App() {
                 <Route path="/admin/coach-reports" element={<AdminCoachReports />} />
                 <Route path="/admin/tickets" element={<AdminTickets />} />
                 <Route path="/admin/certifications" element={<Navigate to="/admin/coach-requests" replace />} />
-                <Route path="/admin/coaches" element={<Navigate to="/admin/coach-requests" replace />} />
                 <Route path="/admin/app-images" element={<AdminAppImages />} />
                 <Route path="/admin/challenges" element={<AdminChallenges />} />
                 <Route path="/admin/email-server" element={<AdminEmailServer />} />

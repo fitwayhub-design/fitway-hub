@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Crosshair, Check } from "lucide-react";
 import { getApiBase } from "@/lib/api";
+import { getCurrentPosition } from "@/lib/geo";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -99,17 +100,19 @@ export default function UserLocationPicker({ token, savedLat, savedCity, onSaved
     const t=setTimeout(initMap,50); return()=>clearTimeout(t);
   },[open]);
 
-  const useGPS = () => {
-    if(!navigator.geolocation) return;
+  const useGPS = async () => {
     setStatus("saving");
-    navigator.geolocation.getCurrentPosition(async(pos)=>{
-      const{latitude,longitude}=pos.coords;
-      placePin(latitude,longitude);
+    try {
+      const pos = await getCurrentPosition({ timeout: 15000, enableHighAccuracy: true });
+      const { latitude, longitude } = pos.coords;
+      placePin(latitude, longitude);
       setPinLat(latitude); setPinLng(longitude);
-      const city=nearestCity(latitude,longitude); setPinCity(city);
-      mapRef.current?.setView([latitude,longitude],13,{animate:true});
+      const city = nearestCity(latitude, longitude); setPinCity(city);
+      mapRef.current?.setView([latitude, longitude], 13, { animate: true });
       setStatus("idle");
-    },()=>setStatus("error"),{timeout:10000});
+    } catch {
+      setStatus("error");
+    }
   };
 
   const save = async () => {

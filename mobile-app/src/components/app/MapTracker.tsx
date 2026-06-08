@@ -14,6 +14,13 @@ import {
 import { Activity, Zap, MapPin, Timer, Play, Square, Loader2, AlertCircle, Footprints, PersonStanding } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  getCurrentPosition,
+  watchPosition,
+  requestLocationPermission,
+  checkLocationPermission,
+  type GeoWatchHandle,
+} from '@/lib/geo';
 
 interface Position { lat: number; lng: number; timestamp: number; accuracy?: number }
 
@@ -42,7 +49,7 @@ const MapTracker = React.forwardRef<
   const polylineRef = useRef<any>(null);
   const glowLineRef = useRef<any>(null);
   const startMarkerRef = useRef<any>(null);
-  const watchIdRef = useRef<number | null>(null);
+  const watchHandleRef = useRef<GeoWatchHandle | null>(null);
   const positionsRef = useRef<Position[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [running, setRunning] = useState(false);
@@ -128,16 +135,25 @@ const MapTracker = React.forwardRef<
     }
 
     const initWithLocation = (L: any) => {
-      if (navigator.geolocation) {
-        // Request with high accuracy to trigger the location permission prompt on Android/Capacitor
-        navigator.geolocation.getCurrentPosition(
-          (pos) => createMapInstance(L, pos.coords.latitude, pos.coords.longitude),
-          () => createMapInstance(L, 30.0444, 31.2357),
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 120000 }
-        );
-      } else {
-        createMapInstance(L, 30.0444, 31.2357);
-      }
+      // Centre on a sensible default first; only fetch the real location when
+      // the user has ALREADY granted permission. We deliberately do NOT prompt
+      // for location just because the GPS tab was opened — the OS permission
+      // dialog is only triggered when the user taps "Start Live Tracking".
+      createMapInstance(L, 30.0444, 31.2357);
+      checkLocationPermission()
+        .then((perm) => {
+          if (perm !== 'granted') return;
+          return getCurrentPosition({ enableHighAccuracy: true, timeout: 15000, maximumAge: 120000 })
+            .then((pos) => {
+              if (!mapInstanceRef.current) return;
+              try {
+                mapInstanceRef.current.setView([pos.coords.latitude, pos.coords.longitude], 17);
+                if (markerRef.current) markerRef.current.setLatLng([pos.coords.latitude, pos.coords.longitude]);
+              } catch { /* map may have been torn down */ }
+            })
+            .catch(() => { /* keep default centre */ });
+        })
+        .catch(() => { /* keep default centre */ });
     };
 
     if ((window as any).L) {
@@ -159,7 +175,7 @@ const MapTracker = React.forwardRef<
     }
 
     return () => {
-      if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current);
+      if (watchHandleRef.current) { watchHandleRef.current.clear(); watchHandleRef.current = null; }
       if (timerRef.current) clearInterval(timerRef.current);
       if (accelPollRef.current) clearInterval(accelPollRef.current);
       if (accelCleanupRef.current) { accelCleanupRef.current(); accelCleanupRef.current = null; }
@@ -177,18 +193,22 @@ const MapTracker = React.forwardRef<
   };
 
   const start = async () => {
-    if (!('geolocation' in navigator)) { setMapError('Geolocation is not supported by your browser.'); return; }
     if (!mapInstanceRef.current) { setMapError('Map is still loading. Please wait and try again.'); return; }
 
-    // Check/request permission first
-    if (navigator.permissions) {
-      try {
-        const perm = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-        if (perm.state === 'denied') {
-          setMapError('Location permission is denied. Please go to your browser/phone Settings → Site/App Permissions → Location and allow it, then refresh.');
-          return;
-        }
-      } catch (_) { /* permissions API not supported, proceed anyway */ }
+    // Request location permission up front. On a real device this shows the
+    // native OS permission dialog via the Capacitor Geolocation plugin; on the
+    // web the browser prompts on the first position request below.
+    setGpsStatus('acquiring');
+    const perm = await requestLocationPermission(true);
+    if (perm === 'denied') {
+      setGpsStatus('error');
+      setMapError('Location permission is denied. Enable it in Settings → Apps → FitWayHub → Permissions → Location (Android) or Settings → Privacy → Location Services (iOS), then try again.');
+      return;
+    }
+    if (perm === 'unsupported') {
+      setGpsStatus('error');
+      setMapError('Location services are not available on this device.');
+      return;
     }
 
     setRunning(true);
@@ -237,7 +257,8 @@ const MapTracker = React.forwardRef<
       startMarkerRef.current = null;
     }
 
-    watchIdRef.current = navigator.geolocation.watchPosition(
+    watchHandleRef.current = await watchPosition(
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
       (pos) => {
         if (!runningRef.current) return; // guard if stopped mid-way
         setGpsStatus('active');
@@ -341,11 +362,6 @@ const MapTracker = React.forwardRef<
         setRunning(false);
         if (timerRef.current) clearInterval(timerRef.current);
       },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 5000,  // Allow 5s cached positions to reduce permission/warm-up issues
-        timeout: 20000     // 20s timeout for high-accuracy GPS
-      }
     );
     // Fallback: if GPS doesn't respond in 5 seconds, try low-accuracy mode
     setTimeout(() => {
@@ -381,7 +397,7 @@ const MapTracker = React.forwardRef<
   };
 
   const stop = () => {
-    if (watchIdRef.current != null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
+    if (watchHandleRef.current) { watchHandleRef.current.clear(); watchHandleRef.current = null; }
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     if (accelPollRef.current) { clearInterval(accelPollRef.current); accelPollRef.current = null; }
     // ── Stop accelerometer ──

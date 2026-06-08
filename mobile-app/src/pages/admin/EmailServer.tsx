@@ -12,8 +12,11 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getApiBase } from "@/lib/api";
 
-const API = import.meta.env.VITE_API_BASE || "";
+// Use the centralised API base so native (Capacitor) builds resolve the
+// backend correctly even when VITE_API_BASE wasn't baked in at build time.
+const API = getApiBase();
 
 interface EmailAccount {
   id: number;
