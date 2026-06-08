@@ -3,7 +3,7 @@ import { Outlet, Link, NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Activity, MessageSquare, Bell, Inbox,
   Megaphone, Globe, ClipboardList, CreditCard, Lock, X, FileText,
-  Target, Image, BarChart2, Wallet, Dumbbell,
+  Target, Image, BarChart2, Wallet, Dumbbell, Trophy,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
@@ -210,6 +210,7 @@ export function CoachLayout() {
     { path: "/coach/blogs",     icon: FileText,        label: t("blog_title") },
     { path: "/coach/community", icon: Globe,           label: t("community") },
     { path: "/coach/workouts",  icon: Dumbbell,        label: t("nav_workouts") },
+    { path: "/coach/challenges", icon: Trophy,         label: "Challenges" },
     { path: "/coach/profile",   icon: Activity,        label: t("profile") },
   ].filter((item) => isFeatureEnabled(item.path));
 

@@ -134,6 +134,7 @@ const CoachCommunity = lazy(() => import("@/pages/coach/Community"));
 const CoachProfile = lazy(() => import("@/pages/coach/Profile"));
 const CoachBlogs = lazy(() => import("@/pages/coach/Blogs"));
 const CoachWorkouts = lazy(() => import("@/pages/coach/Workouts"));
+const CoachChallenges = lazy(() => import("@/pages/coach/Challenges"));
 const CoachNotifications = lazy(() => import("@/pages/coach/Notifications"));
 const PaymentResult = lazy(() => import("@/pages/PaymentResult"));
 const AppBlogs = lazy(() => import("@/pages/app/Blogs"));
@@ -410,6 +411,7 @@ export default function App() {
                 <Route path="/coach/profile" element={<CoachProfile />} />
                 <Route path="/coach/blogs" element={<CoachBlogs />} />
                 <Route path="/coach/workouts" element={<CoachWorkouts />} />
+                <Route path="/coach/challenges" element={<CoachChallenges />} />
                 <Route path="/coach/notifications" element={<CoachNotifications />} />
                 <Route path="/coach/tickets" element={<Tickets />} />
               </Route>

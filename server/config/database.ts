@@ -1553,6 +1553,15 @@ export async function initDatabase() {
     console.warn('⚠️  URL cleanup migration skipped:', e.message);
   }
 
+  // Challenges system migration (009) — two challenge types, verification,
+  // trust-weighted scoring, leaderboards, invitations, rewards, reports.
+  try {
+    const { runChallengesSystemMigration } = await import('../migrations/009_challenges_system.js');
+    await runChallengesSystemMigration();
+  } catch (e: any) {
+    console.warn('⚠️  Challenges system migration skipped:', e.message);
+  }
+
   // Certified coach migration
   try {
     await run('ALTER TABLE coach_profiles ADD COLUMN certified TINYINT(1) DEFAULT 0');
