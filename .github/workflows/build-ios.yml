@@ -65,7 +65,15 @@ jobs:
           fi
 
       - name: Sync Capacitor
-        run: npx cap sync ios
+        run: |
+          # Retry: cap sync runs pod install, which downloads native pod binaries
+          # from the GitHub release CDN, which intermittently 504s.
+          for attempt in 1 2 3 4; do
+            if npx cap sync ios; then break; fi
+            if [ "$attempt" = "4" ]; then echo "::error::cap sync ios failed after 4 attempts"; exit 1; fi
+            echo "::warning::cap sync ios failed (attempt $attempt) — retrying in 20s"
+            sleep 20
+          done
 
       # Write Firebase iOS config so FCM push works. No-op without secret.
       - name: Configure Firebase (iOS)
@@ -81,7 +89,13 @@ jobs:
 
       - name: Install CocoaPods
         working-directory: mobile-app/ios/App
-        run: pod install --repo-update
+        run: |
+          for attempt in 1 2 3 4; do
+            if pod install --repo-update; then break; fi
+            if [ "$attempt" = "4" ]; then echo "::error::pod install failed after 4 attempts"; exit 1; fi
+            echo "::warning::pod install failed (attempt $attempt) — retrying in 20s"
+            sleep 20
+          done
 
       # ── Decide which path to take based on which secrets exist ────────
       # Each HAS_* env is the literal string "true" when the secret is set,
