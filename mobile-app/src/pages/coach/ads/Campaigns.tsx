@@ -11,7 +11,7 @@ import {
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import { getApiBase } from "@/lib/api";
+import { getApiBase, resolveAssetUrl } from "@/lib/api";
 import MapLocationPicker from "@/components/app/MapLocationPicker";
 
 const { Title, Text, Paragraph } = Typography;
@@ -248,7 +248,7 @@ export default function CoachAdsCampaigns() {
             <Table dataSource={campaignAds} rowKey="id" size="small" pagination={false} columns={[
               { title: t("name") || "Name", dataIndex: "name", render: (v: any, r: any) => (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {r.media_url && <img src={r.media_url} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />}
+                  {r.media_url && <img src={resolveAssetUrl(r.media_url)} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }} />}
                   <div><Text strong>{v}</Text>{r.headline && <div><Text type="secondary" style={{ fontSize: 12 }}>{r.headline}</Text></div>}</div>
                 </div>
               )},
@@ -324,7 +324,7 @@ export default function CoachAdsCampaigns() {
                 {creatives.map((c: any) => (
                   <Select.Option key={c.id} value={c.id}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {c.media_url && <img src={c.media_url} alt="" style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 4 }} />}
+                      {c.media_url && <img src={resolveAssetUrl(c.media_url)} alt="" style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 4 }} />}
                       <span>{c.name || `#${c.id}`}</span>
                       <Tag style={{ marginLeft: "auto" }}>{c.format || "image"}</Tag>
                     </div>
@@ -332,7 +332,7 @@ export default function CoachAdsCampaigns() {
                 ))}
               </Select>
             </Form.Item>
-            {selectedCreative?.media_url && <div style={{ textAlign: "center", marginBottom: 16 }}><img src={selectedCreative.media_url} alt="Preview" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, border: "1px solid #eee" }} /></div>}
+            {selectedCreative?.media_url && <div style={{ textAlign: "center", marginBottom: 16 }}><img src={resolveAssetUrl(selectedCreative.media_url)} alt="Preview" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, border: "1px solid #eee" }} /></div>}
           </div>
           {/* Step 1: Targeting */}
           <div style={{ display: adStep === 1 ? "block" : "none" }}>
@@ -376,7 +376,7 @@ export default function CoachAdsCampaigns() {
           {/* Step 2: Review */}
           <div style={{ display: adStep === 2 ? "block" : "none" }}>
             <Card size="small" title={t("ad_preview") || "Preview"} style={{ marginBottom: 16 }}>
-              {selectedCreative?.media_url && <div style={{ textAlign: "center", marginBottom: 12 }}><img src={selectedCreative.media_url} alt="" style={{ maxWidth: "100%", maxHeight: 180, borderRadius: 8 }} /></div>}
+              {selectedCreative?.media_url && <div style={{ textAlign: "center", marginBottom: 12 }}><img src={resolveAssetUrl(selectedCreative.media_url)} alt="" style={{ maxWidth: "100%", maxHeight: 180, borderRadius: 8 }} /></div>}
               <Title level={5}>{adForm.getFieldValue("headline") || adForm.getFieldValue("name") || "—"}</Title>
               <Paragraph type="secondary">{adForm.getFieldValue("body") || "—"}</Paragraph>
               {adForm.getFieldValue("cta") && <Button type="primary" size="small">{adForm.getFieldValue("cta")}</Button>}

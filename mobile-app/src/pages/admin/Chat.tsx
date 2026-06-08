@@ -7,7 +7,7 @@
  */
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getApiBase } from "@/lib/api";
+import { getApiBase, resolveAssetUrl } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { getAvatar } from "@/lib/avatar";
 import { Send, Search, Users, LifeBuoy, Trophy, MessageCircle } from "lucide-react";
@@ -146,7 +146,7 @@ export default function AdminChat() {
                 >
                   <div className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
                     {c.cover_image
-                      ? <img src={c.cover_image} alt="" className="size-9 rounded-md object-cover" />
+                      ? <img src={resolveAssetUrl(c.cover_image)} alt="" className="size-9 rounded-md object-cover" />
                       : <Trophy size={16} strokeWidth={2} className="text-muted-foreground" />}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -201,7 +201,7 @@ export default function AdminChat() {
                 {activeChallenge ? (
                   <div className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
                     {activeChallenge.cover_image
-                      ? <img src={activeChallenge.cover_image} alt="" className="size-9 rounded-md object-cover" />
+                      ? <img src={resolveAssetUrl(activeChallenge.cover_image)} alt="" className="size-9 rounded-md object-cover" />
                       : <Trophy size={16} strokeWidth={2} className="text-muted-foreground" />}
                   </div>
                 ) : (

@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { getApiBase, resolveAssetUrl } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import WebsiteCMS from "@/pages/admin/WebsiteCMS";
@@ -964,7 +964,7 @@ export default function AdminDashboard() {
                           {p.type === "premium" ? "User Plan" : t("coach_membership")} · {p.plan} · <strong className="text-primary">{p.amount?.toFixed(0)} EGP</strong>
                         </p>
                         {p.proof_url && (
-                          <a href={p.proof_url} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1.5 rounded-sm bg-[var(--secondary-dim)] px-2 py-1 text-[11px] text-[var(--secondary)]">
+                          <a href={resolveAssetUrl(p.proof_url)} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1.5 rounded-sm bg-[var(--secondary-dim)] px-2 py-1 text-[11px] text-[var(--secondary)]">
                             <Paperclip size={12} strokeWidth={2} /> View Payment Proof
                           </a>
                         )}
@@ -1237,8 +1237,8 @@ export default function AdminDashboard() {
                         {(ad.image_url || ad.video_url) && (
                           <div className="mb-2.5 max-h-[120px] overflow-hidden rounded-md">
                             {ad.media_type === "video" && ad.video_url
-                              ? <video src={ad.video_url} className="block max-h-[120px] w-full object-cover" />
-                              : ad.image_url ? <img src={ad.image_url} alt={ad.title} className="block max-h-[120px] w-full object-cover" /> : null}
+                              ? <video src={resolveAssetUrl(ad.video_url)} className="block max-h-[120px] w-full object-cover" />
+                              : ad.image_url ? <img src={resolveAssetUrl(ad.image_url)} alt={ad.title} className="block max-h-[120px] w-full object-cover" /> : null}
                           </div>
                         )}
 
@@ -1254,7 +1254,7 @@ export default function AdminDashboard() {
                               {ad.payment_phone && <span className="text-[11px] text-muted-foreground">📱 {ad.payment_phone}</span>}
                             </div>
                             {ad.payment_proof && (
-                              <a href={ad.payment_proof} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[11px] text-[var(--secondary)] underline">
+                              <a href={resolveAssetUrl(ad.payment_proof)} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[11px] text-[var(--secondary)] underline">
                                 <Paperclip size={12} strokeWidth={2} /> View proof
                               </a>
                             )}
@@ -1476,7 +1476,7 @@ export default function AdminDashboard() {
                   </div>
                   <p className="mb-1.5 text-[13px] leading-relaxed">{post.content}</p>
                   {post.hashtags && <p className="mb-1.5 text-[12px] text-primary">{post.hashtags}</p>}
-                  {post.media_url && <img src={post.media_url} alt="" className="mb-2 max-h-[140px] w-full rounded-md object-cover" />}
+                  {post.media_url && <img src={resolveAssetUrl(post.media_url)} alt="" className="mb-2 max-h-[140px] w-full rounded-md object-cover" />}
                   <div className="mb-2.5 flex gap-2 text-[12px] text-muted-foreground">
                     <span>❤️ {post.likes || 0}</span>
                     <span>💬 {post.comment_count || 0}</span>

@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { getApiBase, resolveAssetUrl } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { Users, Activity, Dumbbell, Plus, Save, Trash2, ChevronRight, Search, Target, Check, X, ArrowLeft, Zap, CheckCircle2, PartyPopper } from "lucide-react";
@@ -305,7 +305,7 @@ export default function CoachAthletes() {
                     <p className="mb-1 text-[10px] tracking-wide text-muted-foreground uppercase">{t("medical_history_short")}</p>
                     <p className="text-[13px] leading-relaxed text-muted-foreground">{selected.medical_history || "—"}</p>
                     {selected.medical_file_url && (
-                      <a href={selected.medical_file_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-[12px] font-semibold text-[var(--secondary)] transition-opacity hover:opacity-75">
+                      <a href={resolveAssetUrl(selected.medical_file_url)} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-[12px] font-semibold text-[var(--secondary)] transition-opacity hover:opacity-75">
                         {t("view_medical_file")}
                       </a>
                     )}
@@ -465,7 +465,7 @@ export default function CoachAthletes() {
                             <p className="mt-0.5 text-[10px] text-muted-foreground">MP4 or MOV — max 50 MB</p>
                           </div>
                         )}
-                        {ex.video_url && <a href={ex.video_url} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap text-[11px] text-[var(--secondary)]">🔗 {t("preview") || "Preview"}</a>}
+                        {ex.video_url && <a href={resolveAssetUrl(ex.video_url)} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap text-[11px] text-[var(--secondary)]">🔗 {t("preview") || "Preview"}</a>}
                       </div>
                       {/* Per-exercise coaching comments to guide the athlete */}
                       {workoutPlanId ? (

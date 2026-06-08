@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { getApiBase, resolveAssetUrl } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -431,12 +431,12 @@ export default function CoachProfile() {
             </p>
             <div className="flex flex-wrap gap-2.5">
               <Button asChild variant="secondary" size="sm" className="text-[var(--secondary)]">
-                <a href={certStatus.request.national_id_url} target="_blank" rel="noopener noreferrer">
+                <a href={resolveAssetUrl(certStatus.request.national_id_url)} target="_blank" rel="noopener noreferrer">
                   <FileText size={13} strokeWidth={2} /> {t("cert_national_id_link")}
                 </a>
               </Button>
               <Button asChild variant="secondary" size="sm" className="text-[var(--secondary)]">
-                <a href={certStatus.request.certification_url} target="_blank" rel="noopener noreferrer">
+                <a href={resolveAssetUrl(certStatus.request.certification_url)} target="_blank" rel="noopener noreferrer">
                   <FileText size={13} strokeWidth={2} /> {t("cert_doc_link")}
                 </a>
               </Button>
@@ -537,7 +537,7 @@ export default function CoachProfile() {
               <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5">
                 {communityPhotos.map((p: any) => (
                   <div key={p.id} className="overflow-hidden rounded-md bg-muted shadow-soft-xs">
-                    <img src={p.media_url} alt={p.content || t("photos")} className="h-[140px] w-full object-cover" />
+                    <img src={resolveAssetUrl(p.media_url)} alt={p.content || t("photos")} className="h-[140px] w-full object-cover" />
                     {p.content && (
                       <div className="px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
                         {p.content.length > 60 ? p.content.slice(0, 60) + "…" : p.content}
@@ -557,7 +557,7 @@ export default function CoachProfile() {
                 {communityVideos.map((v: any) => (
                   <button key={v.id} type="button" onClick={() => setPlayingVideo(v)} className="flex items-center gap-3 rounded-md bg-muted p-3 text-start shadow-soft-xs transition active:scale-[0.99]">
                     <div className="relative size-16 shrink-0 overflow-hidden rounded-md bg-card">
-                      {v.thumbnail || v.media_url ? <img src={v.thumbnail || v.media_url} alt="" className="size-full object-cover" /> : <div className="grid size-full place-items-center"><Play size={20} strokeWidth={2} className="text-[var(--secondary)]" /></div>}
+                      {v.thumbnail || v.media_url ? <img src={resolveAssetUrl(v.thumbnail || v.media_url)} alt="" className="size-full object-cover" /> : <div className="grid size-full place-items-center"><Play size={20} strokeWidth={2} className="text-[var(--secondary)]" /></div>}
                       <div className="absolute inset-0 grid place-items-center bg-black/20">
                         <div className="grid size-7 place-items-center rounded-full bg-black/60"><Play size={12} strokeWidth={2} className="text-white" fill="#fff" /></div>
                       </div>
