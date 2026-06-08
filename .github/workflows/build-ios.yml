@@ -1,11 +1,9 @@
 name: Build iOS IPA
 
+# Manual-only. Pushes to main are handled by the combined "Build mobile apps"
+# workflow (build.yml), which builds Android + iOS in one run. This standalone
+# workflow stays available via the Actions tab for on-demand iOS-only rebuilds.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'mobile-app/**'
-      - '.github/workflows/build-ios.yml'
   workflow_dispatch:
 
 # Two-path workflow:
