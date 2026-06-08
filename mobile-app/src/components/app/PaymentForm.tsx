@@ -2,6 +2,7 @@ import { getApiBase } from "@/lib/api";
 import React, { useState, useEffect, useRef } from "react";
 import { Smartphone, CheckCircle, Upload, X, ShieldCheck } from "lucide-react";
 import { detectPlatform, isNativeApp } from "@/lib/iap";
+import { copyText } from "@/lib/clipboard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -259,7 +260,7 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
               <div className="text-[13px] text-foreground">1. Send <strong style={{ color: walletColor }}>{amount} EGP</strong> to:</div>
               <div className="flex items-center justify-between rounded-md bg-card px-4 py-3 shadow-soft-sm">
                 <span className="font-mono text-[20px] font-extrabold tracking-[2px]" style={{ color: walletColor }}>{ewalletPhones[walletType] || "—"}</span>
-                <Button type="button" variant="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(ewalletPhones[walletType] || "")}>Copy</Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => copyText(ewalletPhones[walletType] || "")}>Copy</Button>
               </div>
               <div className="text-[13px] text-muted-foreground">2. Take a screenshot of the confirmation</div>
               <div className="text-[13px] text-muted-foreground">3. Upload it below</div>

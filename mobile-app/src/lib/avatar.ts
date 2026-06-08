@@ -2,6 +2,8 @@
  * Avatar utility — generates deterministic initials SVG avatars.
  */
 
+import { resolveAssetUrl } from "@/lib/api";
+
 const COLORS = [
   '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4',
   '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e'
@@ -47,7 +49,9 @@ export function getAvatar(
   name?: string | null,
 ): string {
   if (uploaded && uploaded.trim() && !uploaded.includes('dicebear') && !uploaded.includes('avataaars') && !uploaded.includes('unsplash')) {
-    return uploaded;
+    // Resolve relative `/uploads/...` paths so uploaded avatars load in native
+    // (Capacitor) builds. Absolute / data: / blob: URLs are returned unchanged.
+    return resolveAssetUrl(uploaded);
   }
 
   const seedStr = seed == null ? '' : String(seed);

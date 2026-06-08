@@ -1,5 +1,5 @@
 import type React from "react";
-import { getApiBase } from "@/lib/api";
+import { getApiBase, resolveAssetUrl } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect, useRef } from "react";
 import { Heart, MessageSquare, Plus, X, TrendingUp, Users, Image as ImageIcon, Send, Trash2 } from "lucide-react";
@@ -203,7 +203,7 @@ export default function CoachCommunity() {
                 )}
               </div>
               <p className="mb-3 text-[14px] leading-relaxed break-words whitespace-pre-wrap text-foreground">{post.content}</p>
-              {post.media_url && <img src={post.media_url} alt="" className="mb-3 max-h-[300px] w-full rounded-md object-cover" />}
+              {post.media_url && <img src={resolveAssetUrl(post.media_url)} alt="" className="mb-3 max-h-[300px] w-full rounded-md object-cover" />}
               {post.hashtags && (
                 <div className="mb-3.5 flex flex-wrap gap-1.5">
                   {post.hashtags.split(" ").filter(t => t).map((tg, i) => (

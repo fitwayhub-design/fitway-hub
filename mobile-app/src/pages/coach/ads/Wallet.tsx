@@ -6,6 +6,7 @@ import {
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
+import { copyText } from "@/lib/clipboard";
 import { getApiBase } from "@/lib/api";
 
 const { Title, Text, Paragraph } = Typography;
@@ -41,7 +42,7 @@ export default function CoachAdsWallet() {
   useEffect(() => { fetchWallet(); }, []);
 
   const copyNumber = (num: string, key: string) => {
-    navigator.clipboard.writeText(num).then(() => { setCopied(key); setTimeout(() => setCopied(""), 2000); }).catch(() => {});
+    copyText(num).then((ok) => { if (ok) { setCopied(key); setTimeout(() => setCopied(""), 2000); } });
   };
 
   const TXN_COLORS: Record<string, string> = {

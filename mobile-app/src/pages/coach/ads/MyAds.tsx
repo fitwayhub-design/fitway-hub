@@ -4,7 +4,7 @@ import { DeleteOutlined } from "@ant-design/icons";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import { getApiBase } from "@/lib/api";
+import { getApiBase, resolveAssetUrl } from "@/lib/api";
 
 const { Title, Text } = Typography;
 const API = getApiBase();
@@ -52,7 +52,7 @@ export default function CoachMyAds() {
       <Table dataSource={ads} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} columns={[
         { title: t("name") || "Name", dataIndex: "name", render: (v: any, r: any) => (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {r.media_url && <img src={r.media_url} alt="" style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 6 }} />}
+            {r.media_url && <img src={resolveAssetUrl(r.media_url)} alt="" style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 6 }} />}
             <div><Text strong>{v}</Text>{r.headline && <div><Text type="secondary" style={{ fontSize: 11 }}>{r.headline}</Text></div>}</div>
           </div>
         )},

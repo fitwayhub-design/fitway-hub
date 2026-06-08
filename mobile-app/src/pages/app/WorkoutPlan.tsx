@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { getApiBase } from "@/lib/api";
+import { getApiBase, resolveAssetUrl } from "@/lib/api";
 import PlanCommentsThread from "@/components/app/PlanCommentsThread";
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
@@ -552,7 +552,7 @@ export default function WorkoutPlan() {
                               {ex.video_url && (
                                 <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5 text-[11px]">
                                   <a
-                                    href={ex.video_url}
+                                    href={resolveAssetUrl(ex.video_url)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     title="Watch reference video"

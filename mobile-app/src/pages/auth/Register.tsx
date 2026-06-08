@@ -5,6 +5,7 @@ import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
 import { getApiBase } from "@/lib/api";
+import { openExternal } from "@/lib/nativeAuth";
 import { Eye, EyeOff, Mail, Lock, User, Activity, CheckCircle2, Dumbbell, Trophy, Chrome, ArrowLeft, ShieldQuestion, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -63,7 +64,11 @@ export default function Register() {
     const cap = (window as any).Capacitor;
     const isNative = typeof cap?.isNativePlatform === 'function' && cap.isNativePlatform();
     const qs = isNative ? '?platform=mobile' : '';
-    window.location.href = `${base}/api/auth/oauth/${provider}${qs}`;
+    // On native, OAuth MUST open in the system browser — Google rejects sign-in
+    // inside an embedded WebView ("disallowed_useragent"). openExternal opens
+    // the system browser on native and navigates normally on web. The server
+    // redirects back via the fitwayhub:// deep link, handled in App.tsx.
+    openExternal(`${base}/api/auth/oauth/${provider}${qs}`);
   };
 
   const requestOtp = async () => {

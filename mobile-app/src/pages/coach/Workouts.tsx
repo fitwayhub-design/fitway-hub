@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { getApiBase, resolveAssetUrl } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -134,7 +134,7 @@ export default function CoachWorkouts() {
               <button key={video.id} onClick={() => setPlaying(video)} className="relative w-[110px] shrink-0 snap-start text-start" aria-label={video.title}>
                 <div className="relative mb-2 h-[180px] overflow-hidden rounded-lg bg-card shadow-soft-sm">
                   {video.thumbnail ? (
-                    <img src={video.thumbnail} alt="" className="size-full object-cover" />
+                    <img src={resolveAssetUrl(video.thumbnail)} alt="" className="size-full object-cover" />
                   ) : (
                     <div className="size-full" style={{ background: `color-mix(in srgb, ${CAT_COLORS[video.category] || "#FFD600"} 18%, transparent)` }} />
                   )}
@@ -163,7 +163,7 @@ export default function CoachWorkouts() {
                 <button key={video.id} onClick={() => setPlaying(video)} className="flex items-center gap-3 rounded-lg bg-card p-3 text-start shadow-soft-sm transition active:scale-[0.99]" aria-label={video.title}>
                   <div className="relative size-16 shrink-0 overflow-hidden rounded-md bg-muted">
                     {video.thumbnail ? (
-                      <img src={video.thumbnail} alt="" className="size-full object-cover" />
+                      <img src={resolveAssetUrl(video.thumbnail)} alt="" className="size-full object-cover" />
                     ) : (
                       <div className="grid size-full place-items-center" style={{ background: `color-mix(in srgb, ${color} 18%, transparent)` }}><Play size={20} style={{ color }} /></div>
                     )}
