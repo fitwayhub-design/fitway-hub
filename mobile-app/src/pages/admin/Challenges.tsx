@@ -245,7 +245,7 @@ function RewardSettings({ api, notify }: any) {
 // ─── Create community challenge ───────────────────────────────────────────────
 function CreateCommunity({ token, onClose, onDone, notify }: any) {
   const [f, setF] = useState<any>({
-    title: "", description: "", start_at: "", end_at: "", goal_metric: "steps", goal_target: "",
+    title: "", description: "", start_at: "", end_at: "", goal_metric: "steps", goal_target: "", goals: "",
     scoring_model: "consistency", participant_limit: "0", verification_methods: COMMUNITY_METHODS.map(m => m.v), rules_terms: "",
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
@@ -293,6 +293,7 @@ function CreateCommunity({ token, onClose, onDone, notify }: any) {
             </div>
             <div className="grid gap-1.5"><Label className="text-[12px]">Goal target</Label><Input type="number" value={f.goal_target} onChange={e => set("goal_target", e.target.value)} /></div>
           </div>
+          <div className="grid gap-1.5"><Label className="text-[12px]">Goals / milestones (one per line)</Label><Textarea rows={3} value={f.goals} onChange={e => set("goals", e.target.value)} placeholder={"e.g.\nWalk 8,000 steps daily\nLog every workout\nStay consistent for 4 weeks"} /></div>
           <div className="grid gap-1.5"><Label className="text-[12px]">Scoring model</Label>
             <Select value={f.scoring_model} onValueChange={v => set("scoring_model", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent className="z-[10000]">{MODELS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent></Select>
           </div>

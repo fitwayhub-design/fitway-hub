@@ -40,6 +40,9 @@ export async function runChallengesSystemMigration() {
   await addColumn('challenges', 'open_entry_until', 'DATETIME NULL');
   await addColumn('challenges', 'goal_metric', "VARCHAR(30) NOT NULL DEFAULT 'sessions'");
   await addColumn('challenges', 'goal_target', 'DOUBLE NOT NULL DEFAULT 0');
+  // Free-form goals / milestones the creator wants participants to hit
+  // (one per line). Complements the single scoring metric above.
+  await addColumn('challenges', 'goals', 'TEXT NULL');
   await addColumn('challenges', 'scoring_model', "VARCHAR(20) NOT NULL DEFAULT 'consistency'");
   await addColumn('challenges', 'verification_methods', "VARCHAR(500) NOT NULL DEFAULT 'manual_checkin'");
   await addColumn('challenges', 'min_duration_seconds', 'INT NOT NULL DEFAULT 0');

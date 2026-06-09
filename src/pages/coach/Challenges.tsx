@@ -124,7 +124,7 @@ function StatePill({ state, status }: { state?: string; status?: string }) {
 // ─── Create wizard ────────────────────────────────────────────────────────────
 function CreateDialog({ token, onClose, onDone, flash }: any) {
   const [f, setF] = useState<any>({
-    title: "", description: "", start_at: "", end_at: "", goal_metric: "sessions", goal_target: "",
+    title: "", description: "", start_at: "", end_at: "", goal_metric: "sessions", goal_target: "", goals: "",
     scoring_model: "consistency", participant_limit: "100", min_duration_seconds: "", rules_terms: "",
     verification_methods: [...DEFAULT_METHODS], timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
@@ -182,6 +182,9 @@ function CreateDialog({ token, onClose, onDone, flash }: any) {
             </Field>
             <Field label="Goal target"><Input type="number" value={f.goal_target} onChange={e => set("goal_target", e.target.value)} placeholder="e.g. 20" /></Field>
           </div>
+          <Field label="Goals / milestones (one per line)">
+            <Textarea value={f.goals} onChange={e => set("goals", e.target.value)} rows={3} placeholder={"e.g.\nComplete 12 workouts\nLog steps every day\nHit 8,000 steps daily"} />
+          </Field>
           <Field label="Scoring model">
             <Select value={f.scoring_model} onValueChange={v => set("scoring_model", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>

@@ -210,6 +210,9 @@ export const createChallenge = async (req: Request, res: Response) => {
 
     const goalMetric = METRICS[b.goal_metric] ? b.goal_metric : 'sessions';
     const goalTarget = Math.max(0, Number(b.goal_target) || 0);
+    // Free-form goals / milestones the creator wants participants to hit
+    // (one per line). Stored as-is; the client splits on newlines for display.
+    const goals = String(b.goals || '').slice(0, 2000).trim() || null;
     const scoringModel = ['performance', 'consistency', 'improvement', 'participation'].includes(b.scoring_model) ? b.scoring_model : 'consistency';
 
     let methods = parseMethods(b.verification_methods).filter(m => isMethodAllowed(type, m));
@@ -242,13 +245,13 @@ export const createChallenge = async (req: Request, res: Response) => {
       `INSERT INTO challenges
         (creator_id, title, description, image_url, type, visibility, status, timezone,
          start_at, end_at, open_entry_until, start_date, end_date,
-         goal_metric, goal_target, scoring_model, verification_methods, min_duration_seconds,
+         goal_metric, goal_target, goals, scoring_model, verification_methods, min_duration_seconds,
          participant_limit, premium_only, min_account_age_days, rules_terms, cancellation_policy, reward_tiers)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         me, title, description, imageUrl, type, visibility, status, String(b.timezone || 'UTC'),
         startAt, endAt, openEntry, startDate, endDate,
-        goalMetric, goalTarget, scoringModel, methods.join(','), Math.max(0, parseInt(b.min_duration_seconds, 10) || 0),
+        goalMetric, goalTarget, goals, scoringModel, methods.join(','), Math.max(0, parseInt(b.min_duration_seconds, 10) || 0),
         participantLimit, b.premium_only ? 1 : 0, Math.max(0, parseInt(b.min_account_age_days, 10) || 0),
         String(b.rules_terms || '').slice(0, 4000) || null, String(b.cancellation_policy || '').slice(0, 255) || null,
         JSON.stringify(defaults),
@@ -310,6 +313,7 @@ export const updateChallenge = async (req: Request, res: Response) => {
       if (b.start_at != null && state !== 'active' && state !== 'ended') { const ns = new Date(b.start_at); if (!isNaN(+ns)) { sets.push('start_at = ?'); vals.push(ns); sets.push('start_date = ?'); vals.push(ns.toISOString().slice(0, 10)); } }
       if (b.goal_metric != null && METRICS[b.goal_metric]) { sets.push('goal_metric = ?'); vals.push(b.goal_metric); }
       if (b.goal_target != null) { sets.push('goal_target = ?'); vals.push(Math.max(0, Number(b.goal_target) || 0)); }
+      if (b.goals != null) { sets.push('goals = ?'); vals.push(String(b.goals || '').slice(0, 2000).trim() || null); }
       if (b.scoring_model != null && ['performance', 'consistency', 'improvement', 'participation'].includes(b.scoring_model)) { sets.push('scoring_model = ?'); vals.push(b.scoring_model); }
       if (b.verification_methods != null) {
         const m = parseMethods(b.verification_methods).filter(x => isMethodAllowed(c.type, x));
