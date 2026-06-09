@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { upload, optimizeImage, multerToJson } from '../middleware/upload.js';
+import { upload, uploadVideo, optimizeImage, multerToJson } from '../middleware/upload.js';
 import {
   listChallenges, listMyInvitations, getChallenge, createChallenge, updateChallenge, deleteChallenge,
   getInvitableAthletes, inviteParticipants, respondInvitation,
@@ -13,8 +13,11 @@ import {
 
 const router = express.Router();
 
-// Accept any file field (cover / evidence) and optimise images before R2 upload.
+// Cover images (create/update): images only, optimised before R2 upload.
 const media = [multerToJson(upload.any()), optimizeImage()];
+// Evidence (submissions): photo OR video allowed; images are still optimised,
+// videos pass through untouched. Mirrors how workout-video uploads are handled.
+const mediaEvidence = [multerToJson(uploadVideo.any()), optimizeImage()];
 
 function adminOnly(req: Request, res: Response, next: NextFunction) {
   const r = (req as any).user?.role;
@@ -55,7 +58,7 @@ router.post('/:id/join', joinChallenge);
 router.post('/:id/leave', leaveChallenge);
 router.delete('/:id/participants/:pid', removeParticipant);
 
-router.post('/:id/submissions', ...media, submitEvidence);
+router.post('/:id/submissions', ...mediaEvidence, submitEvidence);
 router.get('/:id/submissions', listSubmissions);
 router.post('/:id/submissions/:sid/approve', approveSubmission);
 router.post('/:id/submissions/:sid/reject', rejectSubmission);
