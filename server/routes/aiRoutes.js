@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { analyzeSteps } from '../controllers/aiController.js';
+import { analyzeSteps, nutritionLookup } from '../controllers/aiController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 const router = Router();
@@ -18,5 +18,6 @@ const aiLimiter = rateLimit({
     message: { message: 'Too many AI requests, please try again later.' },
 });
 router.post('/analyze-steps', authenticateToken, aiLimiter, analyzeSteps);
+router.post('/nutrition-lookup', authenticateToken, aiLimiter, nutritionLookup);
 export default router;
 //# sourceMappingURL=aiRoutes.js.map
