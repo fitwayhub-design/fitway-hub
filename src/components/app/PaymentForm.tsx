@@ -13,7 +13,9 @@ declare global {
 
 interface PaymentFormProps {
   amount: number;
-  plan: "monthly" | "annual";
+  // "monthly" / "annual" drive coach-subscription duration on the backend;
+  // app plans may pass other labels (e.g. "quarterly") which are stored as-is.
+  plan: "monthly" | "annual" | string;
   type: "user" | "coach";
   token: string | null;
   onSuccess: () => void;
@@ -131,7 +133,7 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
           return data.id;
         },
         onApprove: async (data: any) => {
-          const res = await api("/api/payments/paypal/capture-order", { method: "POST", body: JSON.stringify({ orderId: data.orderID, plan, type, amount, coachId }) });
+          const res = await api("/api/payments/paypal/capture-order", { method: "POST", body: JSON.stringify({ orderId: data.orderID, plan, type, amount, coachId, packageId }) });
           const result = await res.json();
           if (!res.ok) { onError?.(result.message || "Capture failed"); return; }
           onSuccess();

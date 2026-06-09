@@ -1,15 +1,19 @@
 /**
- * Pricing — three athlete subscription packages.
+ * App Subscription Plans — what an athlete pays to unlock the app's features.
  *
- *   Freemium   → no coach, basics only
- *   Premium    → coach-led with monthly progress reviews
- *   Exclusive  → coach-led with weekly reviews + in-person extras
+ *   Freemium       → free forever, core self-service tools only
+ *   Premium App    → everything (community, general programs, courses,
+ *                     live support, assessments, challenges …)
  *
- * Prices come from admin app_settings (sub_community_*_egp). Defaults below
- * are placeholders until the client populates the real numbers.
+ * Premium billing comes in three cycles: 1 month, 3 months and annual.
+ * Prices default to the business plan below and can be overridden by admins
+ * via app_settings (sub_app_1month_egp / sub_app_3months_egp / sub_app_annual_egp).
+ *
+ * NOTE: This is separate from the PT (coach) plans an athlete picks when they
+ * subscribe to a specific coach — those live in the Coaching flow.
  */
 import { useState, useEffect } from "react";
-import { Check, ArrowLeft, Minus } from "lucide-react";
+import { Check, ArrowLeft, X, Sparkles, Crown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useNavigate } from "react-router-dom";
@@ -18,169 +22,134 @@ import PaymentForm from "@/components/app/PaymentForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 type Step = "plans" | "payment";
+type Cycle = "1month" | "3months" | "annual";
 
-interface TierDef {
-  id: string;
-  name: string;
-  blurb: string;
-  badge?: string;
-  features: { label: string; v: string | boolean }[];
-}
+const DEFAULT_PREMIUM_PRICES: Record<Cycle, number> = {
+  "1month": 199,
+  "3months": 499,
+  annual: 699,
+};
 
-const TIERS: TierDef[] = [
-  {
-    id: "freemium",
-    name: "Freemium",
-    blurb: "Start free — for athletes without a coach.",
-    features: [
-      { label: "Calorie Calculator", v: true },
-      { label: "General Programs (Pro split / PPL / Upper & Lower)", v: true },
-      { label: "Customized workout program", v: false },
-      { label: "Customized Nutrition Plans", v: false },
-      { label: "Courses", v: false },
-      { label: "Live support", v: false },
-      { label: "Access to Community", v: false },
-      { label: "Coach tickets", v: false },
-      { label: "Training follow-up", v: false },
-      { label: "Nutrition Facts for Food", v: false },
-      { label: "Hybrid / Training in person", v: false },
-      { label: "Fitness Assessment", v: false },
-    ],
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    blurb: "Coach-led plan with monthly progress reviews.",
-    badge: "Most popular",
-    features: [
-      { label: "Calorie Calculator", v: true },
-      { label: "Customized workout program", v: true },
-      { label: "Customized Nutrition Plans", v: true },
-      { label: "Courses", v: true },
-      { label: "Live support", v: true },
-      { label: "Access to Community", v: true },
-      { label: "Coach tickets", v: "10 / month" },
-      { label: "Training follow-up", v: "Monthly report" },
-      { label: "Nutrition Facts for Food", v: false },
-      { label: "Hybrid / Training in person", v: false },
-      { label: "Fitness Assessment", v: false },
-    ],
-  },
-  {
-    id: "exclusive",
-    name: "Exclusive",
-    blurb: "Full coaching access with weekly reviews and in-person sessions.",
-    features: [
-      { label: "Calorie Calculator", v: true },
-      { label: "Customized workout program", v: true },
-      { label: "Customized Nutrition Plans", v: true },
-      { label: "Courses", v: true },
-      { label: "Live support", v: true },
-      { label: "Access to Community", v: true },
-      { label: "Coach tickets", v: "Unlimited" },
-      { label: "Training follow-up", v: "Weekly report" },
-      { label: "Nutrition Facts for Food", v: true },
-      { label: "Hybrid / Training in person", v: true },
-      { label: "Fitness Assessment", v: true },
-    ],
-  },
+const BILLING: { id: Cycle; label: string; planLabel: string }[] = [
+  { id: "1month", label: "1 Month", planLabel: "monthly" },
+  { id: "3months", label: "3 Months", planLabel: "quarterly" },
+  { id: "annual", label: "Annual", planLabel: "annual" },
 ];
 
-const DEFAULT_PRICES: Record<string, number> = {
-  community_freemium: 0,
-  community_premium:  149,
-  community_exclusive:299,
-};
+// Freemium — included core tools + what stays locked.
+const FREEMIUM_INCLUDED = [
+  "Calorie Calculator",
+  "Steps Calculator",
+  "Hydration Reminder",
+  "Create Your Own Program",
+  "Create Your Own Meals",
+  "Workout Library",
+];
+const FREEMIUM_EXCLUDED = [
+  "Community Posting",
+  "General Programs (Pro Split, PPL, Push/Pull/Legs, Upper/Lower)",
+  "Courses",
+  "Live Support / Emergency Support",
+  "Assessment / Consultation",
+  "Challenge Participation",
+];
+
+// Premium App — everything unlocked.
+const PREMIUM_INCLUDED = [
+  "Calorie Calculator",
+  "Steps Calculator",
+  "Hydration Reminder",
+  "Community Posting",
+  "General Programs (Pro Split, PPL, Push/Pull/Legs, Upper/Lower)",
+  "Create Your Own Program",
+  "Create Your Own Meals",
+  "Courses",
+  "Workout Library",
+  "Live Support / Emergency Support",
+  "Assessment / Consultation",
+  "Challenge Participation",
+];
 
 export default function Pricing() {
   const { user, updateUser, token } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 860);
-  useEffect(() => { const h = () => setIsMobile(window.innerWidth < 860); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
 
   const [step, setStep] = useState<Step>("plans");
-  const [selectedTier, setSelectedTier] = useState<TierDef | null>(null);
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
-  const [prices, setPrices] = useState<Record<string, number>>(DEFAULT_PRICES);
+  const [cycle, setCycle] = useState<Cycle>("3months");
+  const [prices, setPrices] = useState<Record<Cycle, number>>(DEFAULT_PREMIUM_PRICES);
 
-  // Admin-tunable prices. Falls back to DEFAULT_PRICES when settings aren't
-  // populated yet — the client will replace these with real numbers from
-  // their business plan via the admin Settings page.
+  // Admin-tunable Premium prices (optional overrides).
   useEffect(() => {
     fetch(`${getApiBase()}/api/admin/app-settings`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : { settings: [] })
       .then(d => {
-        const map: Record<string, number> = { ...DEFAULT_PRICES };
+        const map: Record<Cycle, number> = { ...DEFAULT_PREMIUM_PRICES };
         for (const s of (d.settings || [])) {
-          if (s.setting_key?.startsWith("sub_")) {
-            const key = s.setting_key.replace(/^sub_/, "").replace(/_egp$/, "");
-            const n = Number(s.setting_value);
-            if (!Number.isNaN(n)) map[key] = n;
-          }
+          const key = s.setting_key as string | undefined;
+          if (!key) continue;
+          const n = Number(s.setting_value);
+          if (Number.isNaN(n)) continue;
+          if (key === "sub_app_1month_egp") map["1month"] = n;
+          if (key === "sub_app_3months_egp") map["3months"] = n;
+          if (key === "sub_app_annual_egp") map["annual"] = n;
         }
         setPrices(map);
       })
       .catch(() => {});
   }, [token]);
 
-  const priceFor = (tier: TierDef) => {
-    const monthly = prices[`community_${tier.id}`] ?? 0;
-    return billingCycle === "annual" ? monthly * 10 : monthly; // 2 months free on annual
-  };
+  const amount = prices[cycle];
+  const billing = BILLING.find(b => b.id === cycle)!;
 
   const handleSuccess = () => {
     updateUser({ isPremium: true });
     navigate("/app/dashboard");
   };
 
-  if (step === "payment" && selectedTier) {
-    const amount = priceFor(selectedTier);
+  // ── Payment step ──
+  if (step === "payment") {
     return (
       <div className="mx-auto w-full max-w-[500px] px-4 pt-6 pb-10">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setStep("plans")}
-          className="-ms-2 mb-6 text-muted-foreground"
-        >
+        <Button variant="ghost" size="sm" onClick={() => setStep("plans")} className="-ms-2 mb-6 text-muted-foreground">
           <ArrowLeft size={15} /> Back to plans
         </Button>
 
         <Card className="gap-0 p-0 ring-2 ring-primary shadow-soft-md">
           <CardContent className="px-6 py-7">
-            <h2 className="text-xl font-bold tracking-tight">{selectedTier.name}</h2>
-            <p className="mt-1.5 text-[13px] text-muted-foreground">
-              {billingCycle === "annual" ? `${amount} EGP / year (2 months free)` : `${amount} EGP / month`}
-            </p>
+            <div className="flex items-center gap-2">
+              <Crown size={18} className="text-primary" />
+              <h2 className="text-xl font-bold tracking-tight">Premium App</h2>
+            </div>
+            <p className="mt-1.5 text-[13px] text-muted-foreground">{billing.label} subscription</p>
 
             <div className="mt-5 mb-6 flex gap-1 rounded-md bg-muted p-1">
-              {(["monthly", "annual"] as const).map((c) => (
+              {BILLING.map((b) => (
                 <button
-                  key={c}
-                  onClick={() => setBillingCycle(c)}
-                  aria-pressed={billingCycle === c}
-                  className={`flex-1 rounded-[8px] py-2 text-[12px] font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
-                    billingCycle === c
-                      ? "bg-card text-foreground shadow-soft-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  key={b.id}
+                  onClick={() => setCycle(b.id)}
+                  aria-pressed={cycle === b.id}
+                  className={cn(
+                    "flex-1 rounded-[8px] py-2 text-[12px] font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                    cycle === b.id ? "bg-card text-foreground shadow-soft-sm" : "text-muted-foreground hover:text-foreground",
+                  )}
                 >
-                  {c === "monthly" ? "Monthly" : "Annual · save 2 months"}
+                  {b.label}
                 </button>
               ))}
             </div>
 
             <div className="mb-5 flex items-center justify-between rounded-md bg-muted px-4 py-3">
-              <span className="text-[13px] text-muted-foreground">{billingCycle === "annual" ? "Annual total" : "Monthly charge"}</span>
+              <span className="text-[13px] text-muted-foreground">{billing.label} total</span>
               <span className="text-lg font-bold tabular-nums text-primary">{amount} EGP</span>
             </div>
 
             <PaymentForm
               amount={amount}
-              plan={billingCycle}
+              plan={billing.planLabel}
               type="user"
               token={token}
               onSuccess={handleSuccess}
@@ -191,80 +160,117 @@ export default function Pricing() {
     );
   }
 
+  // ── Plans step ──
   return (
-    <div className="mx-auto w-full max-w-[1180px] px-4 pt-6 pb-12">
+    <div className="mx-auto w-full max-w-[960px] px-4 pt-6 pb-12">
       <div className="mb-8 text-center">
-        <h1 className="text-[clamp(22px,4vw,34px)] font-bold tracking-tight">{t("unlock_potential") || "Pick your subscription"}</h1>
-        <p className="mx-auto mt-2 max-w-[540px] text-[14px] text-muted-foreground">
-          Pick a plan that matches how you want to train. Freemium is for athletes
-          without a coach; Premium and Exclusive add a personal coach with custom plans.
+        <h1 className="text-[clamp(22px,4vw,34px)] font-bold tracking-tight">{t("unlock_potential") || "Choose your app plan"}</h1>
+        <p className="mx-auto mt-2 max-w-[560px] text-[14px] text-muted-foreground">
+          Freemium gives you the core tools for free. Premium App unlocks everything —
+          community, general programs, courses, live support, assessments and challenges.
         </p>
       </div>
 
-      {/* Tier cards */}
-      <div className={`grid gap-4 ${isMobile ? "grid-cols-1" : "grid-cols-3"}`}>
-        {TIERS.map(tier => {
-          const monthly = priceFor(tier);
-          const highlighted = tier.badge === "Most popular";
-          return (
-            <Card
-              key={tier.id}
-              className={`relative gap-0 p-0 ${highlighted ? "ring-2 ring-primary shadow-soft-md" : "shadow-soft-sm"}`}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* ── Freemium ── */}
+        <Card className="gap-0 p-0 shadow-soft-sm">
+          <CardContent className="flex flex-1 flex-col px-6 py-7">
+            <h3 className="text-lg font-bold tracking-tight">Freemium</h3>
+            <p className="mt-1.5 mb-4 min-h-9 text-[13px] text-muted-foreground">Core self-service tools, free forever.</p>
+            <div className="mb-5">
+              <span className="text-[36px] font-bold tabular-nums tracking-tight">Free</span>
+            </div>
+
+            <p className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Included</p>
+            <ul className="mb-4 flex flex-col gap-2.5">
+              {FREEMIUM_INCLUDED.map(f => (
+                <li key={f} className="flex items-start gap-2.5 text-[13px] text-foreground">
+                  <span className="mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full bg-primary/15">
+                    <Check size={11} className="text-primary" strokeWidth={2.5} />
+                  </span>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+
+            <p className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Not included</p>
+            <ul className="mb-6 flex flex-1 flex-col gap-2.5">
+              {FREEMIUM_EXCLUDED.map(f => (
+                <li key={f} className="flex items-start gap-2.5 text-[13px] text-muted-foreground">
+                  <span className="mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full bg-muted">
+                    <X size={11} className="text-muted-foreground" strokeWidth={2.5} />
+                  </span>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => { updateUser({ isPremium: false }); navigate("/app/dashboard"); }}
             >
-              {tier.badge && (
-                <Badge className="absolute -top-2.5 end-4 px-2.5 py-1 text-[10px] tracking-wider uppercase">
-                  {tier.badge}
-                </Badge>
-              )}
-              <CardContent className="flex flex-1 flex-col px-6 py-7">
-                <h3 className="text-lg font-bold tracking-tight">{tier.name}</h3>
-                <p className="mt-1.5 mb-4 min-h-9 text-[13px] text-muted-foreground">{tier.blurb}</p>
-                <div className="mb-5">
-                  <span className={`text-[36px] font-bold tabular-nums tracking-tight ${highlighted ? "text-primary" : "text-foreground"}`}>{monthly}</span>
-                  <span className="text-[13px] text-muted-foreground"> EGP/month</span>
-                </div>
-                <ul className="mb-6 flex flex-1 flex-col gap-2.5">
-                  {tier.features.map(f => {
-                    const has = f.v !== false;
-                    const valueStr = typeof f.v === "string" ? f.v : null;
-                    return (
-                      <li key={f.label} className={`flex items-start gap-2.5 text-[13px] ${has ? "text-foreground" : "text-muted-foreground"}`}>
-                        <span className={`mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full ${has ? "bg-primary/15" : "bg-muted"}`}>
-                          {has ? <Check size={11} className="text-primary" strokeWidth={2.5} /> : <Minus size={10} className="text-muted-foreground" />}
-                        </span>
-                        <span>
-                          {f.label}
-                          {valueStr && <span className="ms-1.5 text-[11px] text-muted-foreground">· {valueStr}</span>}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <Button
-                  variant={highlighted ? "default" : "outline"}
-                  className="w-full"
-                  onClick={() => {
-                    if (tier.id === "freemium" || monthly === 0) {
-                      updateUser({ isPremium: false });
-                      navigate("/app/dashboard");
-                    } else {
-                      setSelectedTier(tier);
-                      setStep("payment");
-                    }
-                  }}
-                  disabled={user?.isPremium && tier.id === "freemium"}
+              Continue free
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* ── Premium App ── */}
+        <Card className="relative gap-0 p-0 ring-2 ring-primary shadow-soft-md">
+          <Badge className="absolute -top-2.5 end-4 px-2.5 py-1 text-[10px] tracking-wider uppercase">
+            <Sparkles size={11} className="me-1" /> Most value
+          </Badge>
+          <CardContent className="flex flex-1 flex-col px-6 py-7">
+            <div className="flex items-center gap-2">
+              <Crown size={18} className="text-primary" />
+              <h3 className="text-lg font-bold tracking-tight">Premium App</h3>
+            </div>
+            <p className="mt-1.5 mb-4 min-h-9 text-[13px] text-muted-foreground">Everything unlocked — train without limits.</p>
+
+            {/* Billing cycle selector */}
+            <div className="mb-3 flex gap-1 rounded-md bg-muted p-1">
+              {BILLING.map((b) => (
+                <button
+                  key={b.id}
+                  onClick={() => setCycle(b.id)}
+                  aria-pressed={cycle === b.id}
+                  className={cn(
+                    "flex-1 rounded-[8px] py-1.5 text-[12px] font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                    cycle === b.id ? "bg-card text-foreground shadow-soft-sm" : "text-muted-foreground hover:text-foreground",
+                  )}
                 >
-                  {tier.id === "freemium" || monthly === 0 ? "Continue free" : "Choose " + tier.name}
-                </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
+                  {b.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mb-5">
+              <span className="text-[36px] font-bold tabular-nums tracking-tight text-primary">{prices[cycle]}</span>
+              <span className="text-[13px] text-muted-foreground"> EGP / {BILLING.find(b => b.id === cycle)!.label.toLowerCase()}</span>
+            </div>
+
+            <p className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Everything in Freemium, plus</p>
+            <ul className="mb-6 flex flex-1 flex-col gap-2.5">
+              {PREMIUM_INCLUDED.map(f => (
+                <li key={f} className="flex items-start gap-2.5 text-[13px] text-foreground">
+                  <span className="mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full bg-primary/15">
+                    <Check size={11} className="text-primary" strokeWidth={2.5} />
+                  </span>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+
+            <Button className="w-full" onClick={() => setStep("payment")}>
+              Get Premium — {prices[cycle]} EGP
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       <p className="mt-8 text-center text-[12px] text-muted-foreground">
-        Plan pricing is set by Fitway Hub admins. Talk to your coach for any
-        custom or hybrid arrangements not listed here.
+        Prices are set by Fitway Hub admins. Looking for a personal coach? Choose a PT plan
+        from a coach in the Coaching section.
       </p>
     </div>
   );

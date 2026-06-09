@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 
 interface PaymentFormProps {
   amount: number;
-  plan: "monthly" | "annual";
+  // "monthly" / "annual" drive coach-subscription duration on the backend;
+  // app plans may pass other labels (e.g. "quarterly") which are stored as-is.
+  plan: "monthly" | "annual" | string;
   type: "user" | "coach";
   token: string | null;
   onSuccess: () => void;

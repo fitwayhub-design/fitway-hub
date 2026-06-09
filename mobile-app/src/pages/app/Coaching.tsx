@@ -58,6 +58,62 @@ interface Coach {
   gender?: 'male' | 'female' | 'other' | string;
 }
 
+/* ── PT (coach) subscription plans ────────────────────────────────────────────
+   Standard platform tiers an athlete picks when subscribing to a coach.
+   Platform/App commission = 40% of the subscription value (the coach receives
+   the remaining 60%). Each plan is priced per billing cycle. */
+export type PtCycle = "monthly" | "2months" | "quarterly";
+
+export const PT_CYCLES: { id: PtCycle; label: string }[] = [
+  { id: "monthly", label: "Monthly" },
+  { id: "2months", label: "2 Months" },
+  { id: "quarterly", label: "Quarterly" },
+];
+
+export const PT_PLATFORM_COMMISSION_PCT = 40;
+
+export const PT_PLANS: {
+  id: string; tier: string; tagline: string; badge?: string;
+  perks: string[]; chat: boolean; prices: Record<PtCycle, number>;
+}[] = [
+  {
+    id: "pt_basic", tier: "Basic",
+    tagline: "Custom plans with follow-up after completion.",
+    chat: false,
+    perks: [
+      "Customized Nutrition Plan",
+      "Fitness Program",
+      "Follow-up after completion of the plan (3 months)",
+      "No one-to-one chat with trainer",
+    ],
+    prices: { monthly: 999, "2months": 1399, quarterly: 1999 },
+  },
+  {
+    id: "pt_premium", tier: "Premium", badge: "Popular",
+    tagline: "Monthly follow-up plus one-to-one chat with your trainer.",
+    chat: true,
+    perks: [
+      "Customized Nutrition Plan",
+      "Fitness Program",
+      "Monthly follow-up",
+      "One-to-one chat with trainer included",
+    ],
+    prices: { monthly: 1499, "2months": 1899, quarterly: 2499 },
+  },
+  {
+    id: "pt_gold", tier: "Gold",
+    tagline: "Immediate follow-up & support plus one-to-one chat.",
+    chat: true,
+    perks: [
+      "Customized Nutrition Plan",
+      "Fitness Program",
+      "Immediate follow-up and support",
+      "One-to-one chat with trainer included",
+    ],
+    prices: { monthly: 1999, "2months": 2299, quarterly: 2999 },
+  },
+];
+
 export default function Coaching() {
   const { user, token } = useAuth();
   const navigate = useNavigate();
@@ -97,9 +153,9 @@ export default function Coaching() {
   const [subscribedCoaches, setSubscribedCoaches] = useState<Record<number, any>>({});
   const [hasAssignedPlan, setHasAssignedPlan] = useState(false);
   const [subscribeCoach, setSubscribeCoach] = useState<Coach | null>(null);
-  const [subCycle, setSubCycle] = useState<"monthly" | "yearly">("monthly");
+  const [subCycle, setSubCycle] = useState<PtCycle>("monthly");
   const [subMsg, setSubMsg] = useState("");
-  const [selectedPackage, setSelectedPackage] = useState<string>("community_premium");
+  const [selectedPackage, setSelectedPackage] = useState<string>("pt_premium");
   const [packagePrices, setPackagePrices] = useState<Record<string, number>>({});
 
   // Pull package prices from admin settings. Same source of truth as the
@@ -121,43 +177,15 @@ export default function Coaching() {
       .catch(() => {});
   }, [token]);
 
-  // Package catalogue — three athlete subscription tiers shared with the
-  // /app/pricing page. Freemium has no coach access; Premium and Exclusive
-  // unlock a personal coach with custom plans and a ticket allowance.
-  const PACKAGES: {
-    id: string; tier: string;
-    tagline: string; badge?: string;
-    perks: string[]; tickets: string;
-  }[] = [
-    {
-      id: "community_freemium", tier: "Freemium",
-      tagline: "Start free — no coach, just the basics.",
-      perks: ["Calorie calculator", "General programs (Pro split / PPL / Upper & Lower)"],
-      tickets: "No coach tickets",
-    },
-    {
-      id: "community_premium", tier: "Premium", badge: "Popular",
-      tagline: "Coach-led plan with monthly progress reviews.",
-      perks: [
-        "Customized workout program",
-        "Customized nutrition plans",
-        "Courses, live support, community",
-        "Monthly training follow-up report",
-      ],
-      tickets: "10 tickets / month",
-    },
-    {
-      id: "community_exclusive", tier: "Exclusive",
-      tagline: "Full coaching access with weekly reviews and in-person sessions.",
-      perks: [
-        "Everything in Premium",
-        "Weekly training follow-up report",
-        "Nutrition facts for food + fitness assessment",
-        "Hybrid / training in person",
-      ],
-      tickets: "Unlimited tickets",
-    },
-  ];
+  // PT (Personal Training) plans an athlete picks when subscribing to a coach.
+  // Admins can override any price via app_settings (e.g. pt_basic_monthly_egp);
+  // otherwise the standard catalogue prices below apply.
+  const ptPriceFor = (planId: string, cycle: PtCycle): number => {
+    const override = packagePrices[`${planId}_${cycle}`];
+    if (typeof override === "number" && !Number.isNaN(override)) return override;
+    const plan = PT_PLANS.find(p => p.id === planId);
+    return plan ? plan.prices[cycle] : 0;
+  };
 
   const [giftCoach, setGiftCoach] = useState<Coach | null>(null);
   const [giftAmount, setGiftAmount] = useState("50");
@@ -705,39 +733,42 @@ export default function Coaching() {
                 </p>
               </div>
 
-              {/* Package cards — full design. Prices come from admin
-                  settings (sub_<id>_egp); ticket allowance comes from the
-                  catalogue itself. Cards stack as a grid: one column on
-                  phones, two on wider screens. */}
+              {/* PT plans — Basic / Premium / Gold. Prices shown for the
+                  selected billing cycle (Monthly / 2 Months / Quarterly). */}
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 10 }}>Pick a package</label>
-                <PackageGrid
-                  packages={PACKAGES}
-                  prices={packagePrices}
+                <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 10 }}>Pick a PT plan</label>
+                <PtPlanGrid
+                  plans={PT_PLANS}
                   cycle={subCycle}
+                  priceFor={ptPriceFor}
                   selectedId={selectedPackage}
                   onSelect={setSelectedPackage}
                 />
               </div>
 
-              {/* Billing cycle stays as monthly/annual on top of the chosen
-                  package. Annual = 10× monthly (2 months free). */}
+              {/* Billing cycle — Monthly / 2 Months / Quarterly */}
               <div style={{ display: "flex", gap: 6, padding: 4, background: "var(--bg-surface)", borderRadius: 99 }}>
-                {(["monthly", "yearly"] as const).map(c => (
-                  <button key={c} onClick={() => setSubCycle(c)} style={{
+                {PT_CYCLES.map(c => (
+                  <button key={c.id} onClick={() => setSubCycle(c.id)} style={{
                     flex: 1, padding: "8px 10px", borderRadius: 99,
                     border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
-                    background: subCycle === c ? "var(--accent)" : "transparent",
-                    color: subCycle === c ? "#0a0a0a" : "var(--text-muted)",
-                  }}>{c === "monthly" ? "Monthly" : "Annual · 2 months free"}</button>
+                    background: subCycle === c.id ? "var(--accent)" : "transparent",
+                    color: subCycle === c.id ? "#0a0a0a" : "var(--text-muted)",
+                  }}>{c.label}</button>
                 ))}
+              </div>
+
+              {/* Total for the selected plan + cycle */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "var(--accent-dim)", borderRadius: "var(--radius-full)", border: "1px solid rgba(255,214,0,0.2)" }}>
+                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{PT_PLANS.find(p => p.id === selectedPackage)?.tier} · {PT_CYCLES.find(c => c.id === subCycle)?.label}</span>
+                <span style={{ fontFamily: "var(--font-en)", fontSize: 18, fontWeight: 800, color: "var(--accent)" }}>{ptPriceFor(selectedPackage, subCycle)} EGP</span>
               </div>
 
               {/* Manual e-wallet / InstaPay checkout. Sends package_id along
                   with the payment so the server records the right tier. */}
               <PaymentForm
-                amount={subCycle === "monthly" ? (packagePrices[selectedPackage] ?? 0) : (packagePrices[selectedPackage] ?? 0) * 10}
-                plan={subCycle === "monthly" ? "monthly" : "annual"}
+                amount={ptPriceFor(selectedPackage, subCycle)}
+                plan={subCycle}
                 type="user"
                 token={token}
                 coachId={subscribeCoach.id}
@@ -1167,6 +1198,76 @@ export function PackageCard({ pkg, price, cycle, active, onSelect }: {
           <li key={p} style={{ display: "flex", gap: 6, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>
             <span style={{ color: "var(--green)", flexShrink: 0 }}>•</span>
             <span>{p}</span>
+          </li>
+        ))}
+      </ul>
+    </button>
+  );
+}
+
+/* ── PtPlanGrid + PtPlanCard ───────────────────────────────────────────────────
+   The PT (coach) plan picker used in the subscribe-to-coach modal: Basic /
+   Premium / Gold, priced for the selected billing cycle. */
+export function PtPlanGrid({ plans, cycle, priceFor, selectedId, onSelect }: {
+  plans: typeof PT_PLANS;
+  cycle: PtCycle;
+  priceFor: (planId: string, cycle: PtCycle) => number;
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+      {plans.map(p => (
+        <PtPlanCard key={p.id} plan={p} price={priceFor(p.id, cycle)} active={selectedId === p.id} onSelect={() => onSelect(p.id)} />
+      ))}
+    </div>
+  );
+}
+
+export function PtPlanCard({ plan, price, active, onSelect }: {
+  plan: typeof PT_PLANS[number]; price: number; active: boolean; onSelect: () => void;
+}) {
+  return (
+    <button onClick={onSelect}
+      aria-pressed={active}
+      style={{
+        position: "relative", textAlign: "left", cursor: "pointer",
+        background: active ? "var(--accent-dim)" : "var(--bg-card)",
+        border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`,
+        borderRadius: 14, padding: "16px 16px 14px",
+        display: "flex", flexDirection: "column", gap: 10,
+        transition: "all 0.15s",
+        boxShadow: active ? "0 4px 18px rgba(255,214,0,0.12)" : "none",
+      }}>
+      {plan.badge && (
+        <span style={{
+          position: "absolute", top: -9, insetInlineEnd: 14,
+          fontSize: 9, padding: "3px 9px", borderRadius: 99,
+          background: "var(--main)", color: "#0a0a0a",
+          fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
+        }}>{plan.badge}</span>
+      )}
+
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: active ? "var(--accent)" : "var(--text-primary)", marginBottom: 2 }}>{plan.tier}</p>
+          <p style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }}>{plan.tagline}</p>
+        </div>
+        {active && (
+          <div style={{ width: 20, height: 20, borderRadius: 99, background: "var(--main)", color: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>✓</div>
+        )}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span style={{ fontFamily: "var(--font-en)", fontSize: 26, fontWeight: 800, color: active ? "var(--accent)" : "var(--text-primary)" }}>{price}</span>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>EGP</span>
+      </div>
+
+      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+        {plan.perks.map(perk => (
+          <li key={perk} style={{ display: "flex", gap: 6, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+            <span style={{ color: perk.toLowerCase().startsWith("no ") ? "var(--text-muted)" : "var(--green)", flexShrink: 0 }}>{perk.toLowerCase().startsWith("no ") ? "✕" : "•"}</span>
+            <span>{perk}</span>
           </li>
         ))}
       </ul>
