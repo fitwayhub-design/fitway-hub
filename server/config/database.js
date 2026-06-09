@@ -873,6 +873,8 @@ async function initTables() {
         `ALTER TABLE users ADD COLUMN avg_daily_steps INT DEFAULT 0`,
         `ALTER TABLE users ADD COLUMN streak_days INT DEFAULT 0`,
         `ALTER TABLE users ADD COLUMN last_activity_update DATETIME DEFAULT NULL`,
+        // Athletes may change their display name only once in their lifetime.
+        `ALTER TABLE users ADD COLUMN name_changed TINYINT DEFAULT 0`,
         // ── Coach Ads — Facebook-style campaign fields ───────────────────────────
         `ALTER TABLE coach_ads ADD COLUMN campaign_name VARCHAR(255)`,
         `ALTER TABLE coach_ads ADD COLUMN audience_gender VARCHAR(20) DEFAULT 'all'`,

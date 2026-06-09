@@ -215,7 +215,7 @@ export const register = async (req, res) => {
         }
         const token = issueLoginToken(user);
         const ip = getClientIp(req);
-        const fullUser = await get('SELECT id, name, email, role, avatar, is_premium, coach_membership_active, membership_paid, points, steps, step_goal, height, weight, gender, created_at FROM users WHERE id = ?', [user.id]);
+        const fullUser = await get('SELECT id, name, email, role, avatar, is_premium, coach_membership_active, membership_paid, points, steps, step_goal, height, weight, gender, name_changed, created_at FROM users WHERE id = ?', [user.id]);
         res.status(201).json({ message: 'User registered successfully', token, user: fullUser, rememberToken: rememberRenewToken });
         // Fire-and-forget: send welcome messages (push, email, in-app)
         sendWelcomeMessages(user.id, userRole, name || email.split('@')[0], email).catch(e => console.error('Welcome messages error:', e));
@@ -244,7 +244,7 @@ export const login = async (req, res) => {
         }
         const token = issueLoginToken(user);
         const ip = getClientIp(req);
-        const fullUser = await get('SELECT id, name, email, role, avatar, is_premium, coach_membership_active, membership_paid, points, steps, step_goal, height, weight, gender, created_at FROM users WHERE id = ?', [user.id]);
+        const fullUser = await get('SELECT id, name, email, role, avatar, is_premium, coach_membership_active, membership_paid, points, steps, step_goal, height, weight, gender, name_changed, created_at FROM users WHERE id = ?', [user.id]);
         res.json({ message: 'Login successful', token, user: fullUser, rememberToken: rememberRenewToken });
     }
     catch (error) {

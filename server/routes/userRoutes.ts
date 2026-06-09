@@ -10,7 +10,21 @@ router.patch('/profile', authenticateToken, async (req: any, res: any) => {
     const { name, height, weight, gender, avatar, points, fitness_goal, activity_level, target_weight, weekly_goal, date_of_birth, onboarding_done } = req.body;
     const fields: string[] = [];
     const values: any[] = [];
-    if (name             !== undefined) { fields.push('name = ?');             values.push(name); }
+
+    // Athletes may change their display name only once in their lifetime.
+    // When the name actually changes we flip the `name_changed` flag; a second
+    // change is rejected for role 'user'. Coaches/admins are unrestricted.
+    let markNameChanged = false;
+    if (name !== undefined) {
+      const current = await get<any>('SELECT name, role, name_changed FROM users WHERE id = ?', [userId]);
+      const newName = String(name).trim();
+      const nameIsChanging = current && newName && newName !== (current.name || '').trim();
+      if (nameIsChanging && current.role === 'user' && Number(current.name_changed) === 1) {
+        return res.status(403).json({ message: 'You can only change your name once. Your name has already been changed.' });
+      }
+      if (nameIsChanging) { fields.push('name = ?'); values.push(newName); markNameChanged = true; }
+    }
+    if (markNameChanged)                 { fields.push('name_changed = 1'); }
     if (height           !== undefined) { fields.push('height = ?');           values.push(height); }
     if (weight           !== undefined) { fields.push('weight = ?');           values.push(weight); }
     if (gender           !== undefined) { fields.push('gender = ?');           values.push(gender); }
@@ -26,7 +40,7 @@ router.patch('/profile', authenticateToken, async (req: any, res: any) => {
     values.push(userId);
     await run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
     const updated = await get(
-      'SELECT id, name, email, role, avatar, is_premium, coach_membership_active, points, steps, step_goal, height, weight, gender, fitness_goal, activity_level, computed_activity_level, target_weight, weekly_goal, date_of_birth, onboarding_done, avg_daily_steps, streak_days, created_at FROM users WHERE id = ?',
+      'SELECT id, name, email, role, avatar, is_premium, coach_membership_active, points, steps, step_goal, height, weight, gender, fitness_goal, activity_level, computed_activity_level, target_weight, weekly_goal, date_of_birth, onboarding_done, name_changed, avg_daily_steps, streak_days, created_at FROM users WHERE id = ?',
       [userId]
     );
     res.json({ success: true, user: updated });
