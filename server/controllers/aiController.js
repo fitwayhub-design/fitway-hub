@@ -68,4 +68,70 @@ export const analyzeSteps = async (req, res) => {
         res.status(500).json({ message: 'Error generating AI analysis' });
     }
 };
+// Nutrition lookup — Option 2 of the calorie calculator. The athlete types a
+// free-text meal/dish/element name and the backend "searches the web" (via the
+// Gemini model's knowledge) for its nutrition facts per 100 g.
+export const nutritionLookup = async (req, res) => {
+    try {
+        const rawName = ((req.body || {}).name ?? '').toString();
+        const name = rawName.replace(/[^\p{L}\p{N}\s\-'&(),.]/gu, '').trim().slice(0, 80);
+        if (name.length < 2) {
+            return res.status(400).json({ message: 'Please enter a valid food or meal name.' });
+        }
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({ message: 'Nutrition lookup is not configured on the server.' });
+        }
+        const ai = new GoogleGenAI({ apiKey });
+        const prompt = `
+      You are a nutrition database. For the food, dish or ingredient named exactly:
+      "${name}"
+      Return your best estimate of its nutrition facts PER 100 GRAMS as raw JSON
+      (no markdown, no commentary) with these numeric fields:
+      {
+        "food": string (the normalised food name),
+        "kcal_per_100g": number,
+        "protein_per_100g": number,
+        "carbs_per_100g": number,
+        "fat_per_100g": number,
+        "confidence": "high" | "medium" | "low"
+      }
+      If the name is not a recognisable food, set every numeric field to 0 and
+      "confidence" to "low".
+    `;
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+        });
+        const text = response.text || '';
+        let data;
+        try {
+            const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            data = JSON.parse(jsonStr);
+        }
+        catch {
+            return res.status(502).json({ message: 'Could not read nutrition data. Try a simpler name.' });
+        }
+        const num = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) && n >= 0 ? Math.round(n * 10) / 10 : 0;
+        };
+        const result = {
+            food: (typeof data.food === 'string' && data.food.trim()) || name,
+            kcalPer100g: num(data.kcal_per_100g),
+            proteinPer100g: num(data.protein_per_100g),
+            carbsPer100g: num(data.carbs_per_100g),
+            fatPer100g: num(data.fat_per_100g),
+            confidence: ['high', 'medium', 'low'].includes(data.confidence) ? data.confidence : 'low',
+        };
+        if (result.kcalPer100g <= 0) {
+            return res.status(404).json({ message: `No nutrition data found for "${name}".` });
+        }
+        res.json(result);
+    }
+    catch (error) {
+        console.error('Nutrition lookup error:', error);
+        res.status(500).json({ message: 'Error looking up nutrition data.' });
+    }
+};
 //# sourceMappingURL=aiController.js.map
