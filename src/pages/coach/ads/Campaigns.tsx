@@ -6,7 +6,7 @@ import {
 } from "antd";
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
-  UploadOutlined, SearchOutlined, EnvironmentOutlined,
+  UploadOutlined, SearchOutlined, EnvironmentOutlined, InfoCircleOutlined,
 } from "@ant-design/icons";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
@@ -23,12 +23,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const OBJECTIVES = [
-  { value: "coaching", label: "🎯 Coaching (Bookings)" },
-  { value: "awareness", label: "📢 Awareness" },
-  { value: "traffic", label: "🔗 Traffic" },
-  { value: "engagement", label: "💬 Engagement" },
-  { value: "bookings", label: "📅 Bookings" },
-  { value: "announcements", label: "📣 Announcements" },
+  { value: "coaching", label: "🎯 Coaching (Bookings)", info: "Drives athletes to subscribe to your coaching. Shown in the Coaching/Discovery pages and the community feed where athletes are looking for a coach." },
+  { value: "awareness", label: "📢 Awareness", info: "Maximises how many people see your brand. Published as a Home banner and across All Placements to reach the widest audience." },
+  { value: "traffic", label: "🔗 Traffic", info: "Sends people to your profile or a link. Published in the Community Feed and Search Results with a clear call-to-action." },
+  { value: "engagement", label: "💬 Engagement", info: "Optimised for likes, comments and shares. Published in the Community Feed where athletes interact with posts." },
+  { value: "bookings", label: "📅 Bookings", info: "Optimised for session/consultation bookings. Published in Discovery and Profile Boost placements near high-intent athletes." },
+  { value: "announcements", label: "📣 Announcements", info: "Broadcasts news or offers to your audience. Delivered via the Notification placement and the Home banner." },
 ];
 
 const PLACEMENTS = [
@@ -71,6 +71,11 @@ export default function CoachAdsCampaigns() {
 
   const [campaignForm] = Form.useForm();
   const [adForm] = Form.useForm();
+  // Watch budget type + objective so the campaign form can react: lifetime
+  // budget hides the daily-budget + schedule fields, and we can show details
+  // for the selected objective.
+  const watchedBudgetType = Form.useWatch("budget_type", campaignForm) || "daily";
+  const watchedObjective = Form.useWatch("objective", campaignForm) || "coaching";
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
@@ -118,8 +123,11 @@ export default function CoachAdsCampaigns() {
     try {
       const vals = await campaignForm.validateFields();
       const payload: any = { name: vals.name, objective: vals.objective || "coaching", daily_budget: vals.daily_budget || 0, lifetime_budget: vals.lifetime_budget || 0, budget_type: vals.budget_type || "daily" };
-      if (vals.schedule?.[0]) payload.schedule_start = vals.schedule[0].format?.("YYYY-MM-DD") || vals.schedule[0];
-      if (vals.schedule?.[1]) payload.schedule_end = vals.schedule[1].format?.("YYYY-MM-DD") || vals.schedule[1];
+      // Lifetime budgets have no schedule; daily budgets store start/end with time.
+      if (vals.budget_type !== "lifetime") {
+        if (vals.schedule?.[0]) payload.schedule_start = vals.schedule[0].format?.("YYYY-MM-DD HH:mm:ss") || vals.schedule[0];
+        if (vals.schedule?.[1]) payload.schedule_end = vals.schedule[1].format?.("YYYY-MM-DD HH:mm:ss") || vals.schedule[1];
+      }
       if (editingCampaign) {
         await axios.patch(`${API}/api/ads/campaigns/${editingCampaign.id}`, payload, { headers });
         message.success(t("coach_ads_updated") || "Campaign updated");
@@ -283,14 +291,70 @@ export default function CoachAdsCampaigns() {
             <Input placeholder="e.g. Summer Promotion" size="large" />
           </Form.Item>
           <Row gutter={16}>
-            <Col span={12}><Form.Item name="objective" label={t("ad_objective") || "Objective"} initialValue="coaching"><Select size="large">{OBJECTIVES.map(o => <Select.Option key={o.value} value={o.value}>{o.label}</Select.Option>)}</Select></Form.Item></Col>
+            <Col span={12}>
+              <Form.Item
+                name="objective"
+                initialValue="coaching"
+                label={
+                  <Space size={4}>
+                    {t("ad_objective") || "Objective"}
+                    <Tooltip title="Each objective decides where your ad is published and what it optimises for. Hover the ⓘ next to an objective for details.">
+                      <InfoCircleOutlined style={{ color: "#9aa" }} />
+                    </Tooltip>
+                  </Space>
+                }
+              >
+                <Select size="large" optionLabelProp="label">
+                  {OBJECTIVES.map(o => (
+                    <Select.Option key={o.value} value={o.value} label={o.label}>
+                      <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <span>{o.label}</span>
+                        <Tooltip title={o.info}>
+                          <InfoCircleOutlined
+                            onClick={e => e.stopPropagation()}
+                            style={{ color: "#1677ff", fontSize: 15 }}
+                          />
+                        </Tooltip>
+                      </span>
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
             <Col span={12}><Form.Item name="budget_type" label={t("budget_type") || "Budget Type"} initialValue="daily"><Select size="large"><Select.Option value="daily">{t("daily") || "Daily"}</Select.Option><Select.Option value="lifetime">{t("lifetime") || "Lifetime"}</Select.Option></Select></Form.Item></Col>
           </Row>
-          <Row gutter={16}>
-            <Col span={12}><Form.Item name="daily_budget" label={t("daily_budget") || "Daily Budget (EGP)"}><InputNumber min={0} style={{ width: "100%" }} size="large" addonAfter="EGP" /></Form.Item></Col>
-            <Col span={12}><Form.Item name="lifetime_budget" label={t("lifetime_budget") || "Lifetime Budget (EGP)"}><InputNumber min={0} style={{ width: "100%" }} size="large" addonAfter="EGP" /></Form.Item></Col>
-          </Row>
-          <Form.Item name="schedule" label={t("schedule") || "Schedule"}><DatePicker.RangePicker style={{ width: "100%" }} size="large" /></Form.Item>
+
+          {/* Details for the currently-selected objective (where it's published etc.) */}
+          <Paragraph type="secondary" style={{ marginTop: -8, marginBottom: 16, fontSize: 12, background: "var(--ant-color-fill-quaternary, #f6f8fa)", padding: "8px 12px", borderRadius: 8 }}>
+            <InfoCircleOutlined style={{ color: "#1677ff", marginInlineEnd: 6 }} />
+            {OBJECTIVES.find(o => o.value === watchedObjective)?.info}
+          </Paragraph>
+
+          {/* Budget — show ONLY the field matching the chosen budget type.
+              Lifetime hides the daily-budget field (and the schedule below). */}
+          {watchedBudgetType === "lifetime" ? (
+            <Form.Item name="lifetime_budget" label={t("lifetime_budget") || "Lifetime Budget (EGP)"} rules={[{ required: true, message: "Enter a lifetime budget" }]}>
+              <InputNumber min={0} style={{ width: "100%" }} size="large" addonAfter="EGP" />
+            </Form.Item>
+          ) : (
+            <Form.Item name="daily_budget" label={t("daily_budget") || "Daily Budget (EGP)"} rules={[{ required: true, message: "Enter a daily budget" }]}>
+              <InputNumber min={0} style={{ width: "100%" }} size="large" addonAfter="EGP" />
+            </Form.Item>
+          )}
+
+          {/* Schedule — only relevant for daily budgets. A lifetime budget runs
+              until it is exhausted, so we hide the schedule for it. Includes a
+              clock (time), not just the day. */}
+          {watchedBudgetType !== "lifetime" && (
+            <Form.Item name="schedule" label={t("schedule") || "Schedule (start & end)"}>
+              <DatePicker.RangePicker
+                showTime={{ format: "HH:mm" }}
+                format="YYYY-MM-DD HH:mm"
+                style={{ width: "100%" }}
+                size="large"
+              />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
 
