@@ -137,6 +137,13 @@ export async function runChallengesSystemMigration() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // Evidence capture metadata (when the photo/video was actually taken) and
+  // GPS proof-of-presence (steps-by-GPS). Added via addColumn so existing
+  // installs upgrade in place.
+  await addColumn('challenge_submissions', 'captured_at', 'DATETIME NULL');
+  await addColumn('challenge_submissions', 'geo_lat', 'DOUBLE NULL');
+  await addColumn('challenge_submissions', 'geo_lng', 'DOUBLE NULL');
+
   // ── challenge_reward_grants (trophies/badges on a profile) ──────────────────
   await run(`
     CREATE TABLE IF NOT EXISTS challenge_reward_grants (
