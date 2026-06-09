@@ -261,6 +261,21 @@ function ChallengeDetail({ id, api, token, onBack, note }: { id: number; api: (p
           <h2 className="text-[19px] font-bold">{c.title}</h2>
           {c.description && <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">{c.description}</p>}
 
+          {/* Creator-defined goals / milestones */}
+          {c.goals && String(c.goals).trim() && (
+            <div className="mt-3 rounded-md bg-muted/50 p-3">
+              <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-foreground"><Target size={13} /> Goals</p>
+              <ul className="flex flex-col gap-1">
+                {String(c.goals).split("\n").map((g: string) => g.trim()).filter(Boolean).map((g: string, i: number) => (
+                  <li key={i} className="flex items-start gap-2 text-[12px] text-muted-foreground">
+                    <span className="mt-0.5 text-[var(--main)]">•</span>
+                    <span>{g}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[12px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5"><Target size={13} /> Goal: <b className="text-foreground">{goalTarget || "—"} {c.goal_unit}</b> ({c.scoring_model})</span>
             <span className="inline-flex items-center gap-1.5"><Users size={13} /> {c.participant_count} joined</span>
