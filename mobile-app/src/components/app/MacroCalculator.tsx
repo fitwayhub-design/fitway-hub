@@ -39,7 +39,7 @@ export interface MealItem {
   emoji: string;
 }
 
-const DB: MealItem[] = [
+export const DB: MealItem[] = [
   // ═══════ PROTEIN (30 items) ═══════
   { id: 1, name: "Grilled Chicken Breast", category: "protein", serving: "150g", servingGrams: 150, calories: 248, protein: 46.5, carbs: 0, fat: 5.4, fiber: 0, sugar: 0, sodium: 104, tags: ["lean", "high-protein"], pairsWith: [101, 102, 111, 131, 151], emoji: "🍗" },
   { id: 2, name: "Grilled Salmon Fillet", category: "protein", serving: "150g", servingGrams: 150, calories: 312, protein: 34, carbs: 0, fat: 18.6, fiber: 0, sugar: 0, sodium: 86, tags: ["omega-3", "fish"], pairsWith: [101, 103, 112, 132, 152], emoji: "🐟" },

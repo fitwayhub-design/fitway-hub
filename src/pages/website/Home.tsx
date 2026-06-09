@@ -188,12 +188,14 @@ export default function HomePage() {
     return (isAr ? (it.label_ar || it.label) : (it.label || it.label_ar)) || fallback;
   };
   const STATS = [
-    { num: liveStats.members > 0 ? `${liveStats.members.toLocaleString()}+` : "—", desc: statsDesc(0, isAr ? "عضو نشط يتدرب على المنصة." : "Active members training across the platform every week."), icon: Users },
-    { num: liveStats.coaches > 0 ? `${liveStats.coaches}+` : "—", desc: statsDesc(1, isAr ? "كوتش معتمد بشهادات موثقة." : "Vetted certified coaches with verified credentials."), icon: Award },
+    { num: liveStats.members > 0 ? `${liveStats.members.toLocaleString()}+` : "—", desc: statsDesc(0, isAr ? "رياضي نشط يتدرب على المنصة." : "Active athletes training across the platform every week."), icon: Users },
+    // Active coaches — fills the (previously empty) cell of the 4-cell grid.
+    { num: liveStats.coaches > 0 ? `${liveStats.coaches}+` : "—", desc: statsDesc(1, isAr ? "كوتش نشط معتمد بشهادات موثقة." : "Active certified coaches with verified credentials."), icon: Award },
+    { num: liveStats.programs > 0 ? `${liveStats.programs.toLocaleString()}+` : "—", desc: statsDesc(2, isAr ? "برنامج تدريبي وخطة جاهزة." : "Training programs and ready-made plans."), icon: Dumbbell },
     // Rating renders the numeric value separately from a smaller star
     // glyph (with a space) so the star doesn't dominate the cell the way
     // a full-display-size "★" does.
-    { num: liveStats.rating, suffix: "★", desc: statsDesc(2, isAr ? "تقييم التطبيق من المستخدمين." : "App rating from athletes who trained with us."), icon: Star },
+    { num: liveStats.rating, suffix: "★", desc: statsDesc(3, isAr ? "تقييم التطبيق من المستخدمين." : "App rating from athletes who trained with us."), icon: Star },
   ];
 
   /* ── Testimonials — prefer CMS, fall back to seeded defaults ───────────

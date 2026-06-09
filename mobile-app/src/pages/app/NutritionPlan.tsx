@@ -6,8 +6,9 @@ import { getApiBase } from "@/lib/api";
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Circle, Utensils, Flame, RefreshCw, Droplets, UserCheck, User as UserIcon,
-  Lock, Pencil, ArrowRight,
+  Lock, Pencil, ArrowRight, Search, Loader2, Globe, Database, X,
 } from "lucide-react";
+import { DB as MEAL_DB, type MealItem } from "@/components/app/MacroCalculator";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,9 +17,6 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import PlanCommentsThread from "@/components/app/PlanCommentsThread";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 interface Meal {
@@ -614,89 +612,234 @@ export default function NutritionPlan() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   GramsCalorieCalc
-   Lightweight grams → kcal estimator that lives next to the nutrition plan.
-   Picks one of a few common foods (or "Custom" with kcal-per-100g), takes a
-   grams input, and shows kcal + protein/carbs/fat. No backend — this is just
-   a planning aid, so the foods table is local. Admin can extend this in CMS
-   later if needed.
+   GramsCalorieCalc — Calorie calculator with TWO modes:
+
+   1) "From database"  → the athlete picks a meal/dish/element from our built-in
+      nutrition database (200+ items) and enters grams; we compute kcal + macros.
+
+   2) "Search by name" → the athlete types any meal/dish/element name and grams;
+      the backend looks the food up on the web (Gemini) for kcal/100g and macros,
+      then we compute the calories for the grams entered.
    ────────────────────────────────────────────────────────────────────────── */
-const FOOD_TABLE: { id: string; name: string; kcal: number; p: number; c: number; f: number }[] = [
-  { id: "chicken",  name: "Chicken Breast (cooked)", kcal: 165, p: 31, c: 0,  f: 3.6 },
-  { id: "rice",     name: "Rice (cooked)",           kcal: 130, p: 2.7, c: 28, f: 0.3 },
-  { id: "oats",     name: "Oats (raw)",              kcal: 389, p: 17, c: 66, f: 7   },
-  { id: "egg",      name: "Egg (whole)",             kcal: 155, p: 13, c: 1.1, f: 11 },
-  { id: "salmon",   name: "Salmon (cooked)",         kcal: 208, p: 20, c: 0,  f: 13  },
-  { id: "yogurt",   name: "Greek Yogurt (plain)",    kcal: 59,  p: 10, c: 3.6, f: 0.4 },
-  { id: "banana",   name: "Banana",                  kcal: 89,  p: 1.1, c: 23, f: 0.3 },
-  { id: "almonds",  name: "Almonds",                 kcal: 579, p: 21, c: 22, f: 50  },
-  { id: "beef",     name: "Beef (lean, cooked)",     kcal: 250, p: 26, c: 0,  f: 15  },
-  { id: "custom",   name: "Custom (enter kcal/100g)", kcal: 0,  p: 0,  c: 0,  f: 0   },
-];
+
+// Per-100g nutrition derived from a database item's per-serving values.
+function per100(item: MealItem) {
+  const r = item.servingGrams > 0 ? 100 / item.servingGrams : 0;
+  return {
+    kcal: item.calories * r,
+    p: item.protein * r,
+    c: item.carbs * r,
+    f: item.fat * r,
+  };
+}
+
+function MacroResultGrid({ kcal, p, c, f }: { kcal: number; p: number; c: number; f: number }) {
+  return (
+    <div className="mt-2 grid grid-cols-4 gap-1.5">
+      {[
+        { label: "kcal", val: Math.round(kcal),       c: "#FB7185" },
+        { label: "P (g)", val: p.toFixed(1),          c: "var(--secondary)" },
+        { label: "C (g)", val: c.toFixed(1),          c: "var(--green)" },
+        { label: "F (g)", val: f.toFixed(1),          c: "var(--amber)" },
+      ].map(({ label, val, c: color }) => (
+        <div
+          key={label}
+          className="rounded-md p-2 text-center"
+          style={{ background: `color-mix(in srgb, ${color} 12%, transparent)` }}
+        >
+          <div className="text-[15px] font-bold tabular-nums" style={{ color }}>{val}</div>
+          <div className="text-[10px] text-muted-foreground">{label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function GramsCalorieCalc() {
-  const [foodId, setFoodId] = useState("chicken");
+  const { token } = useAuth();
+  const [mode, setMode] = useState<"db" | "web">("db");
+
+  // ── Mode 1: From database ──
+  const [query, setQuery] = useState("");
+  const [picked, setPicked] = useState<MealItem | null>(MEAL_DB[0] || null);
   const [grams, setGrams] = useState("100");
-  const [customKcal, setCustomKcal] = useState("");
-  const food = FOOD_TABLE.find(f => f.id === foodId) || FOOD_TABLE[0];
+  const dbMatches = query.trim()
+    ? MEAL_DB.filter(m => m.name.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 8)
+    : [];
+
+  // ── Mode 2: Search by name (web) ──
+  const [webName, setWebName] = useState("");
+  const [webGrams, setWebGrams] = useState("100");
+  const [webLoading, setWebLoading] = useState(false);
+  const [webErr, setWebErr] = useState("");
+  const [webData, setWebData] = useState<{ food: string; kcalPer100g: number; proteinPer100g: number; carbsPer100g: number; fatPer100g: number; confidence: string } | null>(null);
+
+  const lookup = async () => {
+    const name = webName.trim();
+    if (name.length < 2) { setWebErr("Enter a food or meal name."); return; }
+    setWebLoading(true); setWebErr(""); setWebData(null);
+    try {
+      const r = await fetch(`${getApiBase()}/api/ai/nutrition-lookup`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setWebErr(d?.message || "Lookup failed. Try again."); return; }
+      setWebData(d);
+    } catch {
+      setWebErr("Network error. Please try again.");
+    } finally {
+      setWebLoading(false);
+    }
+  };
+
+  // Mode 1 computed values
   const g = Math.max(0, Number(grams) || 0);
-  const per100 = food.id === "custom" ? Math.max(0, Number(customKcal) || 0) : food.kcal;
-  const kcal = Math.round((per100 * g) / 100);
-  const ratio = g / 100;
-  const prot = (food.p * ratio).toFixed(1);
-  const carb = (food.c * ratio).toFixed(1);
-  const fat  = (food.f * ratio).toFixed(1);
+  const p1 = picked ? per100(picked) : { kcal: 0, p: 0, c: 0, f: 0 };
+  const ratio1 = g / 100;
+
+  // Mode 2 computed values
+  const wg = Math.max(0, Number(webGrams) || 0);
+  const ratio2 = wg / 100;
+
   return (
     <Card className="gap-0 p-4 shadow-soft-sm">
-      <p className="mb-2.5 flex items-center gap-1.5 text-[13px] font-semibold">
-        <Flame size={15} strokeWidth={2} className="text-[#FB7185]" /> Calorie calculator (by grams)
+      <p className="mb-3 flex items-center gap-1.5 text-[13px] font-semibold">
+        <Flame size={15} strokeWidth={2} className="text-[#FB7185]" /> Calorie calculator
       </p>
-      <div className="mb-2 grid grid-cols-[2fr_1fr] gap-2">
-        <Select value={foodId} onValueChange={setFoodId}>
-          <SelectTrigger className="w-full text-[13px]" aria-label="Food">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {FOOD_TABLE.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Input
-          type="number"
-          min="0"
-          value={grams}
-          onChange={e => setGrams(e.target.value)}
-          placeholder="grams"
-          aria-label="Grams"
-          className="text-[13px]"
-        />
+
+      {/* Mode toggle */}
+      <div role="tablist" className="mb-3 flex gap-1 rounded-md bg-muted p-1">
+        <button
+          role="tab"
+          aria-selected={mode === "db"}
+          onClick={() => setMode("db")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-1.5 rounded-[7px] px-2 py-2 text-[12px] font-semibold transition-all",
+            mode === "db" ? "bg-card text-foreground shadow-soft-sm" : "text-muted-foreground",
+          )}
+        >
+          <Database size={14} /> From database
+        </button>
+        <button
+          role="tab"
+          aria-selected={mode === "web"}
+          onClick={() => setMode("web")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-1.5 rounded-[7px] px-2 py-2 text-[12px] font-semibold transition-all",
+            mode === "web" ? "bg-card text-foreground shadow-soft-sm" : "text-muted-foreground",
+          )}
+        >
+          <Globe size={14} /> Search by name
+        </button>
       </div>
-      {food.id === "custom" && (
-        <Input
-          type="number"
-          min="0"
-          value={customKcal}
-          onChange={e => setCustomKcal(e.target.value)}
-          placeholder="kcal per 100g (from label)"
-          aria-label="kcal per 100g"
-          className="mb-2 text-[13px]"
-        />
-      )}
-      <div className="mt-1 grid grid-cols-4 gap-1.5">
-        {[
-          { label: "kcal", val: kcal,  c: "#FB7185" },
-          { label: "P (g)", val: prot, c: "var(--secondary)" },
-          { label: "C (g)", val: carb, c: "var(--green)" },
-          { label: "F (g)", val: fat,  c: "var(--amber)" },
-        ].map(({ label, val, c }) => (
-          <div
-            key={label}
-            className="rounded-md p-2 text-center"
-            style={{ background: `color-mix(in srgb, ${c} 12%, transparent)` }}
-          >
-            <div className="text-[15px] font-bold tabular-nums" style={{ color: c }}>{val}</div>
-            <div className="text-[10px] text-muted-foreground">{label}</div>
+
+      {/* ── Mode 1: From database ── */}
+      {mode === "db" && (
+        <>
+          <div className="relative mb-2">
+            <Search size={15} className="pointer-events-none absolute top-1/2 start-3 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search foods… (chicken, rice, banana…)"
+              aria-label="Search food database"
+              className="ps-9 text-[13px]"
+            />
+            {query && dbMatches.length > 0 && (
+              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md bg-card p-1 shadow-soft-lg ring-1 ring-border">
+                {dbMatches.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => { setPicked(m); setQuery(""); }}
+                    className="flex w-full items-center gap-2 rounded-[6px] px-2.5 py-2 text-start text-[13px] transition hover:bg-muted"
+                  >
+                    <span className="text-[16px]">{m.emoji}</span>
+                    <span className="flex-1 truncate">{m.name}</span>
+                    <span className="text-[11px] text-muted-foreground">{Math.round(per100(m).kcal)} kcal/100g</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        ))}
-      </div>
+
+          <div className="mb-1 grid grid-cols-[2fr_1fr] gap-2">
+            <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-[13px] font-medium">
+              {picked ? <><span className="text-[16px]">{picked.emoji}</span><span className="truncate">{picked.name}</span></> : <span className="text-muted-foreground">Pick a food…</span>}
+            </div>
+            <Input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              value={grams}
+              onChange={e => setGrams(e.target.value)}
+              placeholder="grams"
+              aria-label="Grams"
+              className="text-[13px]"
+            />
+          </div>
+
+          {picked && (
+            <MacroResultGrid
+              kcal={p1.kcal * ratio1}
+              p={p1.p * ratio1}
+              c={p1.c * ratio1}
+              f={p1.f * ratio1}
+            />
+          )}
+        </>
+      )}
+
+      {/* ── Mode 2: Search by name (web) ── */}
+      {mode === "web" && (
+        <>
+          <div className="mb-2 grid grid-cols-[2fr_1fr] gap-2">
+            <Input
+              value={webName}
+              onChange={e => { setWebName(e.target.value); setWebData(null); setWebErr(""); }}
+              onKeyDown={e => e.key === "Enter" && lookup()}
+              placeholder="e.g. koshari, shawarma, sushi roll…"
+              aria-label="Food or meal name"
+              className="text-[13px]"
+            />
+            <Input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              value={webGrams}
+              onChange={e => setWebGrams(e.target.value)}
+              placeholder="grams"
+              aria-label="Grams"
+              className="text-[13px]"
+            />
+          </div>
+          <Button onClick={lookup} disabled={webLoading} className="w-full" size="sm">
+            {webLoading ? <><Loader2 size={15} className="animate-spin" /> Searching the web…</> : <><Search size={15} /> Look up nutrition</>}
+          </Button>
+
+          {webErr && (
+            <p className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-destructive">
+              <X size={13} /> {webErr}
+            </p>
+          )}
+
+          {webData && (
+            <>
+              <p className="mt-2.5 text-[11px] text-muted-foreground">
+                <span className="font-semibold text-foreground">{webData.food}</span> · {Math.round(webData.kcalPer100g)} kcal/100g
+                <span className="ms-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide">{webData.confidence} confidence</span>
+              </p>
+              <MacroResultGrid
+                kcal={webData.kcalPer100g * ratio2}
+                p={webData.proteinPer100g * ratio2}
+                c={webData.carbsPer100g * ratio2}
+                f={webData.fatPer100g * ratio2}
+              />
+            </>
+          )}
+        </>
+      )}
     </Card>
   );
 }
