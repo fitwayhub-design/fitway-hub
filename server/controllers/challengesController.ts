@@ -664,7 +664,7 @@ export const getLeaderboard = async (req: Request, res: Response) => {
          JOIN users u ON cp.user_id = u.id
          LEFT JOIN challenge_submissions s ON s.participant_id = cp.id AND s.activity_date >= ? AND s.deleted_at IS NULL
          WHERE cp.challenge_id = ? AND cp.status = 'active'
-         GROUP BY cp.id
+         GROUP BY cp.id, u.id
          ORDER BY verified_points DESC, cp.progress_value DESC, cp.best_streak DESC, cp.joined_at ASC, cp.user_id ASC
          LIMIT 200`,
         [since, c.id],
