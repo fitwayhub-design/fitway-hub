@@ -51,8 +51,15 @@ const PT_PLAN_PRICES = {
 function isPtPackage(pkgId) {
     return Object.prototype.hasOwnProperty.call(PT_PLAN_PRICES, pkgId);
 }
-function getPtPrice(pkgId, cycle) {
+async function getPtPrice(pkgId, cycle) {
+    const override = await getSetting(`sub_${pkgId}_${cycle}_egp`).catch(() => null);
+    const v = Number(override);
+    if (Number.isFinite(v) && v > 0) return v;
     return (PT_PLAN_PRICES[pkgId] && PT_PLAN_PRICES[pkgId][cycle]) || 0;
+}
+async function getPtPlatformCommissionPct() {
+    const v = Number(await getSetting('pt_platform_commission_pct').catch(() => null));
+    return Number.isFinite(v) && v >= 0 && v <= 100 ? v : 40;
 }
 function normalizePlanCycle(plan) {
     if (plan === 'annual' || plan === 'yearly') return 'yearly';
@@ -61,7 +68,8 @@ function normalizePlanCycle(plan) {
 }
 async function computeCoachCut(amount, packageId) {
     if (packageId && isPtPackage(packageId)) {
-        return Math.round(amount * ((100 - 40) / 100) * 100) / 100;
+        const platformPct = await getPtPlatformCommissionPct();
+        return Math.round(amount * ((100 - platformPct) / 100) * 100) / 100;
     }
     const pctStr = await getSetting('coach_cut_percentage');
     const pct = pctStr ? Math.min(100, Math.max(0, Number(pctStr))) : 90;
@@ -291,7 +299,7 @@ router.post('/paypal/capture-order', authenticateToken, async (req, res) => {
                 const pkgId = String(packageId || '');
                 const planCycle = normalizePlanCycle(plan);
                 const subAmount = isPtPackage(pkgId)
-                    ? getPtPrice(pkgId, planCycle)
+                    ? await getPtPrice(pkgId, planCycle)
                     : (planCycle === 'yearly' ? Number(coach.yearly_price || 0) : Number(coach.monthly_price || 0));
                 // Check for existing pending subscription
                 const existingPending = await get(`SELECT id FROM coach_subscriptions
@@ -304,7 +312,7 @@ router.post('/paypal/capture-order', authenticateToken, async (req, res) => {
                 expiresAt.setMonth(expiresAt.getMonth() + getCoachSubscriptionDurationMonths(planCycle));
                 // PayPal verified — activate immediately, credit coach, no human approval needed.
                 // PT plans: platform commission is 40%, so the coach receives 60%.
-                const coachCutPct = isPtPackage(pkgId) ? (100 - 40) : Number(process.env.COACH_CUT_PERCENT || 85);
+                const coachCutPct = isPtPackage(pkgId) ? (100 - await getPtPlatformCommissionPct()) : Number(process.env.COACH_CUT_PERCENT || 85);
                 const coachCutAmt = Math.round(subAmount * (coachCutPct / 100) * 100) / 100;
                 await run(`INSERT INTO coach_subscriptions
            (user_id, coach_id, plan_cycle, plan_type, amount, status,
@@ -381,7 +389,7 @@ router.post('/ewallet', authenticateToken, uploadPaymentProof, optimizeImage(), 
             const planCycle = normalizePlanCycle(plan);
             let amount;
             if (isPtPackage(pkgId)) {
-                amount = getPtPrice(pkgId, planCycle);
+                amount = await getPtPrice(pkgId, planCycle);
             }
             else {
                 const priceRow = await get(`SELECT setting_value FROM app_settings WHERE setting_key = ?`, [`sub_${pkgId}_egp`]).catch(() => null);

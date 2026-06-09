@@ -56,8 +56,18 @@ const PT_PLAN_PRICES: Record<string, Record<string, number>> = {
 function isPtPackage(pkgId: string): boolean {
   return Object.prototype.hasOwnProperty.call(PT_PLAN_PRICES, pkgId);
 }
-function getPtPrice(pkgId: string, cycle: string): number {
+// Admin-tunable PT price (Settings → Pricing, key sub_<tier>_<cycle>_egp);
+// falls back to the standard catalogue price above.
+async function getPtPrice(pkgId: string, cycle: string): Promise<number> {
+  const override = await getSetting(`sub_${pkgId}_${cycle}_egp`).catch(() => null);
+  const v = Number(override);
+  if (Number.isFinite(v) && v > 0) return v;
   return PT_PLAN_PRICES[pkgId]?.[cycle] ?? 0;
+}
+// Platform commission % for PT plans (admin-tunable; defaults to 40).
+async function getPtPlatformCommissionPct(): Promise<number> {
+  const v = Number(await getSetting('pt_platform_commission_pct').catch(() => null));
+  return Number.isFinite(v) && v >= 0 && v <= 100 ? v : 40;
 }
 // Normalise an incoming plan/cycle value to a stored plan_cycle.
 function normalizePlanCycle(plan: string): string {
@@ -67,9 +77,11 @@ function normalizePlanCycle(plan: string): string {
 }
 
 async function computeCoachCut(amount: number, packageId?: string): Promise<number> {
-  // PT plans have a fixed 40% platform commission → coach keeps 60%.
+  // PT plans: platform takes the admin-configured commission (default 40%),
+  // so the coach keeps the rest (60% by default).
   if (packageId && isPtPackage(packageId)) {
-    return Math.round(amount * ((100 - 40) / 100) * 100) / 100;
+    const platformPct = await getPtPlatformCommissionPct();
+    return Math.round(amount * ((100 - platformPct) / 100) * 100) / 100;
   }
   const pctStr = await getSetting('coach_cut_percentage');
   const pct = pctStr ? Math.min(100, Math.max(0, Number(pctStr))) : 90;
@@ -291,7 +303,7 @@ router.post('/paypal/capture-order', authenticateToken, async (req: any, res: Re
         // PT plans use the standardized platform price; legacy plans use the
         // coach's own monthly/yearly price.
         const subAmount = isPtPackage(pkgId)
-          ? getPtPrice(pkgId, planCycle)
+          ? await getPtPrice(pkgId, planCycle)
           : (planCycle === 'yearly' ? Number(coach.yearly_price || 0) : Number(coach.monthly_price || 0));
 
         // Check for existing pending subscription
@@ -310,7 +322,7 @@ router.post('/paypal/capture-order', authenticateToken, async (req: any, res: Re
 
         // PayPal verified — activate immediately, credit coach, no human approval needed.
         // PT plans: platform commission is 40%, so the coach receives 60%.
-        const coachCutPct = isPtPackage(pkgId) ? (100 - 40) : Number(process.env.COACH_CUT_PERCENT || 85);
+        const coachCutPct = isPtPackage(pkgId) ? (100 - await getPtPlatformCommissionPct()) : Number(process.env.COACH_CUT_PERCENT || 85);
         const coachCutAmt = Math.round(subAmount * (coachCutPct / 100) * 100) / 100;
         await run(
           `INSERT INTO coach_subscriptions
@@ -398,7 +410,7 @@ router.post('/ewallet', authenticateToken, uploadPaymentProof, optimizeImage(), 
       let amount: number;
       if (isPtPackage(pkgId)) {
         // Standardized PT plan price for the chosen billing cycle.
-        amount = getPtPrice(pkgId, planCycle);
+        amount = await getPtPrice(pkgId, planCycle);
       } else {
         const priceRow: any = await get(`SELECT setting_value FROM app_settings WHERE setting_key = ?`, [`sub_${pkgId}_egp`]).catch(() => null);
         const monthly = Number(priceRow?.setting_value) || 0;

@@ -875,6 +875,8 @@ async function initTables() {
         `ALTER TABLE users ADD COLUMN last_activity_update DATETIME DEFAULT NULL`,
         // Athletes may change their display name only once in their lifetime.
         `ALTER TABLE users ADD COLUMN name_changed TINYINT DEFAULT 0`,
+        // Remove superseded subscription-price settings (replaced by sub_app_* and sub_pt_<tier>_<cycle>_egp).
+        `DELETE FROM app_settings WHERE setting_key IN ('sub_community_freemium_egp','sub_community_premium_egp','sub_community_exclusive_egp','sub_pt_basic_egp','sub_pt_premium_egp','sub_pt_gold_egp')`,
         // Per-user feature access overrides — grant/revoke a feature for a SPECIFIC user.
         `CREATE TABLE IF NOT EXISTS user_feature_overrides (
        id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1176,12 +1178,21 @@ export async function seedDefaultAppSettings() {
         ['promo_codes', '[]', 'json', 'promo', 'Active promo / gift codes (JSON array)'],
         ['plan_finish_credit', '50', 'number', 'points', 'EGP credited to athlete wallet when a coach plan is finished'],
         // Subscription packages (May business plan)
-        ['sub_community_freemium_egp', '0', 'number', 'pricing', 'Community · Freemium (EGP/mo)'],
-        ['sub_community_premium_egp', '149', 'number', 'pricing', 'Community · Premium (EGP/mo)'],
-        ['sub_community_exclusive_egp', '299', 'number', 'pricing', 'Community · Exclusive (EGP/mo)'],
-        ['sub_pt_basic_egp', '499', 'number', 'pricing', 'PT · Basic (EGP/mo)'],
-        ['sub_pt_premium_egp', '899', 'number', 'pricing', 'PT · Premium (EGP/mo)'],
-        ['sub_pt_gold_egp', '1499', 'number', 'pricing', 'PT · Gold (EGP/mo)'],
+        // ── App subscription (athlete app access) — Premium App billing cycles ──
+        ['sub_app_1month_egp', '199', 'number', 'pricing', 'App Premium · 1 Month (EGP)'],
+        ['sub_app_3months_egp', '499', 'number', 'pricing', 'App Premium · 3 Months (EGP)'],
+        ['sub_app_annual_egp', '699', 'number', 'pricing', 'App Premium · Annual (EGP)'],
+        // ── PT (coach) plans — price per billing cycle ──
+        ['sub_pt_basic_monthly_egp', '999', 'number', 'pricing', 'PT Basic · Monthly (EGP)'],
+        ['sub_pt_basic_2months_egp', '1399', 'number', 'pricing', 'PT Basic · 2 Months (EGP)'],
+        ['sub_pt_basic_quarterly_egp', '1999', 'number', 'pricing', 'PT Basic · Quarterly (EGP)'],
+        ['sub_pt_premium_monthly_egp', '1499', 'number', 'pricing', 'PT Premium · Monthly (EGP)'],
+        ['sub_pt_premium_2months_egp', '1899', 'number', 'pricing', 'PT Premium · 2 Months (EGP)'],
+        ['sub_pt_premium_quarterly_egp', '2499', 'number', 'pricing', 'PT Premium · Quarterly (EGP)'],
+        ['sub_pt_gold_monthly_egp', '1999', 'number', 'pricing', 'PT Gold · Monthly (EGP)'],
+        ['sub_pt_gold_2months_egp', '2299', 'number', 'pricing', 'PT Gold · 2 Months (EGP)'],
+        ['sub_pt_gold_quarterly_egp', '2999', 'number', 'pricing', 'PT Gold · Quarterly (EGP)'],
+        ['pt_platform_commission_pct', '40', 'number', 'pricing', 'PT Platform Commission (%)'],
         // Per-package monthly ticket allowance (athlete → coach questions).
         // 0 means unlimited.
         ['ticket_limit_community_freemium', '0', 'number', 'pricing', 'Tickets/mo · Community Freemium (0 = none)'],
