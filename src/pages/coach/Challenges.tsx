@@ -175,7 +175,7 @@ function CreateDialog({ token, onClose, onDone, flash }: any) {
             <Field label="Goal metric">
               <Select value={f.goal_metric} onValueChange={v => set("goal_metric", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{METRICS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent>
+                <SelectContent className="z-[10000]">{METRICS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent>
               </Select>
             </Field>
             <Field label="Goal target"><Input type="number" value={f.goal_target} onChange={e => set("goal_target", e.target.value)} placeholder="e.g. 20" /></Field>
@@ -183,7 +183,7 @@ function CreateDialog({ token, onClose, onDone, flash }: any) {
           <Field label="Scoring model">
             <Select value={f.scoring_model} onValueChange={v => set("scoring_model", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{MODELS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent>
+              <SelectContent className="z-[10000]">{MODELS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent>
             </Select>
           </Field>
           <Field label="Verification methods">

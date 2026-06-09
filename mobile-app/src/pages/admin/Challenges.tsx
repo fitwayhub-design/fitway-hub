@@ -286,12 +286,12 @@ function CreateCommunity({ token, onClose, onDone, notify }: any) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5"><Label className="text-[12px]">Goal metric</Label>
-              <Select value={f.goal_metric} onValueChange={v => set("goal_metric", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{METRICS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent></Select>
+              <Select value={f.goal_metric} onValueChange={v => set("goal_metric", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent className="z-[10000]">{METRICS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent></Select>
             </div>
             <div className="grid gap-1.5"><Label className="text-[12px]">Goal target</Label><Input type="number" value={f.goal_target} onChange={e => set("goal_target", e.target.value)} /></div>
           </div>
           <div className="grid gap-1.5"><Label className="text-[12px]">Scoring model</Label>
-            <Select value={f.scoring_model} onValueChange={v => set("scoring_model", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{MODELS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent></Select>
+            <Select value={f.scoring_model} onValueChange={v => set("scoring_model", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent className="z-[10000]">{MODELS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent></Select>
           </div>
           <div className="grid gap-1.5"><Label className="text-[12px]">Verification methods</Label>
             <div className="flex flex-wrap gap-1.5">
