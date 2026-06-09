@@ -31,13 +31,15 @@ const MODELS = [
   { v: "consistency", l: "Consistency (show up often)" }, { v: "performance", l: "Performance (total output)" },
   { v: "improvement", l: "Improvement (vs. your baseline)" }, { v: "participation", l: "Participation (take part)" },
 ];
+// Standardized verification set for every challenge.
 const TEAM_METHODS = [
-  { v: "coach_approval", l: "Coach approval" }, { v: "attendance", l: "In-person attendance" },
-  { v: "workout_log", l: "Workout log" }, { v: "time_based", l: "Timed activity" },
-  { v: "manual_checkin", l: "Daily check-in" }, { v: "manual_step", l: "Steps (manual)" },
-  { v: "manual_distance", l: "Distance (manual)" }, { v: "photo_evidence", l: "Photo evidence" },
-  { v: "video_evidence", l: "Video evidence" }, { v: "screenshot_evidence", l: "Screenshot" },
+  { v: "photo_evidence", l: "Photo evidence" },
+  { v: "video_evidence", l: "Video evidence" },
+  { v: "manual_checkin", l: "Daily check-in" },
+  { v: "time_based", l: "Timed activity" },
+  { v: "gps_steps", l: "Steps (GPS)" },
 ];
+const DEFAULT_METHODS = TEAM_METHODS.map(m => m.v);
 const METHOD_LABELS: Record<string, string> = Object.fromEntries(TEAM_METHODS.map(m => [m.v, m.l]));
 
 export default function CoachChallenges() {
@@ -124,7 +126,7 @@ function CreateDialog({ token, onClose, onDone, flash }: any) {
   const [f, setF] = useState<any>({
     title: "", description: "", start_at: "", end_at: "", goal_metric: "sessions", goal_target: "",
     scoring_model: "consistency", participant_limit: "100", min_duration_seconds: "", rules_terms: "",
-    verification_methods: ["coach_approval"], timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    verification_methods: [...DEFAULT_METHODS], timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
   const [cover, setCover] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -291,7 +293,12 @@ function ManageChallenge({ id, api, token, onBack, flash, toast }: any) {
                 <Card key={s.id} className="flex flex-wrap items-center gap-3 p-3.5">
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-semibold">{s.user_name}</p>
-                    <p className="text-[11px] text-muted-foreground">{METHOD_LABELS[s.method] || s.method} · {s.activity_date}{s.metric_value ? ` · ${s.metric_value}` : ""}{s.flagged ? " · ⚠️ flagged" : ""}</p>
+                    <p className="text-[11px] text-muted-foreground">{METHOD_LABELS[s.method] || s.method} · {s.activity_date}{s.metric_value ? ` · ${s.metric_value}` : ""}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {s.captured_at ? `📸 captured ${new Date(s.captured_at).toLocaleString()}` : "📸 no capture timestamp in file"}
+                      {(s.geo_lat != null && s.geo_lng != null) ? ` · 📍 ${Number(s.geo_lat).toFixed(4)}, ${Number(s.geo_lng).toFixed(4)}` : ""}
+                    </p>
+                    {s.flagged ? <p className="mt-0.5 text-[11px] font-semibold text-[var(--secondary)]">⚠️ {s.flag_reason || "flagged for review"}</p> : null}
                     {s.note && <p className="mt-0.5 text-[12px] text-muted-foreground">"{s.note}"</p>}
                   </div>
                   {s.evidence_url && <a href={resolveAssetUrl(s.evidence_url)} target="_blank" rel="noreferrer" className="text-[12px] text-primary underline">View evidence</a>}
