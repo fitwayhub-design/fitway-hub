@@ -86,6 +86,18 @@ export default function Steps() {
 
   const metrics: UserMetrics = { weight: user?.weight || 70, height: user?.height || 170, gender: (user?.gender as any) || "male" };
 
+  // When the athlete types a distance, auto-convert it to steps and fill the
+  // steps field. The steps field stays editable so they can fine-tune it.
+  const handleDistanceChange = (value: string) => {
+    setDistInput(value);
+    const km = parseFloat(value);
+    if (value !== "" && !isNaN(km) && km > 0) {
+      setStepsInput(String(calculateStepsFromDistance(km, metrics, "walking")));
+    } else if (value === "") {
+      setStepsInput("");
+    }
+  };
+
   const handleSave = async () => {
     const s = parseInt(stepsInput) || (distInput ? calculateStepsFromDistance(parseFloat(distInput), metrics, "walking") : 0);
     if (!s) return flash("❌ Enter steps or distance");
@@ -186,14 +198,19 @@ export default function Steps() {
               <p className="mb-3.5 text-[15px] font-semibold">Log Today's Steps</p>
               <div className="mb-3 grid grid-cols-2 gap-2.5">
                 <div className="space-y-1.5">
-                  <Label htmlFor="steps-input" className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Steps</Label>
-                  <Input id="steps-input" type="number" value={stepsInput} onChange={e => setStepsInput(e.target.value)} placeholder="e.g. 8500" />
+                  <Label htmlFor="dist-input" className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Distance (km)</Label>
+                  <Input id="dist-input" type="number" inputMode="decimal" value={distInput} onChange={e => handleDistanceChange(e.target.value)} placeholder="e.g. 6.5" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="dist-input" className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Distance (km)</Label>
-                  <Input id="dist-input" type="number" value={distInput} onChange={e => setDistInput(e.target.value)} placeholder="e.g. 6.5" />
+                  <Label htmlFor="steps-input" className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Steps</Label>
+                  <Input id="steps-input" type="number" inputMode="numeric" value={stepsInput} onChange={e => setStepsInput(e.target.value)} placeholder="auto from distance" />
                 </div>
               </div>
+              {distInput && stepsInput && (
+                <p className="mb-3 -mt-1 text-[11px] text-muted-foreground">
+                  ≈ {Number(stepsInput).toLocaleString()} steps from {distInput} km — edit the steps field to adjust.
+                </p>
+              )}
               <Button onClick={handleSave} disabled={saving || (!stepsInput && !distInput)} className="w-full">
                 <Plus size={16} /> {saving ? "Saving…" : "Save Activity"}
               </Button>

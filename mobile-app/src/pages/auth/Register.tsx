@@ -32,7 +32,13 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [securityQuestion, setSecurityQuestion] = useState("");
   const [securityAnswer, setSecurityAnswer] = useState("");
-  const [role, setRole] = useState<"user" | "coach">("user");
+  // Honour the ?role= query param so the "I'm a Coach" / "I'm an Athlete"
+  // links pre-select the correct account type. Previously this always
+  // defaulted to "user", so "I'm a Coach" wrongly landed on Athlete.
+  const [role, setRole] = useState<"user" | "coach">(() => {
+    const r = new URLSearchParams(window.location.search).get("role");
+    return r === "coach" ? "coach" : "user";
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
