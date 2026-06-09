@@ -30,6 +30,7 @@ export const METHODS: Record<string, MethodMeta> = {
   time_based:          { key: 'time_based',          label: 'Timed activity',        trust: 0.6, auto: true,  needsEvidence: false },
   manual_step:         { key: 'manual_step',         label: 'Step count (manual)',   trust: 0.3, auto: true,  needsEvidence: false },
   manual_distance:     { key: 'manual_distance',     label: 'Distance (manual)',     trust: 0.3, auto: true,  needsEvidence: false },
+  gps_steps:           { key: 'gps_steps',           label: 'Steps (GPS)',           trust: 0.6, auto: true,  needsEvidence: false },
   photo_evidence:      { key: 'photo_evidence',      label: 'Photo evidence',        trust: 0.5, auto: false, needsEvidence: true },
   video_evidence:      { key: 'video_evidence',      label: 'Video evidence',        trust: 0.7, auto: false, needsEvidence: true },
   screenshot_evidence: { key: 'screenshot_evidence', label: 'Screenshot evidence',   trust: 0.2, auto: false, needsEvidence: true },

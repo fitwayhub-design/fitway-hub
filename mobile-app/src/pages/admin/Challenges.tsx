@@ -35,10 +35,13 @@ const MODELS = [
   { v: "consistency", l: "Consistency" }, { v: "performance", l: "Performance" },
   { v: "improvement", l: "Improvement" }, { v: "participation", l: "Participation" },
 ];
+// Standardized verification set for every challenge.
 const COMMUNITY_METHODS = [
-  { v: "manual_checkin", l: "Daily check-in" }, { v: "workout_log", l: "Workout log" }, { v: "time_based", l: "Timed activity" },
-  { v: "manual_step", l: "Steps (manual)" }, { v: "manual_distance", l: "Distance (manual)" },
-  { v: "photo_evidence", l: "Photo evidence" }, { v: "video_evidence", l: "Video evidence" }, { v: "screenshot_evidence", l: "Screenshot" },
+  { v: "photo_evidence", l: "Photo evidence" },
+  { v: "video_evidence", l: "Video evidence" },
+  { v: "manual_checkin", l: "Daily check-in" },
+  { v: "time_based", l: "Timed activity" },
+  { v: "gps_steps", l: "Steps (GPS)" },
 ];
 
 export default function AdminChallenges() {
@@ -243,7 +246,7 @@ function RewardSettings({ api, notify }: any) {
 function CreateCommunity({ token, onClose, onDone, notify }: any) {
   const [f, setF] = useState<any>({
     title: "", description: "", start_at: "", end_at: "", goal_metric: "steps", goal_target: "",
-    scoring_model: "consistency", participant_limit: "0", verification_methods: ["manual_checkin", "photo_evidence"], rules_terms: "",
+    scoring_model: "consistency", participant_limit: "0", verification_methods: COMMUNITY_METHODS.map(m => m.v), rules_terms: "",
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
   const [cover, setCover] = useState<File | null>(null);

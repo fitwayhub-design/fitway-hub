@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ChallengesPage from "@/pages/app/Challenges";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -69,7 +70,6 @@ export default function Community() {
   /* ───── State ───── */
   const [activeTab, setActiveTab] = useState<"feed" | "challenges">("feed");
   const [posts, setPosts] = useState<Post[]>([]);
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [sponsoredAds, setSponsoredAds] = useState<SponsoredAd[]>([]);
   const [trendingTags, setTrendingTags] = useState<TrendingTag[]>([]);
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -81,8 +81,6 @@ export default function Community() {
   const [isPosting, setIsPosting] = useState(false);
   const [postErr, setPostErr] = useState("");
   const [showComposer, setShowComposer] = useState(false);
-  const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
-  const [newChallenge, setNewChallenge] = useState({ title: "", description: "", startDate: "", endDate: "" });
   const [commentInputs, setCommentInputs] = useState<{ [k: number]: string }>({});
   const [showComments, setShowComments] = useState<{ [k: number]: boolean }>({});
   const [followedCoaches, setFollowedCoaches] = useState<Set<number>>(new Set());
@@ -106,18 +104,10 @@ export default function Community() {
     } catch {}
   }, [token]);
 
-  const fetchChallenges = useCallback(async () => {
-    try {
-      const r = await fetch(getApiBase() + "/api/community/challenges", { headers: { Authorization: `Bearer ${token}` } });
-      setChallenges(await r.json());
-    } catch {}
-  }, [token]);
-
   useEffect(() => {
     if (activeTab === "feed") fetchPosts(activeTag);
-    else fetchChallenges();
-  }, [activeTab, token, activeTag, fetchPosts, fetchChallenges]);
-  useAutoRefresh(() => { if (activeTab === "feed") fetchPosts(activeTag); else fetchChallenges(); });
+  }, [activeTab, token, activeTag, fetchPosts]);
+  useAutoRefresh(() => { if (activeTab === "feed") fetchPosts(activeTag); });
 
   useEffect(() => {
     fetch(getApiBase() + "/api/coach/ads/public/community", { headers: { Authorization: `Bearer ${token}` } })
@@ -198,22 +188,6 @@ export default function Community() {
         const d = await r.json().catch(() => ({}));
         alert(d.message || "Couldn't post comment.");
       }
-    } catch {}
-  };
-
-  const createChallenge = async () => {
-    if (!newChallenge.title.trim()) return;
-    try {
-      await fetch(getApiBase() + "/api/community/challenges", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ title: newChallenge.title, description: newChallenge.description, startDate: newChallenge.startDate, endDate: newChallenge.endDate }) });
-      setIsCreatingChallenge(false); setNewChallenge({ title: "", description: "", startDate: "", endDate: "" });
-      fetchChallenges();
-    } catch {}
-  };
-
-  const joinChallenge = async (id: number) => {
-    try {
-      await fetch(getApiBase() + `/api/community/challenges/${id}/join`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
-      fetchChallenges();
     } catch {}
   };
 
@@ -489,132 +463,12 @@ export default function Community() {
         </div>
       )}
 
-      {/* ════════════════════ CHALLENGES TAB ════════════════════ */}
+      {/* ════════════════════ CHALLENGES TAB (new system) ════════════════════ */}
       {activeTab === "challenges" && (
-        <div className="flex flex-col gap-4">
-          <button
-            onClick={() => setIsCreatingChallenge(true)}
-            className="fade-up-1 flex items-center justify-center gap-2 rounded-lg bg-primary/10 p-3.5 text-[14px] font-bold text-primary shadow-soft-sm transition active:scale-[0.99]"
-          >
-            <Plus size={18} strokeWidth={2} /> Start a Challenge
-          </button>
-
-          {challenges.length === 0 && (
-            <div className="px-5 py-12 text-center text-muted-foreground">
-              <Trophy size={32} strokeWidth={2} className="mx-auto mb-3 opacity-40" />
-              <p className="mb-1 text-[15px] font-semibold text-foreground">No challenges yet</p>
-              <p className="text-[13px]">Create the first one and challenge the community!</p>
-            </div>
-          )}
-
-          {challenges.map((ch, idx) => {
-            const now = Date.now();
-            const start = new Date(ch.start_date).getTime();
-            const end = new Date(ch.end_date).getTime();
-            const isActive = now >= start && now <= end;
-            const isUpcoming = now < start;
-            const isEnded = now > end;
-            const progress = isActive ? Math.min(100, Math.round(((now - start) / (end - start)) * 100)) : isEnded ? 100 : 0;
-
-            return (
-              <Card key={ch.id} className={`fade-up-${Math.min(idx + 1, 4)} relative gap-0 overflow-hidden p-0 shadow-soft-sm`}>
-                <div className="absolute top-3 end-3 z-[2]">
-                  <Badge variant={isActive ? "default" : isUpcoming ? "accent" : "destructive"} className="tracking-wide">
-                    {isActive ? "ACTIVE" : isUpcoming ? "UPCOMING" : "ENDED"}
-                  </Badge>
-                </div>
-                {ch.image_url && (
-                  <div className="relative h-[140px] overflow-hidden">
-                    <img src={ch.image_url} alt={ch.title} className="size-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  </div>
-                )}
-                <div className="p-[18px]">
-                  <div className="mb-2.5 flex items-center gap-2.5">
-                    <span className={cn("grid size-9 shrink-0 place-items-center rounded-full", isActive ? "bg-primary/15" : "bg-[var(--secondary-dim)]")}>
-                      {isActive ? <Flame size={18} strokeWidth={2} className="text-primary" /> : isUpcoming ? <Target size={18} strokeWidth={2} className="text-[var(--secondary)]" /> : <Award size={18} strokeWidth={2} className="text-muted-foreground" />}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-[15px] font-bold">{ch.title}</h3>
-                      <p className="text-[11px] text-muted-foreground">by {ch.creator_name}</p>
-                    </div>
-                  </div>
-                  <p className="mb-3 text-[13px] leading-relaxed text-muted-foreground">
-                    {ch.description && ch.description.length > 120 ? ch.description.slice(0, 120) + "…" : ch.description}
-                  </p>
-
-                  {(isActive || isEnded) && (
-                    <div className="mb-3">
-                      <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
-                        <span>{new Date(ch.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                        <span className="tabular-nums">{progress}%</span>
-                        <span>{new Date(ch.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                      </div>
-                      <div className="h-1 overflow-hidden rounded-full bg-muted">
-                        <div className={cn("h-full rounded-full transition-[width] duration-500", isActive ? "bg-primary" : "bg-muted-foreground")} style={{ width: `${progress}%` }} />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-3.5 text-[12px] text-muted-foreground">
-                      <span className="inline-flex items-center gap-1"><Users size={13} strokeWidth={2} /> {ch.participant_count}</span>
-                      <span className="inline-flex items-center gap-1"><Calendar size={13} strokeWidth={2} /> {new Date(ch.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                    </div>
-                    {!isEnded && (
-                      <Button
-                        onClick={() => joinChallenge(ch.id)}
-                        disabled={!!ch.is_joined}
-                        size="sm"
-                        variant={ch.is_joined ? "secondary" : "default"}
-                        className="rounded-full disabled:opacity-100"
-                      >
-                        {ch.is_joined ? <><UserCheck size={13} strokeWidth={2} className="text-primary" /> Joined</> : "Join Challenge"}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+        <div className="-mx-1">
+          <ChallengesPage />
         </div>
       )}
-
-      {/* ════════════════ CREATE CHALLENGE MODAL ════════════════ */}
-      <Dialog open={isCreatingChallenge} onOpenChange={(o) => { if (!o) setIsCreatingChallenge(false); }}>
-        <DialogContent className="sm:max-w-[440px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trophy size={18} strokeWidth={2} className="text-primary" /> New Challenge
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-3.5">
-            {[
-              { key: "title", label: "Challenge Title", type: "text", ph: "30-Day Step Challenge" },
-              { key: "description", label: "Description", type: "textarea", ph: "What's the goal? Rules? Prizes?" },
-              { key: "startDate", label: "Start Date", type: "date", ph: "" },
-              { key: "endDate", label: "End Date", type: "date", ph: "" },
-            ].map(f => (
-              <div key={f.key}>
-                <label className="mb-1.5 block text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{f.label}</label>
-                {f.type === "textarea" ? (
-                  <Textarea rows={3} value={(newChallenge as any)[f.key]} onChange={e => setNewChallenge(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.ph} className="resize-none" />
-                ) : (
-                  <Input type={f.type} value={(newChallenge as any)[f.key]} onChange={e => setNewChallenge(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.ph} />
-                )}
-              </div>
-            ))}
-          </div>
-          <DialogFooter className="gap-2 sm:justify-stretch">
-            <Button variant="outline" onClick={() => setIsCreatingChallenge(false)} className="flex-1">
-              Cancel
-            </Button>
-            <Button onClick={createChallenge} className="flex-1">
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ════════════════ COACH PROFILE SHEET ════════════════ */}
       <Sheet open={viewingCoachId !== null && !!coachProfile} onOpenChange={(o) => { if (!o) closeCoachProfile(); }}>

@@ -544,7 +544,10 @@ export const submitEvidence = async (req: Request, res: Response) => {
     let flagged = false; let flagReason: string | null = null;
     if (method === 'manual_step') { const r = clampMetric('steps', metricValue); metricValue = r.value; if (r.clamped) { flagged = true; flagReason = 'step count clamped to plausible max'; } }
     if (method === 'manual_distance') { const r = clampMetric('distance_km', metricValue); metricValue = r.value; if (r.clamped) { flagged = true; flagReason = 'distance clamped to plausible max'; } }
+    if (method === 'gps_steps') { const r = clampMetric('steps', metricValue); metricValue = r.value; if (r.clamped) { flagged = true; flagReason = 'GPS step count clamped to plausible max'; } }
     if (method === 'manual_checkin') metricValue = 1;
+
+    const addFlag = (reason: string) => { flagged = true; flagReason = flagReason ? `${flagReason}; ${reason}` : reason; };
 
     // One check-in per day.
     if (method === 'manual_checkin') {
@@ -567,15 +570,31 @@ export const submitEvidence = async (req: Request, res: Response) => {
       evidenceUrl = await uploadToR2(file, 'challenge-evidence');
     }
 
+    // Capture-time anti-cheat: read when the photo/video was actually taken
+    // (stamped by stampMediaCapture from EXIF/mvhd) and flag stale or back-dated
+    // evidence. capturedAt stays null when the file has no embedded timestamp.
+    const capturedAt: Date | null = file && (file as any).capturedAt instanceof Date ? (file as any).capturedAt : null;
+    if (capturedAt) {
+      const now = Date.now();
+      const startMs = c.start_at ? +new Date(c.start_at) : 0;
+      if (+capturedAt > now + 3600000) addFlag('capture time is in the future');
+      else if (startMs && +capturedAt < startMs) addFlag('media captured before the challenge started');
+      else if ((now - +capturedAt) / 3600000 > 48) addFlag(`media is ~${Math.round((now - +capturedAt) / 3600000)}h old`);
+    }
+
+    // GPS proof-of-presence (steps-by-GPS and any geo-tagged submission).
+    const geoLat = req.body?.geo_lat != null && req.body.geo_lat !== '' ? Number(req.body.geo_lat) : null;
+    const geoLng = req.body?.geo_lng != null && req.body.geo_lng !== '' ? Number(req.body.geo_lng) : null;
+
     const trust = meta.trust;
     const awarded = basePointsForSubmission(method);
     const status = meta.auto ? 'auto_approved' : 'pending';
 
     const { insertId } = await run(
       `INSERT INTO challenge_submissions
-        (challenge_id, participant_id, user_id, method, metric_value, duration_seconds, evidence_url, evidence_hash, note, activity_date, status, trust_weight, awarded_points, flagged, flag_reason)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [c.id, p.id, me, method, metricValue, durationSeconds, evidenceUrl, evidenceHash, String(req.body?.note || '').slice(0, 500) || null, activityDate, status, trust, awarded, flagged ? 1 : 0, flagReason],
+        (challenge_id, participant_id, user_id, method, metric_value, duration_seconds, evidence_url, evidence_hash, note, activity_date, status, trust_weight, awarded_points, flagged, flag_reason, captured_at, geo_lat, geo_lng)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [c.id, p.id, me, method, metricValue, durationSeconds, evidenceUrl, evidenceHash, String(req.body?.note || '').slice(0, 500) || null, activityDate, status, trust, awarded, flagged ? 1 : 0, flagReason, capturedAt, geoLat, geoLng],
     );
 
     if (flagged) await run(`INSERT INTO challenge_reports (challenge_id, submission_id, source, reason) VALUES (?,?, 'system', ?)`, [c.id, insertId, flagReason]);

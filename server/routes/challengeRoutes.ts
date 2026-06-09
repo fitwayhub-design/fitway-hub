@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { upload, uploadVideo, optimizeImage, multerToJson } from '../middleware/upload.js';
+import { stampMediaCapture } from '../utils/mediaCapture.js';
 import {
   listChallenges, listMyInvitations, getChallenge, createChallenge, updateChallenge, deleteChallenge,
   getInvitableAthletes, inviteParticipants, respondInvitation,
@@ -17,7 +18,7 @@ const router = express.Router();
 const media = [multerToJson(upload.any()), optimizeImage()];
 // Evidence (submissions): photo OR video allowed; images are still optimised,
 // videos pass through untouched. Mirrors how workout-video uploads are handled.
-const mediaEvidence = [multerToJson(uploadVideo.any()), optimizeImage()];
+const mediaEvidence = [multerToJson(uploadVideo.any()), stampMediaCapture, optimizeImage()];
 
 function adminOnly(req: Request, res: Response, next: NextFunction) {
   const r = (req as any).user?.role;

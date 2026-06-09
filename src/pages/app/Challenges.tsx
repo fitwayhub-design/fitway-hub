@@ -29,12 +29,12 @@ import { cn } from "@/lib/utils";
 
 const METHOD_LABELS: Record<string, string> = {
   manual_checkin: "Daily check-in", workout_log: "Workout log", time_based: "Timed activity",
-  manual_step: "Steps (manual)", manual_distance: "Distance (manual)", photo_evidence: "Photo evidence",
-  video_evidence: "Video evidence", screenshot_evidence: "Screenshot", coach_approval: "Coach approval",
-  attendance: "In-person attendance",
+  manual_step: "Steps (manual)", manual_distance: "Distance (manual)", gps_steps: "Steps (GPS)",
+  photo_evidence: "Photo evidence", video_evidence: "Video evidence", screenshot_evidence: "Screenshot",
+  coach_approval: "Coach approval", attendance: "In-person attendance",
 };
 const EVIDENCE_METHODS = new Set(["photo_evidence", "video_evidence", "screenshot_evidence"]);
-const NUMERIC_METHODS: Record<string, string> = { manual_step: "steps", manual_distance: "km", time_based: "" };
+const NUMERIC_METHODS: Record<string, string> = { manual_step: "steps", manual_distance: "km", gps_steps: "steps", time_based: "" };
 
 type Challenge = any;
 type Row = any;
@@ -397,6 +397,15 @@ function SubmitDialog({ open, onClose, methods, token, id, onDone, note }: any) 
       if (method === "time_based" && duration) fd.append("duration_seconds", String(Number(duration) * 60));
       if (noteText) fd.append("note", noteText);
       if (file) fd.append("evidence", file);
+      // Steps-by-GPS: attach the device's current location as proof-of-presence.
+      if (method === "gps_steps" && typeof navigator !== "undefined" && navigator.geolocation) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((res, rej) =>
+            navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 8000 }));
+          fd.append("geo_lat", String(pos.coords.latitude));
+          fd.append("geo_lng", String(pos.coords.longitude));
+        } catch { /* proceed without coordinates */ }
+      }
       const r = await fetch(getApiBase() + `/api/challenges/${id}/submissions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token || ""}` },
@@ -443,8 +452,10 @@ function SubmitDialog({ open, onClose, methods, token, id, onDone, note }: any) 
           </div>
           <p className="text-[11px] text-muted-foreground">
             {needsEvidence || method === "coach_approval" || method === "attendance"
-              ? "This will be reviewed before it counts toward your score."
-              : "This counts immediately (lower-trust methods earn fewer points)."}
+              ? "This will be reviewed before it counts toward your score. Photos/videos are checked for when they were captured."
+              : method === "gps_steps"
+                ? "We'll attach your current GPS location as proof of presence."
+                : "This counts immediately (lower-trust methods earn fewer points)."}
           </p>
         </div>
         <DialogFooter>
