@@ -178,7 +178,11 @@ export default function Profile() {
     setSaving(true);
     try {
       const r = await fetch(`${getApiBase()}/api/user/profile`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ name: nameVal.trim() }) });
-      const d = await r.json(); if (d.user) updateUser(d.user); setEditName(false); flash("✅ Name updated");
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { flash(`❌ ${d?.message || "Failed"}`); setSaving(false); return; }
+      if (d.user) updateUser(d.user);
+      setEditName(false);
+      flash("✅ Name updated");
     } catch { flash("❌ Failed"); }
     setSaving(false);
   };
@@ -308,6 +312,11 @@ export default function Profile() {
     setStepGoalSaving(false);
   };
 
+  // Athletes may change their display name once in their lifetime. Coaches/admins
+  // are not athletes here, so they keep the edit affordance regardless.
+  const nameAlreadyChanged = Number((user as any)?.name_changed ?? (user as any)?.nameChanged ?? 0) === 1;
+  const canChangeName = user?.role !== "user" || !nameAlreadyChanged;
+
   const bmi = user?.height && user?.weight ? (user.weight / ((user.height / 100) ** 2)).toFixed(1) : null;
   const bmiLabel = !bmi ? null : +bmi < 18.5 ? t("underweight") : +bmi < 25 ? t("normal_weight") : +bmi < 30 ? t("overweight") : t("obese");
   const bmiColor = !bmi ? "var(--text-muted)" : +bmi < 18.5 ? "var(--blue)" : +bmi < 25 ? "var(--green)" : +bmi < 30 ? "var(--amber)" : "var(--red)";
@@ -336,46 +345,39 @@ export default function Profile() {
   return (
     <div className="mx-auto w-full max-w-[680px] px-4 pb-4">
       {/* ═══════════ HERO HEADER ═══════════ */}
-      <Card className="relative mb-16 gap-0 overflow-visible p-0 shadow-soft">
+      <Card className="relative mb-6 gap-0 overflow-hidden p-0 shadow-soft">
         {/* Cover */}
         <div className="relative h-24 overflow-hidden rounded-t-lg bg-muted">
           {/* FWH yellow accent stripe */}
           <div className="absolute inset-x-0 bottom-0 h-1 bg-primary" />
-          {/* Top-end quick actions over cover */}
-          <div className="absolute end-4 top-4 flex gap-2">
-            <Button variant="secondary" size="icon-sm" onClick={toggleTheme} aria-label={lang === "ar" ? "تبديل المظهر" : "Toggle theme"}>
-              {isDark ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
-            </Button>
-            <Button variant="secondary" size="icon-sm" onClick={() => setLang(lang === "en" ? "ar" : "en")} aria-label={lang === "ar" ? "تغيير اللغة" : "Change language"}>
-              <Globe size={16} strokeWidth={2} />
-            </Button>
-          </div>
         </div>
 
-        {/* Avatar overlapping cover */}
-        <div className="absolute -bottom-14 start-5 z-[2]">
-          <div className="relative">
-            <Avatar className="size-28 shadow-soft-md ring-4 ring-background">
-              <AvatarImage src={avatarUrl(user)} alt={user?.name || "Profile"} />
-              <AvatarFallback>{(user?.name || "U").slice(0, 1)}</AvatarFallback>
-            </Avatar>
-            <Button
-              size="icon-sm"
-              onClick={() => avatarRef.current?.click()}
-              disabled={uploading}
-              aria-label={lang === "ar" ? "تغيير الصورة" : "Change photo"}
-              className="absolute -bottom-1 end-0 size-9 rounded-full ring-4 ring-background"
-            >
-              <Camera size={15} strokeWidth={2} />
-            </Button>
-            <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
+        {/* Body */}
+        <div className="px-5 pb-5">
+          {/* Avatar — pulled up to overlap the cover (in-flow so it never
+              collides with the stats row below). */}
+          <div className="-mt-14 mb-3 inline-block">
+            <div className="relative">
+              <Avatar className="size-28 shadow-soft-md ring-4 ring-background">
+                <AvatarImage src={avatarUrl(user)} alt={user?.name || "Profile"} />
+                <AvatarFallback>{(user?.name || "U").slice(0, 1)}</AvatarFallback>
+              </Avatar>
+              <Button
+                size="icon-sm"
+                onClick={() => avatarRef.current?.click()}
+                disabled={uploading}
+                aria-label={lang === "ar" ? "تغيير الصورة" : "Change photo"}
+                className="absolute -bottom-1 end-0 size-9 rounded-full ring-4 ring-background"
+              >
+                <Camera size={15} strokeWidth={2} />
+              </Button>
+              <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
+            </div>
           </div>
-        </div>
 
-        {/* Identity info under cover */}
-        <div className="px-5 pt-6 pb-5">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div className="min-w-[180px] flex-1">
+          {/* Name line — name on the left, theme/language/edit actions on the right */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-[160px] flex-1">
               {editName ? (
                 <div className="mb-1.5 flex items-center gap-2">
                   <Input value={nameVal} onChange={e => setNameVal(e.target.value)} autoFocus aria-label={lang === "ar" ? "الاسم" : "Name"} className="h-10 flex-1 text-[17px] font-bold" />
@@ -385,23 +387,42 @@ export default function Profile() {
               ) : (
                 <div className="mb-1 flex flex-wrap items-center gap-1.5">
                   <h1 className="text-[28px] leading-tight font-bold tracking-tight break-words">{user?.name}</h1>
-                  <Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={() => { setEditName(true); setNameVal(user?.name || ""); }} aria-label={lang === "ar" ? "تعديل الاسم" : "Edit name"}><Edit2 size={15} strokeWidth={2} /></Button>
+                  {canChangeName ? (
+                    <Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={() => { setEditName(true); setNameVal(user?.name || ""); }} aria-label={lang === "ar" ? "تعديل الاسم" : "Edit name"} title={lang === "ar" ? "يمكنك تغيير الاسم مرة واحدة فقط" : "You can change your name once"}><Edit2 size={15} strokeWidth={2} /></Button>
+                  ) : (
+                    <span className="text-muted-foreground/70" aria-hidden title={lang === "ar" ? "تم تغيير الاسم من قبل" : "Name already changed once"}><Shield size={13} strokeWidth={2} /></span>
+                  )}
                 </div>
               )}
               <p className="text-[13px] break-all text-muted-foreground">{user?.email}</p>
+              {editName && (
+                <p className="mt-1 text-[11px] text-amber-500">
+                  {lang === "ar" ? "⚠️ يمكنك تغيير اسمك مرة واحدة فقط مدى الحياة." : "⚠️ You can change your name only once — lifetime."}
+                </p>
+              )}
               {(user as any)?.fitnessGoal && (
                 <p className="mt-1.5 text-[13px] font-semibold text-primary">
                   🎯 {(user as any).fitnessGoal}
                 </p>
               )}
             </div>
-            <Button
-              variant={editProfile ? "default" : "outline"}
-              size="sm"
-              onClick={() => { setEditProfile(!editProfile); setActiveTab("about"); setProfileForm({ height: user?.height || "", weight: user?.weight || "", gender: user?.gender || "", dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.date_of_birth || "", fitnessGoal: (user as any)?.fitnessGoal || (user as any)?.fitness_goal || "", activityLevel: (user as any)?.activityLevel || (user as any)?.activity_level || "", targetWeight: (user as any)?.targetWeight || (user as any)?.target_weight || "", weeklyGoal: (user as any)?.weeklyGoal || (user as any)?.weekly_goal || "" }); }}
-            >
-              <Edit2 size={14} strokeWidth={2} /> {editProfile ? t("cancel_editing") : t("edit_profile_info")}
-            </Button>
+
+            {/* Quick actions: theme, language, edit profile */}
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="icon-sm" onClick={toggleTheme} aria-label={lang === "ar" ? "تبديل المظهر" : "Toggle theme"}>
+                {isDark ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
+              </Button>
+              <Button variant="secondary" size="icon-sm" onClick={() => setLang(lang === "en" ? "ar" : "en")} aria-label={lang === "ar" ? "تغيير اللغة" : "Change language"}>
+                <Globe size={16} strokeWidth={2} />
+              </Button>
+              <Button
+                variant={editProfile ? "default" : "outline"}
+                size="sm"
+                onClick={() => { setEditProfile(!editProfile); setActiveTab("about"); setProfileForm({ height: user?.height || "", weight: user?.weight || "", gender: user?.gender || "", dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.date_of_birth || "", fitnessGoal: (user as any)?.fitnessGoal || (user as any)?.fitness_goal || "", activityLevel: (user as any)?.activityLevel || (user as any)?.activity_level || "", targetWeight: (user as any)?.targetWeight || (user as any)?.target_weight || "", weeklyGoal: (user as any)?.weeklyGoal || (user as any)?.weekly_goal || "" }); }}
+              >
+                <Edit2 size={14} strokeWidth={2} /> {editProfile ? t("cancel_editing") : t("edit_profile_info")}
+              </Button>
+            </div>
           </div>
 
           {/* Stats row */}
