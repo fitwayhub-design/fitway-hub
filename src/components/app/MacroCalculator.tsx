@@ -213,16 +213,43 @@ export const DB: MealItem[] = [
 /* Real meal thumbnails for the category pills (replaces the Lucide
    icons). Unsplash's CDN is used because the photos need no local
    storage and load fast through their image proxy. */
-const CATEGORIES: { key: MealCategory; label: string; img: string; color: string }[] = [
-  { key: "meals",      label: "Meals",   color: "var(--accent)", img: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&w=80&h=80&fit=crop" },
-  { key: "protein",    label: "Protein", color: "#f44",          img: "https://images.unsplash.com/photo-1607013251379-e6eecfffe234?auto=format&w=80&h=80&fit=crop" },
-  { key: "grains",     label: "Grains",  color: "#f0a020",       img: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&w=80&h=80&fit=crop" },
-  { key: "vegetables", label: "Veggies", color: "#4ade80",       img: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&w=80&h=80&fit=crop" },
-  { key: "fruits",     label: "Fruits",  color: "#f472b6",       img: "https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&w=80&h=80&fit=crop" },
-  { key: "dairy",      label: "Dairy",   color: "#fbbf24",       img: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&w=80&h=80&fit=crop" },
-  { key: "legumes",    label: "Legumes", color: "#a78bfa",       img: "https://images.unsplash.com/photo-1515543237350-b3eea1ec8082?auto=format&w=80&h=80&fit=crop" },
-  { key: "snacks",     label: "Snacks",  color: "#fb923c",       img: "https://images.unsplash.com/photo-1599490659213-e2b9527bd087?auto=format&w=80&h=80&fit=crop" },
+const CATEGORIES: { key: MealCategory; label: string; img: string; color: string; emoji: string }[] = [
+  { key: "meals",      label: "Meals",   color: "var(--accent)", emoji: "🍱", img: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&w=80&h=80&fit=crop" },
+  { key: "protein",    label: "Protein", color: "#f44",          emoji: "🍗", img: "https://images.unsplash.com/photo-1607013251379-e6eecfffe234?auto=format&w=80&h=80&fit=crop" },
+  { key: "grains",     label: "Grains",  color: "#f0a020",       emoji: "🍚", img: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&w=80&h=80&fit=crop" },
+  { key: "vegetables", label: "Veggies", color: "#4ade80",       emoji: "🥦", img: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&w=80&h=80&fit=crop" },
+  { key: "fruits",     label: "Fruits",  color: "#f472b6",       emoji: "🍎", img: "https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&w=80&h=80&fit=crop" },
+  { key: "dairy",      label: "Dairy",   color: "#fbbf24",       emoji: "🧀", img: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&w=80&h=80&fit=crop" },
+  { key: "legumes",    label: "Legumes", color: "#a78bfa",       emoji: "🫘", img: "https://images.unsplash.com/photo-1515543237350-b3eea1ec8082?auto=format&w=80&h=80&fit=crop" },
+  { key: "snacks",     label: "Snacks",  color: "#fb923c",       emoji: "🍫", img: "https://images.unsplash.com/photo-1599490659213-e2b9527bd087?auto=format&w=80&h=80&fit=crop" },
 ];
+
+/* Category thumbnail — shows the real photo, falling back to the category's
+   emoji on a tinted disc if the image can't load (e.g. no network in the
+   native WebView), so the calculator always renders a clean visual. */
+function CategoryThumb({ src, emoji, color }: { src: string; emoji: string; color: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <span
+        className="grid size-7 shrink-0 place-items-center rounded-full text-[15px]"
+        style={{ background: `color-mix(in srgb, ${color} 18%, transparent)` }}
+        aria-hidden
+      >
+        {emoji}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="size-7 shrink-0 rounded-full object-cover"
+    />
+  );
+}
 
 /* ═══════════════════════════════════════════════════════════════
    MACRO CALCULATOR COMPONENT
@@ -355,12 +382,7 @@ export function MacroCalculator() {
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              <img
-                src={c.img}
-                alt=""
-                loading="lazy"
-                className="size-7 shrink-0 rounded-full object-cover"
-              />
+              <CategoryThumb src={c.img} emoji={c.emoji} color={c.color} />
               {c.label}
             </button>
           );
