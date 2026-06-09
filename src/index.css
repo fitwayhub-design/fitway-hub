@@ -2550,6 +2550,8 @@ html.light .web-fwh .fwh-btn-mini { border-color: rgba(0,0,0,0.12); }
 .web-fwh .fwh-photo {
   position: relative;
   overflow: hidden;
+  /* Purely decorative backdrop — never capture pointer events. */
+  pointer-events: none;
   background: linear-gradient(160deg, #0f0f0f 0%, #161616 100%);
 }
 .web-fwh .fwh-photo::before {
@@ -2804,10 +2806,14 @@ html.light .web-fwh .fwh-marq-item.stroke { -webkit-text-stroke: 1px rgba(0,0,0,
 }
 .web-fwh .fwh-gate-bg {
   position: absolute; inset: 0;
+  /* Decorative only — must never intercept clicks on the Athlete/Coach
+     (sign-up) buttons that sit above it. */
+  pointer-events: none;
 }
 .web-fwh .fwh-gate-bg::after {
   content: '';
   position: absolute; inset: 0;
+  pointer-events: none;
   background: radial-gradient(ellipse at 50% 50%, transparent 0%, color-mix(in srgb, var(--fwh-bg) 75%, transparent) 80%);
 }
 .web-fwh .fwh-gate-content { position: relative; z-index: 5; text-align: center; max-width: 1100px; }
