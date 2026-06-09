@@ -7,6 +7,7 @@ import { I18nProvider } from '@/context/I18nContext';
 import { BrandingProvider, useBranding } from "@/context/BrandingContext";
 import { AppImagesProvider } from "@/context/AppImagesContext";
 import BrandLoader from "@/components/ui/BrandLoader";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useEffect, useState, lazy, Suspense, Component, type ReactNode } from "react";
 
@@ -335,7 +336,7 @@ export default function App() {
           <BrowserRouter>
             <NativeUrlHandler />
             <ErrorBoundary>
-            <LazyErrorBoundary><Suspense fallback={<PageSpinner />}>
+            <LazyErrorBoundary><Suspense fallback={<PageSkeleton />}>
             <Routes>
               {/* Public Website Routes */}
               <Route element={<WebsiteLayout />}>
