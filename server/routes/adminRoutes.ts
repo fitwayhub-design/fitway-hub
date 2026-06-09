@@ -1767,7 +1767,7 @@ router.get('/community/posts', authenticateToken, modPerm('community_view'), asy
 });
 
 // ── Create announcement post ─────────────────────────────────────────────────
-router.post('/community/announcements', authenticateToken, adminOnly, async (req: any, res: Response) => {
+router.post('/community/announcements', authenticateToken, modPerm('community_moderate'), async (req: any, res: Response) => {
   try {
     const { content, hashtags } = req.body;
     if (!content || !content.trim()) return res.status(400).json({ message: 'Content is required' });
@@ -1780,7 +1780,7 @@ router.post('/community/announcements', authenticateToken, adminOnly, async (req
 });
 
 // ── Toggle pin on a post ─────────────────────────────────────────────────────
-router.patch('/community/posts/:id/pin', authenticateToken, adminOnly, async (req: any, res: Response) => {
+router.patch('/community/posts/:id/pin', authenticateToken, modPerm('community_moderate'), async (req: any, res: Response) => {
   try {
     const post = await get('SELECT is_pinned FROM posts WHERE id = ?', [req.params.id]);
     if (!post) return res.status(404).json({ message: 'Post not found' });
@@ -2149,6 +2149,66 @@ router.get('/features', async (_req: Request, res: Response) => {
   } catch {
     res.json({ features: {} });
   }
+});
+
+// ── Per-user feature access ─────────────────────────────────────────────────
+// Global feature flags merged with the authenticated user's personal overrides.
+// Lets the app grant a feature to a specific user even when it's off globally
+// (or hide one that's on globally). Falls back to the global map on any error.
+router.get('/features/me', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const rows = await query("SELECT setting_key, setting_value FROM app_settings WHERE category = 'features'") as any[];
+    const features: Record<string, boolean> = {};
+    for (const r of rows) {
+      const raw = String(r.setting_value ?? '').toLowerCase();
+      features[r.setting_key] = raw === '1' || raw === 'true' || raw === 'on';
+    }
+    const overrides = await query('SELECT feature_key, enabled FROM user_feature_overrides WHERE user_id = ?', [req.user.id]) as any[];
+    for (const o of overrides) features[o.feature_key] = Number(o.enabled) === 1;
+    res.json({ features });
+  } catch {
+    res.json({ features: {} });
+  }
+});
+
+// Admin: list per-user feature overrides (with the username they apply to).
+router.get('/feature-access', authenticateToken, adminOnly, async (_req: any, res: Response) => {
+  try {
+    const rows = await query(
+      `SELECT o.id, o.user_id, o.feature_key, o.enabled, u.name AS user_name, u.email AS user_email
+       FROM user_feature_overrides o JOIN users u ON u.id = o.user_id
+       ORDER BY o.created_at DESC`
+    );
+    res.json({ overrides: rows });
+  } catch { res.status(500).json({ message: 'Failed to load feature access' }); }
+});
+
+// Admin: grant/revoke a feature for a specific username (or email).
+router.post('/feature-access', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    const username = String(req.body?.username || '').trim();
+    const featureKey = String(req.body?.feature_key || '').trim();
+    const enabled = req.body?.enabled === false || req.body?.enabled === 0 || req.body?.enabled === '0' ? 0 : 1;
+    if (!username || !featureKey) return res.status(400).json({ message: 'Username and feature are required.' });
+
+    const target: any = await get('SELECT id, name FROM users WHERE name = ? OR email = ? LIMIT 1', [username, username]);
+    if (!target) return res.status(404).json({ message: `No user found matching "${username}".` });
+
+    await run(
+      `INSERT INTO user_feature_overrides (user_id, feature_key, enabled) VALUES (?,?,?)
+       ON DUPLICATE KEY UPDATE enabled = VALUES(enabled)`,
+      [target.id, featureKey, enabled]
+    );
+    res.json({ message: `${enabled ? 'Granted' : 'Revoked'} "${featureKey}" for ${target.name}.` });
+  } catch { res.status(500).json({ message: 'Failed to save feature access' }); }
+});
+
+// Admin: remove a per-user override (reverts the user to the global setting).
+router.delete('/feature-access/:id', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    await run('DELETE FROM user_feature_overrides WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Override removed.' });
+  } catch { res.status(500).json({ message: 'Failed to remove override' }); }
 });
 
 // ── Public dashboard config ──────────────────────────────────────────────────

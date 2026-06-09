@@ -51,9 +51,13 @@ const CATEGORIES: { key: Category; label: string; icon: typeof LayoutDashboard; 
 // Moderator-controllable areas surfaced in the Moderators tab. Each maps to a
 // permission key enforced server-side; default (unset) = allowed.
 const MODERATOR_AREAS: { key: string; label: string; desc: string }[] = [
-  { key: "community_view",     label: "View community",     desc: "See community posts, comments and stats" },
-  { key: "community_moderate", label: "Moderate community", desc: "Hide / restore / delete posts and delete comments" },
-  { key: "challenges_view",    label: "Access challenges",  desc: "View and manage community challenges" },
+  { key: "community_view",     label: "View community",      desc: "See community posts, comments and stats" },
+  { key: "community_moderate", label: "Moderate community",  desc: "Hide / restore / delete posts, pin posts, post announcements" },
+  { key: "challenges_view",    label: "View challenges",     desc: "View community challenges and their entries" },
+  { key: "challenges_moderate",label: "Moderate challenges", desc: "Review submissions, resolve reports, approve/reject challenges" },
+  { key: "tickets_view",       label: "View support tickets", desc: "See user support tickets and conversations" },
+  { key: "tickets_respond",    label: "Answer tickets",      desc: "Reply to and resolve user support tickets" },
+  { key: "blogs_moderate",     label: "Moderate blog",       desc: "Review and unpublish blog posts" },
 ];
 
 /* --- Payment helper components -------------------------------------------- */
@@ -480,9 +484,16 @@ export default function AdminSettings() {
     const userFeatures = filtered.filter(s => s.setting_key.startsWith("feature_user_"));
     const coachFeatures = filtered.filter(s => s.setting_key.startsWith("feature_coach_"));
     const other = filtered.filter(s => !s.setting_key.startsWith("feature_user_") && !s.setting_key.startsWith("feature_coach_"));
+    const allFeatureKeys = [...userFeatures, ...coachFeatures, ...other].map(s => ({
+      key: s.setting_key,
+      label: (s.label || s.setting_key).replace(/^(User: |Coach: )/, ""),
+    }));
 
     return (
       <div className="flex flex-col gap-4">
+        {/* Grant a feature to a specific username (overrides the global toggle). */}
+        <FeatureAccessPanel token={token} featureKeys={allFeatureKeys} />
+
         {[
           { title: "User App", items: userFeatures },
           { title: "Coach Panel", items: coachFeatures },
@@ -1076,5 +1087,101 @@ export default function AdminSettings() {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ── Per-user feature access ──────────────────────────────────────────────────
+   Lets an admin grant (or revoke) a single feature for a SPECIFIC username/email
+   instead of toggling it for everyone. Backed by /api/admin/feature-access. */
+function FeatureAccessPanel({ token, featureKeys }: { token: string | null; featureKeys: { key: string; label: string }[] }) {
+  const [overrides, setOverrides] = useState<any[]>([]);
+  const [username, setUsername] = useState("");
+  const [featureKey, setFeatureKey] = useState(featureKeys[0]?.key || "");
+  const [enabled, setEnabled] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/api/admin/feature-access`, { headers: { Authorization: `Bearer ${token}` } });
+      const d = await r.json();
+      setOverrides(d?.overrides || []);
+    } catch { /* ignore */ }
+  }, [token]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (!featureKey && featureKeys[0]) setFeatureKey(featureKeys[0].key); }, [featureKeys, featureKey]);
+
+  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(""), 2500); };
+
+  const grant = async () => {
+    if (!username.trim() || !featureKey) { flash("Enter a username and pick a feature."); return; }
+    setBusy(true);
+    try {
+      const r = await fetch(`${API}/api/admin/feature-access`, {
+        method: "POST", headers: authHeaders,
+        body: JSON.stringify({ username: username.trim(), feature_key: featureKey, enabled }),
+      });
+      const d = await r.json().catch(() => ({}));
+      flash(d?.message || (r.ok ? "Saved" : "Failed"));
+      if (r.ok) { setUsername(""); load(); }
+    } finally { setBusy(false); }
+  };
+
+  const remove = async (id: number) => {
+    await fetch(`${API}/api/admin/feature-access/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    load();
+  };
+
+  const labelFor = (k: string) => featureKeys.find(f => f.key === k)?.label || k;
+
+  return (
+    <Card className="gap-0 overflow-hidden p-0">
+      <div className="flex items-center gap-3 bg-muted px-5 py-3.5">
+        <span className="grid size-9 shrink-0 place-items-center rounded-md bg-card text-primary"><Users size={18} strokeWidth={2} /></span>
+        <div className="min-w-0">
+          <p className="text-[15px] font-semibold text-foreground">Per-user access</p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">Give (or block) a feature for a specific username/email — overrides the global toggle for that user only.</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 p-5">
+        <div className="grid gap-2 sm:grid-cols-[1.4fr_1.4fr_auto_auto] sm:items-end">
+          <div className="grid gap-1.5">
+            <Label className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Username or email</Label>
+            <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="e.g. john_doe or john@email.com" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Feature</Label>
+            <select value={featureKey} onChange={e => setFeatureKey(e.target.value)} className="h-11 rounded-md border border-input bg-background px-3 text-[14px]">
+              {featureKeys.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 pb-1.5">
+            <Switch checked={enabled} onCheckedChange={setEnabled} aria-label="Enabled" />
+            <span className="text-[13px] text-muted-foreground">{enabled ? "Grant" : "Block"}</span>
+          </div>
+          <Button onClick={grant} disabled={busy} className="h-11">{busy ? "Saving…" : "Apply"}</Button>
+        </div>
+        {msg && <p className="text-[12px] text-muted-foreground">{msg}</p>}
+
+        {overrides.length > 0 && (
+          <div className="mt-1 overflow-hidden rounded-md border border-border">
+            {overrides.map((o, i) => (
+              <div key={o.id}>
+                <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold text-foreground">{o.user_name} <span className="font-normal text-muted-foreground">· {o.user_email}</span></p>
+                    <p className="text-[12px] text-muted-foreground">{labelFor(o.feature_key)} — <span className={Number(o.enabled) === 1 ? "text-[var(--green)]" : "text-destructive"}>{Number(o.enabled) === 1 ? "granted" : "blocked"}</span></p>
+                  </div>
+                  <Button variant="outline" size="sm" className="text-destructive" onClick={() => remove(o.id)}><Trash2 size={14} /> Remove</Button>
+                </div>
+                {i < overrides.length - 1 && <Separator />}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }

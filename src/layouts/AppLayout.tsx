@@ -130,13 +130,17 @@ export function AppLayout() {
 
   const fetchFeatures = useCallback(async () => {
     try {
-      const r = await fetch(`${getApiBase()}/api/admin/features`);
+      // Authenticated users get the global flags merged with any per-user
+      // access overrides an admin granted them; anonymous gets the global map.
+      const r = token
+        ? await fetch(`${getApiBase()}/api/admin/features/me`, { headers: { Authorization: `Bearer ${token}` } })
+        : await fetch(`${getApiBase()}/api/admin/features`);
       const d = await r.json();
       setFeatures(d?.features || {});
     } catch {
       setFeatures({});
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (token && user && shouldAskForLocation()) {
