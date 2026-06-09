@@ -79,17 +79,17 @@ export async function billClick(adId) {
 /** Check daily budget reset at midnight and schedule expiry */
 export async function expireAndResetAds() {
     try {
-        // Expire ads past schedule_end
+        // Expire ads past schedule_end (DATETIME — compare to NOW() to honour clock time)
         await run(`UPDATE coach_ads
        SET status = 'expired'
        WHERE status IN ('active','paused')
          AND schedule_end IS NOT NULL
-         AND schedule_end < CURDATE()
+         AND schedule_end < NOW()
          AND paid_amount > 0`);
         // Also handle old boost_end field — only expire if schedule_end also passed or is not set
         await run(`UPDATE coach_ads SET status = 'expired'
        WHERE status = 'active' AND boost_end IS NOT NULL AND boost_end < NOW()
-         AND (schedule_end IS NULL OR schedule_end < CURDATE())`);
+         AND (schedule_end IS NULL OR schedule_end < NOW())`);
         // Reset daily spend counter for daily-budget ads at start of each day
         // (only if schedule_start <= today and schedule_end >= today)
         await run(`UPDATE coach_ads

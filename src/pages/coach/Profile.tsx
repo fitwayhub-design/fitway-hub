@@ -38,6 +38,8 @@ export default function CoachProfile() {
   const [editMode, setEditMode] = useState(false);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  // When the coach's specialty isn't one of the presets they can type their own.
+  const [customSpecialty, setCustomSpecialty] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
   const [profile, setProfile] = useState({
     bio: "", specialty: "", location: "", available: true,
@@ -855,14 +857,38 @@ export default function CoachProfile() {
           <div className="flex flex-col gap-4">
             <div className="grid gap-2">
               <Label htmlFor="edit-specialty" className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t("specialty")}</Label>
-              <Select value={editProfile.specialty || undefined} onValueChange={(v) => setEditProfile(p => ({ ...p, specialty: v }))}>
-                <SelectTrigger id="edit-specialty" className="w-full">
-                  <SelectValue placeholder="— Choose specialty —" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SPECIALTIES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              {(() => {
+                const inList = SPECIALTIES.includes(editProfile.specialty);
+                const showCustom = customSpecialty || (!!editProfile.specialty && !inList);
+                return (
+                  <>
+                    <Select
+                      value={showCustom ? "__custom__" : (editProfile.specialty || undefined)}
+                      onValueChange={(v) => {
+                        if (v === "__custom__") { setCustomSpecialty(true); setEditProfile(p => ({ ...p, specialty: "" })); }
+                        else { setCustomSpecialty(false); setEditProfile(p => ({ ...p, specialty: v })); }
+                      }}
+                    >
+                      <SelectTrigger id="edit-specialty" className="w-full">
+                        <SelectValue placeholder="— Choose specialty —" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SPECIALTIES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        <SelectItem value="__custom__">✏️ Other — write your own…</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {showCustom && (
+                      <Input
+                        autoFocus
+                        value={editProfile.specialty}
+                        onChange={e => setEditProfile(p => ({ ...p, specialty: e.target.value }))}
+                        placeholder="Type your specialty (e.g. Calisthenics, Pilates…)"
+                        className="mt-2"
+                      />
+                    )}
+                  </>
+                );
+              })()}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-location" className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t("location")}</Label>

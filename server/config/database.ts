@@ -972,6 +972,11 @@ async function initTables() {
     `ALTER TABLE coach_ads ADD COLUMN placement VARCHAR(50) DEFAULT 'all'`,
     `ALTER TABLE coach_ads ADD COLUMN schedule_start DATE`,
     `ALTER TABLE coach_ads ADD COLUMN schedule_end DATE`,
+    // Upgrade schedule columns to DATETIME so ad scheduling supports a clock
+    // (start/end time), not just the calendar day. Safe & idempotent: running
+    // MODIFY on an already-DATETIME column is a no-op.
+    `ALTER TABLE coach_ads MODIFY COLUMN schedule_start DATETIME`,
+    `ALTER TABLE coach_ads MODIFY COLUMN schedule_end DATETIME`,
     `ALTER TABLE coach_ads ADD COLUMN reach INT DEFAULT 0`,
     `ALTER TABLE coach_ads ADD COLUMN frequency DECIMAL(5,2) DEFAULT 0`,
     `ALTER TABLE coach_ads ADD COLUMN ctr DECIMAL(5,4) DEFAULT 0`,
