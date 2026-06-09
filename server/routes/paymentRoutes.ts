@@ -40,10 +40,37 @@ function normalizeCoachSubscriptionStatus(status: string | null | undefined): st
 }
 
 function getCoachSubscriptionDurationMonths(planCycle: string): number {
-  return planCycle === 'yearly' ? 12 : 1;
+  if (planCycle === 'yearly') return 12;
+  if (planCycle === 'quarterly') return 3;
+  if (planCycle === '2months') return 2;
+  return 1;
 }
 
-async function computeCoachCut(amount: number): Promise<number> {
+// PT (coach) plans — standardized platform tiers. Platform/App commission is
+// 40% of the subscription value (coach receives 60%). Prices per billing cycle.
+const PT_PLAN_PRICES: Record<string, Record<string, number>> = {
+  pt_basic:   { monthly: 999,  '2months': 1399, quarterly: 1999 },
+  pt_premium: { monthly: 1499, '2months': 1899, quarterly: 2499 },
+  pt_gold:    { monthly: 1999, '2months': 2299, quarterly: 2999 },
+};
+function isPtPackage(pkgId: string): boolean {
+  return Object.prototype.hasOwnProperty.call(PT_PLAN_PRICES, pkgId);
+}
+function getPtPrice(pkgId: string, cycle: string): number {
+  return PT_PLAN_PRICES[pkgId]?.[cycle] ?? 0;
+}
+// Normalise an incoming plan/cycle value to a stored plan_cycle.
+function normalizePlanCycle(plan: string): string {
+  if (plan === 'annual' || plan === 'yearly') return 'yearly';
+  if (plan === 'quarterly' || plan === '2months' || plan === 'monthly') return plan;
+  return 'monthly';
+}
+
+async function computeCoachCut(amount: number, packageId?: string): Promise<number> {
+  // PT plans have a fixed 40% platform commission → coach keeps 60%.
+  if (packageId && isPtPackage(packageId)) {
+    return Math.round(amount * ((100 - 40) / 100) * 100) / 100;
+  }
   const pctStr = await getSetting('coach_cut_percentage');
   const pct = pctStr ? Math.min(100, Math.max(0, Number(pctStr))) : 90;
   return Math.round(amount * (pct / 100) * 100) / 100;
@@ -240,7 +267,7 @@ router.post('/paypal/create-order', authenticateToken, async (req: any, res: Res
 
 // ── PayPal: Capture Order ─────────────────────────────────────────────────────
 router.post('/paypal/capture-order', authenticateToken, async (req: any, res: Response) => {
-  const { orderId, plan, type, amount, coachId } = req.body;
+  const { orderId, plan, type, amount, coachId, packageId } = req.body;
   try {
     const clientIdKey = type === 'coach' ? 'paypal_coach_client_id' : 'paypal_user_client_id';
     const secretKey = type === 'coach' ? 'paypal_coach_secret' : 'paypal_user_secret';
@@ -259,8 +286,13 @@ router.post('/paypal/capture-order', authenticateToken, async (req: any, res: Re
         ) as any;
         if (!coach) return res.status(404).json({ message: 'Coach not found' });
 
-        const planCycle = plan === 'annual' ? 'yearly' : 'monthly';
-        const subAmount = planCycle === 'yearly' ? Number(coach.yearly_price || 0) : Number(coach.monthly_price || 0);
+        const pkgId = String(packageId || '');
+        const planCycle = normalizePlanCycle(plan);
+        // PT plans use the standardized platform price; legacy plans use the
+        // coach's own monthly/yearly price.
+        const subAmount = isPtPackage(pkgId)
+          ? getPtPrice(pkgId, planCycle)
+          : (planCycle === 'yearly' ? Number(coach.yearly_price || 0) : Number(coach.monthly_price || 0));
 
         // Check for existing pending subscription
         const existingPending = await get(
@@ -276,8 +308,10 @@ router.post('/paypal/capture-order', authenticateToken, async (req: any, res: Re
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + getCoachSubscriptionDurationMonths(planCycle));
 
-        // PayPal verified — activate immediately, credit coach, no human approval needed
-        const coachCutAmt = Math.round(subAmount * (Number(process.env.COACH_CUT_PERCENT || 85) / 100) * 100) / 100;
+        // PayPal verified — activate immediately, credit coach, no human approval needed.
+        // PT plans: platform commission is 40%, so the coach receives 60%.
+        const coachCutPct = isPtPackage(pkgId) ? (100 - 40) : Number(process.env.COACH_CUT_PERCENT || 85);
+        const coachCutAmt = Math.round(subAmount * (coachCutPct / 100) * 100) / 100;
         await run(
           `INSERT INTO coach_subscriptions
            (user_id, coach_id, plan_cycle, plan_type, amount, status,
@@ -359,12 +393,18 @@ router.post('/ewallet', authenticateToken, uploadPaymentProof, optimizeImage(), 
       ) as any;
       if (!coach) return res.status(404).json({ message: 'Coach not found' });
 
-      const pkgId = String(packageId || 'community_premium');
-      const planCycle = plan === 'annual' ? 'yearly' : 'monthly';
-      const priceRow: any = await get(`SELECT setting_value FROM app_settings WHERE setting_key = ?`, [`sub_${pkgId}_egp`]).catch(() => null);
-      const monthly = Number(priceRow?.setting_value) || 0;
-      const amount = planCycle === 'yearly' ? monthly * 10 : monthly;
-      if (amount < 0) return res.status(400).json({ message: 'Package price unavailable.' });
+      const pkgId = String(packageId || 'pt_premium');
+      const planCycle = normalizePlanCycle(plan);
+      let amount: number;
+      if (isPtPackage(pkgId)) {
+        // Standardized PT plan price for the chosen billing cycle.
+        amount = getPtPrice(pkgId, planCycle);
+      } else {
+        const priceRow: any = await get(`SELECT setting_value FROM app_settings WHERE setting_key = ?`, [`sub_${pkgId}_egp`]).catch(() => null);
+        const monthly = Number(priceRow?.setting_value) || 0;
+        amount = planCycle === 'yearly' ? monthly * 10 : monthly;
+      }
+      if (amount <= 0) return res.status(400).json({ message: 'Package price unavailable.' });
 
       const existingPending = await get(
         `SELECT id FROM coach_subscriptions
@@ -795,7 +835,7 @@ router.patch('/coach-subscriptions/:id/coach-accept', authenticateToken, async (
       return res.status(400).json({ message: 'This subscription is not waiting for coach decision' });
     }
 
-    const coachCut = await computeCoachCut(Number(sub.amount || 0));
+    const coachCut = await computeCoachCut(Number(sub.amount || 0), sub.package_id);
 
     await run(
       `UPDATE coach_subscriptions

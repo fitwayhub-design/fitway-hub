@@ -37,9 +37,32 @@ function normalizeCoachSubscriptionStatus(status) {
     return status;
 }
 function getCoachSubscriptionDurationMonths(planCycle) {
-    return planCycle === 'yearly' ? 12 : 1;
+    if (planCycle === 'yearly') return 12;
+    if (planCycle === 'quarterly') return 3;
+    if (planCycle === '2months') return 2;
+    return 1;
 }
-async function computeCoachCut(amount) {
+// PT (coach) plans — standardized platform tiers. Platform commission 40% (coach 60%).
+const PT_PLAN_PRICES = {
+    pt_basic: { monthly: 999, '2months': 1399, quarterly: 1999 },
+    pt_premium: { monthly: 1499, '2months': 1899, quarterly: 2499 },
+    pt_gold: { monthly: 1999, '2months': 2299, quarterly: 2999 },
+};
+function isPtPackage(pkgId) {
+    return Object.prototype.hasOwnProperty.call(PT_PLAN_PRICES, pkgId);
+}
+function getPtPrice(pkgId, cycle) {
+    return (PT_PLAN_PRICES[pkgId] && PT_PLAN_PRICES[pkgId][cycle]) || 0;
+}
+function normalizePlanCycle(plan) {
+    if (plan === 'annual' || plan === 'yearly') return 'yearly';
+    if (plan === 'quarterly' || plan === '2months' || plan === 'monthly') return plan;
+    return 'monthly';
+}
+async function computeCoachCut(amount, packageId) {
+    if (packageId && isPtPackage(packageId)) {
+        return Math.round(amount * ((100 - 40) / 100) * 100) / 100;
+    }
     const pctStr = await getSetting('coach_cut_percentage');
     const pct = pctStr ? Math.min(100, Math.max(0, Number(pctStr))) : 90;
     return Math.round(amount * (pct / 100) * 100) / 100;
@@ -248,7 +271,7 @@ router.post('/paypal/create-order', authenticateToken, async (req, res) => {
 });
 // ── PayPal: Capture Order ─────────────────────────────────────────────────────
 router.post('/paypal/capture-order', authenticateToken, async (req, res) => {
-    const { orderId, plan, type, amount, coachId } = req.body;
+    const { orderId, plan, type, amount, coachId, packageId } = req.body;
     try {
         const clientIdKey = type === 'coach' ? 'paypal_coach_client_id' : 'paypal_user_client_id';
         const secretKey = type === 'coach' ? 'paypal_coach_secret' : 'paypal_user_secret';
@@ -265,8 +288,11 @@ router.post('/paypal/capture-order', authenticateToken, async (req, res) => {
            WHERE u.id = ? AND u.role = 'coach'`, [coachId]);
                 if (!coach)
                     return res.status(404).json({ message: 'Coach not found' });
-                const planCycle = plan === 'annual' ? 'yearly' : 'monthly';
-                const subAmount = planCycle === 'yearly' ? Number(coach.yearly_price || 0) : Number(coach.monthly_price || 0);
+                const pkgId = String(packageId || '');
+                const planCycle = normalizePlanCycle(plan);
+                const subAmount = isPtPackage(pkgId)
+                    ? getPtPrice(pkgId, planCycle)
+                    : (planCycle === 'yearly' ? Number(coach.yearly_price || 0) : Number(coach.monthly_price || 0));
                 // Check for existing pending subscription
                 const existingPending = await get(`SELECT id FROM coach_subscriptions
            WHERE user_id = ? AND coach_id = ? AND status IN ('pending_admin', 'pending_coach', 'pending')
@@ -276,8 +302,10 @@ router.post('/paypal/capture-order', authenticateToken, async (req, res) => {
                 }
                 const expiresAt = new Date();
                 expiresAt.setMonth(expiresAt.getMonth() + getCoachSubscriptionDurationMonths(planCycle));
-                // PayPal verified — activate immediately, credit coach, no human approval needed
-                const coachCutAmt = Math.round(subAmount * (Number(process.env.COACH_CUT_PERCENT || 85) / 100) * 100) / 100;
+                // PayPal verified — activate immediately, credit coach, no human approval needed.
+                // PT plans: platform commission is 40%, so the coach receives 60%.
+                const coachCutPct = isPtPackage(pkgId) ? (100 - 40) : Number(process.env.COACH_CUT_PERCENT || 85);
+                const coachCutAmt = Math.round(subAmount * (coachCutPct / 100) * 100) / 100;
                 await run(`INSERT INTO coach_subscriptions
            (user_id, coach_id, plan_cycle, plan_type, amount, status,
             admin_approval_status, coach_decision_status,
@@ -349,12 +377,18 @@ router.post('/ewallet', authenticateToken, uploadPaymentProof, optimizeImage(), 
          WHERE u.id = ? AND u.role = 'coach'`, [coachId]);
             if (!coach)
                 return res.status(404).json({ message: 'Coach not found' });
-            const pkgId = String(packageId || 'community_premium');
-            const planCycle = plan === 'annual' ? 'yearly' : 'monthly';
-            const priceRow = await get(`SELECT setting_value FROM app_settings WHERE setting_key = ?`, [`sub_${pkgId}_egp`]).catch(() => null);
-            const monthly = Number(priceRow?.setting_value) || 0;
-            const amount = planCycle === 'yearly' ? monthly * 10 : monthly;
-            if (amount < 0)
+            const pkgId = String(packageId || 'pt_premium');
+            const planCycle = normalizePlanCycle(plan);
+            let amount;
+            if (isPtPackage(pkgId)) {
+                amount = getPtPrice(pkgId, planCycle);
+            }
+            else {
+                const priceRow = await get(`SELECT setting_value FROM app_settings WHERE setting_key = ?`, [`sub_${pkgId}_egp`]).catch(() => null);
+                const monthly = Number(priceRow?.setting_value) || 0;
+                amount = planCycle === 'yearly' ? monthly * 10 : monthly;
+            }
+            if (amount <= 0)
                 return res.status(400).json({ message: 'Package price unavailable.' });
             const existingPending = await get(`SELECT id FROM coach_subscriptions
          WHERE user_id = ? AND coach_id = ? AND status IN ('pending_admin', 'pending_coach', 'pending')
@@ -738,7 +772,7 @@ router.patch('/coach-subscriptions/:id/coach-accept', authenticateToken, async (
         if (currentStatus !== 'pending_coach') {
             return res.status(400).json({ message: 'This subscription is not waiting for coach decision' });
         }
-        const coachCut = await computeCoachCut(Number(sub.amount || 0));
+        const coachCut = await computeCoachCut(Number(sub.amount || 0), sub.package_id);
         await run(`UPDATE coach_subscriptions
        SET status = ?, coach_decision_status = ?, coach_decided_at = NOW(), started_at = NOW(), credited_amount = ?, credit_released_at = NOW()
        WHERE id = ?`, ['active', 'accepted', coachCut, id]);
