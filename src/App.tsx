@@ -2,7 +2,6 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
-import { ConfigProvider, theme as antdTheme } from "antd";
 import { I18nProvider } from '@/context/I18nContext';
 import { BrandingProvider, useBranding } from "@/context/BrandingContext";
 import { AppImagesProvider } from "@/context/AppImagesContext";
@@ -273,33 +272,15 @@ function NativeUrlHandler() {
 }
 
 // ── Antd theme bridge ─────────────────────────────────────────────────────────
-// A handful of admin/coach "ads" pages still use Ant Design. Theme it to the
-// FitWay tokens (dark-first, yellow primary, 12px radius, no heavy shadows) so
-// those pages match the redesigned panels without rewriting their tables/forms.
-function AntdConfig({ children }: { children: ReactNode }) {
-  const { isDark } = useTheme();
+// Moved to components/AntdScope.tsx and loaded lazily so the ~350 kB gzip antd
+// vendor chunk is fetched only when an ads route renders, not on app boot.
+// Only the ads routes below are wrapped with <AdsScope>.
+const AntdScope = lazy(() => import("@/components/AntdScope"));
+function AdsScope({ children }: { children: ReactNode }) {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-        token: {
-          colorPrimary: "#FFD600",
-          colorLink: "#3B8BFF",
-          colorInfo: "#3B8BFF",
-          borderRadius: 12,
-          fontFamily: "var(--font-en)",
-          colorBgBase: isDark ? "#0a0a0a" : "#f8f8f8",
-        },
-        components: {
-          Button: { primaryColor: "#0a0a0a", primaryShadow: "none", defaultShadow: "none", dangerShadow: "none" },
-          Card: { borderRadiusLG: 16 },
-          Modal: { borderRadiusLG: 16 },
-          Table: { headerBg: "transparent", borderColor: "transparent" },
-        },
-      }}
-    >
-      {children}
-    </ConfigProvider>
+    <Suspense fallback={<PageSpinner />}>
+      <AntdScope>{children}</AntdScope>
+    </Suspense>
   );
 }
 
@@ -336,7 +317,6 @@ export default function App() {
           <AppImagesProvider>
           <SplashGate />
           <PushBanner />
-          <AntdConfig>
           <BrowserRouter>
             <NativeUrlHandler />
             <ErrorBoundary>
@@ -406,11 +386,11 @@ export default function App() {
                 <Route path="/coach/athletes" element={<CoachAthletes />} />
                 <Route path="/coach/chat" element={<Navigate to="/coach/tickets" replace />} />
                 <Route path="/coach/ads" element={<Navigate to="/coach/ads/campaigns" replace />} />
-                <Route path="/coach/ads/campaigns" element={<CoachAdsCampaigns />} />
-                <Route path="/coach/ads/my-ads" element={<CoachMyAds />} />
-                <Route path="/coach/ads/creatives" element={<CoachAdsCreatives />} />
-                <Route path="/coach/ads/analytics" element={<CoachAdsAnalytics />} />
-                <Route path="/coach/ads/wallet" element={<CoachAdsWallet />} />
+                <Route path="/coach/ads/campaigns" element={<AdsScope><CoachAdsCampaigns /></AdsScope>} />
+                <Route path="/coach/ads/my-ads" element={<AdsScope><CoachMyAds /></AdsScope>} />
+                <Route path="/coach/ads/creatives" element={<AdsScope><CoachAdsCreatives /></AdsScope>} />
+                <Route path="/coach/ads/analytics" element={<AdsScope><CoachAdsAnalytics /></AdsScope>} />
+                <Route path="/coach/ads/wallet" element={<AdsScope><CoachAdsWallet /></AdsScope>} />
                 <Route path="/coach/campaigns" element={<Navigate to="/coach/ads/campaigns" replace />} />
                 <Route path="/coach/community" element={<CoachCommunity />} />
                 <Route path="/coach/profile" element={<CoachProfile />} />
@@ -433,8 +413,8 @@ export default function App() {
                 <Route path="/admin/coaches" element={<AdminDashboard />} />
                 <Route path="/admin/payments" element={<AdminDashboard />} />
                 <Route path="/admin/videos" element={<AdminDashboard />} />
-                <Route path="/admin/ads" element={<AdminAdsManager />} />
-                <Route path="/admin/ad-settings" element={<AdsSettingsPanel />} />
+                <Route path="/admin/ads" element={<AdsScope><AdminAdsManager /></AdsScope>} />
+                <Route path="/admin/ad-settings" element={<AdsScope><AdsSettingsPanel /></AdsScope>} />
                 <Route path="/admin/chat" element={<AdminChat />} />
                 <Route path="/admin/gifts" element={<AdminDashboard />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
@@ -468,7 +448,6 @@ export default function App() {
             </Suspense></LazyErrorBoundary>
             </ErrorBoundary>
           </BrowserRouter>
-          </AntdConfig>
           </AppImagesProvider>
           </BrandingProvider>
         </I18nProvider>

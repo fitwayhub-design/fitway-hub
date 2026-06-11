@@ -9,14 +9,24 @@ export default defineConfig(({ mode }) => {
 
   const manualChunks = (id: string): string | undefined => {
     if (!id.includes('node_modules')) return undefined;
+    // clsx is used by the eager cn() helper AND by lazy chart pages. Pin it to
+    // the always-loaded react chunk so Rollup can't merge it into a heavy lazy
+    // chunk and turn that chunk into a static dependency of the entry.
+    if (id.includes('node_modules/clsx/')) return 'vendor-react';
     if (id.includes('/recharts/') || id.includes('/d3-')) return 'vendor-charts';
-    if (id.includes('/motion/')) return 'vendor-motion';
+    // Match ONLY the motion/framer-motion packages. A bare '/motion/' substring
+    // also matched antd's es/**/motion/* styles and rc-motion, which silently
+    // dragged the entire antd bundle into the boot path.
+    if (id.includes('node_modules/motion/') || id.includes('node_modules/framer-motion/')) return 'vendor-motion';
     if (id.includes('/react-hook-form/') || id.includes('/@hookform/')) return 'vendor-forms';
     if (id.includes('/axios/')) return 'vendor-http';
-    // antd + its rc-* internals are the single largest dependency; isolating
-    // them (and the react runtime) into stable vendor chunks means app-code
-    // deploys don't invalidate the user's cached copy of these heavy bundles.
-    if (id.includes('/antd/') || id.includes('/@ant-design/') || id.includes('/rc-')) return 'vendor-antd';
+    // NOTE: deliberately NO manual chunk rule for antd/rc-*. Forcing antd's
+    // ~1000 modules into one named chunk made Rollup emit a static
+    // `import "./vendor-antd.js"` from the entry (module-ordering effect),
+    // putting ~353 kB gzip of antd into the boot path even though only the
+    // lazy ads pages use it. With auto-chunking, antd splits into a chunk
+    // loaded strictly on demand by those pages — verified via entry static
+    // imports. Don't re-add an antd rule without re-checking that.
     if (id.includes('/react-dom/') || id.includes('/react/') || id.includes('/scheduler/')) return 'vendor-react';
     if (id.includes('/lucide-react/')) return 'vendor-icons';
     return undefined;
