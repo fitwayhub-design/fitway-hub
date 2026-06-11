@@ -347,6 +347,16 @@ export default function Workouts() {
     setPlaying(null);
   };
 
+  /* Close the fullscreen player on Escape — it's a custom overlay, not a Radix
+     dialog, so it doesn't get this for free. Goes through closePlayer so the
+     final watch position is still flushed. */
+  useEffect(() => {
+    if (!playing) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closePlayer(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [playing]);
+
   const activeFilterCount =
     [fGoal, fBody, fDuration, fEquipment, fLevel, fType].filter(Boolean).length;
 
