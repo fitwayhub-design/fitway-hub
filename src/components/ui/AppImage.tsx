@@ -21,6 +21,7 @@ export default function AppImage({ slug, alt, fallback = null, style, className,
       style={style}
       className={className}
       loading={loading}
+      decoding="async"
       draggable={false}
     />
   );

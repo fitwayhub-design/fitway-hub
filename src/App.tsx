@@ -10,6 +10,7 @@ import BrandLoader from "@/components/ui/BrandLoader";
 import PageSkeleton from "@/components/ui/PageSkeleton";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { safeInternalPath } from "@/lib/notificationLinks";
+import { clickable } from "@/lib/a11y";
 import { useEffect, useState, lazy, Suspense, Component, type ReactNode } from "react";
 
 // ── Hook: subscribe to Firebase push events ───────────────────────────────────
@@ -184,7 +185,7 @@ function PushBanner() {
   };
   return (
     <div
-      onClick={handleClick}
+      {...clickable(handleClick, { label: notif.title || "Open notification" })}
       style={{
         position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)",
         zIndex: 99999, width: "min(360px, calc(100vw - 32px))",
