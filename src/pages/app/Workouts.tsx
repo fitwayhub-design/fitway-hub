@@ -1,4 +1,5 @@
-import { getApiBase, resolveAssetUrl } from "@/lib/api";
+import { apiFetch, resolveAssetUrl } from "@/lib/api";
+import ErrorState from "@/components/ui/ErrorState";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -165,6 +166,7 @@ export default function Workouts() {
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   const [progressMap, setProgressMap] = useState<Map<number, VideoProgress>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [q, setQ] = useState("");
   const [searching, setSearching] = useState(false);
   const [playing, setPlaying] = useState<Video | null>(null);
@@ -189,17 +191,19 @@ export default function Workouts() {
      same workout twice doesn't double-count. */
   const viewedThisSessionRef = useRef<Set<number>>(new Set());
 
-  const apiCall = (path: string, init?: RequestInit) =>
-    fetch(`${getApiBase()}${path}`, {
-      ...init,
-      headers: { Authorization: `Bearer ${token}`, ...(init?.headers || {}) },
-    });
+  // Delegates to the centralized apiFetch: API base + bearer injection plus the
+  // global 401 → refresh-or-logout flow, with the same (path, init) signature.
+  const apiCall = (path: string, init?: RequestInit) => apiFetch(path, init as any);
 
   const loadWorkouts = () => {
     if (!token) return;
+    setLoadError(false);
     Promise.all([
-      apiCall('/api/workouts/videos').then(r => r.json()).catch(() => ({ videos: [] })),
-      apiCall('/api/workouts/shorties').then(r => r.json()).catch(() => ({ videos: [] })),
+      // The two primary feeds: a failure here means the page has nothing to
+      // show, so let it reject and surface a retry instead of faking "empty".
+      apiCall('/api/workouts/videos').then(r => { if (!r.ok) throw new Error('videos failed'); return r.json(); }),
+      apiCall('/api/workouts/shorties').then(r => { if (!r.ok) throw new Error('shorties failed'); return r.json(); }),
+      // Secondary data: degrade gracefully to defaults.
       apiCall('/api/workouts/shorties/trending?limit=5').then(r => r.ok ? r.json() : { videos: [] }).catch(() => ({ videos: [] })),
       apiCall('/api/workouts/me').then(r => r.ok ? r.json() : { saved_ids: [], liked_ids: [], progress: [] }).catch(() => ({ saved_ids: [], liked_ids: [], progress: [] })),
     ]).then(([l, s, t, me]) => {
@@ -213,6 +217,11 @@ export default function Workouts() {
         pm.set(Number(p.video_id), { ...p, video_id: Number(p.video_id) });
       }
       setProgressMap(pm);
+      setLoading(false);
+    }).catch(() => {
+      // Keep any previously-loaded content (background auto-refresh may fail
+      // transiently); the error state only renders when both feeds are empty.
+      setLoadError(true);
       setLoading(false);
     });
   };
@@ -666,6 +675,12 @@ export default function Workouts() {
         </div>
       )}
 
+      {/* Load failure with nothing cached to show — offer a retry instead of
+          silently rendering an empty library. */}
+      {!loading && loadError && longs.length === 0 && shorts.length === 0 && (
+        <ErrorState message="We couldn't load your workouts. Check your connection and try again." onRetry={loadWorkouts} />
+      )}
+
       {/* Featured hero — only on the un-filtered, un-searched view */}
       {!loading && !activeFilterCount && !q && featured && (
         <section className="mb-6 px-4">
@@ -762,7 +777,7 @@ export default function Workouts() {
             </div>
           )
         ) : (
-          !loading && (
+          !loading && !loadError && (
             <div className="py-8 text-center text-muted-foreground">
               <p className="mb-1.5 text-sm font-semibold text-foreground">{t("no_workouts_found")}</p>
               <p className="text-xs">{t("try_different_filter")}</p>

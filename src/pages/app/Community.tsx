@@ -1,4 +1,5 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
+import ErrorState from "@/components/ui/ErrorState";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect, useRef, useCallback } from "react";
 import React from "react";
@@ -70,6 +71,7 @@ export default function Community() {
   /* ───── State ───── */
   const [activeTab, setActiveTab] = useState<"feed" | "challenges">("feed");
   const [posts, setPosts] = useState<Post[]>([]);
+  const [loadError, setLoadError] = useState(false);
   const [sponsoredAds, setSponsoredAds] = useState<SponsoredAd[]>([]);
   const [trendingTags, setTrendingTags] = useState<TrendingTag[]>([]);
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -99,9 +101,13 @@ export default function Community() {
   const fetchPosts = useCallback(async (tag?: string | null) => {
     try {
       const url = tag ? `/api/community/posts?tag=${encodeURIComponent(tag.replace(/^#/, ""))}` : "/api/community/posts";
-      const r = await fetch(getApiBase() + url, { headers: { Authorization: `Bearer ${token}` } });
+      const r = await apiFetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) throw new Error('posts failed');
       setPosts(await r.json());
-    } catch {}
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    }
   }, [token]);
 
   useEffect(() => {
@@ -110,18 +116,18 @@ export default function Community() {
   useAutoRefresh(() => { if (activeTab === "feed") fetchPosts(activeTag); });
 
   useEffect(() => {
-    fetch(getApiBase() + "/api/coach/ads/public/community", { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/api/coach/ads/public/community", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => {
         const sAds = d.ads || [];
         setSponsoredAds(sAds);
         if (sAds.length > 0) {
-          fetch(getApiBase() + "/api/coach/ads/impressions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ ids: sAds.map((a: any) => a.id) }) }).catch(() => {});
+          apiFetch("/api/coach/ads/impressions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ ids: sAds.map((a: any) => a.id) }) }).catch(() => {});
         }
       }).catch(() => {});
-    fetch(getApiBase() + "/api/community/posts/trending-tags", { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/api/community/posts/trending-tags", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => setTrendingTags(Array.isArray(d) ? d : [])).catch(() => {});
     if (isAdmin) {
-      fetch(getApiBase() + "/api/community/stats", { headers: { Authorization: `Bearer ${token}` } })
+      apiFetch("/api/community/stats", { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json()).then(d => setCommunityStats(d)).catch(() => {});
     }
   }, [token, isAdmin]);
@@ -138,9 +144,9 @@ export default function Community() {
         fd.append("media", selectedFile);
         fd.append("content", newPostContent);
         fd.append("hashtags", newPostHashtags);
-        r = await fetch(getApiBase() + "/api/community/posts", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+        r = await apiFetch("/api/community/posts", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
       } else {
-        r = await fetch(getApiBase() + "/api/community/posts", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ content: newPostContent, hashtags: newPostHashtags }) });
+        r = await apiFetch("/api/community/posts", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ content: newPostContent, hashtags: newPostHashtags }) });
       }
       if (r.ok) {
         setNewPostContent(""); setNewPostHashtags(""); setSelectedFile(null); setFilePreview(null); setShowComposer(false);
@@ -156,7 +162,7 @@ export default function Community() {
   const deletePost = async (postId: number) => {
     if (!confirm(isAdmin ? "Hide this post from the community?" : "Delete this post permanently?")) return;
     try {
-      await fetch(getApiBase() + `/api/community/posts/${postId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      await apiFetch(`/api/community/posts/${postId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       fetchPosts(activeTag);
     } catch {}
   };
@@ -169,9 +175,9 @@ export default function Community() {
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: p.isLiked ? p.likes - 1 : p.likes + 1, isLiked: !p.isLiked } : p));
     try {
       if (post.isLiked) {
-        await fetch(getApiBase() + `/api/community/posts/${postId}/like`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+        await apiFetch(`/api/community/posts/${postId}/like`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       } else {
-        await fetch(getApiBase() + `/api/community/posts/${postId}/like`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+        await apiFetch(`/api/community/posts/${postId}/like`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       }
     } catch {}
   };
@@ -180,7 +186,7 @@ export default function Community() {
     const content = commentInputs[postId];
     if (!content?.trim()) return;
     try {
-      const r = await fetch(getApiBase() + `/api/community/posts/${postId}/comments`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ content }) });
+      const r = await apiFetch(`/api/community/posts/${postId}/comments`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ content }) });
       if (r.ok) {
         setCommentInputs(prev => ({ ...prev, [postId]: "" }));
         fetchPosts(activeTag);
@@ -195,10 +201,10 @@ export default function Community() {
     const isFollowing = followedCoaches.has(coachId);
     try {
       if (isFollowing) {
-        await fetch(getApiBase() + `/api/coach/follow/${coachId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+        await apiFetch(`/api/coach/follow/${coachId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
         setFollowedCoaches(prev => { const s = new Set(prev); s.delete(coachId); return s; });
       } else {
-        await fetch(getApiBase() + `/api/coach/follow/${coachId}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+        await apiFetch(`/api/coach/follow/${coachId}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
         setFollowedCoaches(prev => new Set([...prev, coachId]));
       }
     } catch {}
@@ -213,17 +219,17 @@ export default function Community() {
       setCoachShorties([]);
       setCoachPhotos([]);
     try {
-      const fsRes = await fetch(getApiBase() + `/api/coach/follow/${userId}/status`, { headers: { Authorization: `Bearer ${token}` } });
+      const fsRes = await apiFetch(`/api/coach/follow/${userId}/status`, { headers: { Authorization: `Bearer ${token}` } });
       if (fsRes.ok) { const fd = await fsRes.json(); if (fd.following) setFollowedCoaches(prev => new Set([...prev, userId])); }
-      const pRes = await fetch(getApiBase() + `/api/coach/profile/${userId}/posts`, { headers: { Authorization: `Bearer ${token}` } });
+      const pRes = await apiFetch(`/api/coach/profile/${userId}/posts`, { headers: { Authorization: `Bearer ${token}` } });
       if (pRes.ok) { const pd = await pRes.json(); setCoachPosts(pd.posts || []); }
-        const vRes = await fetch(getApiBase() + `/api/coach/profile/${userId}/videos`, { headers: { Authorization: `Bearer ${token}` } });
+        const vRes = await apiFetch(`/api/coach/profile/${userId}/videos`, { headers: { Authorization: `Bearer ${token}` } });
         if (vRes.ok) { const vd = await vRes.json(); setCoachVideos(vd.videos || []); }
-        const shRes = await fetch(getApiBase() + `/api/coach/profile/${userId}/shorties`, { headers: { Authorization: `Bearer ${token}` } });
+        const shRes = await apiFetch(`/api/coach/profile/${userId}/shorties`, { headers: { Authorization: `Bearer ${token}` } });
         if (shRes.ok) { const sd = await shRes.json(); setCoachShorties(sd.videos || []); }
-        const phRes = await fetch(getApiBase() + `/api/coach/profile/${userId}/photos`, { headers: { Authorization: `Bearer ${token}` } });
+        const phRes = await apiFetch(`/api/coach/profile/${userId}/photos`, { headers: { Authorization: `Bearer ${token}` } });
         if (phRes.ok) { const phd = await phRes.json(); setCoachPhotos(phd.photos || []); }
-      const sRes = await fetch(getApiBase() + `/api/coach/profile/${userId}/stats`, { headers: { Authorization: `Bearer ${token}` } });
+      const sRes = await apiFetch(`/api/coach/profile/${userId}/stats`, { headers: { Authorization: `Bearer ${token}` } });
       if (sRes.ok) { const sd = await sRes.json(); setCoachProfile((p: any) => ({ ...p, ...sd, name: userName, avatar: userAvatar })); }
     } catch {}
   };
@@ -425,8 +431,13 @@ export default function Community() {
             )}
           </Card>
 
+          {/* ── Load failure (distinct from a genuinely empty feed) ── */}
+          {feedItems.length === 0 && loadError && (
+            <ErrorState message="We couldn't load the feed. Check your connection and try again." onRetry={() => fetchPosts(activeTag)} />
+          )}
+
           {/* ── Empty state ── */}
-          {feedItems.length === 0 && (
+          {feedItems.length === 0 && !loadError && (
             <div className="px-5 py-12 text-center text-muted-foreground">
               <Sparkles size={32} strokeWidth={2} className="mx-auto mb-3 opacity-40" />
               <p className="mb-1 text-[15px] font-semibold text-foreground">
@@ -603,7 +614,7 @@ function SponsoredAdCard({ ad, token }: { ad: SponsoredAd; token: string | null 
 
   const trackClick = () => {
     if (!ad.id) return;
-    fetch(getApiBase() + `/api/coach/ads/${ad.id}/click`, {
+    apiFetch(`/api/coach/ads/${ad.id}/click`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     }).catch(() => {});

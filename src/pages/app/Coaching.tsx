@@ -1,4 +1,5 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
+import ErrorState from "@/components/ui/ErrorState";
 import { Calendar, MessageSquare, Star, Search, Camera, UserPlus, UserCheck, Gift, Flag, MapPin, BadgeCheck, Clock, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -120,6 +121,7 @@ export default function Coaching() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [bookingCoach, setBookingCoach] = useState<Coach | null>(null);
   const [bookingDate, setBookingDate] = useState("");
   const [bookingTime, setBookingTime] = useState("");
@@ -162,7 +164,7 @@ export default function Coaching() {
   // /app/pricing page so prices stay consistent across the app.
   useEffect(() => {
     if (!token) return;
-    fetch(getApiBase() + "/api/admin/app-settings", { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/api/admin/app-settings", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : { settings: [] })
       .then(d => {
         const out: Record<string, number> = {};
@@ -227,14 +229,15 @@ export default function Coaching() {
     return `${hours}h ${minutes}m left`;
   };
 
-  useEffect(() => {
-    fetch(getApiBase() + "/api/coaching/coaches", { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
+  const loadCoaches = () => {
+    setLoadError(false);
+    apiFetch("/api/coaching/coaches", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => { if (!r.ok) throw new Error('coaches failed'); return r.json(); })
       .then(d => {
         const coachList = d.coaches || [];
         setCoaches(coachList);
         // Load follow statuses
-        fetch(getApiBase() + "/api/coach/following", { headers: { Authorization: `Bearer ${token}` } })
+        apiFetch("/api/coach/following", { headers: { Authorization: `Bearer ${token}` } })
           .then(r2 => r2.json())
           .then(d2 => {
             const ids = new Set<number>((d2.coaches || []).map((c: any) => c.id));
@@ -243,7 +246,7 @@ export default function Coaching() {
           .catch(() => {});
         // Load subscription statuses for all coaches
         coachList.forEach((c: Coach) => {
-          fetch(getApiBase() + `/api/payments/coach-subscription-status/${c.id}`, { headers: { Authorization: `Bearer ${token}` } })
+          apiFetch(`/api/payments/coach-subscription-status/${c.id}`, { headers: { Authorization: `Bearer ${token}` } })
             .then(r2 => r2.json())
             .then(d2 => {
               setSubscribedCoaches(prev => ({ ...prev, [c.id]: d2 }));
@@ -251,15 +254,19 @@ export default function Coaching() {
             .catch(() => {});
         });
       })
-      .catch(() => {})
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadCoaches();
 
     // Auto-open coach profile from URL param (e.g. ?coach=5)
     const coachParam = searchParams.get('coach');
     if (coachParam) {
       const cid = Number(coachParam);
       if (cid) {
-        fetch(getApiBase() + "/api/coaching/coaches", { headers: { Authorization: `Bearer ${token}` } })
+        apiFetch("/api/coaching/coaches", { headers: { Authorization: `Bearer ${token}` } })
           .then(r => r.json())
           .then(d => {
             const found = (d.coaches || []).find((c: any) => c.id === cid);
@@ -270,7 +277,7 @@ export default function Coaching() {
       }
     }
 
-    fetch(getApiBase() + "/api/workouts/my-plan", { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/api/workouts/my-plan", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
       .then((d) => {
         const hasWorkout = !!d?.workout;
@@ -280,7 +287,7 @@ export default function Coaching() {
       .catch(() => setHasAssignedPlan(false));
   }, [token]);
   useAutoRefresh(() => {
-    fetch(getApiBase() + "/api/coaching/coaches", { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/api/coaching/coaches", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => setCoaches(d.coaches || [])).catch(() => {});
   });
 
@@ -290,7 +297,7 @@ export default function Coaching() {
     if (!amt || amt <= 0) { setGiftMsg("Enter a valid amount"); return; }
     setGiftSending(true);
     try {
-      const r = await fetch(getApiBase() + "/api/coaching/gift", {
+      const r = await apiFetch("/api/coaching/gift", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ coachId: giftCoach.id, amount: amt, message: giftMessage }),
@@ -308,17 +315,17 @@ export default function Coaching() {
     const isFollowing = followedCoaches.has(coachId);
     try {
       if (isFollowing) {
-        await fetch(getApiBase() + `/api/coach/follow/${coachId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+        await apiFetch(`/api/coach/follow/${coachId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
         setFollowedCoaches(prev => { const s = new Set(prev); s.delete(coachId); return s; });
       } else {
-        await fetch(getApiBase() + `/api/coach/follow/${coachId}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+        await apiFetch(`/api/coach/follow/${coachId}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
         setFollowedCoaches(prev => new Set([...prev, coachId]));
       }
     } catch {}
   };
 
   const fetchReviews = async (coachId: number) => {
-    const res = await fetch(getApiBase() + `/api/coaching/reviews/${coachId}`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await apiFetch(`/api/coaching/reviews/${coachId}`, { headers: { Authorization: `Bearer ${token}` } });
     if (res.ok) { const d = await res.json(); setCoachReviews(p => ({ ...p, [coachId]: d.reviews || [] })); }
     // Fetch community posts and videos
     setProfileTab("info");
@@ -326,15 +333,15 @@ export default function Coaching() {
     setCoachVideos([]);
     try {
       const [pRes, vRes] = await Promise.all([
-        fetch(getApiBase() + `/api/coach/profile/${coachId}/posts`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(getApiBase() + `/api/coach/profile/${coachId}/videos`, { headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch(`/api/coach/profile/${coachId}/posts`, { headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch(`/api/coach/profile/${coachId}/videos`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (pRes.ok) { const pd = await pRes.json(); setCoachPosts(pd.posts || []); }
       if (vRes.ok) { const vd = await vRes.json(); setCoachVideos(vd.videos || []); }
     } catch {}
     // Fetch follow status
     try {
-      const fsRes = await fetch(getApiBase() + `/api/coach/follow/${coachId}/status`, { headers: { Authorization: `Bearer ${token}` } });
+      const fsRes = await apiFetch(`/api/coach/follow/${coachId}/status`, { headers: { Authorization: `Bearer ${token}` } });
       if (fsRes.ok) {
         const fd = await fsRes.json();
         if (fd.following) setFollowedCoaches(prev => new Set([...prev, coachId]));
@@ -346,10 +353,10 @@ export default function Coaching() {
     const isFollowing = followedCoaches.has(coachId);
     try {
       if (isFollowing) {
-        await fetch(getApiBase() + `/api/coach/follow/${coachId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+        await apiFetch(`/api/coach/follow/${coachId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
         setFollowedCoaches(prev => { const s = new Set(prev); s.delete(coachId); return s; });
       } else {
-        await fetch(getApiBase() + `/api/coach/follow/${coachId}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+        await apiFetch(`/api/coach/follow/${coachId}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
         setFollowedCoaches(prev => new Set([...prev, coachId]));
       }
     } catch {}
@@ -360,7 +367,7 @@ export default function Coaching() {
     if (!reportReason.trim()) { setReportMsg("Please select a reason"); return; }
     setReportSubmitting(true);
     try {
-      const r = await fetch(getApiBase() + "/api/coaching/reports", {
+      const r = await apiFetch("/api/coaching/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ coachId: reportCoach.id, reason: reportReason, details: reportDetails.trim() }),
@@ -387,7 +394,7 @@ export default function Coaching() {
     if (!reviewingCoach || !reviewText.trim()) return;
     setReviewSubmitting(true);
     try {
-      const res = await fetch(getApiBase() + "/api/coaching/reviews", {
+      const res = await apiFetch("/api/coaching/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ coachId: reviewingCoach.id, rating: reviewRating, text: reviewText }),
@@ -473,6 +480,10 @@ export default function Coaching() {
 
       {loading ? (
         <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>Loading coaches...</div>
+      ) : loadError && coaches.length === 0 ? (
+        <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)" }}>
+          <ErrorState message="We couldn't load coaches right now. Check your connection and try again." onRetry={loadCoaches} />
+        </div>
       ) : filtered.length === 0 ? (
         <div style={{ padding: 60, textAlign: "center", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)" }}>
           <Search size={40} strokeWidth={1} color="var(--text-muted)" style={{ margin: "0 auto 12px" }} />
@@ -550,7 +561,7 @@ export default function Coaching() {
                         onChange={async (e) => {
                           const newVal = e.target.checked;
                           try {
-                            await fetch(getApiBase() + `/api/payments/subscriptions/${subscribedCoaches[c.id].subscription.id}/auto-renew`, {
+                            await apiFetch(`/api/payments/subscriptions/${subscribedCoaches[c.id].subscription.id}/auto-renew`, {
                               method: "PATCH",
                               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                               body: JSON.stringify({ auto_renew: newVal }),
@@ -696,7 +707,7 @@ export default function Coaching() {
                     fd.append("level", bookingLevel);
                     if (nowBodyPhoto) fd.append("nowBodyPhoto", nowBodyPhoto);
                     if (dreamBodyPhoto) fd.append("dreamBodyPhoto", dreamBodyPhoto);
-                    const r = await fetch(getApiBase() + "/api/coaching/book", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+                    const r = await apiFetch("/api/coaching/book", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
                     if (!r.ok) throw new Error();
                     setBookingMsg("✅ Booking requested! The coach will confirm shortly.");
                     setTimeout(() => setBookingCoach(null), 2000);
