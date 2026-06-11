@@ -74,6 +74,52 @@ export interface GoalRow {
   } | null;
 }
 
+/**
+ * One-tap challenge presets. Each template prefills the goal list with
+ * sensible defaults the creator can still edit (targets, habit names, the
+ * training pick) before publishing.
+ */
+export interface ChallengeTemplate { key: string; label: string; blurb: string; goals: GoalDraft[] }
+export const CHALLENGE_TEMPLATES: ChallengeTemplate[] = [
+  {
+    key: "transformation_30",
+    label: "30-Day Transformation",
+    blurb: "Weight loss + daily habit + before/after photos",
+    goals: [
+      { goal_type: "weight_loss", target_value: 4 },
+      { goal_type: "habit", title: "Stick to your plan every day", target_value: 30 },
+      { goal_type: "transformation", target_value: 2 },
+    ],
+  },
+  {
+    key: "consistency_21",
+    label: "21-Day Consistency",
+    blurb: "Daily habit + nutrition check-ins",
+    goals: [
+      { goal_type: "habit", title: "Train or move every day", target_value: 21 },
+      { goal_type: "nutrition", target_value: 21 },
+    ],
+  },
+  {
+    key: "distance_month",
+    label: "Distance Month",
+    blurb: "Run 50 km + daily stretch habit",
+    goals: [
+      { goal_type: "walk_run", activity: "run", target_value: 50 },
+      { goal_type: "habit", title: "Stretch 10 minutes", target_value: 20 },
+    ],
+  },
+  {
+    key: "muscle_builder",
+    label: "Muscle Builder",
+    blurb: "Training plan + weight gain weigh-ins",
+    goals: [
+      { goal_type: "training", training_id: null, target_value: 16 },
+      { goal_type: "weight_gain", target_value: 3 },
+    ],
+  },
+];
+
 export const GOAL_TYPE_META: Record<string, { icon: any; cls: string }> = {
   training:       { icon: Dumbbell,    cls: "text-primary bg-primary/12" },
   walk_run:       { icon: Footprints,  cls: "text-[var(--green)] bg-[color-mix(in_srgb,var(--green)_14%,transparent)]" },
@@ -188,6 +234,21 @@ export function GoalBuilder({ api, goals, onChange }: {
 
       {picking ? (
         <div className="rounded-md border border-dashed border-border p-3">
+          {goals.length === 0 && (
+            <div className="mb-3">
+              <p className="mb-2 text-[12px] font-semibold">Quick start from a template</p>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {CHALLENGE_TEMPLATES.map(t => (
+                  <button key={t.key} type="button" onClick={() => { onChange(t.goals.map(g => ({ ...g }))); setPicking(false); }}
+                    className="rounded-md border border-border px-3 py-2 text-start transition-colors hover:border-primary/60 hover:bg-primary/5">
+                    <span className="block text-[12.5px] font-semibold">{t.label}</span>
+                    <span className="block text-[10.5px] text-muted-foreground">{t.blurb}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="my-2 text-center text-[10.5px] text-muted-foreground">— or build your own —</p>
+            </div>
+          )}
           <p className="mb-2 text-[12px] font-semibold">Pick a goal type</p>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {types.map(t => {

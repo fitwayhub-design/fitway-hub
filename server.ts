@@ -48,6 +48,7 @@ import { startSmtpServer } from './server/emailServer.js';
 import { errorHandler } from './server/middleware/error.js';
 import { query as dbQuery, run as dbRun } from './server/config/database.js';
 import { runScheduledPushes } from './server/notificationService.js';
+import { startChallengeJobs } from './server/services/challengeJobs.js';
 
 // Build allowed origins from env so nothing is hardcoded.
 // APP_BASE_URL is your backend domain (e.g. https://peter-adel.taila6a2b4.ts.net).
@@ -404,6 +405,8 @@ async function startServer() {
     // Also run once on startup after a short delay
     setTimeout(() => processAutoRenewals().catch(() => {}), 30_000);
     setTimeout(() => runScheduledPushes().catch(() => {}), 60_000);
+    // Challenge jobs: auto-finalize ended challenges + daily goal reminders.
+    startChallengeJobs();
   });
 }
 
