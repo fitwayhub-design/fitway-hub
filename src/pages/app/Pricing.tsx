@@ -17,7 +17,7 @@ import { Check, ArrowLeft, X, Sparkles, Crown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useNavigate } from "react-router-dom";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import PaymentForm from "@/components/app/PaymentForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -84,7 +84,7 @@ export default function Pricing() {
 
   // Admin-tunable Premium prices (optional overrides).
   useEffect(() => {
-    fetch(`${getApiBase()}/api/admin/app-settings`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/admin/app-settings`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : { settings: [] })
       .then(d => {
         const map: Record<Cycle, number> = { ...DEFAULT_PREMIUM_PRICES };

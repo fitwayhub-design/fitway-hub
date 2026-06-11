@@ -24,7 +24,7 @@ import {
   ChevronRight, ChevronLeft, Upload, Clock, Lock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -85,8 +85,8 @@ export default function UnifiedCheckout({
 
   // ── Load config & admin wallet numbers ────────────────────────────────────
   useEffect(() => {
-    fetch(getApiBase() + "/api/pay/config").then(r => r.json()).then(setConfig).catch(() => {});
-    fetch(getApiBase() + "/api/payments/public-settings").then(r => r.json()).then(d => {
+    apiFetch("/api/pay/config").then(r => r.json()).then(setConfig).catch(() => {});
+    apiFetch("/api/payments/public-settings").then(r => r.json()).then(d => {
       const s = d.settings || {};
       setNums({
         vodafone: s.ewallet_phone_vodafone || s.ewallet_phone || "",
@@ -109,7 +109,7 @@ export default function UnifiedCheckout({
       window.paypal.Buttons({
         style: { layout: "vertical", color: "blue", shape: "pill", label: "pay" },
         createOrder: async () => {
-          const res = await fetch(getApiBase() + "/api/pay/intention", {
+          const res = await apiFetch("/api/pay/intention", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ provider: "paypal", amount, type, coachId, planCycle, planType }),
@@ -121,7 +121,7 @@ export default function UnifiedCheckout({
         onApprove: async (data: any) => {
           setLoading(true);
           try {
-            const res = await fetch(getApiBase() + "/api/pay/paypal/capture", {
+            const res = await apiFetch("/api/pay/paypal/capture", {
               method: "POST",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
               body: JSON.stringify({ orderId: data.orderID }),
@@ -160,7 +160,7 @@ export default function UnifiedCheckout({
       form.append("senderNumber", senderNum);
       form.append("proof", proofFile);
       if (coachId) form.append("coachId", String(coachId));
-      const res = await fetch(getApiBase() + "/api/payments/ewallet", {
+      const res = await apiFetch("/api/payments/ewallet", {
         method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form,
       });
       const d = await res.json();

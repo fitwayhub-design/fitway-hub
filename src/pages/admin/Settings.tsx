@@ -9,7 +9,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useTheme } from "@/context/ThemeContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch, getApiBase } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -113,7 +113,7 @@ export default function AdminSettings() {
   const api = (path: string, opts?: RequestInit & { rawBody?: boolean }) => {
     const hdrs: Record<string, string> = { Authorization: `Bearer ${token}` };
     if (!(opts as any)?.rawBody) hdrs["Content-Type"] = "application/json";
-    return fetch(getApiBase() + path, { ...opts, headers: { ...hdrs, ...(opts?.headers || {}) } });
+    return apiFetch(path, { ...opts, headers: { ...hdrs, ...(opts?.headers || {}) } });
   };
 
   const [settings, setSettings] = useState<AppSetting[]>([]);

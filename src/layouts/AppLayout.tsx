@@ -12,7 +12,7 @@ import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
 import { getAvatar } from "@/lib/avatar";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import LocationPermissionModal, { shouldAskForLocation } from "@/components/app/LocationPermissionModal";
 import NotificationDropdown from "@/components/app/NotificationDropdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -133,8 +133,8 @@ export function AppLayout() {
       // Authenticated users get the global flags merged with any per-user
       // access overrides an admin granted them; anonymous gets the global map.
       const r = token
-        ? await fetch(`${getApiBase()}/api/admin/features/me`, { headers: { Authorization: `Bearer ${token}` } })
-        : await fetch(`${getApiBase()}/api/admin/features`);
+        ? await apiFetch(`/api/admin/features/me`, { headers: { Authorization: `Bearer ${token}` } })
+        : await apiFetch(`/api/admin/features`);
       const d = await r.json();
       setFeatures(d?.features || {});
     } catch {

@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { Users, Activity, Dumbbell, Plus, Save, Trash2, ChevronRight, Search, Target, Check, X, ArrowLeft, Zap, CheckCircle2, PartyPopper } from "lucide-react";
@@ -87,7 +87,7 @@ export default function CoachAthletes() {
   const [workoutPlanId, setWorkoutPlanId] = useState<number | null>(null);
   const [nutritionPlanId, setNutritionPlanId] = useState<number | null>(null);
 
-  const api = (path: string, opts?: RequestInit) => fetch(getApiBase() + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
+  const api = (path: string, opts?: RequestInit) => apiFetch(path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
 
   const loadAthletes = () => {
     api("/api/coach/users")
@@ -560,7 +560,7 @@ function AthleteTrainingFeed({ athleteId, token }: { athleteId: number; token: s
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     if (!token) { setLoading(false); return; }
-    fetch(getApiBase() + `/api/tickets/training-events?user_id=${athleteId}`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/tickets/training-events?user_id=${athleteId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : { events: [] })
       .then(d => setEvents(d.events || []))
       .catch(() => setEvents([]))

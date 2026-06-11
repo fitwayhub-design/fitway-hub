@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import {
   Dumbbell, Brain, BarChart2, Users, Bell, Globe,
   ArrowRight, CheckCircle, Trophy, Heart, Target, Zap,
@@ -91,12 +91,12 @@ export default function AboutPage() {
   const [cmsSections, setCmsSections] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    fetch(`${getApiBase()}/api/public/stats`)
+    apiFetch(`/api/public/stats`)
       .then(r => r.json())
       .then(d => setLiveStats({ members: d.members || 0, coaches: d.coaches || 0, programs: d.programs || 0, rating: d.rating || "5.0" }))
       .catch(() => {});
 
-    fetch(`${getApiBase()}/api/cms/sections/about`)
+    apiFetch(`/api/cms/sections/about`)
       .then(r => r.json())
       .then(d => {
         const map: Record<string, any> = {};

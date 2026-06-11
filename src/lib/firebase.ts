@@ -7,7 +7,7 @@ import { Capacitor } from '@capacitor/core';
 import { initializeApp, getApps } from 'firebase/app';
 import { logger } from "@/lib/logger";
 import { getMessaging, getToken, onMessage, isSupported, type Messaging } from 'firebase/messaging';
-import { getApiBase } from '@/lib/api';
+import { apiFetch } from "@/lib/api";
 
 const firebaseConfig = {
   apiKey:            'AIzaSyBisyUGQSc5GBmwaQYJ5SO7eu4eaIUsYY4',
@@ -99,7 +99,7 @@ export async function initWebPush(authToken: string): Promise<void> {
 
     // Save to backend
     try {
-      const res = await fetch(getApiBase() + '/api/notifications/push-token', {
+      const res = await apiFetch('/api/notifications/push-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ token: fcmToken, platform: 'web' }),

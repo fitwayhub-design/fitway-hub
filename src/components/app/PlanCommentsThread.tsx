@@ -11,7 +11,7 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { getAvatar } from "@/lib/avatar";
 import { Check, MessageCircle, X, RefreshCw, Send } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -55,7 +55,7 @@ export default function PlanCommentsThread({ workoutPlanId, nutritionPlanId, exe
   const key = exerciseKey || mealKey;
 
   const api = useCallback((path: string, init?: RequestInit) =>
-    fetch(getApiBase() + path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } }), [token]);
+    apiFetch(path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } }), [token]);
 
   const load = useCallback(async () => {
     if (!planId) return;

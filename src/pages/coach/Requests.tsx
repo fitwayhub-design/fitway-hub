@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch, getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { CheckCircle, X, Clock, ChevronDown, ChevronUp, User, Camera, AlertCircle, Calendar, CreditCard, ClipboardList } from "lucide-react";
@@ -52,7 +52,7 @@ export default function CoachRequests() {
   const [subscriptionRequests, setSubscriptionRequests] = useState<CoachSubscriptionRequest[]>([]);
 
   const api = (path: string, opts?: RequestInit) =>
-    fetch(getApiBase() + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
+    apiFetch(path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
 
   const fetchRequests = async () => {
     try {
@@ -81,7 +81,7 @@ export default function CoachRequests() {
     if (userProfiles[userId]) return;
     setLoadingProfile(userId);
     try {
-      const r = await fetch(getApiBase() + `/api/coach/users/${userId}/profile`, { headers: { Authorization: `Bearer ${token}` } });
+      const r = await apiFetch(`/api/coach/users/${userId}/profile`, { headers: { Authorization: `Bearer ${token}` } });
       if (r.ok) { const d = await r.json(); setUserProfiles(p => ({ ...p, [userId]: d.user })); }
     } catch {} finally { setLoadingProfile(null); }
   };

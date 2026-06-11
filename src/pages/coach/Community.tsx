@@ -1,5 +1,5 @@
 import type React from "react";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect, useRef } from "react";
 import { Heart, MessageSquare, Plus, X, TrendingUp, Users, Image as ImageIcon, Send, Trash2 } from "lucide-react";
@@ -45,10 +45,10 @@ export default function CoachCommunity() {
   const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
 
   const api = (path: string, opts?: RequestInit) =>
-    fetch(getApiBase() + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
+    apiFetch(path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
 
   const apiRaw = (path: string, opts?: RequestInit) =>
-    fetch(getApiBase() + path, { ...opts, headers: { Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
+    apiFetch(path, { ...opts, headers: { Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
 
   const fetchPosts = async () => {
     try {

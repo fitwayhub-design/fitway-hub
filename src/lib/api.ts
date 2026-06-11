@@ -7,8 +7,8 @@
  * which is persisted to localStorage and to the server-side system_settings table.
  *
  * Usage:
- *   import { getApiBase } from "@/lib/api";
- *   fetch(getApiBase() + "/api/auth/login", { ... })
+ *   import { apiFetch, getApiBase } from "@/lib/api";
+ *   apiFetch("/api/auth/login", { ... })
  */
 
 const LS_KEY = "fitway_server_url";
@@ -135,6 +135,12 @@ export interface ApiFetchOptions extends Omit<RequestInit, "body"> {
   body?: BodyInit | Record<string, unknown> | unknown[] | null;
   /** Set false to skip the Authorization header (e.g. public endpoints). */
   auth?: boolean;
+  /**
+   * Set true for endpoints where a 401 is an EXPECTED result rather than an
+   * expired session — e.g. login (wrong password) or forgot-password (wrong
+   * security answer). Those must NOT trigger the global logout flow.
+   */
+  skip401?: boolean;
 }
 
 /**
@@ -142,7 +148,7 @@ export interface ApiFetchOptions extends Omit<RequestInit, "body"> {
  * Returns the raw Response so callers can stream, check status, etc.
  */
 export async function apiFetch(path: string, opts: ApiFetchOptions = {}): Promise<Response> {
-  const { body, auth = true, headers, ...rest } = opts;
+  const { body, auth = true, skip401 = false, headers, ...rest } = opts;
   const finalHeaders = new Headers(headers as HeadersInit | undefined);
 
   let finalBody: BodyInit | null | undefined;
@@ -168,7 +174,7 @@ export async function apiFetch(path: string, opts: ApiFetchOptions = {}): Promis
 
   const res = await fetch(getApiBase() + path, { ...rest, headers: finalHeaders, body: finalBody });
 
-  if (res.status === 401 && typeof window !== "undefined") {
+  if (res.status === 401 && !skip401 && typeof window !== "undefined") {
     // Let a single listener (AuthContext) decide: try remember-token refresh,
     // else clear auth. Avoids every call site reimplementing logout-on-401.
     window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));

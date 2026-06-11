@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -37,7 +37,7 @@ export default function Notifications() {
 
   const fetchNotifications = async () => {
     try {
-      const r = await fetch(`${getApiBase()}/api/notifications/list`, {
+      const r = await apiFetch(`/api/notifications/list`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (r.ok) {
@@ -52,7 +52,7 @@ export default function Notifications() {
   useAutoRefresh(fetchNotifications);
 
   const markRead = async (id: number) => {
-    await fetch(`${getApiBase()}/api/notifications/read/${id}`, {
+    await apiFetch(`/api/notifications/read/${id}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     });
@@ -60,7 +60,7 @@ export default function Notifications() {
   };
 
   const markAllRead = async () => {
-    await fetch(`${getApiBase()}/api/notifications/read-all`, {
+    await apiFetch(`/api/notifications/read-all`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     });

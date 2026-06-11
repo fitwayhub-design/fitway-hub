@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
 import { Flag, CheckCircle2, XCircle, ShieldAlert } from "lucide-react";
@@ -41,7 +41,7 @@ export default function CoachReports() {
 
   const load = async () => {
     try {
-      const r = await fetch(`${getApiBase()}/api/admin/coach-reports`, { headers: { Authorization: `Bearer ${token}` } });
+      const r = await apiFetch(`/api/admin/coach-reports`, { headers: { Authorization: `Bearer ${token}` } });
       const d = await r.json();
       setReports(d.reports || []);
     } catch {
@@ -59,7 +59,7 @@ export default function CoachReports() {
   const review = async (id: number, status: "resolved" | "dismissed") => {
     setSavingId(id);
     try {
-      const r = await fetch(`${getApiBase()}/api/admin/coach-reports/${id}`, {
+      const r = await apiFetch(`/api/admin/coach-reports/${id}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ status, admin_notes: notesById[id] || "" }),

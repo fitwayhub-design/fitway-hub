@@ -1,5 +1,5 @@
 import type React from "react";
-import { getApiBase } from "@/lib/api";
+import { apiFetch, getApiBase } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import UserLocationPicker from "@/components/app/UserLocationPicker";
 import { useState, useRef, useEffect } from "react";
@@ -113,7 +113,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (!token) return;
-    fetch(`${getApiBase()}/api/user/progress-photos`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/user/progress-photos`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d) { setBeforePhoto(d.before || null); setNowPhoto(d.now || null); }
@@ -122,7 +122,7 @@ export default function Profile() {
 
   useAutoRefresh(() => {
     if (!token) return;
-    fetch(`${getApiBase()}/api/user/progress-photos`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/user/progress-photos`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) { setBeforePhoto(d.before || null); setNowPhoto(d.now || null); } })
       .catch(() => {});
@@ -130,7 +130,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (!token || !user?.id) return;
-    fetch(`${getApiBase()}/api/community/posts`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/community/posts`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : [])
       .then((posts) => {
         const arr = Array.isArray(posts) ? posts : [];
@@ -157,7 +157,7 @@ export default function Profile() {
         fr.onerror = () => reject(new Error("read failed"));
         fr.readAsDataURL(file);
       });
-      const r = await fetch(`${getApiBase()}/api/user/profile`, {
+      const r = await apiFetch(`/api/user/profile`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ avatar: dataUrl }),
@@ -177,7 +177,7 @@ export default function Profile() {
     if (!nameVal.trim()) return;
     setSaving(true);
     try {
-      const r = await fetch(`${getApiBase()}/api/user/profile`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ name: nameVal.trim() }) });
+      const r = await apiFetch(`/api/user/profile`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ name: nameVal.trim() }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { flash(`❌ ${d?.message || "Failed"}`); setSaving(false); return; }
       if (d.user) updateUser(d.user);
@@ -199,7 +199,7 @@ export default function Profile() {
       if (profileForm.activityLevel) body.activity_level = profileForm.activityLevel;
       if (profileForm.targetWeight) body.target_weight = Number(profileForm.targetWeight);
       if (profileForm.weeklyGoal) body.weekly_goal = profileForm.weeklyGoal;
-      const r = await fetch(`${getApiBase()}/api/user/profile`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const r = await apiFetch(`/api/user/profile`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const d = await r.json(); if (d.user) updateUser(d.user); setEditProfile(false); flash("✅ Profile updated");
     } catch { flash("❌ Failed to update profile"); }
     setSaving(false);
@@ -209,7 +209,7 @@ export default function Profile() {
     setPhotosLoading(true);
     const fd = new FormData(); fd.append("photo", file); fd.append("type", type);
     try {
-      const r = await fetch(`${getApiBase()}/api/user/progress-photos`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+      const r = await apiFetch(`/api/user/progress-photos`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
       const d = await r.json();
       if (d.url) { type === "before" ? setBeforePhoto(d.url) : setNowPhoto(d.url); flash(`✅ ${type === "before" ? t("before_photo_updated") : t("now_photo_updated")}`); }
     } catch { flash(`❌ ${t("upload_failed")}`); }
@@ -237,7 +237,7 @@ export default function Profile() {
     }
     setOtpRequesting(true);
     try {
-      const r = await fetch(`${getApiBase()}/api/auth/change-password/request-otp`, {
+      const r = await apiFetch(`/api/auth/change-password/request-otp`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
@@ -262,7 +262,7 @@ export default function Profile() {
     }
     setSecuritySaving(true);
     try {
-      const r = await fetch(`${getApiBase()}/api/auth/change-password`, {
+      const r = await apiFetch(`/api/auth/change-password`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -270,6 +270,7 @@ export default function Profile() {
           newPassword: securityForm.newPassword,
           otp: securityForm.otp.trim(),
         }),
+        skip401: true, // a 401 here = wrong current password, not an expired session
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
@@ -294,7 +295,7 @@ export default function Profile() {
     }
     setStepGoalSaving(true);
     try {
-      const r = await fetch(`${getApiBase()}/api/user/step-goal`, {
+      const r = await apiFetch(`/api/user/step-goal`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ step_goal: stepGoal }),
@@ -851,7 +852,7 @@ function RecentActivityCard({ token, lang }: { token: string | null; lang: strin
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     if (!token) { setLoading(false); return; }
-    fetch(getApiBase() + '/api/tickets/recent-activity', { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch('/api/tickets/recent-activity', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : { activity: [] })
       .then(d => setItems(d.activity || []))
       .catch(() => setItems([]))

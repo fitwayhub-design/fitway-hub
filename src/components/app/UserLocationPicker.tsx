@@ -6,7 +6,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Crosshair, Check } from "lucide-react";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -122,7 +122,7 @@ export default function UserLocationPicker({ token, savedLat, savedCity, onSaved
       ).then(r=>r.json()).catch(()=>({}));
       const city = geo?.address?.city||geo?.address?.town||pinCity;
       const country = geo?.address?.country||"Egypt";
-      await fetch(`${getApiBase()}/api/user/location`,{
+      await apiFetch(`/api/user/location`,{
         method:"PATCH",
         headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
         body:JSON.stringify({latitude:pinLat,longitude:pinLng,city,country}),

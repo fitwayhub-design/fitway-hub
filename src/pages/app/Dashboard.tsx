@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -66,11 +66,11 @@ export default function Dashboard() {
     const today = new Date().toISOString().split("T")[0];
     setLoading(true);
     Promise.allSettled([
-      fetch(`${getApiBase()}/api/steps/${today}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`${getApiBase()}/api/coach/ads/public/home`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`${getApiBase()}/api/workouts/videos`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`${getApiBase()}/api/coaching/coaches`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`${getApiBase()}/api/admin/dashboard-config`).then(r => r.json()),
+      apiFetch(`/api/steps/${today}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch(`/api/coach/ads/public/home`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch(`/api/workouts/videos`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch(`/api/coaching/coaches`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch(`/api/admin/dashboard-config`).then(r => r.json()),
     ]).then(([stepsR, adsR, vidsR, coachR, cfgR]) => {
       if (stepsR.status === "fulfilled") { const s = stepsR.value?.entry?.steps || 0; setSteps(s); if (s) updateUser({ steps: s }); }
       if (adsR.status === "fulfilled") {
@@ -78,7 +78,7 @@ export default function Dashboard() {
         if (homeAds.length > 0) {
           setAds(homeAds);
         } else {
-          fetch(`${getApiBase()}/api/coach/ads/public`, { headers: { Authorization: `Bearer ${token}` } })
+          apiFetch(`/api/coach/ads/public`, { headers: { Authorization: `Bearer ${token}` } })
             .then(r => r.ok ? r.json() : { ads: [] })
             .then(d => setAds((d?.ads || []).slice(0, 1)))
             .catch(() => setAds([]));
@@ -108,11 +108,11 @@ export default function Dashboard() {
     if (!token) return;
     const today = new Date().toISOString().split("T")[0];
     Promise.allSettled([
-      fetch(`${getApiBase()}/api/steps/${today}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`${getApiBase()}/api/coach/ads/public/home`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`${getApiBase()}/api/workouts/videos`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`${getApiBase()}/api/coaching/coaches`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch(`${getApiBase()}/api/admin/dashboard-config`).then(r => r.json()),
+      apiFetch(`/api/steps/${today}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch(`/api/coach/ads/public/home`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch(`/api/workouts/videos`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch(`/api/coaching/coaches`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      apiFetch(`/api/admin/dashboard-config`).then(r => r.json()),
     ]).then(([stepsR, adsR, vidsR, coachR, cfgR]) => {
       if (stepsR.status === "fulfilled") { const s = stepsR.value?.entry?.steps || 0; setSteps(s); }
       if (adsR.status === "fulfilled") setAds((adsR.value?.ads || []).slice(0, 1));
@@ -264,7 +264,7 @@ export default function Dashboard() {
                 : null;
               const trackClick = () => {
                 if (!ad.id) return;
-                fetch(getApiBase() + `/api/coach/ads/${ad.id}/click`, {
+                apiFetch(`/api/coach/ads/${ad.id}/click`, {
                   method: "POST",
                   headers: { Authorization: `Bearer ${token}` },
                 }).catch(() => {});

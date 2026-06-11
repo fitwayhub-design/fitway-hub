@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { TrendingUp, Activity, Flame, Target } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -32,7 +32,7 @@ export default function Analytics() {
   const loadAnalytics = () => {
     if (!user) return;
     const token = localStorage.getItem("token");
-    fetch(getApiBase() + `/api/analytics/me?days=${period}`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/analytics/me?days=${period}`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json()).then((d) => setMetrics(d)).catch(console.error).finally(() => setLoading(false));
   };
 

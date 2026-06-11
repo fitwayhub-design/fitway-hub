@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { Users, TrendingUp, Star, ClipboardList, BookOpen, ArrowRight, DollarSign, Heart, MessageSquare } from "lucide-react";
@@ -107,7 +107,7 @@ export default function CoachHome() {
   });
 
   const api = (path: string) =>
-    fetch(getApiBase() + path, { headers: { Authorization: `Bearer ${token}` } }).then((r) => {
+    apiFetch(path, { headers: { Authorization: `Bearer ${token}` } }).then((r) => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     });

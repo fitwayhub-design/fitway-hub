@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -42,7 +42,7 @@ export default function CoachNotifications() {
 
   const fetchNotifications = async () => {
     try {
-      const r = await fetch(`${getApiBase()}/api/notifications/list`, {
+      const r = await apiFetch(`/api/notifications/list`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (r.ok) {
@@ -56,14 +56,14 @@ export default function CoachNotifications() {
   useAutoRefresh(fetchNotifications);
 
   const markRead = async (id: number) => {
-    await fetch(`${getApiBase()}/api/notifications/read/${id}`, {
+    await apiFetch(`/api/notifications/read/${id}`, {
       method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     });
     setNotifications(ns => ns.map(n => n.id === id ? { ...n, is_read: 1 } : n));
   };
 
   const markAllRead = async () => {
-    await fetch(`${getApiBase()}/api/notifications/read-all`, {
+    await apiFetch(`/api/notifications/read-all`, {
       method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     });
     setNotifications(ns => ns.map(n => ({ ...n, is_read: 1 })));

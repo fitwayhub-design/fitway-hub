@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect, useRef, type ReactNode, type ChangeEvent } from "react";
 import { Plus, Trash2, Eye, EyeOff, ChevronUp, ChevronDown, Edit3, Save, X, Upload, Image, Globe, Layout, Type, AlignLeft, Grid, Layers, ExternalLink, Users, HelpCircle, Target, Tag } from "lucide-react";
@@ -249,11 +249,11 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
   const api = (path: string, opts?: RequestInit & { rawBody?: boolean }) => {
     const hdrs: Record<string, string> = { Authorization: `Bearer ${token}` };
     if (!opts?.rawBody) hdrs["Content-Type"] = "application/json";
-    return fetch(getApiBase() + path, { ...opts, headers: { ...hdrs, ...(opts?.headers || {}) } });
+    return apiFetch(path, { ...opts, headers: { ...hdrs, ...(opts?.headers || {}) } });
   };
 
   const apiForm = (path: string, body: FormData) =>
-    fetch(getApiBase() + path, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body });
+    apiFetch(path, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body });
 
   const loadBranding = async () => {
     setBrandingLoading(true);
@@ -314,7 +314,7 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
     const fd = new FormData();
     fd.append("image", file);
     try {
-      const resp = await fetch(getApiBase() + "/api/admin/upload-branding-image", {
+      const resp = await apiFetch("/api/admin/upload-branding-image", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
@@ -1326,7 +1326,7 @@ export default function WebsiteCMS({ token, showMsg }: Props) {
           if (!file) return;
           const formData = new FormData();
           formData.append("image", file);
-          fetch(getApiBase() + "/api/cms/admin/upload-image", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData })
+          apiFetch("/api/cms/admin/upload-image", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData })
             .then(r => r.json())
             .then(d => {
               if (d.url) {

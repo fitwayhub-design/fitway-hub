@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { getAvatar } from "@/lib/avatar";
 import { CheckCircle, XCircle, Clock, FileText, Eye } from "lucide-react";
@@ -22,7 +22,7 @@ export default function AdminCertifications() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const api = (path: string, opts?: RequestInit) =>
-    fetch(getApiBase() + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
+    apiFetch(path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
 
   const fetchRequests = async (silent = false) => {
     if (!silent) setLoading(true);

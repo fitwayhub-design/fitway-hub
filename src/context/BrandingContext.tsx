@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { getApiBase } from "@/lib/api";
+import { apiFetch, getApiBase } from "@/lib/api";
 import { useTheme } from "@/context/ThemeContext";
 
 export interface Branding {
@@ -121,7 +121,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refresh = useCallback(() => {
-    fetch(getApiBase() + "/api/admin/branding")
+    apiFetch("/api/admin/branding")
       .then(r => r.json())
       .then(data => {
         try {

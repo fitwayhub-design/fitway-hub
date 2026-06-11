@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useAuth } from "@/context/AuthContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
   Circle, Utensils, Flame, RefreshCw, Droplets, UserCheck, User as UserIcon,
@@ -138,12 +138,12 @@ export default function NutritionPlan() {
   // longer auto-replaced by the coach plan — the user picks a tab.
   useEffect(() => {
     if (!token) return;
-    fetch(`${getApiBase()}/api/payments/my-subscriptions`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/payments/my-subscriptions`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : { subscriptions: [] })
       .then(d => setHasSubscription((d?.subscriptions || []).length > 0))
       .catch(() => setHasSubscription(false));
 
-    fetch(`${getApiBase()}/api/plans/coach-nutrition-plan`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/plans/coach-nutrition-plan`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d?.plan?.meals) {
@@ -171,7 +171,7 @@ export default function NutritionPlan() {
   }, [token]);
   useAutoRefresh(() => {
     if (!token) return;
-    fetch(`${getApiBase()}/api/plans/coach-nutrition-plan`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/plans/coach-nutrition-plan`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null).then(d => {
         if (d?.plan?.meals) {
           try {
@@ -679,7 +679,7 @@ function GramsCalorieCalc() {
     if (name.length < 2) { setWebErr("Enter a food or meal name."); return; }
     setWebLoading(true); setWebErr(""); setWebData(null);
     try {
-      const r = await fetch(`${getApiBase()}/api/ai/nutrition-lookup`, {
+      const r = await apiFetch(`/api/ai/nutrition-lookup`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ name }),

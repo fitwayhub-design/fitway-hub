@@ -5,7 +5,7 @@ import { ArrowRight, CheckCircle2, Target, Eye, Shield, Globe, Users, BookOpen, 
 import { useState, useEffect, type CSSProperties } from "react";
 import { CalorieCalculator } from "@/components/website/CalorieCalculator";
 import { useI18n } from "@/context/I18nContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { resolveMediaUrl, type BlogPost } from "@/lib/blogs";
 
 const ICONS: Record<string, any> = { Target, Eye, Shield, Globe, Users, BookOpen, Heart, Dumbbell, Brain, BarChart, Zap, Star, Award, Activity, ArrowRight, Smartphone };
@@ -19,7 +19,7 @@ let _overridesLoading = false;
 function loadTranslationOverrides() {
   if (_translationOverrides || _overridesLoading) return;
   _overridesLoading = true;
-  fetch(getApiBase() + "/api/cms/translations")
+  apiFetch("/api/cms/translations")
     .then(r => r.json())
     .then(d => { _translationOverrides = d.translations || {}; })
     .catch(() => { _translationOverrides = {}; })
@@ -490,7 +490,7 @@ export function LatestBlogsSection({ c, lang }: { c?: any; lang: RenderLang }) {
   // Re-fetch when language changes so Arabic/English blogs load correctly
   useEffect(() => {
     setLoading(true);
-    fetch(`${getApiBase()}/api/blogs/public?limit=4&lang=${lang}`)
+    apiFetch(`/api/blogs/public?limit=4&lang=${lang}`)
       .then(r => r.json())
       .then(d => setBlogs((d.posts || []).slice(0, 4)))
       .catch(() => setBlogs([]))

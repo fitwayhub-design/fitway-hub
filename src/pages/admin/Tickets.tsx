@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { Search, MessageCircle, ChevronLeft, Send, ArrowRight, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { getAvatar } from "@/lib/avatar";
@@ -47,7 +47,7 @@ export default function AdminTickets() {
   const [busy, setBusy] = useState(false);
 
   const api = (path: string, init?: RequestInit) =>
-    fetch(getApiBase() + path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } });
+    apiFetch(path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } });
 
   const load = async () => {
     try {
