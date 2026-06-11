@@ -13,6 +13,12 @@ export default defineConfig(({ mode }) => {
     if (id.includes('/motion/')) return 'vendor-motion';
     if (id.includes('/react-hook-form/') || id.includes('/@hookform/')) return 'vendor-forms';
     if (id.includes('/axios/')) return 'vendor-http';
+    // antd + its rc-* internals are the single largest dependency; isolating
+    // them (and the react runtime) into stable vendor chunks means app-code
+    // deploys don't invalidate the user's cached copy of these heavy bundles.
+    if (id.includes('/antd/') || id.includes('/@ant-design/') || id.includes('/rc-')) return 'vendor-antd';
+    if (id.includes('/react-dom/') || id.includes('/react/') || id.includes('/scheduler/')) return 'vendor-react';
+    if (id.includes('/lucide-react/')) return 'vendor-icons';
     return undefined;
   };
 

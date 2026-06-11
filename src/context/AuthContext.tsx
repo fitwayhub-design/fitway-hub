@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { getApiBase, UNAUTHORIZED_EVENT } from "@/lib/api";
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
 import { initPushNotifications, unregisterPushNotifications } from "@/lib/pushNotifications";
 import { initWebPush } from "@/lib/firebase";
@@ -159,6 +159,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
   };
+
+  // Single global handler for 401s emitted by apiFetch (src/lib/api.ts). Tries a
+  // silent remember-token refresh first; only clears auth if that fails. This
+  // replaces the need for every fetch call site to reimplement logout-on-401.
+  useEffect(() => {
+    let refreshing = false;
+    const onUnauthorized = async () => {
+      if (refreshing || loggedOutRef.current) return;
+      refreshing = true;
+      try {
+        const rt = localStorage.getItem("remember_token");
+        if (rt) {
+          const res = await fetch(getApiBase() + "/api/auth/login-remember", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rememberToken: rt }),
+          }).catch(() => null);
+          if (res?.ok) {
+            const data = await res.json().catch(() => null);
+            if (data?.token) {
+              setToken(data.token);
+              localStorage.setItem("token", data.token);
+              if (data.rememberToken) localStorage.setItem("remember_token", data.rememberToken);
+              return; // recovered — keep the session
+            }
+          }
+        }
+        clearAllAuth();
+      } finally {
+        refreshing = false;
+      }
+    };
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, []);
 
   const ensureSingleAccount = (_nextEmail: string) => {
     // Removed: stale localStorage tokens were blocking legitimate logins.

@@ -973,8 +973,9 @@ router.post('/payment-info', authenticateToken, async (req, res) => {
 });
 // Coach: request withdrawal
 router.post('/withdraw', authenticateToken, async (req, res) => {
-    const { amount } = req.body;
-    if (!amount || amount <= 0)
+    // Coerce + validate the amount server-side. Reject NaN/negative/zero.
+    const amount = Number(req.body?.amount);
+    if (!Number.isFinite(amount) || amount <= 0)
         return res.status(400).json({ message: 'Valid amount required' });
     try {
         const user = await get('SELECT credit, payment_phone, payment_phone_vodafone, payment_phone_orange, payment_phone_we, payment_wallet_type, payment_method_type, paypal_email, card_holder_name, card_number, instapay_handle FROM users WHERE id = ?', [req.user.id]);
@@ -993,10 +994,21 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
             return res.status(400).json({ message: 'Please set your credit card info first' });
         if (methodType === 'instapay' && !user.instapay_handle)
             return res.status(400).json({ message: 'Please set your InstaPay handle first' });
-        await run('INSERT INTO withdrawal_requests (coach_id, amount, payment_phone, wallet_type, payment_method_type, paypal_email, card_holder_name, card_number, instapay_handle) VALUES (?,?,?,?,?,?,?,?,?)', [req.user.id, amount, selectedPhone, user.payment_wallet_type, methodType, user.paypal_email, user.card_holder_name, user.card_number, user.instapay_handle]);
-        // Deduct credit immediately (held until admin processes)
-        await run('UPDATE users SET credit = credit - ? WHERE id = ?', [amount, req.user.id]);
-        await run('INSERT INTO credit_transactions (user_id, amount, type, description) VALUES (?,?,?,?)', [req.user.id, -amount, 'withdrawal_request', `Withdrawal request for ${amount} EGP`]);
+        // SECURITY: deduct atomically with a balance guard BEFORE creating the
+        // request, so two concurrent withdrawals can't both pass the check and
+        // overdraw (TOCTOU double-spend). The second UPDATE affects 0 rows.
+        const deduct = await run('UPDATE users SET credit = credit - ? WHERE id = ? AND credit >= ?', [amount, req.user.id, amount]);
+        if (deduct.affectedRows !== 1)
+            return res.status(400).json({ message: 'Insufficient credit balance' });
+        try {
+            await run('INSERT INTO withdrawal_requests (coach_id, amount, payment_phone, wallet_type, payment_method_type, paypal_email, card_holder_name, card_number, instapay_handle) VALUES (?,?,?,?,?,?,?,?,?)', [req.user.id, amount, selectedPhone, user.payment_wallet_type, methodType, user.paypal_email, user.card_holder_name, user.card_number, user.instapay_handle]);
+            await run('INSERT INTO credit_transactions (user_id, amount, type, description) VALUES (?,?,?,?)', [req.user.id, -amount, 'withdrawal_request', `Withdrawal request for ${amount} EGP`]);
+        }
+        catch (insErr) {
+            // Roll the deduction back if we couldn't record the request.
+            await run('UPDATE users SET credit = credit + ? WHERE id = ?', [amount, req.user.id]).catch(() => { });
+            throw insErr;
+        }
         res.json({ message: 'Withdrawal request submitted. Admin will process it soon.' });
     }
     catch (err) {

@@ -9,6 +9,9 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { getApiBase } from "@/lib/api";
 import axios from "axios";
+import { clickable } from "@/lib/a11y";
+import EmptyState from "@/components/ui/EmptyState";
+import ErrorState from "@/components/ui/ErrorState";
 
 const API = getApiBase();
 
@@ -88,6 +91,7 @@ export default function CoachCampaigns() {
   const [ads, setAds] = useState<Ad[]>([]);
   const [expandedSets, setExpandedSets] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Builder state
@@ -110,6 +114,7 @@ export default function CoachCampaigns() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const [camps, stats, sett] = await Promise.all([
         axios.get(`${API}/api/ads/campaigns`, { headers }),
         axios.get(`${API}/api/ads/analytics/summary`, { headers }),
@@ -118,7 +123,11 @@ export default function CoachCampaigns() {
       setCampaigns(camps.data.campaigns || []);
       setAnalytics(stats.data);
       setSettings(sett.data.settings || {});
-    } catch { /* show empty */ } finally { setLoading(false); }
+    } catch {
+      // Distinguish "failed to load" from "you have no campaigns" — silently
+      // showing the empty state on a network error misleads the coach.
+      setLoadError(true);
+    } finally { setLoading(false); }
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
@@ -543,19 +552,27 @@ export default function CoachCampaigns() {
       </div>
 
       {/* List */}
-      {campaigns.length === 0 ? (
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "48px 24px", textAlign: "center" }}>
-          <LayoutGrid size={36} color="var(--text-muted)" style={{ marginBottom: 16 }} />
-          <h3 style={{ fontFamily: "var(--font-en)", marginBottom: 8 }}>No campaigns yet</h3>
-          <p style={{ color: "var(--text-muted)", fontSize: 14, marginBottom: 20 }}>Create your first promotion to start reaching new clients on FitWayHub.</p>
-          <button onClick={() => { setStep("objective"); setView("builder"); }} style={{ padding: "12px 24px", borderRadius: 12, background: "var(--accent)", border: "none", color: "#000", fontWeight: 700, cursor: "pointer" }}>
-            <Plus size={14} style={{ verticalAlign: "middle", marginRight: 6 }} /> Create Campaign
-          </button>
+      {loadError ? (
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20 }}>
+          <ErrorState message="We couldn't load your campaigns. Check your connection and try again." onRetry={load} />
+        </div>
+      ) : campaigns.length === 0 ? (
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20 }}>
+          <EmptyState
+            icon={LayoutGrid}
+            title="No campaigns yet"
+            description="Create your first promotion to start reaching new clients on FitWayHub."
+            action={
+              <button onClick={() => { setStep("objective"); setView("builder"); }} style={{ padding: "12px 24px", borderRadius: 12, background: "var(--accent)", border: "none", color: "#000", fontWeight: 700, cursor: "pointer" }}>
+                <Plus size={14} style={{ verticalAlign: "middle", marginRight: 6 }} /> Create Campaign
+              </button>
+            }
+          />
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {campaigns.map(c => (
-            <div key={c.id} onClick={() => openDetail(c)} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "18px 20px", cursor: "pointer", transition: "border-color 0.15s", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div key={c.id} {...clickable(() => openDetail(c))} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "18px 20px", cursor: "pointer", transition: "border-color 0.15s", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <StatusBadge status={c.status} />

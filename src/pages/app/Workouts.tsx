@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { clickable } from "@/lib/a11y";
 
 interface Video {
   id: number; title: string; description: string;
@@ -481,7 +482,7 @@ export default function Workouts() {
     const prog = progressFor(v.id);
     const hasProgress = !!prog && prog.position_seconds > 5 && !prog.completed;
     return (
-      <Card key={v.id} onClick={() => openPlayer(v)}
+      <Card key={v.id} {...clickable(() => openPlayer(v))}
         className="cursor-pointer gap-0 overflow-hidden p-0 shadow-soft-sm transition active:scale-[0.99]">
         <div className="relative aspect-video w-full bg-muted">
           {v.thumbnail
@@ -529,7 +530,7 @@ export default function Workouts() {
 
   /* Short card: tall portrait thumbnail, minimal meta, designed for fast scrolling. */
   const renderShortCard = (v: Video) => (
-    <div key={v.id} onClick={() => openPlayer(v)}
+    <div key={v.id} {...clickable(() => openPlayer(v))}
       className="flex cursor-pointer flex-col">
       <div className="relative mb-1.5 aspect-[9/16] w-full overflow-hidden rounded-md bg-card shadow-soft-sm">
         {v.thumbnail
@@ -571,7 +572,7 @@ export default function Workouts() {
         ? <><Play size={13} /> Continue watching</>
         : <><Sparkles size={13} /> Recommended for you</>);
     return (
-      <div onClick={() => openPlayer(v)}
+      <div {...clickable(() => openPlayer(v))}
         className={cn(
           "relative cursor-pointer overflow-hidden rounded-lg bg-card shadow-soft transition active:scale-[0.99]",
           mode === "short" ? "aspect-[4/5] max-h-[320px]" : "aspect-video max-h-[240px]",
@@ -684,7 +685,7 @@ export default function Workouts() {
               const lastWatched = p?.updated_at ? new Date(p.updated_at) : null;
               const relTime = lastWatched ? formatRelative(lastWatched) : null;
               return (
-                <div key={v.id} onClick={() => openPlayer(v)}
+                <div key={v.id} {...clickable(() => openPlayer(v))}
                   className="w-[220px] shrink-0 snap-start cursor-pointer">
                   <div className="relative mb-2 h-[124px] overflow-hidden rounded-md bg-card shadow-soft-sm">
                     {v.thumbnail
@@ -796,7 +797,7 @@ export default function Workouts() {
           </div>
           <div className="flex flex-col gap-2.5">
             {continueList.slice(0, 5).map(v => (
-              <Card key={v.id} onClick={() => openPlayer(v)}
+              <Card key={v.id} {...clickable(() => openPlayer(v))}
                 className="flex cursor-pointer flex-row items-center gap-3 p-3 shadow-soft-sm transition active:scale-[0.99]">
                 <div className="relative h-16 w-[84px] shrink-0 overflow-hidden rounded-md bg-muted">
                   {v.thumbnail ? <img src={resolveAssetUrl(v.thumbnail)} alt="" className="size-full object-cover" /> : <div className="size-full" style={{ background: `${CAT_COLORS[v.category] || "#FFD600"}20` }} />}

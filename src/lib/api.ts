@@ -93,3 +93,112 @@ export function resolveAssetUrl(url: string | null | undefined): string {
   return trimmed;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Centralized fetch layer
+//
+//  Previously every call site repeated `fetch(getApiBase() + path, { headers:
+//  { Authorization: Bearer <localStorage token> } })` plus its own ad-hoc error
+//  and 401 handling. `apiFetch`/`apiJson` consolidate that:
+//    • prepend the API base,
+//    • inject the bearer token from localStorage,
+//    • default JSON content-type for object bodies,
+//    • emit a global `auth:unauthorized` event on 401 so AuthContext can run a
+//      single refresh-or-logout flow instead of N bespoke handlers,
+//    • normalize failures into a typed ApiError.
+//  Existing raw `fetch` calls keep working; new code should prefer these.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const UNAUTHORIZED_EVENT = "auth:unauthorized";
+
+/** Error thrown by apiJson when the response is not ok. */
+export class ApiError extends Error {
+  status: number;
+  payload: any;
+  constructor(message: string, status: number, payload?: any) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+function authToken(): string | null {
+  try {
+    return localStorage.getItem("token");
+  } catch {
+    return null;
+  }
+}
+
+export interface ApiFetchOptions extends Omit<RequestInit, "body"> {
+  /** Object bodies are JSON-stringified automatically; pass FormData/string as-is. */
+  body?: BodyInit | Record<string, unknown> | unknown[] | null;
+  /** Set false to skip the Authorization header (e.g. public endpoints). */
+  auth?: boolean;
+}
+
+/**
+ * fetch() with base URL + bearer auth + global 401 signalling.
+ * Returns the raw Response so callers can stream, check status, etc.
+ */
+export async function apiFetch(path: string, opts: ApiFetchOptions = {}): Promise<Response> {
+  const { body, auth = true, headers, ...rest } = opts;
+  const finalHeaders = new Headers(headers as HeadersInit | undefined);
+
+  let finalBody: BodyInit | null | undefined;
+  const isPlainObject =
+    body != null &&
+    typeof body === "object" &&
+    !(body instanceof FormData) &&
+    !(body instanceof Blob) &&
+    !(body instanceof ArrayBuffer) &&
+    !(typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams);
+
+  if (isPlainObject) {
+    if (!finalHeaders.has("Content-Type")) finalHeaders.set("Content-Type", "application/json");
+    finalBody = JSON.stringify(body);
+  } else {
+    finalBody = body as BodyInit | null | undefined;
+  }
+
+  if (auth) {
+    const t = authToken();
+    if (t && !finalHeaders.has("Authorization")) finalHeaders.set("Authorization", `Bearer ${t}`);
+  }
+
+  const res = await fetch(getApiBase() + path, { ...rest, headers: finalHeaders, body: finalBody });
+
+  if (res.status === 401 && typeof window !== "undefined") {
+    // Let a single listener (AuthContext) decide: try remember-token refresh,
+    // else clear auth. Avoids every call site reimplementing logout-on-401.
+    window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
+  }
+
+  return res;
+}
+
+/**
+ * apiFetch + JSON parsing. Resolves with the parsed body on 2xx, throws
+ * ApiError (carrying status + parsed payload) otherwise.
+ */
+export async function apiJson<T = any>(path: string, opts: ApiFetchOptions = {}): Promise<T> {
+  const res = await apiFetch(path, opts);
+  const text = await res.text();
+  let data: any = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  }
+  if (!res.ok) {
+    const message =
+      (data && typeof data === "object" && (data.message || data.error)) ||
+      (typeof data === "string" && data) ||
+      `Request failed (${res.status})`;
+    throw new ApiError(String(message), res.status, data);
+  }
+  return data as T;
+}
+

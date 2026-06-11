@@ -127,6 +127,13 @@ const BLOGS = [
 ];
 // ── Seed ──────────────────────────────────────────────────────────────────────
 async function seed() {
+    // SAFETY: this script DELETEs every row in the core tables and recreates
+    // demo accounts with well-known default passwords. Refuse in production
+    // unless the operator explicitly opts in with ALLOW_SEED=1.
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED !== '1') {
+        console.error('Refusing to seed: NODE_ENV=production. Set ALLOW_SEED=1 to override (this WIPES data).');
+        process.exit(1);
+    }
     await initDatabase();
     const today = new Date().toISOString().split('T')[0];
     // Clear everything
