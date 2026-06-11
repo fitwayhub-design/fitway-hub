@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { getApiBase, apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import WebsiteCMS from "@/pages/admin/WebsiteCMS";
@@ -88,7 +88,7 @@ export default function AdminDashboard() {
   const [showTabCustomize, setShowTabCustomize] = useState(false);
   useEffect(() => {
     if (!token) return;
-    fetch(`${getApiBase()}/api/user/preferences/${TAB_PREF_KEY}`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/user/preferences/${TAB_PREF_KEY}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => (r.ok ? r.json() : { value: null }))
       .then(d => setVisibleTabs(Array.isArray(d?.value) ? d.value : null))
       .catch(() => setVisibleTabs(null));
@@ -186,7 +186,7 @@ export default function AdminDashboard() {
   const api = (path: string, opts?: RequestInit & { rawBody?: boolean }) => {
     const hdrs: Record<string, string> = { Authorization: `Bearer ${token}` };
     if (!(opts as any)?.rawBody) hdrs["Content-Type"] = "application/json";
-    return fetch(getApiBase() + path, { ...opts, headers: { ...hdrs, ...(opts?.headers || {}) } });
+    return apiFetch(path, { ...opts, headers: { ...hdrs, ...(opts?.headers || {}) } });
   };
 
   const fetchCommunityPosts = async () => {
@@ -410,7 +410,7 @@ export default function AdminDashboard() {
     try {
       const fd = new FormData();
       fd.append("medical", file);
-      const res = await fetch(getApiBase() + `/api/admin/users/${editingUserId}/upload-medical`, {
+      const res = await apiFetch(`/api/admin/users/${editingUserId}/upload-medical`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
@@ -449,7 +449,7 @@ export default function AdminDashboard() {
       if (videoForm.level) formData.append("level", videoForm.level);
       formData.append("video", videoFile);
       if (thumbnailFile) formData.append("thumbnail", thumbnailFile);
-      const res = await fetch(getApiBase() + "/api/admin/videos", {
+      const res = await apiFetch("/api/admin/videos", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -577,7 +577,7 @@ export default function AdminDashboard() {
   const shownTabs = tabDef.filter(td => isTabVisible(td.id));
   const persistVisibleTabs = (next: string[]) => {
     setVisibleTabs(next);
-    fetch(`${getApiBase()}/api/user/preferences/${TAB_PREF_KEY}`, {
+    apiFetch(`/api/user/preferences/${TAB_PREF_KEY}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ value: next }),
