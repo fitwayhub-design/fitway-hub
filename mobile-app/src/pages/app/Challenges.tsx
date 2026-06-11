@@ -13,6 +13,7 @@ import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import {
   Trophy, Users, Plus, ChevronLeft, Search, Calendar, Flame, Target, ShieldCheck,
   Upload, Lock, Globe, Mail, Award, Clock, CheckCircle2, Hourglass, Flag,
+  MapPin, Play, Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { GoalChecklist, RewardBanner, GOAL_TYPE_META, METHOD_LABELS, type GoalRow } from "@/components/challenges/goals";
-import { getCurrentPosition } from "@/lib/geo";
+import { getCurrentPosition, watchPosition, type GeoWatchHandle } from "@/lib/geo";
 
 const EVIDENCE_METHODS = new Set(["photo_evidence", "video_evidence", "screenshot_evidence"]);
 const NUMERIC_METHODS: Record<string, string> = { manual_step: "steps", manual_distance: "km", gps_steps: "steps", time_based: "" };
@@ -41,6 +42,79 @@ async function getGeo(): Promise<{ lat: number; lng: number } | null> {
     return { lat: pos.coords.latitude, lng: pos.coords.longitude };
   } catch { return null; }
 }
+
+/**
+ * Live GPS session tracker for Walk/Run goals: start → move → stop, and the
+ * measured distance fills the submission automatically. Built on the
+ * Capacitor-aware watchPosition so native permission dialogs work; distance
+ * accumulates via haversine over accurate (<20 m) fixes only.
+ */
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function useGpsTracker() {
+  const [running, setRunning] = useState(false);
+  const [km, setKm] = useState(0);
+  const [secs, setSecs] = useState(0);
+  const [error, setError] = useState("");
+  const handleRef = useRef<GeoWatchHandle | null>(null);
+  const lastRef = useRef<{ lat: number; lng: number } | null>(null);
+  const kmRef = useRef(0);
+  const startRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const start = async () => {
+    setError(""); setKm(0); setSecs(0);
+    kmRef.current = 0; lastRef.current = null; startRef.current = Date.now();
+    try {
+      handleRef.current = await watchPosition(
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+        pos => {
+          const { latitude, longitude, accuracy } = pos.coords;
+          if (accuracy != null && accuracy > 20) return; // skip low-accuracy fixes
+          const last = lastRef.current;
+          if (last) {
+            const delta = haversineKm(last.lat, last.lng, latitude, longitude);
+            if (delta > 0.001) { kmRef.current += delta; lastRef.current = { lat: latitude, lng: longitude }; }
+          } else {
+            lastRef.current = { lat: latitude, lng: longitude };
+          }
+        },
+        err => setError(err.message),
+      );
+      setRunning(true);
+      timerRef.current = setInterval(() => {
+        setKm(kmRef.current);
+        setSecs(Math.floor((Date.now() - startRef.current) / 1000));
+      }, 1000);
+    } catch (e: any) { setError(e?.message || "GPS unavailable"); }
+  };
+
+  const stop = () => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    handleRef.current?.clear();
+    handleRef.current = null;
+    setRunning(false);
+    const distance = kmRef.current;
+    setKm(distance);
+    return { km: distance, secs: startRef.current ? Math.floor((Date.now() - startRef.current) / 1000) : 0 };
+  };
+
+  useEffect(() => () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    handleRef.current?.clear();
+  }, []);
+
+  return { running, km, secs, error, start, stop };
+}
+
+const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 type Challenge = any;
 type Row = any;
@@ -455,6 +529,8 @@ function GoalSubmitDialog({ goal, token, id, onClose, onDone, note }: {
   const [file, setFile] = useState<File | null>(null);
   const [noteText, setNoteText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [trackedSecs, setTrackedSecs] = useState(0);
+  const tracker = useGpsTracker();
   const type = goal.goal_type;
   const meta = GOAL_TYPE_META[type] || GOAL_TYPE_META.habit;
   const Icon = meta.icon;
@@ -487,6 +563,7 @@ function GoalSubmitDialog({ goal, token, id, onClose, onDone, note }: {
       fd.append("goal_id", String(goal.id));
       if (type === "walk_run" || type === "weight_loss" || type === "weight_gain") fd.append("metric_value", value);
       if (type === "training" && value) fd.append("duration_seconds", String(Number(value) * 60));
+      if (type === "walk_run" && trackedSecs > 0) fd.append("duration_seconds", String(trackedSecs));
       if (noteText) fd.append("note", noteText);
       if (file) fd.append("evidence", file);
       // Walk/Run: attach the device's location as proof-of-presence.
@@ -523,6 +600,32 @@ function GoalSubmitDialog({ goal, token, id, onClose, onDone, note }: {
               Your first weigh-in sets your <b className="text-foreground">starting weight</b>. Progress is measured from there.
             </p>
           )}
+          {type === "walk_run" && (
+            <div className="rounded-md border border-border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="flex items-center gap-1.5 text-[12px] font-semibold"><MapPin size={13} className="text-primary" /> GPS tracker</p>
+                {tracker.running ? (
+                  <Button type="button" size="sm" variant="outline" className="gap-1 text-destructive"
+                    onClick={() => { const r = tracker.stop(); if (r.km > 0) { setValue(r.km.toFixed(2)); setTrackedSecs(r.secs); } }}>
+                    <Square size={12} /> Stop &amp; use
+                  </Button>
+                ) : (
+                  <Button type="button" size="sm" variant="outline" className="gap-1" onClick={tracker.start}>
+                    <Play size={12} /> Start tracking
+                  </Button>
+                )}
+              </div>
+              {(tracker.running || tracker.km > 0) && (
+                <p className="mt-1.5 text-[13px] font-bold tabular-nums">
+                  {tracker.km.toFixed(2)} km · {fmtDur(tracker.secs)}{tracker.running ? " · tracking…" : ""}
+                </p>
+              )}
+              {tracker.error && <p className="mt-1 text-[11px] text-destructive">{tracker.error}</p>}
+              <p className="mt-1 text-[10.5px] text-muted-foreground">
+                Keep the app open while tracking. Stopping fills in the distance — or type it manually below.
+              </p>
+            </div>
+          )}
           {needsValue && (
             <div>
               <label className="mb-1 block text-[12px] font-semibold">{valueLabel}</label>
@@ -556,7 +659,9 @@ function GoalSubmitDialog({ goal, token, id, onClose, onDone, note }: {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={busy || (needsFile && !file)} onClick={submit}>{busy ? "Submitting…" : "Submit"}</Button>
+          <Button disabled={busy || tracker.running || (needsFile && !file)} onClick={submit}>
+            {busy ? "Submitting…" : tracker.running ? "Stop tracking first" : "Submit"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
