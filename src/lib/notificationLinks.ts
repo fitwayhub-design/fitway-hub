@@ -166,4 +166,24 @@ export function resolveNotificationLink(n: NotificationLike): string | null {
   }
 }
 
+/**
+ * SECURITY: notification `link` values come from the server (and ultimately from
+ * push payloads), so they are untrusted. Before we hard-navigate the browser to
+ * one, confirm it is a same-origin, in-app path — never a `javascript:` URI, an
+ * external `https://attacker.com` URL, or a protocol-relative `//evil.com`.
+ * Returns the safe path, or null if the value must be rejected.
+ */
+export function safeInternalPath(dest: string | null | undefined): string | null {
+  if (!dest || typeof dest !== 'string') return null;
+  const trimmed = dest.trim();
+  // Must be an absolute in-app path. Reject protocol-relative `//host` (treated
+  // as external by browsers) and any backslash / whitespace / control char that
+  // could smuggle a scheme such as `javascript:`.
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return null;
+  if (/[\s\\]/.test(trimmed)) return null;
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\x7f]/.test(trimmed)) return null;
+  return trimmed;
+}
+
 export default resolveNotificationLink;

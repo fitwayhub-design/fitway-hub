@@ -11,8 +11,6 @@ export default defineConfig(({ mode }) => {
     if (!id.includes('node_modules')) return undefined;
     if (id.includes('/recharts/') || id.includes('/d3-')) return 'vendor-charts';
     if (id.includes('/motion/')) return 'vendor-motion';
-    if (id.includes('/socket.io-client/') || id.includes('/engine.io-client/')) return 'vendor-socket';
-    if (id.includes('/@google/genai/')) return 'vendor-ai';
     if (id.includes('/react-hook-form/') || id.includes('/@hookform/')) return 'vendor-forms';
     if (id.includes('/axios/')) return 'vendor-http';
     return undefined;
@@ -39,7 +37,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss()],
     base: isCapacitor ? './' : '/',
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      // NOTE: never `define` server-side secrets (e.g. GEMINI_API_KEY) here —
+      // anything defined is inlined into the public client bundle.
       'import.meta.env.VITE_FIREBASE_VAPID_KEY': JSON.stringify(env.VITE_FIREBASE_VAPID_KEY || ''),
     },
     resolve: {

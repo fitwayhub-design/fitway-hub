@@ -1,4 +1,28 @@
-node_modules
-dist
-uploads/
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+
+# ── Secrets — NEVER commit these ─────────────────────────────
 .env
+.env.*
+!env.example
+env.txt
+firebase-service-account.json
+*-service-account*.json
+google-services.json
+GoogleService-Info.plist
+
+# ── Local data / backups (DB dumps contain real user PII) ────
+_backups/
+uploads/
+*.sql
+*.log
+
+# ── Build output (rebuilt by `npm run build` / postinstall) ──
+dist/
+
+# ── OS / editor noise ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

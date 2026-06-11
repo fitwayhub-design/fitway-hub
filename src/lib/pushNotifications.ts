@@ -6,7 +6,7 @@ import {
   type PermissionStatus,
 } from "@capacitor/push-notifications";
 import { getApiBase } from "@/lib/api";
-import { resolveNotificationLink } from "@/lib/notificationLinks";
+import { resolveNotificationLink, safeInternalPath } from "@/lib/notificationLinks";
 
 let listenersAttached = false;
 let backendToken: string | null = null;
@@ -66,13 +66,14 @@ async function attachListenersOnce(): Promise<void> {
     logger.log("Push action:", action?.notification?.title || "notification");
     try {
       const data = (action?.notification?.data ?? {}) as Record<string, string>;
-      const dest =
+      const dest = safeInternalPath(
         data.link ||
         resolveNotificationLink({
           type: data.type || "info",
           title: action?.notification?.title || data.title || null,
           body: action?.notification?.body || data.body || null,
-        });
+        })
+      );
       if (dest) {
         // We're outside the React-Router context here, so a hard navigation is
         // the simplest reliable way to land the user on the destination route.

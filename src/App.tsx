@@ -9,6 +9,7 @@ import { AppImagesProvider } from "@/context/AppImagesContext";
 import BrandLoader from "@/components/ui/BrandLoader";
 import PageSkeleton from "@/components/ui/PageSkeleton";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { safeInternalPath } from "@/lib/notificationLinks";
 import { useEffect, useState, lazy, Suspense, Component, type ReactNode } from "react";
 
 // ── Hook: subscribe to Firebase push events ───────────────────────────────────
@@ -176,7 +177,9 @@ function PushBanner() {
   const [notif, setNotif] = useNotif();
   if (!notif) return null;
   const handleClick = () => {
-    if (notif.link && notif.link !== '/') window.location.href = notif.link;
+    // notif.link is server-controlled — only follow validated in-app paths.
+    const dest = safeInternalPath(notif.link);
+    if (dest && dest !== '/') window.location.href = dest;
     setNotif(null);
   };
   return (
