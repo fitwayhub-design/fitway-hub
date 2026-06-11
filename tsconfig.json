@@ -26,5 +26,10 @@
   },
   "include": [
     "src/**/*"
+  ],
+  // Unit tests run under node (npm test → node --import tsx --test) and import
+  // node:test/node:assert, which don't exist in this browser-typed project.
+  "exclude": [
+    "src/**/__tests__/**"
   ]
 }
