@@ -23,26 +23,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { GoalBuilder, RewardFields, type GoalDraft } from "@/components/challenges/goals";
 
 const API = getApiBase();
-const METRICS = [
-  { v: "sessions", l: "Sessions" }, { v: "steps", l: "Steps" }, { v: "distance_km", l: "Distance (km)" },
-  { v: "minutes", l: "Minutes" }, { v: "reps", l: "Reps" }, { v: "checkins", l: "Check-ins" },
-];
-const MODELS = [
-  { v: "consistency", l: "Consistency" }, { v: "performance", l: "Performance" },
-  { v: "improvement", l: "Improvement" }, { v: "participation", l: "Participation" },
-];
-// Standardized verification set for every challenge.
-const COMMUNITY_METHODS = [
-  { v: "photo_evidence", l: "Photo evidence" },
-  { v: "video_evidence", l: "Video evidence" },
-  { v: "manual_checkin", l: "Daily check-in" },
-  { v: "time_based", l: "Timed activity" },
-  { v: "gps_steps", l: "Steps (GPS)" },
-];
 
 export default function AdminChallenges() {
   const { token } = useAuth();
@@ -55,6 +39,7 @@ export default function AdminChallenges() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ k: "ok" | "err"; t: string } | null>(null);
   const [creating, setCreating] = useState(false);
+  const [rewardEdit, setRewardEdit] = useState<any>(null);
   const notify = (k: "ok" | "err", t: string) => { setToast({ k, t }); setTimeout(() => setToast(null), 3000); };
 
   const load = useCallback(async () => {
@@ -128,7 +113,11 @@ export default function AdminChallenges() {
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] font-semibold">{c.title}</p>
                 <p className="line-clamp-2 text-[12px] text-muted-foreground">{c.description}</p>
-                <p className="mt-1 text-[11px] text-muted-foreground">by {c.creator_name} · {c.type} · {c.goal_label || c.goal_metric} · {c.scoring_model}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  by {c.creator_name} · {c.type}
+                  {Number(c.goals_count) > 0 ? ` · ${c.goals_count} goal${Number(c.goals_count) > 1 ? "s" : ""}` : ` · ${c.goal_label || c.goal_metric} · ${c.scoring_model}`}
+                  {c.reward_title ? ` · 🎁 ${c.reward_title}` : " · no reward set"}
+                </p>
               </div>
               <div className="flex gap-2">
                 <Button size="sm" className="gap-1" onClick={() => review(c.id, "approve")}><CheckCircle size={14} /> Approve</Button>
@@ -151,9 +140,13 @@ export default function AdminChallenges() {
                       <Badge variant="secondary" className="px-2 py-0 text-[10px]">{c.state}</Badge>
                       <Badge variant="secondary" className="gap-1 px-2 py-0 text-[10px]"><Users size={10} /> {c.participant_count || 0}</Badge>
                     </div>
-                    <p className="mt-1 text-[11px] text-muted-foreground">by {c.creator_name}{c.end_at ? ` · ends ${new Date(c.end_at).toLocaleDateString()}` : ""}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      by {c.creator_name}{c.end_at ? ` · ends ${new Date(c.end_at).toLocaleDateString()}` : ""}
+                      {c.reward_title ? ` · 🎁 ${c.reward_title}${Number(c.reward_points) > 0 ? ` (+${c.reward_points} pts)` : ""}` : ""}
+                    </p>
                   </div>
                   <div className="flex gap-2">
+                    {c.state !== "finalized" && c.status !== "cancelled" && <Button size="sm" variant="outline" className="gap-1" onClick={() => setRewardEdit(c)}><Gift size={13} /> Reward</Button>}
                     {c.state !== "finalized" && c.status !== "cancelled" && <Button size="sm" variant="outline" onClick={() => finalize(c.id)}>Finalize</Button>}
                     {c.status !== "cancelled" && c.state !== "finalized" && <Button size="sm" variant="outline" className="text-destructive" onClick={() => cancel(c.id)}>Cancel</Button>}
                   </div>
@@ -182,6 +175,41 @@ export default function AdminChallenges() {
       </Tabs>
 
       {creating && <CreateCommunity api={api} token={token} onClose={() => setCreating(false)} onDone={() => { setCreating(false); load(); notify("ok", "Community challenge created"); }} notify={notify} />}
+      {rewardEdit && <EditRewardDialog api={api} challenge={rewardEdit} onClose={() => setRewardEdit(null)} onDone={() => { setRewardEdit(null); load(); notify("ok", "Reward updated"); }} notify={notify} />}
+    </div>
+  );
+}
+
+// ─── Per-challenge reward editor (admin sets the prize in challenge settings) ──
+function EditRewardDialog({ api, challenge, onClose, onDone, notify }: any) {
+  const [f, setF] = useState({
+    reward_title: challenge.reward_title || "",
+    reward_description: challenge.reward_description || "",
+    reward_points: String(challenge.reward_points ?? 0),
+  });
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try {
+      const r = await api(`/api/challenges/${challenge.id}`, { method: "PATCH", body: JSON.stringify(f) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) notify("err", d.message || "Failed"); else onDone();
+    } finally { setBusy(false); }
+  };
+  return (
+    <div className="fixed inset-0 z-[9998] flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+      <Card className="my-16 w-full max-w-[460px] p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-[16px] font-bold"><Gift size={16} className="text-primary" /> Reward — {challenge.title}</h2>
+          <Button variant="ghost" size="icon-sm" onClick={onClose}><X size={16} /></Button>
+        </div>
+        <RewardFields showPoints value={f} onChange={patch => setF(p => ({ ...p, ...patch }))} />
+        <p className="mt-2 text-[11px] text-muted-foreground">The champion receives this reward (and bonus points) when the challenge is finalized.</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button disabled={busy} onClick={save}>{busy ? "Saving…" : "Save reward"}</Button>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -243,29 +271,31 @@ function RewardSettings({ api, notify }: any) {
 }
 
 // ─── Create community challenge ───────────────────────────────────────────────
-function CreateCommunity({ token, onClose, onDone, notify }: any) {
+function CreateCommunity({ api, token, onClose, onDone, notify }: any) {
   const [f, setF] = useState<any>({
-    title: "", description: "", start_at: "", end_at: "", goal_metric: "steps", goal_target: "", goals: "",
-    scoring_model: "consistency", participant_limit: "0", verification_methods: COMMUNITY_METHODS.map(m => m.v), rules_terms: "",
+    title: "", description: "", start_at: "", end_at: "",
+    participant_limit: "0", rules_terms: "",
+    reward_title: "", reward_description: "", reward_points: "0",
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
+  const [goals, setGoals] = useState<GoalDraft[]>([]);
   const [cover, setCover] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
-  const toggle = (m: string) => set("verification_methods", f.verification_methods.includes(m) ? f.verification_methods.filter((x: string) => x !== m) : [...f.verification_methods, m]);
 
   const submit = async () => {
     if (f.title.trim().length < 3) return notify("err", "Title too short");
     if (!f.start_at || !f.end_at) return notify("err", "Dates required");
+    if (goals.length === 0) return notify("err", "Add at least one goal to the list");
     setBusy(true);
     try {
       const fd = new FormData();
       fd.append("type", "community");
       Object.entries(f).forEach(([k, v]) => {
-        if (k === "verification_methods") fd.append(k, (v as string[]).join(","));
-        else if (k === "start_at" || k === "end_at") fd.append(k, new Date(v as string).toISOString());
+        if (k === "start_at" || k === "end_at") fd.append(k, new Date(v as string).toISOString());
         else fd.append(k, String(v ?? ""));
       });
+      fd.append("goals_json", JSON.stringify(goals));
       if (cover) fd.append("cover", cover);
       const r = await fetch(`${API}/api/challenges`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
       const d = await r.json().catch(() => ({}));
@@ -287,24 +317,12 @@ function CreateCommunity({ token, onClose, onDone, notify }: any) {
             <div className="grid gap-1.5"><Label className="text-[12px]">Start</Label><Input type="datetime-local" value={f.start_at} onChange={e => set("start_at", e.target.value)} /></div>
             <div className="grid gap-1.5"><Label className="text-[12px]">End</Label><Input type="datetime-local" value={f.end_at} onChange={e => set("end_at", e.target.value)} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5"><Label className="text-[12px]">Goal metric</Label>
-              <Select value={f.goal_metric} onValueChange={v => set("goal_metric", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent className="z-[10000]">{METRICS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent></Select>
-            </div>
-            <div className="grid gap-1.5"><Label className="text-[12px]">Goal target</Label><Input type="number" value={f.goal_target} onChange={e => set("goal_target", e.target.value)} /></div>
+          <div className="grid gap-1.5"><Label className="text-[12px]">Goals — the task list athletes complete</Label>
+            <GoalBuilder api={api} goals={goals} onChange={setGoals} />
           </div>
-          <div className="grid gap-1.5"><Label className="text-[12px]">Goals / milestones (one per line)</Label><Textarea rows={3} value={f.goals} onChange={e => set("goals", e.target.value)} placeholder={"e.g.\nWalk 8,000 steps daily\nLog every workout\nStay consistent for 4 weeks"} /></div>
-          <div className="grid gap-1.5"><Label className="text-[12px]">Scoring model</Label>
-            <Select value={f.scoring_model} onValueChange={v => set("scoring_model", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent className="z-[10000]">{MODELS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent></Select>
-          </div>
-          <div className="grid gap-1.5"><Label className="text-[12px]">Verification methods</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {COMMUNITY_METHODS.map(m => (
-                <button key={m.v} type="button" onClick={() => toggle(m.v)} className={cn("inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[12px]", f.verification_methods.includes(m.v) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}><ShieldCheck size={11} /> {m.l}</button>
-              ))}
-            </div>
-          </div>
+          <RewardFields showPoints value={f} onChange={patch => setF((p: any) => ({ ...p, ...patch }))} />
           <div className="grid gap-1.5"><Label className="text-[12px]">Participant limit (0 = unlimited)</Label><Input type="number" value={f.participant_limit} onChange={e => set("participant_limit", e.target.value)} /></div>
+          <div className="grid gap-1.5"><Label className="text-[12px]">Rules & terms (optional)</Label><Textarea rows={2} value={f.rules_terms} onChange={e => set("rules_terms", e.target.value)} /></div>
         </div>
         <div className="mt-5 flex justify-end gap-2"><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={busy} onClick={submit}>{busy ? "Creating…" : "Create"}</Button></div>
       </Card>

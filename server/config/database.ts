@@ -1592,6 +1592,15 @@ export async function initDatabase() {
     console.warn('⚠️  Challenges system migration skipped:', e.message);
   }
 
+  // Challenge goals migration (010) — multi-goal task lists (training,
+  // walk/run, weight, nutrition, habit, transformation) + per-challenge reward.
+  try {
+    const { runChallengeGoalsMigration } = await import('../migrations/010_challenge_goals.js');
+    await runChallengeGoalsMigration();
+  } catch (e: any) {
+    console.warn('⚠️  Challenge goals migration skipped:', e.message);
+  }
+
   // Certified coach migration
   try {
     await run('ALTER TABLE coach_profiles ADD COLUMN certified TINYINT(1) DEFAULT 0');

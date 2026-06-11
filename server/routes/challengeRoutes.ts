@@ -9,7 +9,7 @@ import {
   submitEvidence, listSubmissions, approveSubmission, rejectSubmission,
   getLeaderboard, getProgress, finalizeChallenge, reportChallenge,
   adminListChallenges, adminReviewChallenge, getRewardSettings, saveRewardSettings,
-  adminListReports, adminResolveReport, getUserRewards,
+  adminListReports, adminResolveReport, getUserRewards, getGoalOptions,
 } from '../controllers/challengesController.js';
 
 const router = express.Router();
@@ -32,6 +32,7 @@ router.use(authenticateToken);
 // ── Discovery / details ──
 router.get('/', listChallenges);
 router.get('/invitations', listMyInvitations);
+router.get('/meta/goal-options', getGoalOptions);
 router.get('/rewards/me', getUserRewards);
 router.get('/rewards/:userId', getUserRewards);
 

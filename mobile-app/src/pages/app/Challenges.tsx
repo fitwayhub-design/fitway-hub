@@ -26,15 +26,21 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { GoalChecklist, RewardBanner, GOAL_TYPE_META, METHOD_LABELS, type GoalRow } from "@/components/challenges/goals";
+import { getCurrentPosition } from "@/lib/geo";
 
-const METHOD_LABELS: Record<string, string> = {
-  manual_checkin: "Daily check-in", workout_log: "Workout log", time_based: "Timed activity",
-  manual_step: "Steps (manual)", manual_distance: "Distance (manual)", gps_steps: "Steps (GPS)",
-  photo_evidence: "Photo evidence", video_evidence: "Video evidence", screenshot_evidence: "Screenshot",
-  coach_approval: "Coach approval", attendance: "In-person attendance",
-};
 const EVIDENCE_METHODS = new Set(["photo_evidence", "video_evidence", "screenshot_evidence"]);
 const NUMERIC_METHODS: Record<string, string> = { manual_step: "steps", manual_distance: "km", gps_steps: "steps", time_based: "" };
+
+/** Current device location (best-effort — submissions proceed without it).
+ * Uses the Capacitor-aware geo helper so the native OS permission dialog is
+ * shown inside the app shell instead of failing silently in the WebView. */
+async function getGeo(): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const pos = await getCurrentPosition({ enableHighAccuracy: true, timeout: 8000 });
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  } catch { return null; }
+}
 
 type Challenge = any;
 type Row = any;
@@ -192,6 +198,11 @@ function ChallengeCard({ c, onOpen, invite }: { c: Challenge; onOpen: (id: numbe
           {c.goal_label && <span className="inline-flex items-center gap-1"><Target size={11} /> {c.goal_label}</span>}
           {c.end_at && <span className="inline-flex items-center gap-1"><Calendar size={11} /> {new Date(c.end_at).toLocaleDateString()}</span>}
         </div>
+        {c.reward_title && (
+          <p className="mt-0.5 inline-flex items-center gap-1 truncate text-[11px] font-semibold text-primary">
+            <Award size={11} className="shrink-0" /> {c.reward_title}
+          </p>
+        )}
       </div>
     </Card>
   );
@@ -205,6 +216,8 @@ function ChallengeDetail({ id, api, token, onBack, note }: { id: number; api: (p
   const [progress, setProgress] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [goalSubmit, setGoalSubmit] = useState<GoalRow | null>(null);
+  const [busyGoal, setBusyGoal] = useState<number | null>(null);
 
   const loadAll = useCallback(async () => {
     const r = await api(`/api/challenges/${id}`);
@@ -226,6 +239,11 @@ function ChallengeDetail({ id, api, token, onBack, note }: { id: number; api: (p
   const inv = data.invitation;
   const joined = part && part.status === "active";
   const methods: string[] = c.verification_methods || [];
+  // Goal-based challenges: prefer the progress payload (it carries my per-goal
+  // progress); fall back to the bare definitions before joining.
+  const goalRows: GoalRow[] = (progress?.goals?.length ? progress.goals : c.goals_list) || [];
+  const hasGoals = goalRows.length > 0;
+  const canLog = !!joined && c.state === "active";
 
   const act = async (path: string, body?: any, ok?: string) => {
     setBusy(true);
@@ -237,9 +255,31 @@ function ChallengeDetail({ id, api, token, onBack, note }: { id: number; api: (p
     } finally { setBusy(false); }
   };
 
+  // One-tap daily check-in for nutrition/habit goals; everything else opens
+  // the goal's submit sheet.
+  const logGoal = async (goal: GoalRow) => {
+    if (goal.goal_type === "nutrition" || goal.goal_type === "habit") {
+      setBusyGoal(goal.id);
+      try {
+        const fd = new FormData();
+        fd.append("method", "manual_checkin");
+        fd.append("goal_id", String(goal.id));
+        const r = await fetch(getApiBase() + `/api/challenges/${id}/submissions`, {
+          method: "POST", headers: { Authorization: `Bearer ${token || ""}` }, body: fd,
+        });
+        const d = await r.json().catch(() => ({}));
+        note(d.message || (r.ok ? "Checked in!" : "Check-in failed"));
+        if (r.ok) { await loadAll(); await loadBoard(scope); }
+      } finally { setBusyGoal(null); }
+      return;
+    }
+    setGoalSubmit(goal);
+  };
+
   const goalTarget = Number(c.goal_target) || 0;
   const myProgress = Number(progress?.participant?.progress_value) || 0;
   const pct = goalTarget > 0 ? Math.min(100, (myProgress / goalTarget) * 100) : 0;
+  const completedGoals = hasGoals ? goalRows.filter(g => g.progress?.completed).length : 0;
 
   return (
     <div className="mx-auto w-full max-w-[860px] px-4 pt-4 pb-24">
@@ -261,8 +301,13 @@ function ChallengeDetail({ id, api, token, onBack, note }: { id: number; api: (p
           <h2 className="text-[19px] font-bold">{c.title}</h2>
           {c.description && <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">{c.description}</p>}
 
-          {/* Creator-defined goals / milestones */}
-          {c.goals && String(c.goals).trim() && (
+          {/* The challenge's reward (set by the admin/coach in challenge settings) */}
+          <RewardBanner title={c.reward_title} description={c.reward_description} points={c.reward_points} />
+
+          {/* The goal/task list (new system) — or legacy free-text milestones */}
+          {hasGoals ? (
+            <GoalChecklist goals={goalRows} canLog={canLog} busyGoalId={busyGoal} onLog={logGoal} />
+          ) : c.goals && String(c.goals).trim() ? (
             <div className="mt-3 rounded-md bg-muted/50 p-3">
               <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-foreground"><Target size={13} /> Goals</p>
               <ul className="flex flex-col gap-1">
@@ -274,17 +319,23 @@ function ChallengeDetail({ id, api, token, onBack, note }: { id: number; api: (p
                 ))}
               </ul>
             </div>
-          )}
+          ) : null}
 
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[12px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5"><Target size={13} /> Goal: <b className="text-foreground">{goalTarget || "—"} {c.goal_unit}</b> ({c.scoring_model})</span>
+            {hasGoals ? (
+              <span className="inline-flex items-center gap-1.5"><Target size={13} /> <b className="text-foreground">{goalRows.length} goal{goalRows.length > 1 ? "s" : ""}</b> to complete</span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5"><Target size={13} /> Goal: <b className="text-foreground">{goalTarget || "—"} {c.goal_unit}</b> ({c.scoring_model})</span>
+            )}
             <span className="inline-flex items-center gap-1.5"><Users size={13} /> {c.participant_count} joined</span>
             {c.start_at && <span className="inline-flex items-center gap-1.5"><Calendar size={13} /> {new Date(c.start_at).toLocaleDateString()} → {new Date(c.end_at).toLocaleDateString()}</span>}
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {methods.map(m => <Badge key={m} variant="outline" className="gap-1 px-2 py-0.5 text-[10px]"><ShieldCheck size={10} /> {METHOD_LABELS[m] || m}</Badge>)}
-          </div>
+          {!hasGoals && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {methods.map(m => <Badge key={m} variant="outline" className="gap-1 px-2 py-0.5 text-[10px]"><ShieldCheck size={10} /> {METHOD_LABELS[m] || m}</Badge>)}
+            </div>
+          )}
 
           {c.rules_terms && (
             <details className="mt-3 rounded-md bg-muted/50 p-3 text-[12px]">
@@ -304,7 +355,7 @@ function ChallengeDetail({ id, api, token, onBack, note }: { id: number; api: (p
             {!inv && !joined && c.type === "community" && (c.state === "active" || c.state === "scheduled") && (
               <Button disabled={busy} onClick={() => act(`/api/challenges/${id}/join`, { display_mode: "hidden" }, "Joined!")}>Join challenge</Button>
             )}
-            {joined && c.state === "active" && (
+            {joined && c.state === "active" && !hasGoals && (
               <Button disabled={busy} className="gap-1.5" onClick={() => setSubmitOpen(true)}><Upload size={15} /> Submit progress</Button>
             )}
             {joined && c.state !== "finalized" && (
@@ -331,7 +382,11 @@ function ChallengeDetail({ id, api, token, onBack, note }: { id: number; api: (p
           {goalTarget > 0 && (
             <>
               <Progress value={pct} className="h-2.5" />
-              <p className="mt-1.5 text-[11px] text-muted-foreground">{myProgress} / {goalTarget} {c.goal_unit} ({Math.round(pct)}%)</p>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                {hasGoals
+                  ? `${completedGoals}/${goalRows.length} goals complete · ${Math.round(pct)}% overall`
+                  : `${myProgress} / ${goalTarget} ${c.goal_unit} (${Math.round(pct)}%)`}
+              </p>
             </>
           )}
           {Number(progress?.participant?.pending_points) > 0 && (
@@ -339,12 +394,15 @@ function ChallengeDetail({ id, api, token, onBack, note }: { id: number; api: (p
           )}
           {progress?.submissions?.length > 0 && (
             <div className="mt-3 space-y-1.5">
-              {progress.submissions.slice(0, 6).map((s: any) => (
-                <div key={s.id} className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-[12px]">
-                  <span className="inline-flex items-center gap-1.5">{METHOD_LABELS[s.method] || s.method} · {s.activity_date}</span>
-                  <SubStatus status={s.status} />
-                </div>
-              ))}
+              {progress.submissions.slice(0, 6).map((s: any) => {
+                const g = s.goal_id ? goalRows.find(x => x.id === s.goal_id) : null;
+                return (
+                  <div key={s.id} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2 text-[12px]">
+                    <span className="min-w-0 truncate">{g ? `${g.title} — ` : ""}{METHOD_LABELS[s.method] || s.method} · {s.activity_date}</span>
+                    <SubStatus status={s.status} />
+                  </div>
+                );
+              })}
             </div>
           )}
         </Card>
@@ -382,7 +440,126 @@ function ChallengeDetail({ id, api, token, onBack, note }: { id: number; api: (p
       </Card>
 
       {submitOpen && <SubmitDialog open={submitOpen} onClose={() => setSubmitOpen(false)} methods={methods} token={token} id={id} onDone={() => { setSubmitOpen(false); loadAll(); loadBoard(scope); }} note={note} />}
+      {goalSubmit && <GoalSubmitDialog goal={goalSubmit} token={token} id={id} onClose={() => setGoalSubmit(null)} onDone={() => { setGoalSubmit(null); loadAll(); loadBoard(scope); }} note={note} />}
     </div>
+  );
+}
+
+// ─── Goal-aware submit sheet ──────────────────────────────────────────────────
+// The goal's type decides exactly what we ask for — athletes never pick a
+// "verification method" by hand.
+function GoalSubmitDialog({ goal, token, id, onClose, onDone, note }: {
+  goal: GoalRow; token: string | null; id: number; onClose: () => void; onDone: () => void; note: (m: string) => void;
+}) {
+  const [value, setValue] = useState("");      // km / kg / minutes
+  const [file, setFile] = useState<File | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const type = goal.goal_type;
+  const meta = GOAL_TYPE_META[type] || GOAL_TYPE_META.habit;
+  const Icon = meta.icon;
+  const transformStage = type === "transformation"
+    ? (goal.progress?.has_before || goal.progress?.before_pending ? "after" : "before")
+    : null;
+
+  // What the server will record this as.
+  const method =
+    type === "weight_loss" || type === "weight_gain" ? "weigh_in"
+    : type === "transformation" ? `${transformStage}_photo`
+    : file ? (file.type.startsWith("video") ? "video_evidence" : "photo_evidence")
+    : type === "walk_run" ? "gps_distance"
+    : "time_based";
+
+  const needsValue = type === "walk_run" || type === "weight_loss" || type === "weight_gain" || (type === "training" && !file);
+  const needsFile = type === "weight_loss" || type === "weight_gain" || type === "transformation";
+  const valueLabel =
+    type === "walk_run" ? "Distance (km)"
+    : type === "training" ? "Duration (minutes)"
+    : "Current weight (kg)";
+
+  const submit = async () => {
+    if (needsValue && (!value || Number(value) <= 0)) return note(`Enter ${valueLabel.toLowerCase()}`);
+    if (needsFile && !file) return note("A photo is required for this goal");
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("method", method);
+      fd.append("goal_id", String(goal.id));
+      if (type === "walk_run" || type === "weight_loss" || type === "weight_gain") fd.append("metric_value", value);
+      if (type === "training" && value) fd.append("duration_seconds", String(Number(value) * 60));
+      if (noteText) fd.append("note", noteText);
+      if (file) fd.append("evidence", file);
+      // Walk/Run: attach the device's location as proof-of-presence.
+      if (type === "walk_run") {
+        const geo = await getGeo();
+        if (geo) { fd.append("geo_lat", String(geo.lat)); fd.append("geo_lng", String(geo.lng)); }
+      }
+      const r = await fetch(getApiBase() + `/api/challenges/${id}/submissions`, {
+        method: "POST", headers: { Authorization: `Bearer ${token || ""}` }, body: fd,
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) note(d.message || "Submission failed");
+      else { note(d.message || "Submitted"); onDone(); }
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open onOpenChange={v => !v && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span className={cn("grid size-7 place-items-center rounded-md", meta.cls)}><Icon size={14} /></span>
+            {goal.title}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {type === "transformation" && (
+            <p className="rounded-md bg-muted/50 p-2.5 text-[12px] text-muted-foreground">
+              Upload your <b className="text-foreground">{transformStage}</b> photo. {transformStage === "before" ? "Take it at the start so your transformation is measurable." : "Time to show the result!"}
+            </p>
+          )}
+          {(type === "weight_loss" || type === "weight_gain") && goal.progress?.start_weight == null && (
+            <p className="rounded-md bg-muted/50 p-2.5 text-[12px] text-muted-foreground">
+              Your first weigh-in sets your <b className="text-foreground">starting weight</b>. Progress is measured from there.
+            </p>
+          )}
+          {needsValue && (
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold">{valueLabel}</label>
+              <Input type="number" min={0} step="any" value={value} onChange={e => setValue(e.target.value)}
+                placeholder={type === "walk_run" ? "e.g. 5.2" : type === "training" ? "e.g. 45" : "e.g. 82.5"} />
+            </div>
+          )}
+          {(type === "training" || type === "walk_run") && (
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold">Proof photo/video (optional)</label>
+              <input type="file" accept="image/*,video/*" onChange={e => setFile(e.target.files?.[0] || null)} className="block w-full text-[12px] file:mr-3 file:rounded-md file:border-0 file:bg-primary/15 file:px-3 file:py-1.5 file:text-primary" />
+            </div>
+          )}
+          {needsFile && (
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold">{type === "transformation" ? `${transformStage === "before" ? "Before" : "After"} photo` : "Scale photo"}</label>
+              <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} className="block w-full text-[12px] file:mr-3 file:rounded-md file:border-0 file:bg-primary/15 file:px-3 file:py-1.5 file:text-primary" />
+            </div>
+          )}
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold">Note (optional)</label>
+            <Textarea value={noteText} onChange={e => setNoteText(e.target.value)} rows={2} placeholder="Anything the reviewer should know…" />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {needsFile || file
+              ? "This will be reviewed before it counts toward your score. Photos/videos are checked for when they were captured."
+              : type === "walk_run"
+                ? "We'll attach your current GPS location as proof of presence. Add a photo for a higher-trust entry."
+                : "This counts immediately (adding proof earns more trust)."}
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button disabled={busy || (needsFile && !file)} onClick={submit}>{busy ? "Submitting…" : "Submit"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -413,13 +590,9 @@ function SubmitDialog({ open, onClose, methods, token, id, onDone, note }: any) 
       if (noteText) fd.append("note", noteText);
       if (file) fd.append("evidence", file);
       // Steps-by-GPS: attach the device's current location as proof-of-presence.
-      if (method === "gps_steps" && typeof navigator !== "undefined" && navigator.geolocation) {
-        try {
-          const pos = await new Promise<GeolocationPosition>((res, rej) =>
-            navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 8000 }));
-          fd.append("geo_lat", String(pos.coords.latitude));
-          fd.append("geo_lng", String(pos.coords.longitude));
-        } catch { /* proceed without coordinates */ }
+      if (method === "gps_steps") {
+        const geo = await getGeo();
+        if (geo) { fd.append("geo_lat", String(geo.lat)); fd.append("geo_lng", String(geo.lng)); }
       }
       const r = await fetch(getApiBase() + `/api/challenges/${id}/submissions`, {
         method: "POST",
