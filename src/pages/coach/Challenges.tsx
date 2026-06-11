@@ -20,27 +20,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-const METRICS = [
-  { v: "sessions", l: "Sessions" }, { v: "steps", l: "Steps" }, { v: "distance_km", l: "Distance (km)" },
-  { v: "minutes", l: "Minutes" }, { v: "reps", l: "Reps" }, { v: "checkins", l: "Check-ins" },
-];
-const MODELS = [
-  { v: "consistency", l: "Consistency (show up often)" }, { v: "performance", l: "Performance (total output)" },
-  { v: "improvement", l: "Improvement (vs. your baseline)" }, { v: "participation", l: "Participation (take part)" },
-];
-// Standardized verification set for every challenge.
-const TEAM_METHODS = [
-  { v: "photo_evidence", l: "Photo evidence" },
-  { v: "video_evidence", l: "Video evidence" },
-  { v: "manual_checkin", l: "Daily check-in" },
-  { v: "time_based", l: "Timed activity" },
-  { v: "gps_steps", l: "Steps (GPS)" },
-];
-const DEFAULT_METHODS = TEAM_METHODS.map(m => m.v);
-const METHOD_LABELS: Record<string, string> = Object.fromEntries(TEAM_METHODS.map(m => [m.v, m.l]));
+import { GoalBuilder, RewardFields, METHOD_LABELS, type GoalDraft } from "@/components/challenges/goals";
 
 export default function CoachChallenges() {
   const { token } = useAuth();
@@ -122,30 +103,31 @@ function StatePill({ state, status }: { state?: string; status?: string }) {
 }
 
 // ─── Create wizard ────────────────────────────────────────────────────────────
-function CreateDialog({ token, onClose, onDone, flash }: any) {
+function CreateDialog({ api, token, onClose, onDone, flash }: any) {
   const [f, setF] = useState<any>({
-    title: "", description: "", start_at: "", end_at: "", goal_metric: "sessions", goal_target: "", goals: "",
-    scoring_model: "consistency", participant_limit: "100", min_duration_seconds: "", rules_terms: "",
-    verification_methods: [...DEFAULT_METHODS], timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    title: "", description: "", start_at: "", end_at: "",
+    participant_limit: "100", rules_terms: "",
+    reward_title: "", reward_description: "", reward_points: "0",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
+  const [goals, setGoals] = useState<GoalDraft[]>([]);
   const [cover, setCover] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
-  const toggleMethod = (m: string) => set("verification_methods", f.verification_methods.includes(m) ? f.verification_methods.filter((x: string) => x !== m) : [...f.verification_methods, m]);
 
   const submit = async () => {
     if (f.title.trim().length < 3) return flash("Title must be at least 3 characters");
     if (!f.start_at || !f.end_at) return flash("Start and end dates are required");
-    if (f.verification_methods.length === 0) return flash("Pick at least one verification method");
+    if (goals.length === 0) return flash("Add at least one goal to the list");
     setBusy(true);
     try {
       const fd = new FormData();
       fd.append("type", "team");
       Object.entries(f).forEach(([k, v]) => {
-        if (k === "verification_methods") fd.append(k, (v as string[]).join(","));
-        else if (k === "start_at" || k === "end_at") fd.append(k, new Date(v as string).toISOString());
+        if (k === "start_at" || k === "end_at") fd.append(k, new Date(v as string).toISOString());
         else fd.append(k, String(v ?? ""));
       });
+      fd.append("goals_json", JSON.stringify(goals));
       if (cover) fd.append("cover", cover);
       const r = await fetch(getApiBase() + "/api/challenges", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
       const d = await r.json().catch(() => ({}));
@@ -173,38 +155,11 @@ function CreateDialog({ token, onClose, onDone, flash }: any) {
             <Field label="Start"><Input type="datetime-local" value={f.start_at} onChange={e => set("start_at", e.target.value)} /></Field>
             <Field label="End"><Input type="datetime-local" value={f.end_at} onChange={e => set("end_at", e.target.value)} /></Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Goal metric">
-              <Select value={f.goal_metric} onValueChange={v => set("goal_metric", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent className="z-[10000]">{METRICS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent>
-              </Select>
-            </Field>
-            <Field label="Goal target"><Input type="number" value={f.goal_target} onChange={e => set("goal_target", e.target.value)} placeholder="e.g. 20" /></Field>
-          </div>
-          <Field label="Goals / milestones (one per line)">
-            <Textarea value={f.goals} onChange={e => set("goals", e.target.value)} rows={3} placeholder={"e.g.\nComplete 12 workouts\nLog steps every day\nHit 8,000 steps daily"} />
+          <Field label="Goals — the task list athletes complete">
+            <GoalBuilder api={api} goals={goals} onChange={setGoals} />
           </Field>
-          <Field label="Scoring model">
-            <Select value={f.scoring_model} onValueChange={v => set("scoring_model", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent className="z-[10000]">{MODELS.map(m => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}</SelectContent>
-            </Select>
-          </Field>
-          <Field label="Verification methods">
-            <div className="flex flex-wrap gap-1.5">
-              {TEAM_METHODS.map(m => (
-                <button key={m.v} type="button" onClick={() => toggleMethod(m.v)}
-                  className={cn("inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[12px]", f.verification_methods.includes(m.v) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
-                  <ShieldCheck size={11} /> {m.l}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Participant limit"><Input type="number" value={f.participant_limit} onChange={e => set("participant_limit", e.target.value)} /></Field>
-            <Field label="Min duration (sec, optional)"><Input type="number" value={f.min_duration_seconds} onChange={e => set("min_duration_seconds", e.target.value)} placeholder="e.g. 600" /></Field>
-          </div>
+          <RewardFields value={f} onChange={patch => setF((p: any) => ({ ...p, ...patch }))} />
+          <Field label="Participant limit"><Input type="number" value={f.participant_limit} onChange={e => set("participant_limit", e.target.value)} /></Field>
           <Field label="Rules & terms (optional)"><Textarea value={f.rules_terms} onChange={e => set("rules_terms", e.target.value)} rows={2} /></Field>
         </div>
         <div className="mt-5 flex justify-end gap-2">
@@ -273,7 +228,11 @@ function ManageChallenge({ id, api, token, onBack, flash, toast }: any) {
           <div className="size-12 overflow-hidden rounded-md bg-muted">{c.image_url ? <img src={resolveAssetUrl(c.image_url)} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-muted-foreground"><Trophy size={18} /></span>}</div>
           <div>
             <div className="flex items-center gap-2"><h2 className="text-[17px] font-bold">{c.title}</h2><StatePill state={c.state} /></div>
-            <p className="text-[12px] text-muted-foreground">{c.participant_count} athletes · {c.goal_label} · {c.scoring_model}</p>
+            <p className="text-[12px] text-muted-foreground">
+              {c.participant_count} athletes
+              {c.goals_list?.length ? ` · ${c.goals_list.length} goal${c.goals_list.length > 1 ? "s" : ""}` : ` · ${c.goal_label} · ${c.scoring_model}`}
+              {c.reward_title ? ` · 🎁 ${c.reward_title}` : ""}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -296,7 +255,8 @@ function ManageChallenge({ id, api, token, onBack, flash, toast }: any) {
                 <Card key={s.id} className="flex flex-wrap items-center gap-3 p-3.5">
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-semibold">{s.user_name}</p>
-                    <p className="text-[11px] text-muted-foreground">{METHOD_LABELS[s.method] || s.method} · {s.activity_date}{s.metric_value ? ` · ${s.metric_value}` : ""}</p>
+                    {s.goal_title && <p className="text-[11px] font-semibold text-primary">🎯 {s.goal_title}</p>}
+                    <p className="text-[11px] text-muted-foreground">{METHOD_LABELS[s.method] || s.method} · {s.activity_date}{s.metric_value && Number(s.metric_value) !== 1 ? ` · ${s.metric_value}${s.method === "weigh_in" ? " kg" : s.method === "gps_distance" ? " km" : ""}` : ""}</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
                       {s.captured_at ? `📸 captured ${new Date(s.captured_at).toLocaleString()}` : "📸 no capture timestamp in file"}
                       {(s.geo_lat != null && s.geo_lng != null) ? ` · 📍 ${Number(s.geo_lat).toFixed(4)}, ${Number(s.geo_lng).toFixed(4)}` : ""}

@@ -1,4 +1,5 @@
 import { query, get, run } from '../config/database.js';
+import { overallGoalsProgress, GoalSubmission, GOAL_COMPLETION_TARGET } from './challengeGoalTypes.js';
 
 /**
  * challengeScoring — the non-AI, deterministic trust + points engine.
@@ -31,9 +32,13 @@ export const METHODS: Record<string, MethodMeta> = {
   manual_step:         { key: 'manual_step',         label: 'Step count (manual)',   trust: 0.3, auto: true,  needsEvidence: false },
   manual_distance:     { key: 'manual_distance',     label: 'Distance (manual)',     trust: 0.3, auto: true,  needsEvidence: false },
   gps_steps:           { key: 'gps_steps',           label: 'Steps (GPS)',           trust: 0.6, auto: true,  needsEvidence: false },
+  gps_distance:        { key: 'gps_distance',        label: 'Distance (GPS)',        trust: 0.6, auto: true,  needsEvidence: false },
   photo_evidence:      { key: 'photo_evidence',      label: 'Photo evidence',        trust: 0.5, auto: false, needsEvidence: true },
   video_evidence:      { key: 'video_evidence',      label: 'Video evidence',        trust: 0.7, auto: false, needsEvidence: true },
   screenshot_evidence: { key: 'screenshot_evidence', label: 'Screenshot evidence',   trust: 0.2, auto: false, needsEvidence: true },
+  weigh_in:            { key: 'weigh_in',            label: 'Weigh-in (photo)',      trust: 0.6, auto: false, needsEvidence: true },
+  before_photo:        { key: 'before_photo',        label: 'Before photo',          trust: 0.5, auto: false, needsEvidence: true },
+  after_photo:         { key: 'after_photo',         label: 'After photo',           trust: 0.5, auto: false, needsEvidence: true },
   coach_approval:      { key: 'coach_approval',      label: 'Coach approval',        trust: 1.0, auto: false, needsEvidence: false, teamOnly: true },
   attendance:          { key: 'attendance',          label: 'In-person attendance',  trust: 1.0, auto: false, needsEvidence: false, teamOnly: true },
 };
@@ -95,7 +100,14 @@ export async function recomputeParticipant(challengeId: number, participantId: n
   const challenge = await get<any>('SELECT * FROM challenges WHERE id = ?', [challengeId]);
   if (!challenge) return;
   const model = challenge.scoring_model || 'consistency';
-  const goalTarget = Number(challenge.goal_target) || 0;
+
+  const goals = await query<any>(
+    'SELECT * FROM challenge_goals WHERE challenge_id = ? ORDER BY position ASC, id ASC',
+    [challengeId],
+  );
+  const goalBased = goals.length > 0;
+  // Goal-based challenges measure overall completion as 0–100%.
+  const goalTarget = goalBased ? GOAL_COMPLETION_TARGET : Number(challenge.goal_target) || 0;
 
   const subs = await query<any>(
     `SELECT * FROM challenge_submissions
@@ -123,11 +135,17 @@ export async function recomputeParticipant(challengeId: number, participantId: n
     prev = t;
   }
 
-  // Progress depends on the scoring model.
+  // Progress: goal-based challenges replay the task list; legacy challenges
+  // keep the scoring-model math.
   const sumMetric = approved.reduce((a, s) => a + (Number(s.metric_value) || 0), 0);
   const maxMetric = approved.reduce((a, s) => Math.max(a, Number(s.metric_value) || 0), 0);
   let progress = 0;
-  switch (model) {
+  let completedGoals = 0;
+  if (goalBased) {
+    const overall = overallGoalsProgress(goals, subs as GoalSubmission[]);
+    progress = overall.pct;
+    completedGoals = overall.completedGoals;
+  } else switch (model) {
     case 'performance':   progress = sumMetric; break;
     case 'consistency':   progress = days.length; break;
     case 'participation': progress = approved.length; break;
@@ -144,15 +162,17 @@ export async function recomputeParticipant(challengeId: number, participantId: n
   verified += days.length * 1;
   // Streak bonus — capped so the fittest can't run away.
   verified += Math.min(bestStreak, 10) * 2;
+  // Per-goal completion bonus — every finished task on the list banks points.
+  verified += completedGoals * 50;
   // Milestone bonuses — 25/50/75% of the goal.
   if (goalTarget > 0) {
-    const pct = model === 'improvement' ? progress : (progress / goalTarget) * 100;
+    const pct = goalBased || model === 'improvement' ? progress : (progress / goalTarget) * 100;
     for (const m of [25, 50, 75]) if (pct >= m) verified += 15;
   }
   // Completion + early-completion bonus.
   let completed = false;
   if (goalTarget > 0) {
-    completed = model === 'improvement' ? progress >= goalTarget : progress >= goalTarget;
+    completed = progress >= goalTarget;
     if (completed) {
       verified += 100;
       const start = challenge.start_at ? Date.parse(challenge.start_at) : null;
