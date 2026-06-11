@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import {
   ArrowRight, Dumbbell, BarChart2, Users, MessageCircle,
   Star, Shield, Zap, Heart, Smartphone, Timer, Award,
@@ -95,7 +95,7 @@ export default function HomePage() {
   const [cmsLoaded, setCmsLoaded] = useState(false);
 
   useEffect(() => {
-    fetch(`${getApiBase()}/api/public/stats`)
+    apiFetch(`/api/public/stats`)
       .then(r => r.json())
       .then(d => setLiveStats({
         members: d.members || 0,
@@ -104,7 +104,7 @@ export default function HomePage() {
         rating: d.rating || "5.0",
       }))
       .catch(() => {});
-    fetch(`${getApiBase()}/api/cms/sections/home`)
+    apiFetch(`/api/cms/sections/home`)
       .then(r => r.json())
       .then(d => {
         const map: Record<string, any> = {};

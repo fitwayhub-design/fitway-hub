@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import PlanCommentsThread from "@/components/app/PlanCommentsThread";
 import {
   Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2,
@@ -142,12 +142,12 @@ export default function WorkoutPlan() {
   // self plan any more — the user picks which to view via tabs.
   useEffect(() => {
     if (!token) return;
-    fetch(`${getApiBase()}/api/payments/my-subscriptions`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/payments/my-subscriptions`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : { subscriptions: [] })
       .then(d => setHasSubscription((d?.subscriptions || []).length > 0))
       .catch(() => setHasSubscription(false));
 
-    fetch(`${getApiBase()}/api/plans/coach-workout-plan`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/plans/coach-workout-plan`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d?.plan?.exercises) {
@@ -226,7 +226,7 @@ export default function WorkoutPlan() {
     // Only when we have a coach plan.
     if (tab === "coach" && coachPlanId && token) {
       const post = (event_type: string) =>
-        fetch(getApiBase() + "/api/tickets/training-events", {
+        apiFetch("/api/tickets/training-events", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ event_type, workout_plan_id: coachPlanId, payload: { progress_percent: progressPercent } }),
@@ -712,7 +712,7 @@ export default function WorkoutPlan() {
                     if (!coachUserId || !coachPlanId || !ticketModal) return;
                     setTicketBusy(true); setTicketMsg("");
                     try {
-                      const r = await fetch(getApiBase() + "/api/tickets", {
+                      const r = await apiFetch("/api/tickets", {
                         method: "POST",
                         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                         body: JSON.stringify({

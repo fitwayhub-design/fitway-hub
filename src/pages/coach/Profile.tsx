@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -87,7 +87,7 @@ export default function CoachProfile() {
   const certDocRef = useRef<HTMLInputElement>(null);
 
   const api = (path: string, opts?: RequestInit) =>
-    fetch(getApiBase() + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
+    apiFetch(path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
 
   useEffect(() => {
     api("/api/coaching/profile").then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(d => {
@@ -313,7 +313,7 @@ export default function CoachProfile() {
       const formData = new FormData();
       formData.append("nationalId", nationalIdFile);
       formData.append("certificationDoc", certDocFile);
-      const r = await fetch(getApiBase() + "/api/coaching/certification/subscribe", {
+      const r = await apiFetch("/api/coaching/certification/subscribe", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,

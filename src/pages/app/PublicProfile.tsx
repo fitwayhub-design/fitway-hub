@@ -11,7 +11,7 @@
  */
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { ChevronLeft, Heart, Clock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ export default function PublicProfile() {
 
   useEffect(() => {
     if (!id || !token) return;
-    fetch(`${getApiBase()}/api/user/public-profile/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`/api/user/public-profile/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : Promise.reject(r))
       .then(d => { setUser(d.user); setPosts(d.posts || []); })
       .catch(() => setError("Couldn't load this profile."))

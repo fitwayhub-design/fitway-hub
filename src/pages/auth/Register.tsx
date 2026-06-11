@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch, getApiBase } from "@/lib/api";
 import { Eye, EyeOff, Mail, Lock, User, Activity, CheckCircle2, Dumbbell, Trophy, Chrome, ArrowLeft, ShieldQuestion, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ export default function Register() {
 
   const [liveStats, setLiveStats] = useState({ members: 0, programs: 0, rating: "5.0" });
   useEffect(() => {
-    fetch(`${getApiBase()}/api/public/stats`)
+    apiFetch(`/api/public/stats`)
       .then(r => r.json())
       .then(d => setLiveStats({ members: d.members || 0, programs: d.programs || 0, rating: d.rating || "5.0" }))
       .catch(() => {});
@@ -74,7 +74,7 @@ export default function Register() {
 
   const requestOtp = async () => {
     setError(""); setInfo("");
-    const res = await fetch(`${getApiBase()}/api/auth/register/request-otp`, {
+    const res = await apiFetch(`/api/auth/register/request-otp`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),

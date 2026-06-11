@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch, getApiBase } from "@/lib/api";
 import { Eye, EyeOff, Mail, Lock, Activity, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,7 @@ export default function Login() {
 
   const [liveStats, setLiveStats] = useState({ members: 0, programs: 0, rating: "5.0" });
   useEffect(() => {
-    fetch(`${getApiBase()}/api/public/stats`)
+    apiFetch(`/api/public/stats`)
       .then(r => r.json())
       .then(d => setLiveStats({ members: d.members || 0, programs: d.programs || 0, rating: d.rating || "5.0" }))
       .catch(() => {});

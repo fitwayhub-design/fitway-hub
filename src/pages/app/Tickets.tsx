@@ -13,7 +13,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { getAvatar } from "@/lib/avatar";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { Plus, Send, CheckCircle, RefreshCw, MessageCircle, ChevronLeft } from "lucide-react";
@@ -71,7 +71,7 @@ export default function Tickets() {
   const [planMeta, setPlanMeta] = useState<{ workout_plan_id: number | null; nutrition_plan_id: number | null }>({ workout_plan_id: null, nutrition_plan_id: null });
 
   const api = (path: string, init?: RequestInit) =>
-    fetch(getApiBase() + path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } });
+    apiFetch(path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } });
 
   const loadList = async (silent = false) => {
     if (!silent) setLoading(true);

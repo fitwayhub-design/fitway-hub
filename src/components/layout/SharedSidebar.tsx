@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding } from "@/context/BrandingContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
@@ -71,7 +71,7 @@ export function SharedSidebar({
     if (!token || !notificationPath) return;
     const fetchUnread = async () => {
       try {
-        const r = await fetch(`${getApiBase()}/api/notifications/list`, { headers: { Authorization: `Bearer ${token}` } });
+        const r = await apiFetch(`/api/notifications/list`, { headers: { Authorization: `Bearer ${token}` } });
         if (r.ok) {
           const data = await r.json();
           const arr = Array.isArray(data) ? data : data.notifications || [];

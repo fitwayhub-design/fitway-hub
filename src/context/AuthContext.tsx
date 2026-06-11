@@ -1,4 +1,4 @@
-import { getApiBase, UNAUTHORIZED_EVENT } from "@/lib/api";
+import { UNAUTHORIZED_EVENT, apiFetch } from "@/lib/api";
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
 import { initPushNotifications, unregisterPushNotifications } from "@/lib/pushNotifications";
 import { initWebPush } from "@/lib/firebase";
@@ -171,10 +171,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const rt = localStorage.getItem("remember_token");
         if (rt) {
-          const res = await fetch(getApiBase() + "/api/auth/login-remember", {
+          const res = await apiFetch("/api/auth/login-remember", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ rememberToken: rt }),
+            skip401: true, // invalid remember-token is handled here, not via the global flow
           }).catch(() => null);
           if (res?.ok) {
             const data = await res.json().catch(() => null);
@@ -217,10 +218,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!t) {
       // If no main token, check if we can Auto-Login with remember_token
       if (rt) {
-        fetch(getApiBase() + '/api/auth/login-remember', {
+        apiFetch('/api/auth/login-remember', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rememberToken: rt })
+          body: JSON.stringify({ rememberToken: rt }),
+          skip401: true,
         })
           .then(r => r.ok ? r.json() : null)
           .then(data => {
@@ -247,7 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-    fetch(getApiBase() + '/api/auth/me', {
+    apiFetch('/api/auth/me', {
       headers: { Authorization: `Bearer ${t}` },
       signal: controller.signal,
     })
@@ -256,10 +258,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (r.status === 401 || r.status === 403) {
           // Token expired. Try remember_token before giving up.
           if (rt) {
-            const refreshRes = await fetch(getApiBase() + '/api/auth/login-remember', {
+            const refreshRes = await apiFetch('/api/auth/login-remember', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ rememberToken: rt })
+              body: JSON.stringify({ rememberToken: rt }),
+              skip401: true,
             }).catch(() => null);
 
             if (refreshRes?.ok) {
@@ -349,16 +352,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string, rememberMe: boolean = false) => {
     ensureSingleAccount(email);
 
-    const response = await fetch(getApiBase() + '/api/auth/login', {
+    const response = await apiFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
+      skip401: true, // a 401 here means "wrong password", not "session expired"
     });
     const text = await response.text();
     let data: any;
     try { data = JSON.parse(text); } catch { throw new Error('Server is unreachable. Please check your connection and try again.'); }
     if (!response.ok) throw new Error(data.message || 'Login failed');
 
+    loggedOutRef.current = false; // a fresh successful login supersedes any prior logout
     const userData = mapServerUser(data.user);
     setToken(data.token);
     setUser(userData);
@@ -373,16 +378,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (email: string, password: string, name: string, role: "user" | "coach" = "user", securityQuestion?: string, securityAnswer?: string, otp?: string) => {
     ensureSingleAccount(email);
 
-    const response = await fetch(getApiBase() + '/api/auth/register', {
+    const response = await apiFetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name, role, securityQuestion, securityAnswer, otp }),
+      skip401: true,
     });
     const text = await response.text();
     let data: any;
     try { data = JSON.parse(text); } catch { throw new Error('Server is unreachable. Please try again later.'); }
     if (!response.ok) throw new Error(data.message || 'Registration failed');
 
+    loggedOutRef.current = false;
     const userData = mapServerUser(data.user);
     setToken(data.token);
     setUser(userData);
@@ -394,7 +401,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const completeSocialLogin = async (jwtToken: string): Promise<User> => {
-    const response = await fetch(getApiBase() + '/api/auth/me', {
+    const response = await apiFetch('/api/auth/me', {
       headers: { Authorization: `Bearer ${jwtToken}` },
     });
     const text = await response.text();
@@ -418,7 +425,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAllAuth();
     if (t) {
       unregisterPushNotifications(t).catch(() => {});
-      fetch(getApiBase() + '/api/auth/logout', {
+      apiFetch('/api/auth/logout', {
         method: 'POST',
         headers: { Authorization: `Bearer ${t}` },
       }).catch(() => {});
@@ -428,7 +435,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = async () => {
     const t = localStorage.getItem("token");
     if (!t) return;
-    const r = await fetch(getApiBase() + '/api/auth/me', { headers: { Authorization: `Bearer ${t}` } });
+    const r = await apiFetch('/api/auth/me', { headers: { Authorization: `Bearer ${t}` } });
     if (r.ok) {
       const data = await r.json();
       if (data?.user) {
@@ -459,7 +466,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.points !== undefined) payload.points = data.points;
 
     if (Object.keys(payload).length > 0) {
-      fetch(getApiBase() + '/api/user/profile', {
+      apiFetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
         body: JSON.stringify(payload),

@@ -11,7 +11,7 @@ import { useI18n } from "@/context/I18nContext";
 import { useTheme } from "@/context/ThemeContext";
 import { SharedSidebar, NavItem } from "@/components/layout/SharedSidebar";
 import PaymentForm from "@/components/app/PaymentForm";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 const navItems: NavItem[] = [
   { path: "/coach/dashboard",      icon: LayoutDashboard, label: "Dashboard" },
@@ -176,7 +176,7 @@ export function CoachLayout() {
 
   const fetchFeatures = useCallback(async () => {
     try {
-      const r = await fetch(`${getApiBase()}/api/admin/features`);
+      const r = await apiFetch(`/api/admin/features`);
       const d = await r.json();
       setFeatures(d?.features || {});
     } catch {

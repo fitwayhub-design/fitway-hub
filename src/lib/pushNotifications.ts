@@ -5,7 +5,7 @@ import {
   type Token,
   type PermissionStatus,
 } from "@capacitor/push-notifications";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { resolveNotificationLink, safeInternalPath } from "@/lib/notificationLinks";
 
 let listenersAttached = false;
@@ -31,7 +31,7 @@ function isNativeRuntime(): boolean {
 
 async function saveTokenToBackend(pushToken: string): Promise<void> {
   if (!backendToken) return;
-  await fetch(getApiBase() + "/api/notifications/push-token", {
+  await apiFetch("/api/notifications/push-token", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -115,7 +115,7 @@ export async function unregisterPushNotifications(authToken: string): Promise<vo
   if (!isNativePushEnabled()) return;
 
   try {
-    await fetch(getApiBase() + "/api/notifications/push-token", {
+    await apiFetch("/api/notifications/push-token", {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",

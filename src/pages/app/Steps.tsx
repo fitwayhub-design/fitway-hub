@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -65,8 +65,8 @@ export default function Steps() {
     if (!silent) setLoading(true);
     try {
       const [todayR, histR] = await Promise.all([
-        fetch(`${getApiBase()}/api/steps/${today}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-        fetch(`${getApiBase()}/api/steps?limit=14`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+        apiFetch(`/api/steps/${today}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+        apiFetch(`/api/steps?limit=14`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
       ]);
       setTodayEntry(todayR?.entry || null);
       setHistory(histR?.entries || []);
@@ -105,7 +105,7 @@ export default function Steps() {
     try {
       const cal = estimateCaloriesBurned(s, metrics.weight, metrics.height);
       const km = parseFloat(distInput) || s / 1312;
-      const r = await fetch(`${getApiBase()}/api/steps/${today}`, {
+      const r = await apiFetch(`/api/steps/${today}`, {
         method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ steps: s, calories_burned: cal, distance_km: km, tracking_mode: "manual" }),
       });
@@ -115,7 +115,7 @@ export default function Steps() {
   };
 
   const handleDelete = async (id: number) => {
-    await fetch(`${getApiBase()}/api/steps/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    await apiFetch(`/api/steps/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
     await load();
   };
 

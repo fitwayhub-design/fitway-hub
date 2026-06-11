@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { ArrowRight, ArrowLeft, Check, Activity, Upload } from "lucide-react";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useAppImage } from "@/context/AppImagesContext";
@@ -63,7 +63,7 @@ export default function Onboarding() {
       const fd = new FormData();
       fd.append("medical", file);
       fd.append("medical_history", "InBody / body composition document attached");
-      const r = await fetch(getApiBase() + "/api/user/medical-history", {
+      const r = await apiFetch("/api/user/medical-history", {
         method: "POST",
         headers: { Authorization: `Bearer ${token || localStorage.getItem("token") || ""}` },
         body: fd,
@@ -101,7 +101,7 @@ export default function Onboarding() {
         profilePayload.onboarding_done = 1;
 
         if (Object.keys(profilePayload).length > 0) {
-          await fetch(getApiBase() + "/api/user/profile", {
+          await apiFetch("/api/user/profile", {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
@@ -112,7 +112,7 @@ export default function Onboarding() {
         }
 
         if (typeof merged.dailySteps === "string" && merged.dailySteps) {
-          await fetch(getApiBase() + "/api/user/step-goal", {
+          await apiFetch("/api/user/step-goal", {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
@@ -123,7 +123,7 @@ export default function Onboarding() {
         }
 
         if (merged.medicalHistory !== undefined) {
-          await fetch(getApiBase() + "/api/user/medical-history", {
+          await apiFetch("/api/user/medical-history", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

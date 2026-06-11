@@ -8,7 +8,7 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getApiBase, resolveAssetUrl } from "@/lib/api";
+import { apiFetch, resolveAssetUrl } from "@/lib/api";
 import {
   Trophy, Plus, ChevronLeft, Users, ShieldCheck, CheckCircle2, X, Send, Flag, Image as ImageIcon, Calendar, Target, RefreshCw,
 } from "lucide-react";
@@ -26,7 +26,7 @@ import { GoalBuilder, RewardFields, METHOD_LABELS, type GoalDraft } from "@/comp
 export default function CoachChallenges() {
   const { token } = useAuth();
   const api = useCallback((p: string, i?: RequestInit) =>
-    fetch(getApiBase() + p, { ...i, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(i?.headers || {}) } }), [token]);
+    apiFetch(p, { ...i, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(i?.headers || {}) } }), [token]);
 
   const [list, setList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,7 +129,7 @@ function CreateDialog({ api, token, onClose, onDone, flash }: any) {
       });
       fd.append("goals_json", JSON.stringify(goals));
       if (cover) fd.append("cover", cover);
-      const r = await fetch(getApiBase() + "/api/challenges", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+      const r = await apiFetch("/api/challenges", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) flash(d.message || "Failed to create"); else onDone();
     } finally { setBusy(false); }

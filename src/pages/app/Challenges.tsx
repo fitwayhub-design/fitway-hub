@@ -8,7 +8,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getApiBase, resolveAssetUrl } from "@/lib/api";
+import { apiFetch, resolveAssetUrl } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import {
   Trophy, Users, Plus, ChevronLeft, Search, Calendar, Flame, Target, ShieldCheck,
@@ -97,7 +97,7 @@ export default function ChallengesPage() {
   const { user, token } = useAuth();
   const api = useCallback(
     (path: string, init?: RequestInit) =>
-      fetch(getApiBase() + path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } }),
+      apiFetch(path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } }),
     [token],
   );
 
@@ -312,7 +312,7 @@ function ChallengeDetail({ id, api, token, onBack, note }: { id: number; api: (p
         const fd = new FormData();
         fd.append("method", "manual_checkin");
         fd.append("goal_id", String(goal.id));
-        const r = await fetch(getApiBase() + `/api/challenges/${id}/submissions`, {
+        const r = await apiFetch(`/api/challenges/${id}/submissions`, {
           method: "POST", headers: { Authorization: `Bearer ${token || ""}` }, body: fd,
         });
         const d = await r.json().catch(() => ({}));
@@ -545,7 +545,7 @@ function GoalSubmitDialog({ goal, token, id, onClose, onDone, note }: {
         const geo = await getGeo();
         if (geo) { fd.append("geo_lat", String(geo.lat)); fd.append("geo_lng", String(geo.lng)); }
       }
-      const r = await fetch(getApiBase() + `/api/challenges/${id}/submissions`, {
+      const r = await apiFetch(`/api/challenges/${id}/submissions`, {
         method: "POST", headers: { Authorization: `Bearer ${token || ""}` }, body: fd,
       });
       const d = await r.json().catch(() => ({}));
@@ -673,7 +673,7 @@ function SubmitDialog({ open, onClose, methods, token, id, onDone, note }: any) 
         const geo = await getGeo();
         if (geo) { fd.append("geo_lat", String(geo.lat)); fd.append("geo_lng", String(geo.lng)); }
       }
-      const r = await fetch(getApiBase() + `/api/challenges/${id}/submissions`, {
+      const r = await apiFetch(`/api/challenges/${id}/submissions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token || ""}` },
         body: fd,

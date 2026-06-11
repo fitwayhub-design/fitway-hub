@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, CheckCheck, ExternalLink } from "lucide-react";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useI18n } from "@/context/I18nContext";
 import { resolveNotificationLink } from "@/lib/notificationLinks";
 import { cn } from "@/lib/utils";
@@ -69,7 +69,7 @@ export default function NotificationDropdown({
   const fetchNotifications = useCallback(async () => {
     if (!token) return;
     try {
-      const r = await fetch(`${getApiBase()}/api/notifications/list`, {
+      const r = await apiFetch(`/api/notifications/list`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (r.ok) {
@@ -111,7 +111,7 @@ export default function NotificationDropdown({
   const markRead = async (id: number) => {
     if (!token) return;
     try {
-      await fetch(`${getApiBase()}/api/notifications/read/${id}`, {
+      await apiFetch(`/api/notifications/read/${id}`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
@@ -122,7 +122,7 @@ export default function NotificationDropdown({
   const markAllRead = async () => {
     if (!token) return;
     try {
-      await fetch(`${getApiBase()}/api/notifications/read-all`, {
+      await apiFetch(`/api/notifications/read-all`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });

@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import React, { useState, useEffect, useRef } from "react";
 import { Smartphone, CheckCircle, Upload, X, AlertCircle, ShieldCheck } from "lucide-react";
 import { detectPlatform, isNativeApp } from "@/lib/iap";
@@ -63,11 +63,11 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
   });
 
   const api = (path: string, opts?: RequestInit) =>
-    fetch(getApiBase() + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
+    apiFetch(path, { ...opts, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(opts?.headers || {}) } });
 
   // ── Load configs ────────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch(getApiBase() + "/api/payments/public-settings")
+    apiFetch("/api/payments/public-settings")
       .then(r => r.json())
       .then(data => {
         const s = data.settings || {};
@@ -195,7 +195,7 @@ export default function PaymentForm({ amount, plan, type, token, onSuccess, onEr
       formData.append("proof", proofFile);
       if (coachId) formData.append("coachId", coachId.toString());
       if (packageId) formData.append("packageId", packageId);
-      const res = await fetch(getApiBase() + "/api/payments/ewallet", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData });
+      const res = await apiFetch("/api/payments/ewallet", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData });
       if (!res.ok) {
         const text = await res.text();
         let message = "Payment submission failed.";

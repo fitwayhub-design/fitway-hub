@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch, getApiBase } from "@/lib/api";
 
 export type BlogStatus = "draft" | "published" | "pending_review";
 export type BlogLanguage = "en" | "ar";
@@ -62,7 +62,7 @@ export function resolveMediaUrl(path: string | null | undefined): string {
 export async function fetchPublicBlogs(query = "", language: BlogLanguage = "en"): Promise<BlogPost[]> {
   const params = new URLSearchParams({ lang: language });
   if (query.trim()) params.set("q", query.trim());
-  const response = await fetch(`${getApiBase()}/api/blogs/public?${params.toString()}`);
+  const response = await apiFetch(`/api/blogs/public?${params.toString()}`);
   const data = await parseJsonResponse(response);
   if (!response.ok) throw new Error(data.message || "Failed to load blog posts");
   return data.posts || [];
@@ -72,7 +72,7 @@ export async function fetchBlogs(token: string, mode: "feed" | "manage", query =
   const params = new URLSearchParams({ mode, lang: language });
   if (query.trim()) params.set("q", query.trim());
 
-  const response = await fetch(`${getApiBase()}/api/blogs?${params.toString()}`, {
+  const response = await apiFetch(`/api/blogs?${params.toString()}`, {
     headers: authHeaders(token),
   });
 
@@ -83,14 +83,14 @@ export async function fetchBlogs(token: string, mode: "feed" | "manage", query =
 
 export async function fetchPublicBlogBySlug(slug: string, language: BlogLanguage = "en"): Promise<BlogPost> {
   const params = new URLSearchParams({ lang: language });
-  const response = await fetch(`${getApiBase()}/api/blogs/public/${slug}?${params.toString()}`);
+  const response = await apiFetch(`/api/blogs/public/${slug}?${params.toString()}`);
   const data = await parseJsonResponse(response);
   if (!response.ok) throw new Error(data.message || "Blog post not found");
   return data.post;
 }
 
 export function trackBlogView(postId: number) {
-  fetch(`${getApiBase()}/api/blogs/${postId}/view`, { method: 'POST' }).catch(() => {});
+  apiFetch(`/api/blogs/${postId}/view`, { method: 'POST' }).catch(() => {});
 }
 
 export async function saveBlog(
@@ -161,7 +161,7 @@ export async function saveBlog(
 }
 
 export async function removeBlog(token: string, postId: number): Promise<void> {
-  const response = await fetch(`${getApiBase()}/api/blogs/${postId}`, {
+  const response = await apiFetch(`/api/blogs/${postId}`, {
     method: "DELETE",
     headers: authHeaders(token),
   });

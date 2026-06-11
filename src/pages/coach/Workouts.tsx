@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -47,7 +47,7 @@ export default function CoachWorkouts() {
   const [searching, setSearching] = useState(false);
 
   const fetchJson = async (path: string, init?: RequestInit) => {
-    const response = await fetch(`${getApiBase()}${path}`, {
+    const response = await apiFetch(`${path}`, {
       ...init,
       headers: {
         Authorization: `Bearer ${token}`,

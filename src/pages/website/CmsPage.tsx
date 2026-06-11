@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import SectionRenderer, { type CmsSection, LatestBlogsSection } from "@/components/cms/SectionRenderer";
 import { Loader2 } from "lucide-react";
 import { useI18n } from "@/context/I18nContext";
@@ -15,7 +15,7 @@ export default function CmsPage({ page: pageProp }: { page?: string }) {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${getApiBase()}/api/cms/sections/${encodeURIComponent(page)}`)
+    apiFetch(`/api/cms/sections/${encodeURIComponent(page)}`)
       .then(r => r.json())
       .then(d => setSections(d.sections || []))
       .catch(() => setSections([]))

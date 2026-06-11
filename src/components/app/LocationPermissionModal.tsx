@@ -5,7 +5,7 @@
  */
 import { useState } from "react";
 import { MapPin, ShieldCheck } from "lucide-react";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +42,7 @@ export default function LocationPermissionModal({ token, onDismiss }: Props) {
           const city    = geo?.address?.city || geo?.address?.town || geo?.address?.village || "";
           const country = geo?.address?.country || "";
 
-          await fetch(`${getApiBase()}/api/user/location`, {
+          await apiFetch(`/api/user/location`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ latitude, longitude, city, country }),

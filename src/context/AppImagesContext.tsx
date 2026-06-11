@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 type AppImage = { url: string; alt: string | null; category: string | null };
 type ImagesMap = Record<string, AppImage>;
@@ -24,7 +24,7 @@ export function AppImagesProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(`${getApiBase()}/api/app-images`);
+      const res = await apiFetch(`/api/app-images`);
       if (!res.ok) throw new Error("failed");
       const data = await res.json();
       setImages(data.images || {});

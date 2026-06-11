@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, ShieldQuestion, Activity, ArrowLeft, Eye, EyeOff, CheckCircle, KeyRound } from "lucide-react";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -49,7 +49,8 @@ export default function ForgotPassword() {
   const localizedQuestion = questionMap[question] || question;
 
   const requestEmailOtp = async () => {
-    const res = await fetch(getApiBase() + "/api/auth/forgot-password/request-otp", {
+    const res = await apiFetch("/api/auth/forgot-password/request-otp", {
+      skip401: true,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -67,7 +68,8 @@ export default function ForgotPassword() {
     setIsLoading(true);
     try {
       if (method === "security") {
-        const res = await fetch(getApiBase() + "/api/auth/forgot-password/question", {
+        const res = await apiFetch("/api/auth/forgot-password/question", {
+      skip401: true,
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
@@ -102,7 +104,8 @@ export default function ForgotPassword() {
     if (newPassword.length < 8) { setError(t("password_min_8_chars")); return; }
     setIsLoading(true);
     try {
-      const res = await fetch(getApiBase() + "/api/auth/forgot-password/otp-reset", {
+      const res = await apiFetch("/api/auth/forgot-password/otp-reset", {
+      skip401: true,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp: otp.trim(), newPassword }),
@@ -124,7 +127,8 @@ export default function ForgotPassword() {
     if (newPassword.length < 8) { setError(t("password_min_8_chars")); return; }
     setIsLoading(true);
     try {
-      const res = await fetch(getApiBase() + "/api/auth/forgot-password/verify", {
+      const res = await apiFetch("/api/auth/forgot-password/verify", {
+      skip401: true,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, securityAnswer, newPassword }),

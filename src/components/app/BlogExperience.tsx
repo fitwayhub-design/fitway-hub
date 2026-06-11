@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import {
   type BlogPost,
   type BlogStatus,
@@ -454,7 +454,7 @@ export default function BlogExperience({ mode, heading, subheading, allowWriting
   async function onReviewBlog(postId: number, action: "approve" | "reject") {
     if (!token || mode !== "admin") return;
     try {
-      const r = await fetch(`${getApiBase()}/api/blogs/${postId}/review`, {
+      const r = await apiFetch(`/api/blogs/${postId}/review`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ action }),

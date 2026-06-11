@@ -7,7 +7,7 @@
  */
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getApiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { getAvatar } from "@/lib/avatar";
 import { Send, Search, Users, LifeBuoy, Trophy, MessageCircle } from "lucide-react";
@@ -38,7 +38,7 @@ export default function AdminChat() {
   const [busy, setBusy] = useState(false);
 
   const api = (path: string, init?: RequestInit) =>
-    fetch(getApiBase() + path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } });
+    apiFetch(path, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init?.headers || {}) } });
 
   const loadGroups = async () => {
     try {
