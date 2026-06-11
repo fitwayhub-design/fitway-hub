@@ -5,7 +5,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { Bell, CheckCheck, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { resolveNotificationLink } from "@/lib/notificationLinks";
+import { resolveNotificationLink, safeInternalPath } from "@/lib/notificationLinks";
+import ErrorState from "@/components/ui/ErrorState";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,10 +29,12 @@ export default function Notifications() {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const openNotification = (n: Notification) => {
     if (!n.is_read) markRead(n.id);
-    const dest = resolveNotificationLink(n);
+    // Server-controlled link — only follow validated in-app paths.
+    const dest = safeInternalPath(resolveNotificationLink(n));
     if (dest) navigate(dest);
   };
 
@@ -40,11 +43,15 @@ export default function Notifications() {
       const r = await apiFetch(`/api/notifications/list`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (r.ok) {
-        const d = await r.json();
-        setNotifications(d.notifications || []);
-      }
-    } catch {}
+      if (!r.ok) throw new Error('notifications failed');
+      const d = await r.json();
+      setNotifications(d.notifications || []);
+      setLoadError(false);
+    } catch {
+      // Keep any previously-loaded list; the error state only renders when
+      // there is nothing to show.
+      setLoadError(true);
+    }
     finally { setLoading(false); }
   };
 
@@ -106,6 +113,8 @@ export default function Notifications() {
         <div className="space-y-2.5">
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[84px] w-full rounded-lg" />)}
         </div>
+      ) : loadError && notifications.length === 0 ? (
+        <ErrorState message="We couldn't load your notifications. Check your connection and try again." onRetry={() => { setLoading(true); fetchNotifications(); }} />
       ) : notifications.length === 0 ? (
         <div className="py-16 text-center">
           <div className="mx-auto mb-3 grid size-14 place-items-center rounded-full bg-muted">

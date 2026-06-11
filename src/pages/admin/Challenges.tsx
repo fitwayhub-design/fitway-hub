@@ -201,7 +201,7 @@ function EditRewardDialog({ api, challenge, onClose, onDone, notify }: any) {
       <Card className="my-16 w-full max-w-[460px] p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-[16px] font-bold"><Gift size={16} className="text-primary" /> Reward — {challenge.title}</h2>
-          <Button variant="ghost" size="icon-sm" onClick={onClose}><X size={16} /></Button>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close"><X size={16} /></Button>
         </div>
         <RewardFields showPoints value={f} onChange={patch => setF(p => ({ ...p, ...patch }))} />
         <p className="mt-2 text-[11px] text-muted-foreground">The champion receives this reward (and bonus points) when the challenge is finalized.</p>
@@ -306,7 +306,7 @@ function CreateCommunity({ api, token, onClose, onDone, notify }: any) {
   return (
     <div className="fixed inset-0 z-[9998] flex items-start justify-center overflow-y-auto bg-black/40 p-4">
       <Card className="my-8 w-full max-w-[620px] p-6">
-        <div className="mb-4 flex items-center justify-between"><h2 className="text-[18px] font-bold">New Community Challenge</h2><Button variant="ghost" size="icon-sm" onClick={onClose}><X size={16} /></Button></div>
+        <div className="mb-4 flex items-center justify-between"><h2 className="text-[18px] font-bold">New Community Challenge</h2><Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close"><X size={16} /></Button></div>
         <div className="space-y-4">
           <div className="grid gap-1.5"><Label className="text-[12px]">Title</Label><Input value={f.title} onChange={e => set("title", e.target.value)} placeholder="e.g. June Step-Up Challenge" /></div>
           <div className="grid gap-1.5"><Label className="text-[12px]">Description</Label><Textarea rows={2} value={f.description} onChange={e => set("description", e.target.value)} /></div>

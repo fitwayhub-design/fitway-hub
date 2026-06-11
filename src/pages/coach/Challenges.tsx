@@ -140,7 +140,7 @@ function CreateDialog({ api, token, onClose, onDone, flash }: any) {
       <Card className="my-8 w-full max-w-[640px] p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[18px] font-bold">New Team Challenge</h2>
-          <Button variant="ghost" size="icon-sm" onClick={onClose}><X size={16} /></Button>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close"><X size={16} /></Button>
         </div>
         <div className="space-y-4">
           <Field label="Title"><Input value={f.title} onChange={e => set("title", e.target.value)} placeholder="e.g. 4-Week Consistency Sprint" /></Field>

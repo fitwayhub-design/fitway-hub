@@ -95,6 +95,19 @@ export function SharedSidebar({
     setMoreOpen(false);
   }, [location.pathname]);
 
+  // Close the custom (non-Radix) overlays on Escape, matching dialog semantics.
+  useEffect(() => {
+    if (!drawerOpen && !moreOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setDrawerOpen(false);
+        setMoreOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawerOpen, moreOpen]);
+
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
 

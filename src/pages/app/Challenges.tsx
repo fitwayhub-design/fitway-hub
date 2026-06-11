@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch, resolveAssetUrl } from "@/lib/api";
+import ErrorState from "@/components/ui/ErrorState";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import {
   Trophy, Users, Plus, ChevronLeft, Search, Calendar, Flame, Target, ShieldCheck,
@@ -106,6 +107,7 @@ export default function ChallengesPage() {
   const [mine, setMine] = useState<Challenge[]>([]);
   const [invites, setInvites] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<number | null>(null);
   const [flash, setFlash] = useState("");
@@ -120,6 +122,11 @@ export default function ChallengesPage() {
       if (d.ok) setDiscover((await d.json()).challenges || []);
       if (m.ok) setMine((await m.json()).challenges || []);
       if (i.ok) setInvites((await i.json()).invitations || []);
+      setLoadError(!d.ok && !m.ok);
+    } catch {
+      // Network failure — keep any previously-loaded lists; the grids only
+      // show the error treatment when they have nothing to render.
+      setLoadError(true);
     } finally { setLoading(false); }
   }, [api]);
   useEffect(() => { load(); }, [load]);
@@ -163,10 +170,10 @@ export default function ChallengesPage() {
         {flash && <p className="mb-3 text-[12px] text-primary">{flash}</p>}
 
         <TabsContent value="discover">
-          <Grid loading={loading} list={filterList(discover)} onOpen={setOpenId} empty="No open challenges right now. Check back soon!" />
+          <Grid loading={loading} list={filterList(discover)} onOpen={setOpenId} empty="No open challenges right now. Check back soon!" error={loadError} onRetry={() => { setLoading(true); load(); }} />
         </TabsContent>
         <TabsContent value="mine">
-          <Grid loading={loading} list={filterList(mine)} onOpen={setOpenId} empty="You haven't joined any challenges yet." />
+          <Grid loading={loading} list={filterList(mine)} onOpen={setOpenId} empty="You haven't joined any challenges yet." error={loadError} onRetry={() => { setLoading(true); load(); }} />
         </TabsContent>
         <TabsContent value="invites">
           {invites.length === 0 ? (
@@ -182,7 +189,7 @@ export default function ChallengesPage() {
   );
 }
 
-function Grid({ loading, list, onOpen, empty }: { loading: boolean; list: Challenge[]; onOpen: (id: number) => void; empty: string }) {
+function Grid({ loading, list, onOpen, empty, error, onRetry }: { loading: boolean; list: Challenge[]; onOpen: (id: number) => void; empty: string; error?: boolean; onRetry?: () => void }) {
   if (loading) {
     return (
       <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">
@@ -190,7 +197,11 @@ function Grid({ loading, list, onOpen, empty }: { loading: boolean; list: Challe
       </div>
     );
   }
-  if (!list.length) return <EmptyCard icon={Trophy} text={empty} />;
+  if (!list.length) {
+    // A failed load with nothing cached is an error, not "no challenges".
+    if (error) return <ErrorState message="We couldn't load challenges. Check your connection and try again." onRetry={onRetry} />;
+    return <EmptyCard icon={Trophy} text={empty} />;
+  }
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">
       {list.map(c => <ChallengeCard key={c.id} c={c} onOpen={onOpen} />)}
