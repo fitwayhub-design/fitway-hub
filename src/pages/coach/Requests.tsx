@@ -1,4 +1,5 @@
 import { apiFetch, getApiBase } from "@/lib/api";
+import { clickable } from "@/lib/a11y";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { CheckCircle, X, Clock, ChevronDown, ChevronUp, User, Camera, AlertCircle, Calendar, CreditCard, ClipboardList } from "lucide-react";
@@ -144,7 +145,7 @@ export default function CoachRequests() {
     return (
       <Card className="gap-0 overflow-hidden p-0 shadow-soft-sm">
         {/* Header row */}
-        <div className="flex cursor-pointer items-center gap-3.5 p-4" onClick={() => toggleExpand(req)}>
+        <div className="flex cursor-pointer items-center gap-3.5 p-4" {...clickable(() => toggleExpand(req), { label: `Toggle request from ${req.user_name || 'athlete'}` })}>
           <Avatar className="size-11 shrink-0">
             <AvatarImage src={req.user_avatar} alt={req.user_name} />
             <AvatarFallback>{(req.user_name || "A").slice(0, 1)}</AvatarFallback>
