@@ -2246,6 +2246,9 @@ router.get('/features', async (_req, res) => {
     }
 });
 // ── Per-user feature access ─────────────────────────────────────────────────
+// Global feature flags merged with the authenticated user's personal overrides.
+// Lets the app grant a feature to a specific user even when it's off globally
+// (or hide one that's on globally). Falls back to the global map on any error.
 router.get('/features/me', authenticateToken, async (req, res) => {
     try {
         const rows = await query("SELECT setting_key, setting_value FROM app_settings WHERE category = 'features'");
@@ -2255,13 +2258,15 @@ router.get('/features/me', authenticateToken, async (req, res) => {
             features[r.setting_key] = raw === '1' || raw === 'true' || raw === 'on';
         }
         const overrides = await query('SELECT feature_key, enabled FROM user_feature_overrides WHERE user_id = ?', [req.user.id]);
-        for (const o of overrides) features[o.feature_key] = Number(o.enabled) === 1;
+        for (const o of overrides)
+            features[o.feature_key] = Number(o.enabled) === 1;
         res.json({ features });
     }
     catch {
         res.json({ features: {} });
     }
 });
+// Admin: list per-user feature overrides (with the username they apply to).
 router.get('/feature-access', authenticateToken, adminOnly, async (_req, res) => {
     try {
         const rows = await query(`SELECT o.id, o.user_id, o.feature_key, o.enabled, u.name AS user_name, u.email AS user_email
@@ -2273,6 +2278,7 @@ router.get('/feature-access', authenticateToken, adminOnly, async (_req, res) =>
         res.status(500).json({ message: 'Failed to load feature access' });
     }
 });
+// Admin: grant/revoke a feature for a specific username (or email).
 router.post('/feature-access', authenticateToken, adminOnly, async (req, res) => {
     try {
         const username = String(req.body?.username || '').trim();
@@ -2291,6 +2297,7 @@ router.post('/feature-access', authenticateToken, adminOnly, async (req, res) =>
         res.status(500).json({ message: 'Failed to save feature access' });
     }
 });
+// Admin: remove a per-user override (reverts the user to the global setting).
 router.delete('/feature-access/:id', authenticateToken, adminOnly, async (req, res) => {
     try {
         await run('DELETE FROM user_feature_overrides WHERE id = ?', [req.params.id]);

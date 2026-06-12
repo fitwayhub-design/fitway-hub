@@ -1,0 +1,11 @@
+# FitWay Hub — public site is crawlable; the app/dashboard areas are not.
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /admin/
+Disallow: /coach/
+Disallow: /auth/
+Disallow: /api/
+Disallow: /uploads/
+
+Sitemap: https://www.fitwayhub.com/sitemap.xml

@@ -19,6 +19,7 @@ import healthRoutes from './server/routes/healthRoutes.js';
 import aiRoutes from './server/routes/aiRoutes.js';
 import chatRoutes from './server/routes/chatRoutes.js';
 import communityRoutes from './server/routes/communityRoutes.js';
+import challengeRoutes from './server/routes/challengeRoutes.js';
 import stepsRoutes from './server/routes/stepsRoutes.js';
 import trackRoutes from './server/routes/trackRoutes.js';
 import analyticsRoutes from './server/routes/analyticsRoutes.js';
@@ -42,8 +43,9 @@ import debugRoutes from './server/routes/debugRoutes.js';
 import ticketsRoutes from './server/routes/ticketsRoutes.js';
 import { startSmtpServer } from './server/emailServer.js';
 import { errorHandler } from './server/middleware/error.js';
-import { query as dbQuery, run as dbRun } from './server/config/database.js';
+import { query as dbQuery, run as dbRun, get as dbGet } from './server/config/database.js';
 import { runScheduledPushes } from './server/notificationService.js';
+import { startChallengeJobs } from './server/services/challengeJobs.js';
 // Build allowed origins from env so nothing is hardcoded.
 // APP_BASE_URL is your backend domain (e.g. https://peter-adel.taila6a2b4.ts.net).
 // EXTRA_ORIGINS is an optional comma-separated list of additional allowed origins.
@@ -262,6 +264,7 @@ async function startServer() {
     app.use('/api/ai', aiRoutes);
     app.use('/api/chat', chatRoutes);
     app.use('/api/community', communityRoutes);
+    app.use('/api/challenges', challengeRoutes);
     app.use('/api/track', trackRoutes);
     app.use('/api/analytics', analyticsRoutes);
     app.use('/api/coaching', coachingRoutes);
@@ -298,12 +301,111 @@ async function startServer() {
     const distDir = path.join(__dirname, 'dist');
     const distIndex = path.join(distDir, 'index.html');
     const { existsSync } = await import('fs');
+    // ── SEO: crawlers and link-preview bots don't run the SPA, so the server
+    // injects per-route <title>/<meta>/<og:*> into the built index.html for the
+    // public pages, and generates robots.txt + sitemap.xml dynamically. ──────────
+    const SITE_NAME = 'FitWay Hub';
+    const PUBLIC_META = {
+        '/': { title: `${SITE_NAME} — Fitness Coaching, Workouts & Community`, desc: 'Train with certified coaches, follow workout programs, track steps, join challenges, and stay accountable with the FitWay Hub community.' },
+        '/about': { title: `About — ${SITE_NAME}`, desc: 'What FitWay Hub is, how coaching works, and the team behind the platform.' },
+        '/contact': { title: `Contact — ${SITE_NAME}`, desc: 'Get in touch with the FitWay Hub team.' },
+        '/blogs': { title: `Blog — ${SITE_NAME}`, desc: 'Training tips, nutrition guidance, and fitness insights from FitWay Hub coaches.' },
+        '/privacy': { title: `Privacy Policy — ${SITE_NAME}`, desc: 'How FitWay Hub collects, uses, and protects your data.' },
+        '/terms': { title: `Terms of Service — ${SITE_NAME}`, desc: 'The terms that govern your use of FitWay Hub.' },
+    };
+    const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const siteBase = () => (process.env.APP_BASE_URL || '').replace(/\/$/, '');
+    const injectMeta = (html, meta) => {
+        const tags = [
+            `<meta name="description" content="${escapeHtml(meta.desc)}" data-seo />`,
+            `<meta property="og:site_name" content="${SITE_NAME}" data-seo />`,
+            `<meta property="og:type" content="${meta.type || 'website'}" data-seo />`,
+            `<meta property="og:title" content="${escapeHtml(meta.title)}" data-seo />`,
+            `<meta property="og:description" content="${escapeHtml(meta.desc)}" data-seo />`,
+            meta.url ? `<link rel="canonical" href="${escapeHtml(meta.url)}" data-seo /><meta property="og:url" content="${escapeHtml(meta.url)}" data-seo />` : '',
+            meta.image ? `<meta property="og:image" content="${escapeHtml(meta.image)}" data-seo /><meta name="twitter:card" content="summary_large_image" data-seo />` : '',
+            `<meta name="twitter:title" content="${escapeHtml(meta.title)}" data-seo />`,
+            `<meta name="twitter:description" content="${escapeHtml(meta.desc)}" data-seo />`,
+        ].filter(Boolean).join('\n    ');
+        return html
+            // Drop the static fallback description/OG tags so crawlers don't see duplicates.
+            .replace(/\n?\s*<meta (?:name="description"|property="og:[^"]*"|name="twitter:[^"]*")[^>]*>/g, '')
+            .replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(meta.title)}</title>`)
+            .replace('</head>', `    ${tags}\n  </head>`);
+    };
+    app.get('/robots.txt', (_req, res) => {
+        const base = siteBase();
+        res.type('text/plain').send(['User-agent: *', 'Allow: /', 'Disallow: /app/', 'Disallow: /admin/', 'Disallow: /coach/',
+            'Disallow: /auth/', 'Disallow: /api/', 'Disallow: /uploads/',
+            ...(base ? [``, `Sitemap: ${base}/sitemap.xml`] : [])].join('\n'));
+    });
+    app.get('/sitemap.xml', async (_req, res) => {
+        try {
+            const base = siteBase();
+            if (!base)
+                return res.status(404).send('Set APP_BASE_URL to enable the sitemap');
+            const staticPaths = Object.keys(PUBLIC_META);
+            let posts = [];
+            try {
+                posts = await dbQuery("SELECT slug, updated_at FROM blog_posts WHERE status = 'published' ORDER BY COALESCE(published_at, created_at) DESC LIMIT 500");
+            }
+            catch { /* table may not exist on a fresh install — sitemap still serves static pages */ }
+            const urls = [
+                ...staticPaths.map(p => `  <url><loc>${base}${p === '/' ? '' : p}</loc></url>`),
+                ...posts.map((p) => {
+                    const lastmod = p.updated_at ? `<lastmod>${new Date(p.updated_at).toISOString().slice(0, 10)}</lastmod>` : '';
+                    return `  <url><loc>${base}/blogs/${encodeURIComponent(p.slug)}</loc>${lastmod}</url>`;
+                }),
+            ].join('\n');
+            res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`);
+        }
+        catch {
+            res.status(500).send('');
+        }
+    });
     if (existsSync(distIndex)) {
+        const readIndex = () => fs.promises.readFile(distIndex, 'utf8');
+        // Blog posts get their real title/excerpt/cover as OG tags so shared links
+        // unfurl properly — the single highest-value SEO surface of the site.
+        app.get('/blogs/:slug', async (req, res, next) => {
+            try {
+                const html = await readIndex();
+                const post = await dbGet("SELECT title, excerpt, header_image_url, slug FROM blog_posts WHERE slug = ? AND status = 'published'", [String(req.params.slug || '')]);
+                if (!post)
+                    return res.send(injectMeta(html, { ...PUBLIC_META['/blogs'], url: siteBase() ? `${siteBase()}/blogs` : undefined }));
+                const base = siteBase();
+                const img = post.header_image_url && /^https?:\/\//i.test(post.header_image_url)
+                    ? post.header_image_url
+                    : (post.header_image_url && base ? `${base}${post.header_image_url.startsWith('/') ? '' : '/'}${post.header_image_url}` : undefined);
+                res.send(injectMeta(html, {
+                    title: `${post.title} — ${SITE_NAME}`,
+                    desc: String(post.excerpt || '').slice(0, 300) || `Read "${post.title}" on the ${SITE_NAME} blog.`,
+                    url: base ? `${base}/blogs/${encodeURIComponent(post.slug)}` : undefined,
+                    image: img,
+                    type: 'article',
+                }));
+            }
+            catch {
+                next();
+            }
+        });
+        // Static public pages: per-route title/description/canonical.
+        for (const [route, meta] of Object.entries(PUBLIC_META)) {
+            app.get(route, async (_req, res, next) => {
+                try {
+                    const base = siteBase();
+                    res.send(injectMeta(await readIndex(), { ...meta, url: base ? `${base}${route === '/' ? '' : route}` : undefined }));
+                }
+                catch {
+                    next();
+                }
+            });
+        }
         app.use(express.static(distDir));
         app.get(/^(?!\/api\/).*/, (_req, res) => {
             res.sendFile(distIndex);
         });
-        console.log('✅ Serving built frontend from dist/');
+        console.log('✅ Serving built frontend from dist/ (with SEO meta injection)');
     }
     else {
         // dist/ not built yet — show helpful message instead of blank page
@@ -358,6 +460,8 @@ async function startServer() {
         // Also run once on startup after a short delay
         setTimeout(() => processAutoRenewals().catch(() => { }), 30_000);
         setTimeout(() => runScheduledPushes().catch(() => { }), 60_000);
+        // Challenge jobs: auto-finalize ended challenges + daily goal reminders.
+        startChallengeJobs();
     });
 }
 startServer();

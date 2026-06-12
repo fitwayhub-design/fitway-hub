@@ -68,12 +68,21 @@ export const analyzeSteps = async (req, res) => {
         res.status(500).json({ message: 'Error generating AI analysis' });
     }
 };
-// Nutrition lookup — Option 2 of the calorie calculator. The athlete types a
-// free-text meal/dish/element name and the backend "searches the web" (via the
-// Gemini model's knowledge) for its nutrition facts per 100 g.
+/**
+ * Nutrition lookup — Option 2 of the calorie calculator.
+ *
+ * The athlete types a free-text meal / dish / element name and the backend
+ * "searches the web" (via the Gemini model's knowledge) for its nutrition
+ * facts, returning calories + macros per 100 g. The frontend then multiplies
+ * by the grams the athlete entered.
+ *
+ * SECURITY: the food name is sanitised and length-bounded before it reaches
+ * the model to avoid prompt-injection / data-exfiltration.
+ */
 export const nutritionLookup = async (req, res) => {
     try {
         const rawName = ((req.body || {}).name ?? '').toString();
+        // Keep letters, numbers, spaces and a few food-safe punctuation marks only.
         const name = rawName.replace(/[^\p{L}\p{N}\s\-'&(),.]/gu, '').trim().slice(0, 80);
         if (name.length < 2) {
             return res.status(400).json({ message: 'Please enter a valid food or meal name.' });
