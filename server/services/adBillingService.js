@@ -79,7 +79,8 @@ export async function billClick(adId) {
 /** Check daily budget reset at midnight and schedule expiry */
 export async function expireAndResetAds() {
     try {
-        // Expire ads past schedule_end (DATETIME — compare to NOW() to honour clock time)
+        // Expire ads past schedule_end. schedule_end is now a DATETIME, so compare
+        // against NOW() to honour the scheduled clock time, not just the calendar day.
         await run(`UPDATE coach_ads
        SET status = 'expired'
        WHERE status IN ('active','paused')

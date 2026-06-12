@@ -4,6 +4,7 @@ import DOMPurify from "dompurify";
 import { ArrowLeft, Calendar, User, Clock, Eye } from "lucide-react";
 import { useI18n } from "@/context/I18nContext";
 import { fetchPublicBlogBySlug, resolveMediaUrl, trackBlogView, type BlogPost as BlogPostType } from "@/lib/blogs";
+import { usePageTitle } from "@/lib/usePageMeta";
 import PageLoader from "@/components/ui/PageLoader";
 import VideoPlayer, { isYouTubeUrl } from "@/components/app/VideoPlayer";
 
@@ -46,6 +47,7 @@ export default function BlogPost() {
   const [post, setPost] = useState<BlogPostType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  usePageTitle(post ? `${post.title} — FitWay Hub` : null);
 
   useEffect(() => {
     async function loadPost() {

@@ -875,9 +875,12 @@ async function initTables() {
         `ALTER TABLE users ADD COLUMN last_activity_update DATETIME DEFAULT NULL`,
         // Athletes may change their display name only once in their lifetime.
         `ALTER TABLE users ADD COLUMN name_changed TINYINT DEFAULT 0`,
-        // Remove superseded subscription-price settings (replaced by sub_app_* and sub_pt_<tier>_<cycle>_egp).
+        // Remove the superseded subscription-price settings so the admin pricing
+        // panel only shows the live App + PT plan prices (replaced by sub_app_* and
+        // sub_pt_<tier>_<cycle>_egp). Safe no-op once already removed.
         `DELETE FROM app_settings WHERE setting_key IN ('sub_community_freemium_egp','sub_community_premium_egp','sub_community_exclusive_egp','sub_pt_basic_egp','sub_pt_premium_egp','sub_pt_gold_egp')`,
-        // Per-user feature access overrides — grant/revoke a feature for a SPECIFIC user.
+        // Per-user feature access overrides — lets admins grant (or revoke) a
+        // feature for a SPECIFIC user instead of only toggling it for everyone.
         `CREATE TABLE IF NOT EXISTS user_feature_overrides (
        id INT AUTO_INCREMENT PRIMARY KEY,
        user_id INT NOT NULL,
@@ -900,6 +903,9 @@ async function initTables() {
         `ALTER TABLE coach_ads ADD COLUMN placement VARCHAR(50) DEFAULT 'all'`,
         `ALTER TABLE coach_ads ADD COLUMN schedule_start DATE`,
         `ALTER TABLE coach_ads ADD COLUMN schedule_end DATE`,
+        // Upgrade schedule columns to DATETIME so ad scheduling supports a clock
+        // (start/end time), not just the calendar day. Safe & idempotent: running
+        // MODIFY on an already-DATETIME column is a no-op.
         `ALTER TABLE coach_ads MODIFY COLUMN schedule_start DATETIME`,
         `ALTER TABLE coach_ads MODIFY COLUMN schedule_end DATETIME`,
         `ALTER TABLE coach_ads ADD COLUMN reach INT DEFAULT 0`,
@@ -1182,7 +1188,7 @@ export async function seedDefaultAppSettings() {
         ['sub_app_1month_egp', '199', 'number', 'pricing', 'App Premium · 1 Month (EGP)'],
         ['sub_app_3months_egp', '499', 'number', 'pricing', 'App Premium · 3 Months (EGP)'],
         ['sub_app_annual_egp', '699', 'number', 'pricing', 'App Premium · Annual (EGP)'],
-        // ── PT (coach) plans — price per billing cycle ──
+        // ── PT (coach) plans — price per billing cycle (Monthly / 2 Months / Quarterly) ──
         ['sub_pt_basic_monthly_egp', '999', 'number', 'pricing', 'PT Basic · Monthly (EGP)'],
         ['sub_pt_basic_2months_egp', '1399', 'number', 'pricing', 'PT Basic · 2 Months (EGP)'],
         ['sub_pt_basic_quarterly_egp', '1999', 'number', 'pricing', 'PT Basic · Quarterly (EGP)'],
@@ -1456,6 +1462,24 @@ export async function initDatabase() {
     }
     catch (e) {
         console.warn('⚠️  URL cleanup migration skipped:', e.message);
+    }
+    // Challenges system migration (009) — two challenge types, verification,
+    // trust-weighted scoring, leaderboards, invitations, rewards, reports.
+    try {
+        const { runChallengesSystemMigration } = await import('../migrations/009_challenges_system.js');
+        await runChallengesSystemMigration();
+    }
+    catch (e) {
+        console.warn('⚠️  Challenges system migration skipped:', e.message);
+    }
+    // Challenge goals migration (010) — multi-goal task lists (training,
+    // walk/run, weight, nutrition, habit, transformation) + per-challenge reward.
+    try {
+        const { runChallengeGoalsMigration } = await import('../migrations/010_challenge_goals.js');
+        await runChallengeGoalsMigration();
+    }
+    catch (e) {
+        console.warn('⚠️  Challenge goals migration skipped:', e.message);
     }
     // Certified coach migration
     try {

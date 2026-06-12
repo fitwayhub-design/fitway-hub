@@ -9,6 +9,8 @@ router.patch('/profile', authenticateToken, async (req, res) => {
         const fields = [];
         const values = [];
         // Athletes may change their display name only once in their lifetime.
+        // When the name actually changes we flip the `name_changed` flag; a second
+        // change is rejected for role 'user'. Coaches/admins are unrestricted.
         let markNameChanged = false;
         if (name !== undefined) {
             const current = await get('SELECT name, role, name_changed FROM users WHERE id = ?', [userId]);

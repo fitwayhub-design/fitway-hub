@@ -37,12 +37,16 @@ function normalizeCoachSubscriptionStatus(status) {
     return status;
 }
 function getCoachSubscriptionDurationMonths(planCycle) {
-    if (planCycle === 'yearly') return 12;
-    if (planCycle === 'quarterly') return 3;
-    if (planCycle === '2months') return 2;
+    if (planCycle === 'yearly')
+        return 12;
+    if (planCycle === 'quarterly')
+        return 3;
+    if (planCycle === '2months')
+        return 2;
     return 1;
 }
-// PT (coach) plans — standardized platform tiers. Platform commission 40% (coach 60%).
+// PT (coach) plans — standardized platform tiers. Platform/App commission is
+// 40% of the subscription value (coach receives 60%). Prices per billing cycle.
 const PT_PLAN_PRICES = {
     pt_basic: { monthly: 999, '2months': 1399, quarterly: 1999 },
     pt_premium: { monthly: 1499, '2months': 1899, quarterly: 2499 },
@@ -51,22 +55,31 @@ const PT_PLAN_PRICES = {
 function isPtPackage(pkgId) {
     return Object.prototype.hasOwnProperty.call(PT_PLAN_PRICES, pkgId);
 }
+// Admin-tunable PT price (Settings → Pricing, key sub_<tier>_<cycle>_egp);
+// falls back to the standard catalogue price above.
 async function getPtPrice(pkgId, cycle) {
     const override = await getSetting(`sub_${pkgId}_${cycle}_egp`).catch(() => null);
     const v = Number(override);
-    if (Number.isFinite(v) && v > 0) return v;
-    return (PT_PLAN_PRICES[pkgId] && PT_PLAN_PRICES[pkgId][cycle]) || 0;
+    if (Number.isFinite(v) && v > 0)
+        return v;
+    return PT_PLAN_PRICES[pkgId]?.[cycle] ?? 0;
 }
+// Platform commission % for PT plans (admin-tunable; defaults to 40).
 async function getPtPlatformCommissionPct() {
     const v = Number(await getSetting('pt_platform_commission_pct').catch(() => null));
     return Number.isFinite(v) && v >= 0 && v <= 100 ? v : 40;
 }
+// Normalise an incoming plan/cycle value to a stored plan_cycle.
 function normalizePlanCycle(plan) {
-    if (plan === 'annual' || plan === 'yearly') return 'yearly';
-    if (plan === 'quarterly' || plan === '2months' || plan === 'monthly') return plan;
+    if (plan === 'annual' || plan === 'yearly')
+        return 'yearly';
+    if (plan === 'quarterly' || plan === '2months' || plan === 'monthly')
+        return plan;
     return 'monthly';
 }
 async function computeCoachCut(amount, packageId) {
+    // PT plans: platform takes the admin-configured commission (default 40%),
+    // so the coach keeps the rest (60% by default).
     if (packageId && isPtPackage(packageId)) {
         const platformPct = await getPtPlatformCommissionPct();
         return Math.round(amount * ((100 - platformPct) / 100) * 100) / 100;
@@ -298,6 +311,8 @@ router.post('/paypal/capture-order', authenticateToken, async (req, res) => {
                     return res.status(404).json({ message: 'Coach not found' });
                 const pkgId = String(packageId || '');
                 const planCycle = normalizePlanCycle(plan);
+                // PT plans use the standardized platform price; legacy plans use the
+                // coach's own monthly/yearly price.
                 const subAmount = isPtPackage(pkgId)
                     ? await getPtPrice(pkgId, planCycle)
                     : (planCycle === 'yearly' ? Number(coach.yearly_price || 0) : Number(coach.monthly_price || 0));
@@ -389,6 +404,7 @@ router.post('/ewallet', authenticateToken, uploadPaymentProof, optimizeImage(), 
             const planCycle = normalizePlanCycle(plan);
             let amount;
             if (isPtPackage(pkgId)) {
+                // Standardized PT plan price for the chosen billing cycle.
                 amount = await getPtPrice(pkgId, planCycle);
             }
             else {
@@ -973,7 +989,8 @@ router.post('/payment-info', authenticateToken, async (req, res) => {
 });
 // Coach: request withdrawal
 router.post('/withdraw', authenticateToken, async (req, res) => {
-    // Coerce + validate the amount server-side. Reject NaN/negative/zero.
+    // Coerce + validate the amount server-side. Reject NaN/negative/zero and
+    // anything that isn't a finite number (the client could send strings/objects).
     const amount = Number(req.body?.amount);
     if (!Number.isFinite(amount) || amount <= 0)
         return res.status(400).json({ message: 'Valid amount required' });
@@ -995,17 +1012,21 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
         if (methodType === 'instapay' && !user.instapay_handle)
             return res.status(400).json({ message: 'Please set your InstaPay handle first' });
         // SECURITY: deduct atomically with a balance guard BEFORE creating the
-        // request, so two concurrent withdrawals can't both pass the check and
-        // overdraw (TOCTOU double-spend). The second UPDATE affects 0 rows.
+        // request. The `credit >= ?` predicate means two concurrent withdrawal
+        // requests can never both succeed and overdraw the balance — the second
+        // UPDATE affects 0 rows. The earlier read-then-write (SELECT credit; later
+        // UPDATE credit - amount) had a TOCTOU window that allowed double-spend.
         const deduct = await run('UPDATE users SET credit = credit - ? WHERE id = ? AND credit >= ?', [amount, req.user.id, amount]);
-        if (deduct.affectedRows !== 1)
+        if (deduct.affectedRows !== 1) {
             return res.status(400).json({ message: 'Insufficient credit balance' });
+        }
         try {
             await run('INSERT INTO withdrawal_requests (coach_id, amount, payment_phone, wallet_type, payment_method_type, paypal_email, card_holder_name, card_number, instapay_handle) VALUES (?,?,?,?,?,?,?,?,?)', [req.user.id, amount, selectedPhone, user.payment_wallet_type, methodType, user.paypal_email, user.card_holder_name, user.card_number, user.instapay_handle]);
             await run('INSERT INTO credit_transactions (user_id, amount, type, description) VALUES (?,?,?,?)', [req.user.id, -amount, 'withdrawal_request', `Withdrawal request for ${amount} EGP`]);
         }
         catch (insErr) {
-            // Roll the deduction back if we couldn't record the request.
+            // Roll the deduction back if we couldn't record the request, so the
+            // coach's credit isn't silently swallowed.
             await run('UPDATE users SET credit = credit + ? WHERE id = ?', [amount, req.user.id]).catch(() => { });
             throw insErr;
         }

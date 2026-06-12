@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding } from "@/context/BrandingContext";
+import { usePageTitle } from "@/lib/usePageMeta";
 import { useTheme } from "@/context/ThemeContext";
 import { apiFetch } from "@/lib/api";
 import {
@@ -62,6 +63,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { lang } = useI18n();
   const { branding } = useBranding();
+  usePageTitle(`${branding?.app_name || "FitWay Hub"} — Fitness Coaching, Workouts & Community`);
   const { isDark } = useTheme();
   const isAr = lang === "ar";
   const accent = branding.primary_color || "#FFD600";
