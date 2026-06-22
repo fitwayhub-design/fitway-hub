@@ -381,7 +381,7 @@ export default function CoachProfile() {
       </Card>
 
       {message && (
-        <div className={`rounded-md px-4 py-2.5 text-[13px] font-semibold ${messageOk ? "bg-[color-mix(in_srgb,var(--green)_14%,transparent)] text-[var(--green)]" : "bg-destructive/12 text-destructive"}`}>
+        <div role="status" className={`rounded-md px-4 py-2.5 text-[13px] font-semibold ${messageOk ? "bg-[color-mix(in_srgb,var(--green)_14%,transparent)] text-[var(--green)]" : "bg-destructive/12 text-destructive"}`}>
           {message}
         </div>
       )}

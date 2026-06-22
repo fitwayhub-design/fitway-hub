@@ -71,11 +71,12 @@ export default function CoachAdsCampaigns() {
 
   const [campaignForm] = Form.useForm();
   const [adForm] = Form.useForm();
-  // Watch budget type + objective so the campaign form can react: lifetime
-  // budget hides the daily-budget + schedule fields, and we can show details
-  // for the selected objective.
-  const watchedBudgetType = Form.useWatch("budget_type", campaignForm) || "daily";
-  const watchedObjective = Form.useWatch("objective", campaignForm) || "coaching";
+  // Local state mirrors campaign form fields that affect conditional rendering.
+  // Using useState + onValuesChange avoids the Ant Design "useForm not connected"
+  // warning that Form.useWatch triggers before the modal first renders.
+  const [budgetType, setBudgetType] = useState("daily");
+  const [objective, setObjective] = useState("coaching");
+  const [selectedCreativeId, setSelectedCreativeId] = useState<number | undefined>(undefined);
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
@@ -112,11 +113,13 @@ export default function CoachAdsCampaigns() {
 
   // ── Campaign CRUD ──
   function openCreateCampaign() {
-    setEditingCampaign(null); campaignForm.resetFields(); setCampaignModal(true);
+    setEditingCampaign(null); campaignForm.resetFields(); setBudgetType("daily"); setObjective("coaching"); setCampaignModal(true);
   }
   function openEditCampaign(c: any) {
     setEditingCampaign(c);
     campaignForm.setFieldsValue({ name: c.name, objective: c.objective, daily_budget: c.daily_budget, lifetime_budget: c.lifetime_budget, budget_type: c.budget_type || "daily" });
+    setBudgetType(c.budget_type || "daily");
+    setObjective(c.objective || "coaching");
     setCampaignModal(true);
   }
   async function saveCampaign() {
@@ -152,7 +155,7 @@ export default function CoachAdsCampaigns() {
   // ── Ad CRUD (merged Ad Set + Ad) ──
   function openCreateAd() {
     if (!selectedCampaign) { message.info(t("select_campaign_first") || "Select a campaign first"); return; }
-    setEditingAd(null); adForm.resetFields();
+    setEditingAd(null); adForm.resetFields(); setSelectedCreativeId(undefined);
     adForm.setFieldsValue({ target_gender: "all", target_age_min: 18, target_age_max: 65, placement: "feed", daily_budget: 50, target_radius_km: 50 });
     setMapLat(null); setMapLng(null);
     setAdStep(0); setAdModal(true);
@@ -161,6 +164,7 @@ export default function CoachAdsCampaigns() {
     setEditingAd(ad);
     const tgt = ad.targeting || {};
     adForm.setFieldsValue({ name: ad.name, headline: ad.headline, body: ad.body, cta: ad.cta, creative_id: ad.creative_id, placement: tgt.placement || "feed", target_gender: tgt.target_gender || "all", target_age_min: tgt.target_age_min || 18, target_age_max: tgt.target_age_max || 65, target_location: tgt.target_location || undefined, target_radius_km: tgt.target_radius_km || 50, daily_budget: tgt.daily_budget || 50 });
+    setSelectedCreativeId(ad.creative_id || undefined);
     setMapLat(tgt.target_lat ? Number(tgt.target_lat) : null);
     setMapLng(tgt.target_lng ? Number(tgt.target_lng) : null);
     setAdStep(0); setAdModal(true);
@@ -212,7 +216,6 @@ export default function CoachAdsCampaigns() {
     finally { setUploading(false); }
   }
 
-  const selectedCreativeId = Form.useWatch("creative_id", adForm);
   const selectedCreative = creatives.find((c: any) => c.id === selectedCreativeId);
 
   return (
@@ -285,8 +288,12 @@ export default function CoachAdsCampaigns() {
 
       {/* Campaign Modal */}
       <Modal open={campaignModal} title={editingCampaign ? t("edit") + " Campaign" : t("create_campaign") || "Create Campaign"}
-        onCancel={() => setCampaignModal(false)} onOk={saveCampaign} okText={t("save") || "Save"} width={600}>
-        <Form form={campaignForm} layout="vertical" style={{ marginTop: 16 }}>
+        onCancel={() => setCampaignModal(false)} onOk={saveCampaign} okText={t("save") || "Save"} width={600} forceRender>
+        <Form form={campaignForm} layout="vertical" style={{ marginTop: 16 }}
+          onValuesChange={(changed) => {
+            if ('budget_type' in changed) setBudgetType(changed.budget_type || "daily");
+            if ('objective' in changed) setObjective(changed.objective || "coaching");
+          }}>
           <Form.Item name="name" label={t("campaign_name") || "Campaign Name"} rules={[{ required: true }]}>
             <Input placeholder="e.g. Summer Promotion" size="large" />
           </Form.Item>
@@ -327,12 +334,12 @@ export default function CoachAdsCampaigns() {
           {/* Details for the currently-selected objective (where it's published etc.) */}
           <Paragraph type="secondary" style={{ marginTop: -8, marginBottom: 16, fontSize: 12, background: "var(--ant-color-fill-quaternary, #f6f8fa)", padding: "8px 12px", borderRadius: 8 }}>
             <InfoCircleOutlined style={{ color: "#1677ff", marginInlineEnd: 6 }} />
-            {OBJECTIVES.find(o => o.value === watchedObjective)?.info}
+            {OBJECTIVES.find(o => o.value === objective)?.info}
           </Paragraph>
 
           {/* Budget — show ONLY the field matching the chosen budget type.
               Lifetime hides the daily-budget field (and the schedule below). */}
-          {watchedBudgetType === "lifetime" ? (
+          {budgetType === "lifetime" ? (
             <Form.Item name="lifetime_budget" label={t("lifetime_budget") || "Lifetime Budget (EGP)"} rules={[{ required: true, message: "Enter a lifetime budget" }]}>
               <InputNumber min={0} style={{ width: "100%" }} size="large" addonAfter="EGP" />
             </Form.Item>
@@ -345,7 +352,7 @@ export default function CoachAdsCampaigns() {
           {/* Schedule — only relevant for daily budgets. A lifetime budget runs
               until it is exhausted, so we hide the schedule for it. Includes a
               clock (time), not just the day. */}
-          {watchedBudgetType !== "lifetime" && (
+          {budgetType !== "lifetime" && (
             <Form.Item name="schedule" label={t("schedule") || "Schedule (start & end)"}>
               <DatePicker.RangePicker
                 showTime={{ format: "HH:mm" }}
@@ -360,7 +367,7 @@ export default function CoachAdsCampaigns() {
 
       {/* Ad Modal — 3-step wizard */}
       <Modal open={adModal} title={editingAd ? t("coach_ads_edit") || "Edit Ad" : t("create_ad") || "Create Ad"}
-        onCancel={() => setAdModal(false)} width={720}
+        onCancel={() => setAdModal(false)} width={720} forceRender
         footer={<div style={{ display: "flex", justifyContent: "space-between" }}>
           <Button disabled={adStep === 0} onClick={() => setAdStep(s => s - 1)}>{t("back") || "Back"}</Button>
           <Space>
@@ -371,7 +378,10 @@ export default function CoachAdsCampaigns() {
         </div>}>
         <Steps current={adStep} size="small" style={{ marginBottom: 24 }}
           items={[{ title: t("creative") || "Creative" }, { title: t("targeting") || "Targeting" }, { title: t("review") || "Review" }]} />
-        <Form form={adForm} layout="vertical">
+        <Form form={adForm} layout="vertical"
+          onValuesChange={(changed) => {
+            if ('creative_id' in changed) setSelectedCreativeId(changed.creative_id);
+          }}>
           {/* Step 0: Creative */}
           <div style={{ display: adStep === 0 ? "block" : "none" }}>
             <Form.Item name="name" label={t("ad_title") || "Ad Name"} rules={[{ required: true }]}><Input placeholder={t("coach_ads_title_placeholder") || "e.g. Transform Your Body"} size="large" /></Form.Item>

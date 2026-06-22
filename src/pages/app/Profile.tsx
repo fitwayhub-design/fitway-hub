@@ -444,7 +444,7 @@ export default function Profile() {
       </Card>
 
       {msg && (
-        <div className={`mb-4 rounded-md px-3.5 py-2.5 text-[13px] font-semibold ${msg.startsWith("✅") ? "bg-[color-mix(in_srgb,var(--green)_14%,transparent)] text-[var(--green)]" : "bg-[color-mix(in_srgb,var(--red)_14%,transparent)] text-[var(--red)]"}`}>
+        <div role="status" className={`mb-4 rounded-md px-3.5 py-2.5 text-[13px] font-semibold ${msg.startsWith("✅") ? "bg-[color-mix(in_srgb,var(--green)_14%,transparent)] text-[var(--green)]" : "bg-[color-mix(in_srgb,var(--red)_14%,transparent)] text-[var(--red)]"}`}>
           {msg}
         </div>
       )}

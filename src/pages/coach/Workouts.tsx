@@ -3,11 +3,15 @@ import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import { Play, Search, Clock, ChevronRight, X } from "lucide-react";
+import { Play, Search, Clock, ChevronRight, X, Plus } from "lucide-react";
 import VideoPlayer from "@/components/app/VideoPlayer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 interface Video {
@@ -46,6 +50,14 @@ export default function CoachWorkouts() {
   const [playing, setPlaying] = useState<Video | null>(null);
   const [searching, setSearching] = useState(false);
 
+  const [newPlanOpen, setNewPlanOpen] = useState(false);
+  const [athletes, setAthletes] = useState<{ id: number; name: string }[]>([]);
+  const [newPlanAthleteId, setNewPlanAthleteId] = useState("");
+  const [newPlanTitle, setNewPlanTitle] = useState("");
+  const [newPlanDesc, setNewPlanDesc] = useState("");
+  const [newPlanSaving, setNewPlanSaving] = useState(false);
+  const [newPlanMsg, setNewPlanMsg] = useState("");
+
   const fetchJson = async (path: string, init?: RequestInit) => {
     const response = await apiFetch(`${path}`, {
       ...init,
@@ -73,8 +85,30 @@ export default function CoachWorkouts() {
 
   useEffect(() => {
     loadVideos();
+    if (token) {
+      fetchJson("/api/coach/users").then(d => setAthletes((d.users || []).map((u: any) => ({ id: u.id, name: u.name })))).catch(() => {});
+    }
   }, [token]);
   useAutoRefresh(loadVideos);
+
+  const saveNewPlan = async () => {
+    if (!newPlanAthleteId || !newPlanTitle.trim()) return;
+    setNewPlanSaving(true);
+    setNewPlanMsg("");
+    try {
+      const r = await fetchJson(`/api/coach/users/${newPlanAthleteId}/workout-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newPlanTitle.trim(), description: newPlanDesc.trim(), days_per_week: 3, exercises: [] }),
+      });
+      setNewPlanMsg("✅ " + (r.message || "Plan created!"));
+      setTimeout(() => { setNewPlanOpen(false); setNewPlanTitle(""); setNewPlanDesc(""); setNewPlanAthleteId(""); setNewPlanMsg(""); }, 1500);
+    } catch (e: any) {
+      setNewPlanMsg("❌ " + (e.message || "Failed to create plan"));
+    } finally {
+      setNewPlanSaving(false);
+    }
+  };
 
   const filtered = videos.filter((video) =>
     (cat === "All" || video.category === cat) &&
@@ -97,6 +131,9 @@ export default function CoachWorkouts() {
         ) : (
           <>
             <h1 className="flex-1 text-[24px] font-bold tracking-tight">{t("training_videos")}</h1>
+            <Button variant="outline" size="sm" onClick={() => setNewPlanOpen(true)} className="gap-1.5">
+              <Plus size={15} strokeWidth={2} /> New Plan
+            </Button>
             <Button variant="outline" size="icon" aria-label={lang === "ar" ? "بحث" : "Search"} onClick={() => setSearching(true)}>
               <Search size={18} strokeWidth={2} />
             </Button>
@@ -192,6 +229,41 @@ export default function CoachWorkouts() {
           <p className="text-[13px]">{t("try_different_filter")}</p>
         </div>
       )}
+
+      <Dialog open={newPlanOpen} onOpenChange={setNewPlanOpen}>
+        <DialogContent className="max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>New Workout Plan</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-semibold tracking-wide text-muted-foreground uppercase">Athlete</Label>
+              <Select value={newPlanAthleteId} onValueChange={setNewPlanAthleteId}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="— Select athlete —" /></SelectTrigger>
+                <SelectContent>
+                  {athletes.map(a => <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {athletes.length === 0 && <p className="text-[12px] text-muted-foreground">No active athlete subscriptions yet.</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-semibold tracking-wide text-muted-foreground uppercase">Plan title</Label>
+              <Input value={newPlanTitle} onChange={e => setNewPlanTitle(e.target.value)} placeholder="e.g. Beginner Full-Body 3x Week" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-semibold tracking-wide text-muted-foreground uppercase">Description</Label>
+              <Textarea value={newPlanDesc} onChange={e => setNewPlanDesc(e.target.value)} placeholder="Overview of this workout plan…" rows={3} />
+            </div>
+            {newPlanMsg && <p className="text-[13px]" style={{ color: newPlanMsg.startsWith("✅") ? "var(--green)" : "var(--red)" }}>{newPlanMsg}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setNewPlanOpen(false)}>Cancel</Button>
+            <Button onClick={saveNewPlan} disabled={newPlanSaving || !newPlanAthleteId || !newPlanTitle.trim()}>
+              {newPlanSaving ? "Creating…" : "Create Plan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {playing && (
         <div className="fixed inset-0 z-[200] flex flex-col bg-black/95" onClick={() => setPlaying(null)}>

@@ -197,7 +197,7 @@ export default function CoachHome() {
   const statCards = [
     { label: t("my_athletes"), value: stats?.athletes ?? 0, icon: Users, link: "/coach/athletes" },
     { label: t("pending_requests"), value: stats?.pendingRequests ?? 0, icon: ClipboardList, link: "/coach/requests" },
-    { label: t("monthly_revenue"), value: `${(stats?.monthlyRevenue ?? 0).toFixed(0)} ${t('currency_egp')}`, icon: DollarSign, link: "/coach/ads" },
+    { label: t("monthly_revenue"), value: `${(Number(stats?.monthlyRevenue) || 0).toFixed(0)} ${t('currency_egp')}`, icon: DollarSign, link: "/coach/ads" },
     { label: t("avg_rating"), value: `${stats?.avgRating ?? "—"}★`, icon: Star, link: "/coach/profile" },
     { label: t("completion_rate"), value: `${stats?.completionRate ?? 0}%`, icon: TrendingUp, link: "/coach/athletes" },
   ];

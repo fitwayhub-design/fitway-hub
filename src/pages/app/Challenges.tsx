@@ -132,6 +132,15 @@ export default function ChallengesPage() {
   useEffect(() => { load(); }, [load]);
   useAutoRefresh(load);
 
+  const joinChallenge = async (id: number) => {
+    try {
+      const r = await api(`/api/challenges/${id}/join`, { method: "POST", body: JSON.stringify({ display_mode: "hidden" }) });
+      const d = await r.json().catch(() => ({}));
+      note(d.message || (r.ok ? "Joined!" : "Something went wrong"));
+      if (r.ok) load();
+    } catch { note("Failed to join challenge"); }
+  };
+
   if (openId != null) {
     return <ChallengeDetail id={openId} api={api} token={token} onBack={() => { setOpenId(null); load(); }} note={note} meId={user?.id} />;
   }
@@ -170,10 +179,10 @@ export default function ChallengesPage() {
         {flash && <p className="mb-3 text-[12px] text-primary">{flash}</p>}
 
         <TabsContent value="discover">
-          <Grid loading={loading} list={filterList(discover)} onOpen={setOpenId} empty="No open challenges right now. Check back soon!" error={loadError} onRetry={() => { setLoading(true); load(); }} />
+          <Grid loading={loading} list={filterList(discover)} onOpen={setOpenId} onJoin={joinChallenge} empty="No open challenges right now. Check back soon!" error={loadError} onRetry={() => { setLoading(true); load(); }} />
         </TabsContent>
         <TabsContent value="mine">
-          <Grid loading={loading} list={filterList(mine)} onOpen={setOpenId} empty="You haven't joined any challenges yet." error={loadError} onRetry={() => { setLoading(true); load(); }} />
+          <Grid loading={loading} list={filterList(mine)} onOpen={setOpenId} onJoin={joinChallenge} empty="You haven't joined any challenges yet." error={loadError} onRetry={() => { setLoading(true); load(); }} />
         </TabsContent>
         <TabsContent value="invites">
           {invites.length === 0 ? (
@@ -189,7 +198,7 @@ export default function ChallengesPage() {
   );
 }
 
-function Grid({ loading, list, onOpen, empty, error, onRetry }: { loading: boolean; list: Challenge[]; onOpen: (id: number) => void; empty: string; error?: boolean; onRetry?: () => void }) {
+function Grid({ loading, list, onOpen, empty, error, onRetry, onJoin }: { loading: boolean; list: Challenge[]; onOpen: (id: number) => void; empty: string; error?: boolean; onRetry?: () => void; onJoin?: (id: number) => void }) {
   if (loading) {
     return (
       <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">
@@ -204,7 +213,7 @@ function Grid({ loading, list, onOpen, empty, error, onRetry }: { loading: boole
   }
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">
-      {list.map(c => <ChallengeCard key={c.id} c={c} onOpen={onOpen} />)}
+      {list.map(c => <ChallengeCard key={c.id} c={c} onOpen={onOpen} onJoin={onJoin} />)}
     </div>
   );
 }
@@ -230,7 +239,8 @@ function StateBadge({ state }: { state: string }) {
   return <Badge className={cn("px-2 py-0 text-[10px]", m.cls)}>{m.label}</Badge>;
 }
 
-function ChallengeCard({ c, onOpen, invite }: { c: Challenge; onOpen: (id: number) => void; invite?: boolean }) {
+function ChallengeCard({ c, onOpen, invite, onJoin }: { c: Challenge; onOpen: (id: number) => void; invite?: boolean; onJoin?: (id: number) => void }) {
+  const canJoin = !c.is_joined && !invite && c.type === "community" && (c.state === "active" || c.state === "scheduled");
   return (
     <Card className="flex cursor-pointer flex-col gap-0 overflow-hidden p-0 shadow-soft-sm transition-shadow hover:shadow-soft-md" onClick={() => onOpen(c.id)}>
       <div className="relative flex aspect-video w-full items-center justify-center bg-muted">
@@ -261,6 +271,15 @@ function ChallengeCard({ c, onOpen, invite }: { c: Challenge; onOpen: (id: numbe
           <p className="mt-0.5 inline-flex items-center gap-1 truncate text-[11px] font-semibold text-primary">
             <Award size={11} className="shrink-0" /> {c.reward_title}
           </p>
+        )}
+        {canJoin && onJoin && (
+          <Button
+            size="sm"
+            className="mt-2 w-full"
+            onClick={(e) => { e.stopPropagation(); onJoin(c.id); }}
+          >
+            <Plus size={13} /> Join challenge
+          </Button>
         )}
       </div>
     </Card>
