@@ -19,6 +19,8 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     iosScheme: 'https',
     allowNavigation: [
+      'fitwayhub.com',
+      '*.fitwayhub.com',
       'accounts.google.com',
       '*.google.com',
       '*.googleapis.com',
