@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import DOMPurify from "dompurify";
 import { Mail, Plus, Trash2, Send, Inbox, ArrowLeft, RefreshCw, Settings, CheckCircle, XCircle, Zap } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { getApiBase } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const API = import.meta.env.VITE_API_BASE || "";
+const API = getApiBase();
 
 interface EmailAccount {
   id: number;

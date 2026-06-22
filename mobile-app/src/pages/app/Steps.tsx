@@ -245,7 +245,7 @@ export default function Steps() {
               const epct = Math.min(100, (e.steps / stepGoal) * 100);
               const entryColor = epct >= 100 ? "var(--green)" : "var(--main)";
               return (
-                <Card key={e.id} className={`gap-0 p-4 ${isToday ? "ring-1 ring-primary/40" : ""}`}>
+                <Card key={e.id} data-testid="history-entry" className={`gap-0 p-4 ${isToday ? "ring-1 ring-primary/40" : ""}`}>
                   <div className="mb-2.5 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[13px] font-bold">{isToday ? "Today" : d.toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" })}</p>

@@ -13,7 +13,7 @@
  * subscribe to a specific coach — those live in the Coaching flow.
  */
 import { useState, useEffect } from "react";
-import { Check, ArrowLeft, X, Sparkles, Crown } from "lucide-react";
+import { Check, X, Sparkles, Crown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useNavigate } from "react-router-dom";
@@ -22,9 +22,9 @@ import PaymentForm from "@/components/app/PaymentForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type Step = "plans" | "payment";
 type Cycle = "1month" | "3months" | "annual";
 
 const DEFAULT_PREMIUM_PRICES: Record<Cycle, number> = {
@@ -78,7 +78,7 @@ export default function Pricing() {
   const { t } = useI18n();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<Step>("plans");
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [cycle, setCycle] = useState<Cycle>("3months");
   const [prices, setPrices] = useState<Record<Cycle, number>>(DEFAULT_PREMIUM_PRICES);
 
@@ -109,56 +109,6 @@ export default function Pricing() {
     updateUser({ isPremium: true });
     navigate("/app/dashboard");
   };
-
-  // ── Payment step ──
-  if (step === "payment") {
-    return (
-      <div className="mx-auto w-full max-w-[500px] px-4 pt-6 pb-10">
-        <Button variant="ghost" size="sm" onClick={() => setStep("plans")} className="-ms-2 mb-6 text-muted-foreground">
-          <ArrowLeft size={15} /> Back to plans
-        </Button>
-
-        <Card className="gap-0 p-0 ring-2 ring-primary shadow-soft-md">
-          <CardContent className="px-6 py-7">
-            <div className="flex items-center gap-2">
-              <Crown size={18} className="text-primary" />
-              <h2 className="text-xl font-bold tracking-tight">Premium App</h2>
-            </div>
-            <p className="mt-1.5 text-[13px] text-muted-foreground">{billing.label} subscription</p>
-
-            <div className="mt-5 mb-6 flex gap-1 rounded-md bg-muted p-1">
-              {BILLING.map((b) => (
-                <button
-                  key={b.id}
-                  onClick={() => setCycle(b.id)}
-                  aria-pressed={cycle === b.id}
-                  className={cn(
-                    "flex-1 rounded-[8px] py-2 text-[12px] font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                    cycle === b.id ? "bg-card text-foreground shadow-soft-sm" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {b.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="mb-5 flex items-center justify-between rounded-md bg-muted px-4 py-3">
-              <span className="text-[13px] text-muted-foreground">{billing.label} total</span>
-              <span className="text-lg font-bold tabular-nums text-primary">{amount} EGP</span>
-            </div>
-
-            <PaymentForm
-              amount={amount}
-              plan={billing.planLabel}
-              type="user"
-              token={token}
-              onSuccess={handleSuccess}
-            />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   // ── Plans step ──
   return (
@@ -261,7 +211,7 @@ export default function Pricing() {
               ))}
             </ul>
 
-            <Button className="w-full" onClick={() => setStep("payment")}>
+            <Button className="w-full" onClick={() => setPaymentOpen(true)}>
               Get Premium — {prices[cycle]} EGP
             </Button>
           </CardContent>
@@ -272,6 +222,46 @@ export default function Pricing() {
         Prices are set by Fitway Hub admins. Looking for a personal coach? Choose a PT plan
         from a coach in the Coaching section.
       </p>
+
+      {/* Payment dialog — opened when "Get Premium" is clicked */}
+      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+        <DialogContent className="max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crown size={18} className="text-primary" /> Premium App
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex gap-1 rounded-md bg-muted p-1">
+            {BILLING.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => setCycle(b.id)}
+                aria-pressed={cycle === b.id}
+                className={cn(
+                  "flex-1 rounded-[8px] py-2 text-[12px] font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                  cycle === b.id ? "bg-card text-foreground shadow-soft-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between rounded-md bg-muted px-4 py-3">
+            <span className="text-[13px] text-muted-foreground">{billing.label} total</span>
+            <span className="text-lg font-bold tabular-nums text-primary">{amount} EGP</span>
+          </div>
+
+          <PaymentForm
+            amount={amount}
+            plan={billing.planLabel}
+            type="user"
+            token={token}
+            onSuccess={handleSuccess}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

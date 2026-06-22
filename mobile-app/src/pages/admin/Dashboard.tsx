@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 interface AdminUser { id: number; name: string; email: string; role: string; is_premium?: boolean; membership_paid?: boolean; coach_membership_active?: boolean; points: number; steps: number; step_goal?: number; height?: number; weight?: number; gender?: string; medical_history?: string; medical_file_url?: string; created_at: string; avatar: string;
   coach_specialty?: string; coach_bio?: string; coach_location?: string; coach_available?: number | boolean; coach_certified?: number | boolean;
@@ -706,6 +707,54 @@ export default function AdminDashboard() {
               </Card>
             ))}
           </div>
+
+          {/* Charts — revenue trend + user growth */}
+          {(() => {
+            const months = Array.from({ length: 6 }, (_, i) => {
+              const d = new Date();
+              d.setMonth(d.getMonth() - (5 - i));
+              return {
+                key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+                name: d.toLocaleString("en", { month: "short" }),
+              };
+            });
+            const revenueData = months.map(m => ({
+              name: m.name,
+              revenue: payments
+                .filter(p => p.status === "completed" && p.created_at?.startsWith(m.key))
+                .reduce((s, p) => s + p.amount, 0),
+            }));
+            const userData = months.map(m => ({
+              name: m.name,
+              users: users.filter(u => u.role === "user" && u.created_at?.startsWith(m.key)).length,
+            }));
+            return (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Card className="gap-0 p-5">
+                  <p className="mb-4 text-[15px] font-semibold">{t("revenue_trend") || "Revenue trend (6 mo)"}</p>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={revenueData} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <Tooltip formatter={(v: any) => [`${v} EGP`, "Revenue"]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                      <Bar dataKey="revenue" fill="var(--amber)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
+                <Card className="gap-0 p-5">
+                  <p className="mb-4 text-[15px] font-semibold">{t("user_growth") || "User growth (6 mo)"}</p>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <AreaChart data={userData} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <Tooltip formatter={(v: any) => [v, "New users"]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                      <Area type="monotone" dataKey="users" stroke="var(--blue)" fill="rgba(59,130,246,0.12)" strokeWidth={2} dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </Card>
+              </div>
+            );
+          })()}
 
           {/* Recent activity — every notable event across the app */}
           <Card className="gap-0 p-5">

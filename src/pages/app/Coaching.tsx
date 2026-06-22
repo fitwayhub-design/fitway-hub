@@ -456,6 +456,24 @@ export default function Coaching() {
 
 
 
+  if (!user?.isPremium) {
+    return (
+      <div style={{ padding: isMobile ? "16px 12px 28px" : "24px 20px 40px", maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
+        <div style={{ padding: "40px 24px", backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", marginTop: 40 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>👑</div>
+          <h2 style={{ fontFamily: "var(--font-en)", fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Premium Feature</h2>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 24 }}>
+            Personal coaching is available with a Premium App subscription.
+            Upgrade to browse certified coaches, subscribe to a training plan, and get direct support.
+          </p>
+          <a href="/app/pricing" style={{ display: "inline-block", padding: "12px 32px", backgroundColor: "var(--accent)", color: "#000", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 15, borderRadius: "var(--radius-full)", textDecoration: "none" }}>
+            Upgrade to Premium
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: isMobile ? "16px 12px 28px" : "24px 20px 40px", maxWidth: 1000, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>

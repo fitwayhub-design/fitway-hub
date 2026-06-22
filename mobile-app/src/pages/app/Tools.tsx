@@ -78,7 +78,7 @@ export default function Tools() {
           </div>
           <Button onClick={calculateBMI} variant="secondary" className="w-full text-[var(--secondary)]">{t("calculate_bmi")}</Button>
           {bmiResult && (
-            <div className="mt-3.5 rounded-md p-3.5 text-center" style={{ backgroundColor: `color-mix(in srgb, ${bmiColor} 10%, transparent)` }}>
+            <div id="bmi-result" role="status" className="mt-3.5 rounded-md p-3.5 text-center" style={{ backgroundColor: `color-mix(in srgb, ${bmiColor} 10%, transparent)` }}>
               <p className="mb-1 text-[11px] text-muted-foreground">{t("your_bmi")}</p>
               <p className="text-[36px] font-bold leading-none tabular-nums" style={{ color: bmiColor }}>{bmiResult.bmi}</p>
               <p className="mt-1 text-[13px] text-muted-foreground">{bmiResult.category}</p>
