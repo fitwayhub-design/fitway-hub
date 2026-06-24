@@ -195,24 +195,34 @@ export default function NutritionPlan() {
     setTimeout(() => setFlash(""), 2000);
   };
 
+  // Apply a transform to whichever plan the active tab is rendering. On the
+  // Coach tab the rendered dataset is coachPlanData, so the old handlers that
+  // always wrote to setPlan flipped state on the *hidden* My-Plan dataset and
+  // the visible coach rows never changed — meals couldn't expand or be marked
+  // eaten, and the per-item ticket entry was unreachable (§18).
+  const updateDisplayed = (fn: (days: NutritionDay[]) => NutritionDay[]) => {
+    if (tab === "coach") setCoachPlanData(prev => (prev ? fn(prev) : prev));
+    else setPlan(fn);
+  };
+
   const toggleDay = (id: number) => {
-    setPlan(p => p.map(d => d.id === id ? { ...d, expanded: !d.expanded } : d));
+    updateDisplayed(p => p.map(d => d.id === id ? { ...d, expanded: !d.expanded } : d));
   };
 
   const toggleMeal = (dayId: number, mealId: number) => {
-    setPlan(p => p.map(d => d.id === dayId
+    updateDisplayed(p => p.map(d => d.id === dayId
       ? { ...d, meals: d.meals.map(m => m.id === mealId ? { ...m, eaten: !m.eaten } : m) }
       : d
     ));
   };
 
   const changeGoal = (dayId: number, goal: string) => {
-    setPlan(p => p.map(d => d.id === dayId ? { ...d, goal } : d));
+    updateDisplayed(p => p.map(d => d.id === dayId ? { ...d, goal } : d));
   };
 
   const addMeal = (dayId: number) => {
     if (!newMeal.name.trim()) return;
-    setPlan(p => p.map(d => d.id === dayId ? {
+    updateDisplayed(p => p.map(d => d.id === dayId ? {
       ...d,
       meals: [...d.meals, {
         id: Date.now(),
@@ -228,14 +238,14 @@ export default function NutritionPlan() {
   };
 
   const removeMeal = (dayId: number, mealId: number) => {
-    setPlan(p => p.map(d => d.id === dayId
+    updateDisplayed(p => p.map(d => d.id === dayId
       ? { ...d, meals: d.meals.filter(m => m.id !== mealId) }
       : d
     ));
   };
 
   const resetDay = (dayId: number) => {
-    setPlan(p => p.map(d => d.id === dayId
+    updateDisplayed(p => p.map(d => d.id === dayId
       ? { ...d, meals: d.meals.map(m => ({ ...m, eaten: false })) }
       : d
     ));

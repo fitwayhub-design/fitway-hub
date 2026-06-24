@@ -188,8 +188,18 @@ export default function WorkoutPlan() {
     setTimeout(() => setFlash(""), 2000);
   };
 
+  // Apply a transform to whichever plan the active tab is rendering. On the
+  // Coach tab the rendered dataset is coachPlanData, so the old handlers that
+  // always wrote to setPlan flipped state on the *hidden* My-Plan dataset and
+  // the visible coach rows never changed — exercises couldn't expand, "mark
+  // done" did nothing, the per-item ticket entry was unreachable (§18).
+  const updateDisplayed = (fn: (days: WorkoutDay[]) => WorkoutDay[]) => {
+    if (tab === "coach") setCoachPlanData(prev => (prev ? fn(prev) : prev));
+    else setPlan(fn);
+  };
+
   const toggleDay = (id: number) => {
-    setPlan(p => p.map(d => d.id === id ? { ...d, expanded: !d.expanded } : d));
+    updateDisplayed(p => p.map(d => d.id === id ? { ...d, expanded: !d.expanded } : d));
   };
 
   const toggleExercise = (dayId: number, exId: number) => {
@@ -200,7 +210,7 @@ export default function WorkoutPlan() {
     // Overall progress across the whole plan, captured after the toggle so the
     // coach notification can report how far the athlete has come.
     let progressPercent = 0;
-    setPlan(p => {
+    updateDisplayed(p => {
       const nextPlan = p.map(d => {
         if (d.id !== dayId) return d;
         const wasAnyDone = d.exercises.some(e => e.done);
@@ -238,12 +248,12 @@ export default function WorkoutPlan() {
   };
 
   const changeFocus = (dayId: number, focus: string) => {
-    setPlan(p => p.map(d => d.id === dayId ? { ...d, focus } : d));
+    updateDisplayed(p => p.map(d => d.id === dayId ? { ...d, focus } : d));
   };
 
   const addExercise = (dayId: number) => {
     if (!newEx.name.trim()) return;
-    setPlan(p => p.map(d => d.id === dayId ? {
+    updateDisplayed(p => p.map(d => d.id === dayId ? {
       ...d,
       exercises: [...d.exercises, {
         id: Date.now(), name: newEx.name.trim(),
@@ -257,14 +267,14 @@ export default function WorkoutPlan() {
   };
 
   const removeExercise = (dayId: number, exId: number) => {
-    setPlan(p => p.map(d => d.id === dayId
+    updateDisplayed(p => p.map(d => d.id === dayId
       ? { ...d, exercises: d.exercises.filter(e => e.id !== exId) }
       : d
     ));
   };
 
   const resetDay = (dayId: number) => {
-    setPlan(p => p.map(d => d.id === dayId
+    updateDisplayed(p => p.map(d => d.id === dayId
       ? { ...d, exercises: d.exercises.map(e => ({ ...e, done: false })) }
       : d
     ));
