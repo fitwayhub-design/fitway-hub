@@ -102,3 +102,73 @@ export function resolveAssetUrl(url: string | null | undefined): string {
   return trimmed;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Guarded JSON fetch
+//
+//  Mobile call sites historically did `fetch(getApiBase()+path).then(r =>
+//  r.json())`, which throws "Unexpected token '<'" whenever the server returns
+//  a non-JSON error page (e.g. a 404 HTML body). `apiJson` prepends the API
+//  base, injects the bearer token, checks res.ok, and throws a typed ApiError
+//  carrying the server message instead of crashing the parser.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class ApiError extends Error {
+  status: number;
+  payload: any;
+  constructor(message: string, status: number, payload?: any) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+export interface ApiJsonOptions extends Omit<RequestInit, "body"> {
+  body?: BodyInit | Record<string, unknown> | unknown[] | null;
+  auth?: boolean;
+}
+
+export async function apiJson<T = any>(path: string, opts: ApiJsonOptions = {}): Promise<T> {
+  const { body, auth = true, headers, ...rest } = opts;
+  const finalHeaders = new Headers(headers as HeadersInit | undefined);
+
+  const isPlainObject =
+    body != null &&
+    typeof body === "object" &&
+    !(body instanceof FormData) &&
+    !(body instanceof Blob) &&
+    !(body instanceof ArrayBuffer) &&
+    !(typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams);
+
+  let finalBody: BodyInit | null | undefined;
+  if (isPlainObject) {
+    if (!finalHeaders.has("Content-Type")) finalHeaders.set("Content-Type", "application/json");
+    finalBody = JSON.stringify(body);
+  } else {
+    finalBody = body as BodyInit | null | undefined;
+  }
+
+  if (auth && !finalHeaders.has("Authorization")) {
+    try {
+      const t = localStorage.getItem("token");
+      if (t) finalHeaders.set("Authorization", `Bearer ${t}`);
+    } catch { /* localStorage may throw in some contexts */ }
+  }
+
+  const res = await fetch(getApiBase() + path, { ...rest, headers: finalHeaders, body: finalBody });
+
+  const text = await res.text();
+  let data: any = null;
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = text; }
+  }
+  if (!res.ok) {
+    const message =
+      (data && typeof data === "object" && (data.message || data.error)) ||
+      (typeof data === "string" && data) ||
+      `Request failed (${res.status})`;
+    throw new ApiError(String(message), res.status, data);
+  }
+  return data as T;
+}
+

@@ -34,6 +34,7 @@ router.post('/add', authenticateToken, async (req: any, res: any, next: any) => 
 });
 
 // Delete steps for a date
+router.delete('/:date', authenticateToken, deleteSteps);
 
 import { get as dbGet, run as dbRun } from '../config/database.js';
 

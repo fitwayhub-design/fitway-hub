@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getStepsHistory, getStepsByDate, addSteps, getWeeklyStats, getMonthlyStats } from '../controllers/stepsController.js';
+import { getStepsHistory, getStepsByDate, addSteps, getWeeklyStats, getMonthlyStats, deleteSteps } from '../controllers/stepsController.js';
 import { authenticateToken } from '../middleware/auth.js';
 const router = Router();
 // Get all steps history
@@ -21,6 +21,7 @@ router.post('/add', authenticateToken, async (req, res, next) => {
     catch { }
 });
 // Delete steps for a date
+router.delete('/:date', authenticateToken, deleteSteps);
 import { get as dbGet, run as dbRun } from '../config/database.js';
 // ── Points: Step goal completed ───────────────────────────────────────────────
 router.post('/goal-completed', authenticateToken, async (req, res) => {

@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api";
+import { apiJson } from "@/lib/api";
 import { useAutoRefresh } from "@/lib/useAutoRefresh";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -64,12 +64,17 @@ export default function Steps() {
     if (!token) return;
     if (!silent) setLoading(true);
     try {
+      // Server routes: GET /api/steps/:date (today) and GET /api/steps/history.
+      // apiJson guards res.ok + non-JSON bodies, so a stray HTML error page
+      // can never crash JSON.parse the way the old `.then(r => r.json())` did.
       const [todayR, histR] = await Promise.all([
-        fetch(`${getApiBase()}/api/steps/${today}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-        fetch(`${getApiBase()}/api/steps?limit=14`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+        apiJson<{ entry: Entry | null }>(`/api/steps/${today}`),
+        apiJson<{ entries: Entry[] }>(`/api/steps/history?limit=14`),
       ]);
       setTodayEntry(todayR?.entry || null);
       setHistory(histR?.entries || []);
+    } catch {
+      // Non-fatal: keep whatever is on screen rather than blanking the page.
     } finally { setLoading(false); }
   };
 
@@ -105,17 +110,22 @@ export default function Steps() {
     try {
       const cal = estimateCaloriesBurned(s, metrics.weight, metrics.height);
       const km = parseFloat(distInput) || s / 1312;
-      const r = await fetch(`${getApiBase()}/api/steps/${today}`, {
-        method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ steps: s, calories_burned: cal, distance_km: km, tracking_mode: "manual" }),
+      // POST /api/steps/add — the server reads camelCase keys (date, steps,
+      // caloriesBurned, distanceKm, trackingMode); sending snake_case silently
+      // dropped calories/distance even when the path matched.
+      await apiJson(`/api/steps/add`, {
+        method: "POST",
+        body: { date: today, steps: s, caloriesBurned: cal, distanceKm: km, trackingMode: "manual" },
       });
-      if (r.ok) { flash("✅ Saved!"); setStepsInput(""); setDistInput(""); await load(); }
-      else flash("❌ Failed to save");
+      flash("✅ Saved!"); setStepsInput(""); setDistInput(""); await load();
+    } catch (err: any) {
+      flash(`❌ ${err?.message || "Failed to save"}`);
     } finally { setSaving(false); }
   };
 
-  const handleDelete = async (id: number) => {
-    await fetch(`${getApiBase()}/api/steps/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+  const handleDelete = async (date: string) => {
+    // DELETE /api/steps/:date — entries are keyed by date on the server, not by row id.
+    try { await apiJson(`/api/steps/${date}`, { method: "DELETE" }); } catch { /* refresh below reflects reality */ }
     await load();
   };
 
@@ -264,7 +274,7 @@ export default function Steps() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        onClick={() => handleDelete(e.id)}
+                        onClick={() => handleDelete(e.date)}
                         aria-label="Delete entry"
                         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       >
