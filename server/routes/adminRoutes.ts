@@ -74,8 +74,7 @@ router.get('/users', authenticateToken, adminOnly, async (_req: Request, res: Re
     // NULLs in the coach_* columns.
     const users = await query(`
       SELECT u.id, u.name, u.email, u.role, u.avatar, u.is_premium,
-             u.points, u.steps, u.step_goal, u.height, u.weight, u.gender,
-             u.medical_history, u.medical_file_url,
+             u.points, u.steps, u.step_goal, u.gender,
              u.membership_paid, u.coach_membership_active, u.created_at,
              cp.specialty AS coach_specialty,
              cp.bio       AS coach_bio,
@@ -169,18 +168,9 @@ router.post('/users/:id/add-points', authenticateToken, adminOnly, async (req: a
   res.json({ message: 'Points added' });
 });
 
-router.post('/users/:id/upload-medical', authenticateToken, adminOnly, upload.single('medical'), optimizeImage(), async (req: any, res: Response) => {
-  try {
-    if (!req.file) return res.status(400).json({ message: 'No file provided' });
-    const userId = Number(req.params.id);
-    if (!userId) return res.status(400).json({ message: 'Invalid user id' });
-    const fileUrl = await uploadToR2(req.file, 'medical');
-    await run('UPDATE users SET medical_file_url = ?, updated_at = NOW() WHERE id = ?', [fileUrl, userId]);
-    res.json({ message: 'Medical file uploaded', file_url: fileUrl });
-  } catch {
-    res.status(500).json({ message: 'Failed to upload medical file' });
-  }
-});
+// NOTE: the admin "upload medical file for user" route was removed — admins
+// must not handle users' private medical data (§5.3). Medical files belong to
+// the user's own profile within the coaching relationship only.
 
 router.put('/users/:id', authenticateToken, adminOnly, async (req: any, res: Response) => {
   try {
@@ -191,46 +181,11 @@ router.put('/users/:id', authenticateToken, adminOnly, async (req: any, res: Res
     if (!existing) return res.status(404).json({ message: 'User not found' });
 
     const body = req.body || {};
-    const nextId = body.id !== undefined && body.id !== null && String(body.id).trim() !== ''
-      ? Number(body.id)
-      : oldId;
-
-    if (!nextId || Number.isNaN(nextId) || nextId < 1) {
-      return res.status(400).json({ message: 'Invalid new ID' });
-    }
-
-    if (nextId !== oldId) {
-      const idConflict = await get<any>('SELECT id FROM users WHERE id = ?', [nextId]);
-      if (idConflict) return res.status(409).json({ message: 'New ID is already used by another account' });
-
-      // Changing primary key is only safe if no relational references exist.
-      const refs = await Promise.all([
-        get<any>('SELECT COUNT(*) as c FROM daily_summaries WHERE user_id = ?', [oldId]),
-        get<any>('SELECT COUNT(*) as c FROM steps_entries WHERE user_id = ?', [oldId]),
-        get<any>('SELECT COUNT(*) as c FROM messages WHERE sender_id = ? OR receiver_id = ?', [oldId, oldId]),
-        get<any>('SELECT COUNT(*) as c FROM posts WHERE user_id = ?', [oldId]),
-        get<any>('SELECT COUNT(*) as c FROM post_likes WHERE user_id = ?', [oldId]),
-        get<any>('SELECT COUNT(*) as c FROM post_comments WHERE user_id = ?', [oldId]),
-        get<any>('SELECT COUNT(*) as c FROM user_follows WHERE follower_id = ? OR following_id = ?', [oldId, oldId]),
-        get<any>('SELECT COUNT(*) as c FROM challenge_participants WHERE user_id = ?', [oldId]),
-        get<any>('SELECT COUNT(*) as c FROM premium_sessions WHERE user_id = ?', [oldId]),
-        get<any>('SELECT COUNT(*) as c FROM chat_requests WHERE sender_id = ? OR receiver_id = ?', [oldId, oldId]),
-        get<any>('SELECT COUNT(*) as c FROM workout_plans WHERE user_id = ? OR coach_id = ?', [oldId, oldId]),
-        get<any>('SELECT COUNT(*) as c FROM nutrition_plans WHERE user_id = ? OR coach_id = ?', [oldId, oldId]),
-        get<any>('SELECT COUNT(*) as c FROM gifts WHERE user_id = ? OR admin_id = ?', [oldId, oldId]),
-        get<any>('SELECT COUNT(*) as c FROM payments WHERE user_id = ?', [oldId]),
-        get<any>('SELECT COUNT(*) as c FROM coach_subscriptions WHERE user_id = ? OR coach_id = ?', [oldId, oldId]),
-        get<any>('SELECT COUNT(*) as c FROM withdrawal_requests WHERE coach_id = ?', [oldId]),
-        get<any>('SELECT COUNT(*) as c FROM ad_payments WHERE coach_id = ?', [oldId]),
-        get<any>('SELECT COUNT(*) as c FROM coach_ads WHERE coach_id = ?', [oldId]),
-      ]);
-      const totalRefs = refs.reduce((sum, r) => sum + Number(r?.c || 0), 0);
-      if (totalRefs > 0) {
-        return res.status(409).json({
-          message: 'Cannot change user ID after activity exists. Create a new user instead.',
-        });
-      }
-    }
+    // User ID is the primary key and is no longer editable from admin — the
+    // PK-reassignment path was removed for data integrity and to match the
+    // read-only ID field in the editor (§5.3). Always keep the existing id;
+    // any body.id is ignored.
+    const nextId = oldId;
 
     const role = body.role ?? existing.role;
     if (!['user', 'coach', 'admin', 'moderator'].includes(role)) {
@@ -263,11 +218,7 @@ router.put('/users/:id', authenticateToken, adminOnly, async (req: any, res: Res
         is_premium = ?,
         points = ?,
         steps = ?,
-        height = ?,
-        weight = ?,
         gender = ?,
-        medical_history = ?,
-        medical_file_url = ?,
         membership_paid = ?,
         coach_membership_active = ?,
         step_goal = ?,
@@ -283,11 +234,9 @@ router.put('/users/:id', authenticateToken, adminOnly, async (req: any, res: Res
         computedIsPremium,
         body.points !== undefined ? Number(body.points || 0) : Number(existing.points || 0),
         body.steps !== undefined ? Number(body.steps || 0) : Number(existing.steps || 0),
-        body.height !== undefined && body.height !== '' ? Number(body.height) : (existing.height ?? null),
-        body.weight !== undefined && body.weight !== '' ? Number(body.weight) : (existing.weight ?? null),
         body.gender !== undefined ? String(body.gender || '').trim() : (existing.gender ?? null),
-        body.medical_history !== undefined ? String(body.medical_history || '').trim() : String(existing.medical_history || ''),
-        body.medical_file_url !== undefined ? String(body.medical_file_url || '').trim() : String(existing.medical_file_url || ''),
+        // height/weight/medical_history/medical_file_url are intentionally not
+        // updated here — private health data is never edited from admin (§5.3).
         body.membership_paid !== undefined ? (body.membership_paid ? 1 : 0) : Number(existing.membership_paid || 0),
         body.coach_membership_active !== undefined ? (body.coach_membership_active ? 1 : 0) : Number(existing.coach_membership_active || 0),
         body.step_goal !== undefined && body.step_goal !== '' ? Number(body.step_goal) : Number(existing.step_goal || 10000),
@@ -323,8 +272,8 @@ router.put('/users/:id', authenticateToken, adminOnly, async (req: any, res: Res
 
     const updated = await get<any>(
       `SELECT u.id, u.name, u.email, u.role, u.avatar, u.is_premium,
-              u.points, u.steps, u.step_goal, u.height, u.weight, u.gender,
-              u.medical_history, u.medical_file_url, u.membership_paid,
+              u.points, u.steps, u.step_goal, u.gender,
+              u.membership_paid,
               u.coach_membership_active, u.created_at,
               cp.specialty AS coach_specialty, cp.bio AS coach_bio,
               cp.location AS coach_location, cp.available AS coach_available,

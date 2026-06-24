@@ -129,7 +129,6 @@ export default function AdminDashboard() {
   const [showUserEditModal, setShowUserEditModal] = useState(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [userEditSaving, setUserEditSaving] = useState(false);
-  const [medicalUploading, setMedicalUploading] = useState(false);
   const [giftForm, setGiftForm] = useState({ user_id: 0, title: "", description: "", type: "points", value: 100 });
   const [videoForm, setVideoForm] = useState({ title: "", description: "", duration: "", duration_seconds: 0, category: "HIIT", is_premium: false, is_short: false, training_id: "", goal: "", body_area: "", equipment: "", level: "" });
   const [trainings, setTrainings] = useState<Array<{ id: number; title: string }>>([]);
@@ -352,11 +351,9 @@ export default function AdminDashboard() {
       is_premium: !!u.is_premium,
       points: Number(u.points || 0),
       steps: Number(u.steps || 0),
-      height: u.height ?? "",
-      weight: u.weight ?? "",
       gender: u.gender || "",
-      medical_history: (u as any).medical_history || "",
-      medical_file_url: (u as any).medical_file_url || "",
+      // height/weight/medical fields intentionally omitted — private health
+      // data the admin editor must not expose or edit (§5.3).
       membership_paid: !!(u as any).membership_paid,
       coach_membership_active: !!(u as any).coach_membership_active,
       step_goal: Number((u as any).step_goal || 10000),
@@ -382,10 +379,8 @@ export default function AdminDashboard() {
         points: isCoach ? undefined : Number(userEditForm.points || 0),
         steps: isCoach ? undefined : Number(userEditForm.steps || 0),
         step_goal: isCoach ? undefined : Number(userEditForm.step_goal || 10000),
-        height: isCoach ? undefined : (userEditForm.height === "" ? null : Number(userEditForm.height)),
-        weight: isCoach ? undefined : (userEditForm.weight === "" ? null : Number(userEditForm.weight)),
-        medical_history: isCoach ? undefined : userEditForm.medical_history,
-        medical_file_url: isCoach ? undefined : userEditForm.medical_file_url,
+        // height/weight/medical_history/medical_file_url are no longer editable
+        // from admin (§5.3); the server preserves the user's existing values.
         membership_paid: isCoach ? undefined : userEditForm.membership_paid,
       };
       const res = await api(`/api/admin/users/${editingUserId}`, { method: "PUT", body: JSON.stringify(payload) });
@@ -402,31 +397,6 @@ export default function AdminDashboard() {
       showMsg("❌ Failed to update user");
     } finally {
       setUserEditSaving(false);
-    }
-  };
-
-  const uploadMedicalForUser = async (file: File) => {
-    if (!editingUserId || !file) return;
-    setMedicalUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("medical", file);
-      const res = await fetch(getApiBase() + `/api/admin/users/${editingUserId}/upload-medical`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok || !d?.file_url) {
-        showMsg(`❌ ${d?.message || "Upload failed"}`);
-        return;
-      }
-      setUserEditForm((f: any) => ({ ...f, medical_file_url: d.file_url }));
-      showMsg("✅ Medical file uploaded");
-    } catch {
-      showMsg("❌ Failed to upload medical file");
-    } finally {
-      setMedicalUploading(false);
     }
   };
 
@@ -1813,7 +1783,8 @@ export default function AdminDashboard() {
             </DialogHeader>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">ID</Label><Input type="number" value={userEditForm.id} onChange={e => setUserEditForm((f: any) => ({ ...f, id: e.target.value }))} /></div>
+              {/* ID is the primary key — read-only (no PK reassignment). */}
+              <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">ID</Label><Input type="number" value={userEditForm.id} readOnly disabled className="opacity-60" /></div>
               <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Name</Label><Input value={userEditForm.name} onChange={e => setUserEditForm((f: any) => ({ ...f, name: e.target.value }))} /></div>
               <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Email</Label><Input type="email" value={userEditForm.email} onChange={e => setUserEditForm((f: any) => ({ ...f, email: e.target.value }))} /></div>
               <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Password (leave blank to keep)</Label><Input type="password" value={userEditForm.password} onChange={e => setUserEditForm((f: any) => ({ ...f, password: e.target.value }))} /></div>
@@ -1835,29 +1806,17 @@ export default function AdminDashboard() {
                 <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Points</Label><Input type="number" value={userEditForm.points} onChange={e => setUserEditForm((f: any) => ({ ...f, points: e.target.value }))} /></div>
                 <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Steps</Label><Input type="number" value={userEditForm.steps} onChange={e => setUserEditForm((f: any) => ({ ...f, steps: e.target.value }))} /></div>
                 <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Step Goal</Label><Input type="number" value={userEditForm.step_goal} onChange={e => setUserEditForm((f: any) => ({ ...f, step_goal: e.target.value }))} /></div>
-                <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Height</Label><Input type="number" value={userEditForm.height} onChange={e => setUserEditForm((f: any) => ({ ...f, height: e.target.value }))} /></div>
-                <div className="space-y-1.5"><Label className="text-[11px] text-muted-foreground">Weight</Label><Input type="number" value={userEditForm.weight} onChange={e => setUserEditForm((f: any) => ({ ...f, weight: e.target.value }))} /></div>
+                {/* Height/Weight removed from admin editor — private health data
+                    per the Privacy Policy (§5.3); not editable outside the
+                    coaching relationship. */}
               </>}
             </div>
 
-            {!isCoachRow && <>
-              <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground">Medical History</Label>
-                <Textarea rows={3} value={userEditForm.medical_history} onChange={e => setUserEditForm((f: any) => ({ ...f, medical_history: e.target.value }))} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[11px] text-muted-foreground">Medical File URL</Label>
-                <div className="flex flex-wrap gap-2">
-                  <Input value={userEditForm.medical_file_url} onChange={e => setUserEditForm((f: any) => ({ ...f, medical_file_url: e.target.value }))} className="min-w-[220px] flex-1" />
-                  <label className="inline-flex h-11 items-center rounded-md bg-muted px-3 text-[12px] whitespace-nowrap text-muted-foreground ring-1 ring-inset ring-border" style={{ cursor: medicalUploading ? "not-allowed" : "pointer" }}>
-                    {medicalUploading ? "Uploading..." : "Upload Medical File"}
-                    <input type="file" hidden accept="image/*" disabled={medicalUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadMedicalForUser(f); }} />
-                  </label>
-                </div>
-                <p className="text-[10px] text-muted-foreground">JPG, PNG — max 5 MB</p>
-              </div>
-            </>}
+            {/* Medical History + Medical File removed from the admin editor —
+                the Privacy Policy states medical data stays on the user's
+                private profile and is not used outside the coaching
+                relationship (§5.3). The admin back-office must not expose or
+                edit it. */}
 
             <div className="flex flex-wrap gap-4">
               {!isCoachRow && (
