@@ -63,9 +63,13 @@ async function getTargetedAdsForUser(userId, placementFilter, limit = 20) {
       AND (a.payment_status = 'approved' OR a.payment_status IS NULL OR a.payment_status = '')
   `;
     const params = [];
-    // Placement filter
+    // Placement filter. Ad approval (adminRoutes /ads/:id/payment) activates an
+    // ad without ever assigning a placement, so most live coach_ads have a NULL
+    // placement and would otherwise match no surface at all — the root cause of
+    // "ad approved but nothing shows" (§12.2). Treat an unset placement as
+    // eligible for every surface (it's still gated by status/payment/schedule).
     if (placementFilter) {
-        sql += ` AND (a.placement = 'all' OR a.placement = ? OR a.ad_type = ?)`;
+        sql += ` AND (a.placement IS NULL OR a.placement = '' OR a.placement = 'all' OR a.placement = ? OR a.ad_type = ?)`;
         params.push(placementFilter, placementFilter);
     }
     // Gender targeting
@@ -226,11 +230,14 @@ async function getTargetedCampaignAdsForUser(userId, placement, limit = 1) {
       AND (camp.schedule_start IS NULL OR camp.schedule_start <= CURDATE())
       AND (camp.schedule_end IS NULL OR camp.schedule_end >= CURDATE())
   `;
+    // Treat an unset ad_set placement as eligible for every surface, same as the
+    // legacy coach_ads path above (§12.2) — otherwise an approved campaign whose
+    // ad_set has no placement shows nowhere.
     if (placement === 'home_banner') {
-        sql += ` AND (s.placement = 'all' OR s.placement = 'home_banner' OR s.placement = 'feed')`;
+        sql += ` AND (s.placement IS NULL OR s.placement = '' OR s.placement = 'all' OR s.placement = 'home_banner' OR s.placement = 'feed')`;
     }
     else {
-        sql += ` AND (s.placement = 'all' OR s.placement = 'community' OR s.placement = 'feed')`;
+        sql += ` AND (s.placement IS NULL OR s.placement = '' OR s.placement = 'all' OR s.placement = 'community' OR s.placement = 'feed')`;
     }
     if (viewerGender) {
         sql += ` AND (s.target_gender IS NULL OR s.target_gender = 'all' OR s.target_gender = ?)`;
