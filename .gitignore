@@ -2,3 +2,9 @@ node_modules
 dist
 uploads/
 .env
+
+# Secrets — never commit. The FCM key is read from the FCM_SERVICE_ACCOUNT_JSON
+# env var in production (server/notificationService.ts); the file is a local
+# dev convenience only.
+firebase-service-account.json
+*-service-account.json
