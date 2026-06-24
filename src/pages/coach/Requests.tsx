@@ -368,14 +368,24 @@ export default function CoachRequests() {
                       />
                     </div>
                   )}
-                  <div className="flex gap-2">
-                    <Button size="sm" className="flex-1" onClick={() => handleSubscriptionDecision(sub.id, "accept")}>
-                      <CheckCircle size={14} strokeWidth={2} /> {t("accept")}
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1 text-destructive" onClick={() => handleSubscriptionDecision(sub.id, "decline")}>
-                      <X size={14} strokeWidth={2} /> {t("coach_requests_decline_refund")}
-                    </Button>
-                  </div>
+                  {/* Admin-first flow: the coach can only act once admin has
+                      verified payment (status -> pending_coach). Before that the
+                      coach-accept/decline endpoints 403, so show a waiting state
+                      instead of buttons that error. */}
+                  {sub.status === "pending_coach" ? (
+                    <div className="flex gap-2">
+                      <Button size="sm" className="flex-1" onClick={() => handleSubscriptionDecision(sub.id, "accept")}>
+                        <CheckCircle size={14} strokeWidth={2} /> {t("accept")}
+                      </Button>
+                      <Button size="sm" variant="outline" className="flex-1 text-destructive" onClick={() => handleSubscriptionDecision(sub.id, "decline")}>
+                        <X size={14} strokeWidth={2} /> {t("coach_requests_decline_refund")}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 rounded-md bg-[color-mix(in_srgb,var(--amber)_12%,transparent)] px-3 py-2 text-[12px] font-semibold text-[var(--amber)]">
+                      <Clock size={13} strokeWidth={2} /> {t("coach_requests_awaiting_admin")}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

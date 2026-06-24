@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Star, MapPin, Edit3, Save, Wallet, ArrowUpCircle,
   Image as ImageIcon, Play, Upload, FileText, Camera, BadgeCheck,
-  Smartphone, CreditCard, Zap,
+  Smartphone, CreditCard, Zap, Clock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
@@ -631,10 +631,18 @@ export default function CoachProfile() {
                             <p className="text-[11px] text-muted-foreground">{s.plan_cycle} · {s.plan_type} · {s.amount} {t('currency_egp')}</p>
                           </div>
                         </div>
-                        <div className="flex gap-1.5">
-                          <Button size="sm" onClick={() => handleAcceptSubscription(s.id)}>{t("accept")}</Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDeclineSubscription(s.id)}>{t("decline")}</Button>
-                        </div>
+                        {/* Admin-first flow: coach can only act after admin
+                            verifies payment (status -> pending_coach). */}
+                        {s.status === "pending_coach" ? (
+                          <div className="flex gap-1.5">
+                            <Button size="sm" onClick={() => handleAcceptSubscription(s.id)}>{t("accept")}</Button>
+                            <Button variant="destructive" size="sm" onClick={() => handleDeclineSubscription(s.id)}>{t("decline")}</Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--amber)]">
+                            <Clock size={12} strokeWidth={2} /> {t("coach_requests_awaiting_admin")}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
