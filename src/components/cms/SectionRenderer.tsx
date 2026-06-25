@@ -353,7 +353,13 @@ function CardsSection({ c, lang }: { c: any; lang: RenderLang }) {
 // ── Section: Contact Info ─────────────────────────────────────────────────────
 function ContactInfoSection({ c, lang }: { c: any; lang: RenderLang }) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [sent, setSent] = useState(false);
   const faqs: { q: string; a: string }[] = c.faqs || [];
+  const contactEmail = c.email || "support@fitwayhub.com";
+  // Phone is only treated as real when an admin has set it — the old hardcoded
+  // "+20 123 456 7890" placeholder is never shown (§1.3).
+  const contactPhone = (c.phone && String(c.phone).trim()) || "";
+  const phoneDigits = contactPhone.replace(/[^\d+]/g, "").replace(/^\+/, "");
   // Form inputs:
   // - generous vertical padding so the native <select>'s selected text is
   //   not clipped vertically on Chromium (was 12px → too tight).
@@ -374,7 +380,9 @@ function ContactInfoSection({ c, lang }: { c: any; lang: RenderLang }) {
   const messagePlaceholder = pickText(c, "messagePlaceholder", lang) || (lang === "ar" ? "كيف يمكننا مساعدتك؟" : "How can we help you?");
   const sendBtnText = pickText(c, "sendBtnText", lang) || (lang === "ar" ? "إرسال الرسالة" : "Send Message");
   const quickContactTitle = pickText(c, "quickContactTitle", lang) || (lang === "ar" ? "تواصل سريع" : "Quick Contact");
-  const liveChatLabel = pickText(c, "liveChatLabel", lang) || (lang === "ar" ? "الدردشة المباشرة" : "Live Chat");
+  // No chat widget exists, so the default label states support hours rather
+  // than implying live chat (§1.3). Admins can still override via CMS.
+  const liveChatLabel = pickText(c, "liveChatLabel", lang) || (lang === "ar" ? "ساعات الدعم" : "Support Hours");
   const whatsappLabel = pickText(c, "whatsappLabel", lang) || "WhatsApp";
   const emailContactLabel = pickText(c, "emailContactLabel", lang) || (lang === "ar" ? "البريد" : "Email");
   const faqTitle = pickText(c, "faqTitle", lang) || "FAQ";
@@ -387,29 +395,47 @@ function ContactInfoSection({ c, lang }: { c: any; lang: RenderLang }) {
         {/* Contact Form */}
         <div style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-full)", padding: "28px 24px" }}>
           <h2 style={{ fontFamily: "var(--font-en)", fontSize: 17, fontWeight: 700, marginBottom: 22 }}>{formTitle}</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Real <form> (§1.3): required fields + native HTML5 validation give
+              Enter-to-submit and block empty sends. There is no public submit
+              endpoint yet, so on submit we hand off to the visitor's mail client
+              with everything prefilled — honest delivery, no fake success toast. */}
+          <form
+            style={{ display: "flex", flexDirection: "column", gap: 14 }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              const body = `Name: ${fd.get("name") || ""}\nEmail: ${fd.get("email") || ""}\n\n${fd.get("message") || ""}`;
+              window.location.href = `mailto:${contactEmail}?subject=${encodeURIComponent(String(fd.get("subject") || ""))}&body=${encodeURIComponent(body)}`;
+              setSent(true);
+            }}
+          >
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {[{ label: nameLabel, placeholder: namePlaceholder, email: false }, { label: emailLabel, placeholder: emailPlaceholder, email: true }].map((field) => (
+              {[{ label: nameLabel, placeholder: namePlaceholder, email: false, name: "name" }, { label: emailLabel, placeholder: emailPlaceholder, email: true, name: "email" }].map((field) => (
                 <div key={field.label}>
                   <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>{field.label}</label>
-                  <input type={field.email ? "email" : "text"} placeholder={field.placeholder} style={inputStyle} />
+                  <input type={field.email ? "email" : "text"} name={field.name} required placeholder={field.placeholder} style={inputStyle} />
                 </div>
               ))}
             </div>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>{subjectLabel}</label>
-              <select style={selectStyle}>
+              <select name="subject" style={selectStyle}>
                 {subjects.map((subject) => <option key={subject}>{subject}</option>)}
               </select>
             </div>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>{messageLabel}</label>
-              <textarea rows={4} placeholder={messagePlaceholder} style={{ ...inputStyle, resize: "vertical" }} />
+              <textarea name="message" required rows={4} placeholder={messagePlaceholder} style={{ ...inputStyle, resize: "vertical" }} />
             </div>
-            <button style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent)", color: "#000000", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}>
+            <button type="submit" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", borderRadius: "var(--radius-full)", backgroundColor: "var(--accent)", color: "#000000", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}>
               <Send size={15} /> {sendBtnText}
             </button>
-          </div>
+            {sent && (
+              <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+                {lang === "ar" ? "تم فتح بريدك لإرسال الرسالة." : "Your email app has opened to send the message."}
+              </p>
+            )}
+          </form>
         </div>
         {/* Right column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -417,9 +443,10 @@ function ContactInfoSection({ c, lang }: { c: any; lang: RenderLang }) {
             <h3 style={{ fontFamily: "var(--font-en)", fontSize: 14, fontWeight: 700, marginBottom: 16 }}>{quickContactTitle}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {[
-                { icon: MessageCircle, label: liveChatLabel, detail: c.chatHours || "9am - 5pm", color: "var(--accent)" },
-                { icon: Phone, label: whatsappLabel, detail: c.phone || "+20 123 456 7890", color: "var(--cyan)" },
-                { icon: Mail, label: emailContactLabel, detail: c.email || "support@fitwayhub.com", color: "var(--blue)" },
+                { icon: MessageCircle, label: liveChatLabel, detail: c.chatHours || "9am - 5pm", color: "var(--accent)", href: "" },
+                // WhatsApp row only when a real number is configured (no placeholder).
+                ...(contactPhone ? [{ icon: Phone, label: whatsappLabel, detail: contactPhone, color: "var(--cyan)", href: `https://wa.me/${phoneDigits}` }] : []),
+                { icon: Mail, label: emailContactLabel, detail: contactEmail, color: "var(--blue)", href: `mailto:${contactEmail}` },
               ].map(ci => (
                 <div key={ci.label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ width: 38, height: 38, borderRadius: "var(--radius-full)", backgroundColor: `${ci.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -427,7 +454,9 @@ function ContactInfoSection({ c, lang }: { c: any; lang: RenderLang }) {
                   </div>
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 600 }}>{ci.label}</p>
-                    <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 1 }}>{ci.detail}</p>
+                    {ci.href
+                      ? <a href={ci.href} target={ci.href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 1, textDecoration: "none", display: "inline-block" }}>{ci.detail}</a>
+                      : <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 1 }}>{ci.detail}</p>}
                   </div>
                 </div>
               ))}
