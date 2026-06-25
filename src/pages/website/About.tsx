@@ -121,6 +121,20 @@ export default function AboutPage() {
     return sec[key] || sec[field] || fallback;
   };
 
+  // The non-accent part of a section heading. Each heading renders as
+  // `{cmsHeadingPrefix(type)} <em>{headingAccent}</em>`. Admins sometimes save
+  // the FULL phrase in `heading` AND repeat its suffix in `headingAccent`,
+  // which produced duplicated titles like "Everything in one place one place."
+  // (report §1.2). When the heading already ends with the accent, drop that
+  // trailing copy so the styled accent is shown exactly once.
+  const cmsHeadingPrefix = (type: string) => {
+    const heading = cms(type, "heading", "");
+    const accent = cms(type, "headingAccent", "");
+    return accent && heading.endsWith(accent)
+      ? heading.slice(0, heading.length - accent.length).replace(/\s+$/, "")
+      : heading;
+  };
+
   // Theme-aware background overlay for any CMS section. Mirrors Home.tsx —
   // admin uploads backgroundImageDark / backgroundImageLight / backgroundImage
   // in /admin/website. Returns null when nothing is set.
@@ -339,7 +353,7 @@ export default function AboutPage() {
           <h2 className="fwh-s-h" style={{ marginBottom: 56, maxWidth: 1000 }}>
             {cmsSections.stats?.heading ? (
               <>
-                {cms("stats", "heading", "")}
+                {cmsHeadingPrefix("stats")}
                 {cms("stats", "headingAccent", "") && (
                   <> <em className="fwh-italic">{cms("stats", "headingAccent", "")}</em></>
                 )}
@@ -377,7 +391,7 @@ export default function AboutPage() {
               <h2 className="fwh-s-h">
                 {cmsSections.mission?.heading ? (
                   <>
-                    {cms("mission", "heading", "")}
+                    {cmsHeadingPrefix("mission")}
                     {cms("mission", "headingAccent", "") && (
                       <> <em className="fwh-italic">{cms("mission", "headingAccent", "")}</em></>
                     )}
@@ -473,7 +487,7 @@ export default function AboutPage() {
           <h2 className="fwh-s-h" style={{ marginBottom: 56, maxWidth: 1000 }}>
             {cmsSections.values?.heading ? (
               <>
-                {cms("values", "heading", "")}
+                {cmsHeadingPrefix("values")}
                 {cms("values", "headingAccent", "") && (
                   <> <em className="fwh-italic">{cms("values", "headingAccent", "")}</em></>
                 )}
@@ -514,7 +528,7 @@ export default function AboutPage() {
           <h2 className="fwh-s-h" style={{ marginBottom: 40, maxWidth: 1000 }}>
             {cmsSections.features?.heading ? (
               <>
-                {cms("features", "heading", "")}
+                {cmsHeadingPrefix("features")}
                 {cms("features", "headingAccent", "") && (
                   <> <em className="fwh-italic">{cms("features", "headingAccent", "")}</em></>
                 )}
@@ -582,7 +596,7 @@ export default function AboutPage() {
           <h2 className="fwh-s-h" style={{ marginBottom: 56, maxWidth: 1000 }}>
             {cmsSections.timeline?.heading ? (
               <>
-                {cms("timeline", "heading", "")}
+                {cmsHeadingPrefix("timeline")}
                 {cms("timeline", "headingAccent", "") && (
                   <> <em className="fwh-italic">{cms("timeline", "headingAccent", "")}</em></>
                 )}
@@ -629,7 +643,7 @@ export default function AboutPage() {
           <h2 className="fwh-s-h" style={{ maxWidth: 1000 }}>
             {cmsSections.team?.heading ? (
               <>
-                {cms("team", "heading", "")}
+                {cmsHeadingPrefix("team")}
                 {cms("team", "headingAccent", "") && (
                   <> <em className="fwh-italic">{cms("team", "headingAccent", "")}</em></>
                 )}
@@ -722,7 +736,7 @@ export default function AboutPage() {
           <h2 className="fwh-hero-h1" style={{ fontSize: "clamp(64px, 9vw, 140px)" }}>
             {cmsSections.cta?.heading ? (
               <>
-                {cms("cta", "heading", "")}
+                {cmsHeadingPrefix("cta")}
                 {cms("cta", "headingAccent", "") && (
                   <> <em className="fwh-italic">{cms("cta", "headingAccent", "")}</em></>
                 )}
