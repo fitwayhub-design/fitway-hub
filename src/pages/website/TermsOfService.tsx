@@ -47,7 +47,7 @@ export default function TermsOfService() {
           ),
         },
         {
-          heading: "Health &amp; Fitness Disclaimer",
+          heading: "Health & Fitness Disclaimer",
           body: (
             <>
               <p style={legalText.p}>
@@ -64,7 +64,7 @@ export default function TermsOfService() {
           ),
         },
         {
-          heading: "Subscriptions &amp; Payments",
+          heading: "Subscriptions & Payments",
           body: (
             <>
               <p style={legalText.p}>

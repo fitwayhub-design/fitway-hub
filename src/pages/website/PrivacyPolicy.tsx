@@ -64,7 +64,7 @@ export default function PrivacyPolicy() {
           ),
         },
         {
-          heading: "Sharing &amp; Disclosure",
+          heading: "Sharing & Disclosure",
           body: (
             <>
               <p style={legalText.p}>We share information only where it is necessary to deliver the service:</p>
@@ -90,7 +90,7 @@ export default function PrivacyPolicy() {
           ),
         },
         {
-          heading: "Cookies &amp; Local Storage",
+          heading: "Cookies & Local Storage",
           body: (
             <p style={legalText.p}>
               We use browser local storage and a small number of essential cookies to keep you signed in, remember
