@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
+import { requireModeratorArea, requireAdmin, auditModeratorAction } from '../middleware/moderator.js';
 import { upload, uploadVideo, optimizeImage, multerToJson } from '../middleware/upload.js';
 import { stampMediaCapture } from '../utils/mediaCapture.js';
 import {
@@ -20,12 +21,6 @@ const media = [multerToJson(upload.any()), optimizeImage()];
 // videos pass through untouched. Mirrors how workout-video uploads are handled.
 const mediaEvidence = [multerToJson(uploadVideo.any()), stampMediaCapture, optimizeImage()];
 
-function adminOnly(req: Request, res: Response, next: NextFunction) {
-  const r = (req as any).user?.role;
-  if (r !== 'admin' && r !== 'moderator') return res.status(403).json({ message: 'Admin only' });
-  next();
-}
-
 // Everything requires auth.
 router.use(authenticateToken);
 
@@ -36,13 +31,23 @@ router.get('/meta/goal-options', getGoalOptions);
 router.get('/rewards/me', getUserRewards);
 router.get('/rewards/:userId', getUserRewards);
 
-// ── Admin (must precede /:id to avoid route capture) ──
-router.get('/admin/list', adminOnly, adminListChallenges);
-router.get('/admin/reports', adminOnly, adminListReports);
-router.post('/admin/reports/:id/resolve', adminOnly, adminResolveReport);
-router.get('/admin/reward-settings', adminOnly, getRewardSettings);
-router.put('/admin/reward-settings', adminOnly, saveRewardSettings);
-router.post('/admin/:id/:decision(approve|reject)', adminOnly, adminReviewChallenge);
+// ── Admin / moderator (must precede /:id to avoid route capture) ──
+// Single gate (§17): viewing needs `challenges_view`; acting needs
+// `challenges_moderate`; reward economics stay admin-only. Replaces the old
+// local `adminOnly` that silently granted every moderator (ignoring the
+// Settings → Moderators toggles).
+router.get('/admin/list', requireModeratorArea('challenges_view'), adminListChallenges);
+router.get('/admin/reports', requireModeratorArea('challenges_view'), adminListReports);
+router.post('/admin/reports/:id/resolve',
+  requireModeratorArea('challenges_moderate'),
+  auditModeratorAction('challenges_moderate', 'challenge_report_resolve', 'challenge_report'),
+  adminResolveReport);
+router.get('/admin/reward-settings', requireAdmin, getRewardSettings);
+router.put('/admin/reward-settings', requireAdmin, saveRewardSettings);
+router.post('/admin/:id/:decision(approve|reject)',
+  requireModeratorArea('challenges_moderate'),
+  auditModeratorAction('challenges_moderate', 'challenge_review', 'challenge', req => (req.params as any)?.id),
+  adminReviewChallenge);
 
 // ── Create ──
 router.post('/', ...media, createChallenge);

@@ -844,17 +844,26 @@ export default function AdminDashboard() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <Select value={u.role} onValueChange={v => updateUserRole(u.id, v)}>
-                        <SelectTrigger size="sm" className="w-[130px]" style={{ color: roleColor(u.role) }}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="user">{t("role_user")}</SelectItem>
-                          <SelectItem value="coach">{t("role_coach")}</SelectItem>
-                          <SelectItem value="moderator">{t("role_moderator")}</SelectItem>
-                          <SelectItem value="admin">{t("role_admin")}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {/* Role changes are admin-only server-side (§17). For a
+                          moderator viewing this shared admin table, show the
+                          role read-only instead of a dropdown that would 403. */}
+                      {user?.role === "admin" ? (
+                        <Select value={u.role} onValueChange={v => updateUserRole(u.id, v)}>
+                          <SelectTrigger size="sm" className="w-[130px]" style={{ color: roleColor(u.role) }}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">{t("role_user")}</SelectItem>
+                            <SelectItem value="coach">{t("role_coach")}</SelectItem>
+                            <SelectItem value="moderator">{t("role_moderator")}</SelectItem>
+                            <SelectItem value="admin">{t("role_admin")}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-[12px] font-semibold capitalize" style={{ color: roleColor(u.role) }}>
+                          {String(u.role || "").replace(/_/g, " ")}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {u.role === "coach" ? (

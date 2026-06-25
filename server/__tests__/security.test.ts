@@ -164,3 +164,34 @@ test('Paymob HMAC: tampering with amount invalidates signature', () => {
   const tampered = { ...SAMPLE_OBJ, amount_cents: 9999 };
   assert.equal(verifyPaymobHmac(tampered, correct, secret), false);
 });
+
+// ─── Moderator area gating — default-deny (§17) ──────────────────────────────
+// Mirrors server/middleware/moderator.ts. Re-implemented here (not imported)
+// to keep this file DB-free, matching the convention above. If the policy
+// changes, update both in lock-step.
+const DEFAULT_MODERATOR_PERMISSIONS: Record<string, boolean> = {
+  community_view: true,
+  community_moderate: true,
+  challenges_view: false,
+  challenges_moderate: false,
+};
+const moderatorAreaAllowed = (perms: Record<string, boolean>, area: string): boolean => perms[area] === true;
+
+test('moderator gate: an area is denied unless explicitly true (default-deny)', () => {
+  assert.equal(moderatorAreaAllowed({}, 'community_moderate'), false);
+  assert.equal(moderatorAreaAllowed({ community_moderate: false }, 'community_moderate'), false);
+  // A truthy-but-not-true value must not count as a grant.
+  assert.equal(moderatorAreaAllowed({ community_moderate: 1 as any }, 'community_moderate'), false);
+  assert.equal(moderatorAreaAllowed({ community_moderate: true }, 'community_moderate'), true);
+});
+
+test('moderator gate: unknown / unconfigured areas are denied', () => {
+  assert.equal(moderatorAreaAllowed(DEFAULT_MODERATOR_PERMISSIONS, 'payments_manage'), false);
+  assert.equal(moderatorAreaAllowed(DEFAULT_MODERATOR_PERMISSIONS, 'challenges_moderate'), false);
+});
+
+test('moderator gate: safe default grants community moderation only', () => {
+  assert.equal(moderatorAreaAllowed(DEFAULT_MODERATOR_PERMISSIONS, 'community_view'), true);
+  assert.equal(moderatorAreaAllowed(DEFAULT_MODERATOR_PERMISSIONS, 'community_moderate'), true);
+  assert.equal(moderatorAreaAllowed(DEFAULT_MODERATOR_PERMISSIONS, 'challenges_view'), false);
+});

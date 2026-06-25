@@ -49,7 +49,8 @@ const CATEGORIES: { key: Category; label: string; icon: typeof LayoutDashboard; 
 ];
 
 // Moderator-controllable areas surfaced in the Moderators tab. Each maps to a
-// permission key enforced server-side; default (unset) = allowed.
+// permission key enforced server-side; DEFAULT-DENY (§17) — a moderator only
+// gets an area an admin has explicitly switched on.
 const MODERATOR_AREAS: { key: string; label: string; desc: string }[] = [
   { key: "community_view",     label: "View community",      desc: "See community posts, comments and stats" },
   { key: "community_moderate", label: "Moderate community",  desc: "Hide / restore / delete posts, pin posts, post announcements" },
@@ -525,7 +526,7 @@ export default function AdminSettings() {
   }
 
   function renderModerators() {
-    const isAllowed = (key: string) => modPerms[key] !== false; // default = allowed
+    const isAllowed = (key: string) => modPerms[key] === true; // default-deny (§17): only explicitly-granted areas are allowed
     const toggleArea = (key: string) => saveModeratorPerms({ ...modPerms, [key]: !isAllowed(key) });
     const moderators = modUsers.filter(u => u.role === "moderator");
     const q = modSearch.trim().toLowerCase();
@@ -541,7 +542,7 @@ export default function AdminSettings() {
             <span className="grid size-9 shrink-0 place-items-center rounded-md bg-card text-primary"><Lock size={18} strokeWidth={2} /></span>
             <div className="min-w-0">
               <p className="text-[15px] font-semibold text-foreground">{l("What moderators can access", "ما يمكن للمشرفين الوصول إليه")}</p>
-              <p className="mt-0.5 text-[13px] text-muted-foreground">{l("Turn an area off to block it for all moderators. Admins always have full access.", "أوقف أي قسم لمنعه عن جميع المشرفين. المسؤولون لديهم وصول كامل دائمًا.")}</p>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">{l("Grant only the areas a moderator needs — everything is off by default. Admins always have full access.", "امنح المشرف فقط الأقسام التي يحتاجها — كل شيء مغلق افتراضيًا. المسؤولون لديهم وصول كامل دائمًا.")}</p>
             </div>
           </div>
           <div className="flex flex-col">

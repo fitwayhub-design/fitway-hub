@@ -205,6 +205,21 @@ async function initTables() {
       FOREIGN KEY (user_id) REFERENCES users(id),
       UNIQUE KEY unique_user_date (user_id, date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+        // Append-only audit trail for privileged moderation actions (§17). Records
+        // who (actor_id/role) did what (action) to which target, in which area.
+        `CREATE TABLE IF NOT EXISTS moderator_audit_log (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      actor_id INT NOT NULL,
+      actor_role VARCHAR(20) NOT NULL,
+      area VARCHAR(64),
+      action VARCHAR(64) NOT NULL,
+      target_type VARCHAR(64),
+      target_id VARCHAR(64),
+      details TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_mal_actor (actor_id),
+      INDEX idx_mal_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
         `CREATE TABLE IF NOT EXISTS messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       sender_id INT NOT NULL,

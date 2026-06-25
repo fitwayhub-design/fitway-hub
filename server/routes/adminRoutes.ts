@@ -3,6 +3,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { get, run, query, getPool, seedDefaultAppSettings } from '../config/database.js';
 import { uploadVideo, uploadFont, upload, uploadBranding, optimizeImage, validateVideoSize, verifyUploadBytes, uploadToR2, multerToJson, sanitiseSvgIfPresent } from '../middleware/upload.js';
 import { sendPushToUser } from '../notificationService.js';
+import { requireModeratorArea, getModeratorPermissions, logModeratorAction } from '../middleware/moderator.js';
 import bcrypt from 'bcryptjs';
 
 const router = Router();
@@ -1646,35 +1647,13 @@ router.post('/remove-fake-coaches', authenticateToken, adminOnly, async (_req: a
 
 // ── Fake Accounts Generator ──────────────────────────────────────────────────
 
-// ── Moderator (admin + moderator can use these) ─────────────────────────────
-const adminOrModerator = (req: any, res: Response, next: any) => {
-  if (req.user?.role !== 'admin' && req.user?.role !== 'moderator') return res.status(403).json({ message: 'Access denied' });
-  next();
-};
-
-// Per-area moderator permissions. Admins configure these from
-// Settings → Moderators; they're stored as a JSON object in app_settings under
-// `moderator_permissions`, e.g. { "community_view": true, "community_moderate":
-// false, "challenges_view": true }. Default (no row) = everything allowed, so
-// existing moderators keep working until an admin tightens access.
-async function getModeratorPermissions(): Promise<Record<string, boolean> | null> {
-  try {
-    const row: any = await get("SELECT setting_value FROM app_settings WHERE setting_key = 'moderator_permissions'");
-    if (row?.setting_value) return JSON.parse(row.setting_value);
-  } catch { /* fall through to no restrictions */ }
-  return null;
-}
-
-// Guard that requires admin, OR a moderator who has the given area enabled.
-// An area is considered allowed unless it is explicitly set to false.
-const modPerm = (area: string) => async (req: any, res: Response, next: any) => {
-  const role = req.user?.role;
-  if (role === 'admin') return next();
-  if (role !== 'moderator') return res.status(403).json({ message: 'Access denied' });
-  const perms = await getModeratorPermissions();
-  if (!perms || perms[area] !== false) return next();
-  return res.status(403).json({ message: 'Your moderator access does not allow this action' });
-};
+// ── Moderator area gating (§17) ─────────────────────────────────────────────
+// The gate + the permission store now live in one place
+// (server/middleware/moderator.ts) and are DEFAULT-DENY: a moderator only
+// reaches an area an admin has explicitly granted in Settings → Moderators.
+// `modPerm` is kept as a local alias so the route definitions below read the
+// same as before.
+const modPerm = requireModeratorArea;
 
 // ── Moderator permissions (admin-managed) ───────────────────────────────────
 router.get('/moderator-permissions', authenticateToken, adminOnly, async (_req: any, res: Response) => {
@@ -1724,6 +1703,7 @@ router.post('/community/announcements', authenticateToken, modPerm('community_mo
       'INSERT INTO posts (user_id, content, hashtags, is_announcement, is_pinned) VALUES (?, ?, ?, 1, 1)',
       [req.user.id, content.trim(), hashtags || null]
     );
+    await logModeratorAction(req, { area: 'community_moderate', action: 'announcement_create', targetType: 'post', targetId: result.insertId });
     res.json({ message: 'Announcement posted', postId: result.insertId });
   } catch { res.status(500).json({ message: 'Failed to create announcement' }); }
 });
@@ -1735,6 +1715,7 @@ router.patch('/community/posts/:id/pin', authenticateToken, modPerm('community_m
     if (!post) return res.status(404).json({ message: 'Post not found' });
     const newVal = post.is_pinned ? 0 : 1;
     await run('UPDATE posts SET is_pinned = ? WHERE id = ?', [newVal, req.params.id]);
+    await logModeratorAction(req, { area: 'community_moderate', action: newVal ? 'post_pin' : 'post_unpin', targetType: 'post', targetId: req.params.id });
     res.json({ message: newVal ? 'Post pinned' : 'Post unpinned', is_pinned: newVal });
   } catch { res.status(500).json({ message: 'Failed to toggle pin' }); }
 });
@@ -1743,6 +1724,7 @@ router.patch('/community/posts/:id/hide', authenticateToken, modPerm('community_
   try {
     const { reason } = req.body;
     await run('UPDATE posts SET is_hidden = 1, moderated_by = ?, moderation_reason = ? WHERE id = ?', [req.user.id, reason || 'Policy violation', req.params.id]);
+    await logModeratorAction(req, { area: 'community_moderate', action: 'post_hide', targetType: 'post', targetId: req.params.id, details: { reason: reason || 'Policy violation' } });
     res.json({ message: 'Post hidden' });
   } catch { res.status(500).json({ message: 'Failed to hide post' }); }
 });
@@ -1750,6 +1732,7 @@ router.patch('/community/posts/:id/hide', authenticateToken, modPerm('community_
 router.patch('/community/posts/:id/restore', authenticateToken, modPerm('community_moderate'), async (req: any, res: Response) => {
   try {
     await run('UPDATE posts SET is_hidden = 0, moderated_by = NULL, moderation_reason = NULL WHERE id = ?', [req.params.id]);
+    await logModeratorAction(req, { area: 'community_moderate', action: 'post_restore', targetType: 'post', targetId: req.params.id });
     res.json({ message: 'Post restored' });
   } catch { res.status(500).json({ message: 'Failed to restore post' }); }
 });
@@ -1757,6 +1740,7 @@ router.patch('/community/posts/:id/restore', authenticateToken, modPerm('communi
 router.delete('/community/posts/:id', authenticateToken, modPerm('community_moderate'), async (req: any, res: Response) => {
   try {
     await run('DELETE FROM posts WHERE id = ?', [req.params.id]);
+    await logModeratorAction(req, { area: 'community_moderate', action: 'post_delete', targetType: 'post', targetId: req.params.id });
     res.json({ message: 'Post deleted' });
   } catch { res.status(500).json({ message: 'Failed to delete post' }); }
 });
@@ -1849,8 +1833,25 @@ router.get('/community/comments', authenticateToken, modPerm('community_view'), 
 router.delete('/community/comments/:id', authenticateToken, modPerm('community_moderate'), async (req: any, res: Response) => {
   try {
     await run('DELETE FROM post_comments WHERE id = ?', [req.params.id]);
+    await logModeratorAction(req, { area: 'community_moderate', action: 'comment_delete', targetType: 'comment', targetId: req.params.id });
     res.json({ message: 'Comment deleted' });
   } catch { res.status(500).json({ message: 'Failed to delete comment' }); }
+});
+
+// ── Moderation audit log (admin-only) ────────────────────────────────────────
+// Read-only view of every privileged moderation action (§17). Admin-only so a
+// moderator can't inspect or covertly prune the trail of their own actions.
+router.get('/moderator-audit-log', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '100'), 10) || 100, 1), 500);
+    const logs = await query(`
+      SELECT mal.*, u.name as actor_name, u.email as actor_email
+      FROM moderator_audit_log mal
+      LEFT JOIN users u ON mal.actor_id = u.id
+      ORDER BY mal.created_at DESC
+      LIMIT ?`, [limit]);
+    res.json({ logs });
+  } catch { res.status(500).json({ message: 'Failed to fetch audit log' }); }
 });
 
 // ── App Settings ─────────────────────────────────────────────────────────────
