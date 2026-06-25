@@ -192,7 +192,7 @@ export default function BlogPost() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Eye size={14} />
-          <span>{(post.views || 0).toLocaleString()} {lang === "ar" ? "مشاهدة" : "views"}</span>
+          <span>{(post.views || 0).toLocaleString()} {lang === "ar" ? "مشاهدة" : ((post.views || 0) === 1 ? "view" : "views")}</span>
         </div>
       </div>
 

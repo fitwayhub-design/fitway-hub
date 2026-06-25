@@ -486,7 +486,7 @@ export default function Coaching() {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{filtered.length === coaches.length ? `${coaches.length} coaches available` : `${filtered.length} of ${coaches.length} coaches`}</p>
+        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{filtered.length === coaches.length ? `${coaches.length} ${coaches.length === 1 ? "coach" : "coaches"} available` : `${filtered.length} of ${coaches.length} coaches`}</p>
       </div>
 
       {loading ? (
@@ -523,7 +523,11 @@ export default function Coaching() {
                       <p style={{ fontSize: 12, color: "var(--accent)", marginTop: 2 }}>{c.specialty || "General Fitness"}</p>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 13, color: "var(--amber)", fontWeight: 700 }}>
-                      <Star size={13} style={{ fill: "var(--amber)" }} /> {Number(c.rating).toFixed(1)}
+                      {/* A brand-new coach with no ratings shows "New" rather than
+                          a hollow "0.0★" that reads as a bad score (§3.2). */}
+                      {c.review_count > 0
+                        ? <><Star size={13} style={{ fill: "var(--amber)" }} /> {Number(c.rating).toFixed(1)}</>
+                        : <span>New</span>}
                     </div>
                   </div>
                   <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
@@ -947,7 +951,7 @@ export default function Coaching() {
                     <Star size={14} style={{ fill: "var(--amber)", color: "var(--amber)" }} />
                     <span style={{ fontSize: 18, fontWeight: 700, fontFamily: "var(--font-en)" }}>{Number(viewProfileCoach.rating).toFixed(1)}</span>
                   </div>
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{viewProfileCoach.review_count} reviews</span>
+                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{viewProfileCoach.review_count} review{viewProfileCoach.review_count !== 1 ? "s" : ""}</span>
                 </div>
                 <div style={{ flex: "1 1 80px", padding: "10px 14px", backgroundColor: "var(--bg-card)", borderRadius: "var(--radius-full)", border: "1px solid var(--border)", textAlign: "center" }}>
                   <span style={{ fontSize: 18, fontWeight: 700, fontFamily: "var(--font-en)", color: "var(--accent)" }}>{viewProfileCoach.sessions_count}</span>

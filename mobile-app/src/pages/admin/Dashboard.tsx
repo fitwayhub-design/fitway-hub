@@ -964,7 +964,7 @@ export default function AdminDashboard() {
             {[
               { label: t("total_revenue"), value: `${payments.filter(p => p.status === "completed").reduce((s, p) => s + p.amount, 0).toFixed(0)} EGP`, color: "var(--primary)" },
               { label: t("transactions"), value: payments.length, color: "var(--cyan)" },
-              { label: t("table_type"), value: payments.filter(p => p.type === "premium").length, color: "var(--amber)" },
+              { label: t("premium_members"), value: payments.filter(p => p.type === "premium").length, color: "var(--amber)" },
               { label: t("coach_members"), value: payments.filter(p => p.type === "coach_membership").length, color: "var(--blue)" },
             ].map(s => (
               <Card key={s.label} className="gap-0 p-5">
