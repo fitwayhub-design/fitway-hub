@@ -561,7 +561,16 @@ export function WebsiteLayout() {
               textTransform: "uppercase",
               textAlign: "center",
             }}>
-              {branding.copyright_text || `© ${new Date().getFullYear()} ${t("fitway_hub")} — ${t("all_rights_reserved")}`}
+              {/* Render the year dynamically (report §1.1/#16): a stale
+                  CMS-stored "© 2025 …" is shown with the current year so the
+                  footer never lags behind the calendar. */}
+              {(() => {
+                const yr = new Date().getFullYear();
+                const txt = branding.copyright_text?.trim();
+                return txt
+                  ? txt.replace(/(?:19|20)\d{2}/, String(yr))
+                  : `© ${yr} ${t("fitway_hub")} — ${t("all_rights_reserved")}`;
+              })()}
             </p>
           </div>
         </div>

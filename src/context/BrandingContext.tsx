@@ -48,7 +48,7 @@ const defaults: Branding = {
   logo_url_ar_dark: "",
   favicon_url: "",
   footer_text: "Egypt's #1 digital fitness ecosystem. Certified training, smart tools, and a community that pushes you forward.",
-  copyright_text: "© 2025 FitWay Hub. All rights reserved.",
+  copyright_text: `© ${new Date().getFullYear()} FitWay Hub. All rights reserved.`,
   social_instagram: "",
   social_facebook: "",
   social_twitter: "",
