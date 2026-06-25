@@ -940,6 +940,13 @@ const translations: Record<Lang, Record<string, string>> = {
     role_label: 'Role',
     role_moderator: 'Moderator',
     role_admin: 'Admin',
+    // Humanized labels for keys that were rendering as raw snake_case to users
+    // (report #10 / §6.2): t() returns the key itself when a translation is
+    // missing, so these chart/section titles showed literally as "revenue_trend".
+    revenue_trend: 'Revenue Trend (6 mo)',
+    user_growth: 'User Growth (6 mo)',
+    weekly_revenue: 'Weekly Revenue',
+    no_posts_yet: 'No posts yet',
     add_5_coaches: 'Add 5 Coaches',
     adding_text: 'Adding...',
     add_coach_hint: 'To add a coach, go to Users tab and change a user\'s role to "Coach".',
@@ -2155,6 +2162,10 @@ const translations: Record<Lang, Record<string, string>> = {
     role_label: 'الدور',
     role_moderator: 'مشرف',
     role_admin: 'أدمن',
+    revenue_trend: 'اتجاه الإيرادات (٦ أشهر)',
+    user_growth: 'نمو المستخدمين (٦ أشهر)',
+    weekly_revenue: 'الإيرادات الأسبوعية',
+    no_posts_yet: 'لا توجد منشورات بعد',
     add_5_coaches: 'أضف ٥ مدربين',
     adding_text: 'بيضيف...',
     add_coach_hint: 'علشان تضيف مدرب، روح لتبويب المستخدمين وغيّر دور المستخدم إلى "مدرب".',
