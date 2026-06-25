@@ -169,6 +169,7 @@ export default function AdminDashboard() {
   const [communityChallenges, setCommunityChallenges] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [communityStats, setCommunityStats] = useState<any>(null);
+  const [communityLoaded, setCommunityLoaded] = useState(false);
   const [communitySubTab, setCommunitySubTab] = useState<"posts" | "challenges" | "comments">("posts");
   const [communitySearch, setCommunitySearch] = useState("");
   const [announcementContent, setAnnouncementContent] = useState("");
@@ -193,6 +194,7 @@ export default function AdminDashboard() {
     try { const r = await api("/api/admin/community/posts"); const d = await r.json(); setCommunityPosts(d.posts || []); } catch {}
   };
   const fetchCommunityAll = async () => {
+    setCommunityLoaded(true); // mark up-front so the auto-load effect won't re-fire
     try {
       const [rPosts, rStats, rChallenges, rComments] = await Promise.all([
         api("/api/admin/community/posts"),
@@ -206,6 +208,11 @@ export default function AdminDashboard() {
       setCommunityComments((await rComments.json()).comments || []);
     } catch {}
   };
+  // Auto-load community data when the admin opens the Community tab (§2.6) —
+  // no more manual "Load Community Data" click. Runs once per session.
+  useEffect(() => {
+    if (tab === "community" && !communityLoaded) fetchCommunityAll();
+  }, [tab, communityLoaded]);
   const postAnnouncement = async () => {
     if (!announcementContent.trim()) return;
     setAnnouncementPosting(true);
