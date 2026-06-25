@@ -1,6 +1,6 @@
 import { apiFetch } from "@/lib/api";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
-import { TrendingUp, Activity, Flame, Target } from "lucide-react";
+import { TrendingUp, Activity, Flame, Target, Zap, Dumbbell } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/context/I18nContext";
@@ -44,11 +44,18 @@ export default function Analytics() {
 
   const weekly = metrics?.weekly || [];
   const avgSteps = weekly.length ? Math.round(weekly.reduce((a: number, b: any) => a + b.steps, 0) / 7) : 0;
-  const activeDays = weekly.filter((d: any) => d.steps > 0).length;
-  const consistency = Math.round((activeDays / 7) * 100);
+  // Consistency over the SELECTED period (server activeDays/days), not just the
+  // last 7 days the bar chart shows. Streak and workouts come from the server.
+  const periodDays = metrics?.days || Number(period) || 7;
+  const activeDays = metrics?.activeDays ?? weekly.filter((d: any) => d.steps > 0).length;
+  const consistency = periodDays ? Math.min(100, Math.round((activeDays / periodDays) * 100)) : 0;
+  const currentStreak = metrics?.currentStreak || 0;
+  const workoutsDone = metrics?.workoutsCompleted || 0;
 
   const metricCards = [
     { label: t("avg_daily_steps") || "Avg Daily Steps", value: avgSteps.toLocaleString(), color: "var(--accent)", icon: Activity },
+    { label: t("current_streak"), value: `${currentStreak}${t("day_unit")}`, color: "var(--amber)", icon: Zap },
+    { label: t("workouts_done"), value: workoutsDone.toString(), color: "var(--green)", icon: Dumbbell },
     { label: t("total_sessions") || "Total Sessions", value: (metrics?.sessionsCount || 0).toString(), color: "var(--blue)", icon: Target },
     { label: t("calories_burned") || "Calories Burned", value: (metrics?.totalCalories || 0).toLocaleString(), color: "var(--red)", icon: Flame },
     { label: t("consistency") || "Consistency", value: `${consistency}%`, color: "var(--cyan)", icon: TrendingUp },

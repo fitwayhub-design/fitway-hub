@@ -16,6 +16,30 @@ export const getMyAnalytics = async (req, res) => {
         const sessionsCountRow = await get('SELECT COUNT(*) as cnt FROM premium_sessions WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)', [userId, days]);
         const sessionsCount = sessionsCountRow?.cnt || 0;
         const recentSessions = await query('SELECT id, start_time, end_time, total_steps, total_distance_km, calories, path_json, created_at FROM premium_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 10', [userId]);
+        // Broaden beyond steps (§3.10) using data the athlete actually logs:
+        //  • activeDays  — distinct days with steps in the period (period-accurate
+        //    consistency, vs the client's old 7-day-only estimate).
+        //  • currentStreak — consecutive days up to today (or yesterday, so an
+        //    as-yet-unlogged today doesn't break the streak) that have steps.
+        //  • workoutsCompleted — coach-plan workouts the athlete marked finished,
+        //    from training_events (a real "I trained" signal, not just steps).
+        const activeDaysRow = await get('SELECT COUNT(DISTINCT date) as cnt FROM steps_entries WHERE user_id = ? AND steps > 0 AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)', [userId, days]);
+        const activeDays = activeDaysRow?.cnt || 0;
+        const workoutsRow = await get("SELECT COUNT(*) as cnt FROM training_events WHERE user_id = ? AND event_type = 'workout_finished' AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)", [userId, days]);
+        const workoutsCompleted = workoutsRow?.cnt || 0;
+        const streakRows = await query("SELECT DISTINCT date FROM steps_entries WHERE user_id = ? AND steps > 0 AND date >= DATE_SUB(CURDATE(), INTERVAL 120 DAY) ORDER BY date DESC", [userId]);
+        const loggedDates = new Set(streakRows.map((r) => String(r.date).slice(0, 10)));
+        const fmtDay = (d) => d.toISOString().split('T')[0];
+        let currentStreak = 0;
+        const cursor = new Date();
+        // If today isn't logged yet, start from yesterday so an in-progress day
+        // doesn't reset the streak to 0.
+        if (!loggedDates.has(fmtDay(cursor)))
+            cursor.setDate(cursor.getDate() - 1);
+        while (loggedDates.has(fmtDay(cursor))) {
+            currentStreak++;
+            cursor.setDate(cursor.getDate() - 1);
+        }
         // Weekly chart: last 7 days always for the bar chart, period applies to totals
         const weeklyRows = await query("SELECT date, steps, IFNULL(calories_burned,0) as calories FROM steps_entries WHERE user_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) ORDER BY date ASC", [userId]);
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -28,7 +52,7 @@ export const getMyAnalytics = async (req, res) => {
             const dayLabel = dayNames[d.getDay()];
             return weeklyMap[dateStr] ? { day: dayLabel, steps: weeklyMap[dateStr].steps, calories: weeklyMap[dateStr].calories } : { day: dayLabel, steps: 0, calories: 0 };
         });
-        res.json({ totalSteps, totalDistance, totalCalories, sessionsCount, recentSessions, weekly, days });
+        res.json({ totalSteps, totalDistance, totalCalories, sessionsCount, recentSessions, weekly, days, activeDays, currentStreak, workoutsCompleted });
     }
     catch (error) {
         console.error('Get analytics error:', error);
