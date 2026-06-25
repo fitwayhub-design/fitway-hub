@@ -85,7 +85,7 @@ export default function AboutPage() {
   const isAr = lang === "ar";
   const accent = branding.primary_color || "#FFD600";
 
-  const [liveStats, setLiveStats] = useState({ members: 0, coaches: 0, programs: 0, rating: "5.0" });
+  const [liveStats, setLiveStats] = useState({ members: 0, coaches: 0, programs: 0, rating: "5.0", reviews: 0 });
   // CMS-driven About content. Admin can manage the About page in /admin/website
   // by adding `features` / `team` sections to page = "about". When a section is
   // missing from CMS we fall back to the hardcoded defaults below so a fresh
@@ -95,7 +95,7 @@ export default function AboutPage() {
   useEffect(() => {
     apiFetch(`/api/public/stats`)
       .then(r => r.json())
-      .then(d => setLiveStats({ members: d.members || 0, coaches: d.coaches || 0, programs: d.programs || 0, rating: d.rating || "5.0" }))
+      .then(d => setLiveStats({ members: d.members || 0, coaches: d.coaches || 0, programs: d.programs || 0, rating: d.rating || "5.0", reviews: d.reviews || 0 }))
       .catch(() => {});
 
     apiFetch(`/api/cms/sections/about`)
@@ -258,11 +258,14 @@ export default function AboutPage() {
     });
   })();
 
+  // Drop 0/unknown stats instead of showing "—", and only show the rating once
+  // real reviews exist (§1.1 / §1.2 — kills the "5+ / 1+ / 5.0★" placeholder look).
   const STATS = [
-    { num: liveStats.members  > 0 ? `${liveStats.members.toLocaleString()}+` : "—", desc: isAr ? "عضو نشط على المنصة." : "Active members on the platform." },
-    { num: liveStats.coaches  > 0 ? `${liveStats.coaches}+`                  : "—", desc: isAr ? "كوتش معتمد بشهادات موثقة." : "Vetted certified coaches." },
-    { num: `${liveStats.rating}★`,                                                  desc: isAr ? "تقييم التطبيق." : "App rating from athletes." },
-  ];
+    { show: liveStats.members > 0, num: `${liveStats.members.toLocaleString()}+`, desc: isAr ? "عضو نشط على المنصة." : "Active members on the platform." },
+    { show: liveStats.coaches > 0, num: `${liveStats.coaches}+`, desc: isAr ? "كوتش معتمد بشهادات موثقة." : "Vetted certified coaches." },
+    { show: liveStats.reviews > 0, num: `${liveStats.rating}★`, desc: isAr ? "تقييم التطبيق." : "App rating from athletes." },
+  ].filter(s => s.show);
+  const showStatsBand = STATS.length >= 3;
 
   return (
     <div style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
@@ -335,8 +338,9 @@ export default function AboutPage() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          STATS
+          STATS — hidden until ≥3 stats are real (§1.1)
       ═══════════════════════════════════════════════════════════════════════ */}
+      {showStatsBand && (
       <section className="fwh-section" style={{ borderBottom: "1px solid var(--border)", overflow: "hidden" }}>
         {sectionBg("stats")}
         <div className="fwh-con">
@@ -374,6 +378,7 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════
           MISSION
@@ -449,9 +454,12 @@ export default function AboutPage() {
                       v:     isAr ? (r.value_ar || r.value || "") : (r.value || r.value_ar || ""),
                     }))
                   : [
-                      { emoji: "🏋️", title: isAr ? "تمارين معتمدة" : "Certified Workouts", v: liveStats.programs > 0 ? `${liveStats.programs}+` : "—" },
+                      // Drop the numeric rows entirely when there's no real
+                      // count yet, instead of printing "—" (§1.2). The static
+                      // rows below always stay.
+                      ...(liveStats.programs > 0 ? [{ emoji: "🏋️", title: isAr ? "تمارين معتمدة" : "Certified Workouts", v: `${liveStats.programs}+` }] : []),
                       { emoji: "🧠", title: isAr ? "رؤى ذكية"      : "Smart Insights",     v: isAr ? "يومياً" : "Daily" },
-                      { emoji: "👥", title: isAr ? "كوتشات حقيقيين" : "Real Coaches",       v: liveStats.coaches > 0 ? `${liveStats.coaches}+` : "—" },
+                      ...(liveStats.coaches > 0 ? [{ emoji: "👥", title: isAr ? "كوتشات حقيقيين" : "Real Coaches", v: `${liveStats.coaches}+` }] : []),
                       { emoji: "📱", title: isAr ? "أجهزة مدعومة"   : "Platforms",          v: "iOS & Android" },
                     ];
                 return rows.map((item, i, arr) => (

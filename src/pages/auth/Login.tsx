@@ -28,11 +28,11 @@ export default function Login() {
   const coachMembershipRequired = searchParams.get("coach_membership") === "required";
   const navigate = useNavigate();
 
-  const [liveStats, setLiveStats] = useState({ members: 0, programs: 0, rating: "5.0" });
+  const [liveStats, setLiveStats] = useState({ members: 0, programs: 0, rating: "5.0", reviews: 0 });
   useEffect(() => {
     apiFetch(`/api/public/stats`)
       .then(r => r.json())
-      .then(d => setLiveStats({ members: d.members || 0, programs: d.programs || 0, rating: d.rating || "5.0" }))
+      .then(d => setLiveStats({ members: d.members || 0, programs: d.programs || 0, rating: d.rating || "5.0", reviews: d.reviews || 0 }))
       .catch(() => {});
   }, []);
 
@@ -94,11 +94,14 @@ export default function Login() {
     );
   }
 
+  // Show a stat only once it's real (§1.8): no "—", and no hollow "5.0★"
+  // until there are actual reviews. Hide the whole row unless ≥3 are meaningful.
   const stats = [
-    { v: liveStats.members > 0 ? `${liveStats.members.toLocaleString()}+` : "—", l: t("members") },
-    { v: liveStats.programs > 0 ? `${liveStats.programs}+` : "—", l: t("programs") },
-    { v: `${liveStats.rating}★`, l: t("rating") },
-  ];
+    { show: liveStats.members > 0, v: `${liveStats.members.toLocaleString()}+`, l: t("members") },
+    { show: liveStats.programs > 0, v: `${liveStats.programs}+`, l: t("programs") },
+    { show: liveStats.reviews > 0, v: `${liveStats.rating}★`, l: t("rating") },
+  ].filter(s => s.show);
+  const showStats = stats.length >= 3;
 
   return (
     <div className="flex min-h-[100dvh] bg-background">
@@ -128,7 +131,8 @@ export default function Login() {
           <p className="max-w-[340px] text-[14px] leading-relaxed text-muted-foreground">{t("egypt_fitness")}</p>
         </div>
 
-        {/* Stats row */}
+        {/* Stats row — only shown when ≥3 stats are meaningful (§1.8) */}
+        {showStats && (
         <div className="flex gap-8">
           {stats.map((s) => (
             <div key={s.l}>
@@ -137,6 +141,7 @@ export default function Login() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {/* Right: form */}

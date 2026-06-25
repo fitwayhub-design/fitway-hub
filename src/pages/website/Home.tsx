@@ -92,7 +92,7 @@ export default function HomePage() {
     };
   }, []);
 
-  const [liveStats, setLiveStats] = useState({ members: 0, coaches: 0, programs: 0, rating: "5.0" });
+  const [liveStats, setLiveStats] = useState({ members: 0, coaches: 0, programs: 0, rating: "5.0", reviews: 0 });
   const [cmsSections, setCmsSections] = useState<Record<string, any>>({});
   const [cmsLoaded, setCmsLoaded] = useState(false);
 
@@ -104,6 +104,7 @@ export default function HomePage() {
         coaches: d.coaches || 0,
         programs: d.programs || 0,
         rating: d.rating || "5.0",
+        reviews: d.reviews || 0,
       }))
       .catch(() => {});
     apiFetch(`/api/cms/sections/home`)
@@ -189,16 +190,19 @@ export default function HomePage() {
     if (!it) return fallback;
     return (isAr ? (it.label_ar || it.label) : (it.label || it.label_ar)) || fallback;
   };
+  // Only surface a stat once it's real (§1.1): a 0/unknown value is dropped
+  // rather than shown as "—" or a hollow "1+", and the rating cell appears only
+  // when genuine reviews exist (no fake "5.0★" on an unrated platform).
   const STATS = [
-    { num: liveStats.members > 0 ? `${liveStats.members.toLocaleString()}+` : "—", desc: statsDesc(0, isAr ? "رياضي نشط يتدرب على المنصة." : "Active athletes training across the platform every week."), icon: Users },
-    // Active coaches — fills the (previously empty) cell of the 4-cell grid.
-    { num: liveStats.coaches > 0 ? `${liveStats.coaches}+` : "—", desc: statsDesc(1, isAr ? "كوتش نشط معتمد بشهادات موثقة." : "Active certified coaches with verified credentials."), icon: Award },
-    { num: liveStats.programs > 0 ? `${liveStats.programs.toLocaleString()}+` : "—", desc: statsDesc(2, isAr ? "برنامج تدريبي وخطة جاهزة." : "Training programs and ready-made plans."), icon: Dumbbell },
-    // Rating renders the numeric value separately from a smaller star
-    // glyph (with a space) so the star doesn't dominate the cell the way
-    // a full-display-size "★" does.
-    { num: liveStats.rating, suffix: "★", desc: statsDesc(3, isAr ? "تقييم التطبيق من المستخدمين." : "App rating from athletes who trained with us."), icon: Star },
-  ];
+    { show: liveStats.members > 0, num: `${liveStats.members.toLocaleString()}+`, desc: statsDesc(0, isAr ? "رياضي نشط يتدرب على المنصة." : "Active athletes training across the platform every week."), icon: Users },
+    { show: liveStats.coaches > 0, num: `${liveStats.coaches}+`, desc: statsDesc(1, isAr ? "كوتش نشط معتمد بشهادات موثقة." : "Active certified coaches with verified credentials."), icon: Award },
+    { show: liveStats.programs > 0, num: `${liveStats.programs.toLocaleString()}+`, desc: statsDesc(2, isAr ? "برنامج تدريبي وخطة جاهزة." : "Training programs and ready-made plans."), icon: Dumbbell },
+    // Rating renders the numeric value separately from a smaller star glyph.
+    { show: liveStats.reviews > 0, num: liveStats.rating, suffix: "★", desc: statsDesc(3, isAr ? "تقييم التطبيق من المستخدمين." : "App rating from athletes who trained with us."), icon: Star },
+  ].filter(s => s.show);
+  // The whole band stays hidden until at least 3 stats are meaningful, so the
+  // site never advertises an empty/just-launched look under a "#1" claim.
+  const showStatsBand = STATS.length >= 3;
 
   /* ── Testimonials — prefer CMS, fall back to seeded defaults ───────────
      Admin can add a `testimonials` section to the Home page in /admin/website
@@ -507,8 +511,9 @@ export default function HomePage() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          STATS — 4-cell grid (live data)
+          STATS — live data. Hidden entirely until ≥3 stats are meaningful (§1.1).
       ═══════════════════════════════════════════════════════════════════════ */}
+      {showStatsBand && (
       <section className="fwh-section" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", overflow: "hidden" }}>
         {sectionBg("stats")}
         <div className="fwh-con">
@@ -557,6 +562,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════
           FEATURES — service-row style with hover slide
