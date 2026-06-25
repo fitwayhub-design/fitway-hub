@@ -795,7 +795,12 @@ router.get('/stats', authenticateToken, coachOrAdmin, async (req, res) => {
         const [[athleteRow], [pendingRow], [revenueRow], [ratingRow], [weekSessionsRow], [totalRow]] = await Promise.all([
             query("SELECT COUNT(DISTINCT user_id) AS cnt FROM coach_subscriptions WHERE coach_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW())", [coachId]),
             query("SELECT COUNT(*) AS cnt FROM coaching_bookings WHERE coach_id = ? AND status = 'pending'", [coachId]),
-            query("SELECT IFNULL(SUM(credited_amount), 0) AS total FROM coach_subscriptions WHERE coach_id = ? AND status = 'active' AND created_at >= ?", [coachId, monthStart]),
+            // Monthly revenue (§7): sum the authoritative credit ledger — the same
+            // source the coach Profile reads — for income credited THIS month. Keying
+            // off coach_subscriptions.created_at undercounted (showed 0) when a sub
+            // was created in a prior month but only accepted/credited this month,
+            // which is exactly why Dashboard said 0 while Profile showed real credit.
+            query("SELECT IFNULL(SUM(amount), 0) AS total FROM credit_transactions WHERE user_id = ? AND amount > 0 AND created_at >= ?", [coachId, monthStart]),
             query("SELECT IFNULL(AVG(rating), 0) AS avg, COUNT(*) AS cnt FROM coach_reviews WHERE coach_id = ?", [coachId]),
             query("SELECT COUNT(*) AS cnt FROM coaching_bookings WHERE coach_id = ? AND status = 'accepted' AND date >= ?", [coachId, weekStartStr]),
             query("SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) AS accepted FROM coaching_bookings WHERE coach_id = ?", [coachId]),

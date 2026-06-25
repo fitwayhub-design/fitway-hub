@@ -344,7 +344,11 @@ export default function CoachHome() {
                         <p className="text-[11px] text-muted-foreground">{formatDate(tx.created_at)}</p>
                       </div>
                       <div className="text-end">
-                        <p className="text-[13px] font-bold text-primary tabular-nums">{Number(tx.credited_amount ?? tx.amount ?? 0).toFixed(0)} {t("currency_egp")}</p>
+                        {/* Show the coach's credited cut once released; before
+                            that fall back to the gross subscription amount so a
+                            pending sub never reads as "0 EGP" (§2.1). The status
+                            line below already flags pending vs active. */}
+                        <p className="text-[13px] font-bold text-primary tabular-nums">{(Number(tx.credited_amount) > 0 ? Number(tx.credited_amount) : Number(tx.amount) || 0).toFixed(0)} {t("currency_egp")}</p>
                         <p className={`text-[11px] capitalize ${statusColor(tx.status)}`}>{tx.status || "pending"}</p>
                       </div>
                     </div>
