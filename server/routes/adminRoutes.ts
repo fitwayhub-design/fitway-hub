@@ -48,7 +48,7 @@ router.get('/recent-activity', authenticateToken, adminOnly, async (_req: Reques
         r => ({ type: 'signup', title: `${r.name || 'New user'} joined${r.role && r.role !== 'user' ? ` as ${r.role}` : ''}`, created_at: r.created_at })),
       safe("SELECT p.id, p.content, u.name, p.created_at FROM posts p LEFT JOIN users u ON u.id = p.user_id ORDER BY p.id DESC LIMIT 20",
         r => ({ type: 'post', title: `${r.name || 'Someone'} posted in the community`, detail: r.content, created_at: r.created_at })),
-      safe("SELECT pc.id, pc.content, u.name, pc.created_at FROM post_comments pc LEFT JOIN users u ON u.id = pc.user_id ORDER BY pc.id DESC LIMIT 20",
+      safe("SELECT pc.id, pc.content, u.name, pc.created_at FROM post_comments pc LEFT JOIN users u ON u.id = pc.user_id WHERE EXISTS (SELECT 1 FROM posts p WHERE p.id = pc.post_id) ORDER BY pc.id DESC LIMIT 20",
         r => ({ type: 'comment', title: `${r.name || 'Someone'} commented on a post`, detail: r.content, created_at: r.created_at })),
       safe("SELECT t.id, t.subject, u.name, t.created_at FROM tickets t LEFT JOIN users u ON u.id = t.user_id ORDER BY t.id DESC LIMIT 20",
         r => ({ type: 'ticket', title: `${r.name || 'Someone'} opened a support ticket`, detail: r.subject, created_at: r.created_at })),
@@ -1818,7 +1818,9 @@ router.get('/community/stats', authenticateToken, modPerm('community_view'), asy
   try {
     const [totalPosts] = await query('SELECT COUNT(*) as cnt FROM posts') as any[];
     const [hiddenPosts] = await query('SELECT COUNT(*) as cnt FROM posts WHERE is_hidden = 1') as any[];
-    const [totalComments] = await query('SELECT COUNT(*) as cnt FROM post_comments') as any[];
+    // Count only comments that still have a real parent post — orphaned/seed
+    // comments otherwise inflated this to "153 comments" against 1 post (#13).
+    const [totalComments] = await query('SELECT COUNT(*) as cnt FROM post_comments pc WHERE EXISTS (SELECT 1 FROM posts p WHERE p.id = pc.post_id)') as any[];
     const [totalChallenges] = await query('SELECT COUNT(*) as cnt FROM challenges') as any[];
     const [activeChallenges] = await query('SELECT COUNT(*) as cnt FROM challenges WHERE end_date >= CURDATE()') as any[];
     const [totalLikes] = await query('SELECT IFNULL(SUM(likes),0) as total FROM posts') as any[];
@@ -1890,7 +1892,7 @@ router.get('/community/comments', authenticateToken, modPerm('community_view'), 
              p.content as post_preview
       FROM post_comments pc
       LEFT JOIN users u ON pc.user_id = u.id
-      LEFT JOIN posts p ON pc.post_id = p.id
+      INNER JOIN posts p ON pc.post_id = p.id
       ORDER BY pc.created_at DESC LIMIT 200`);
     res.json({ comments });
   } catch { res.status(500).json({ message: 'Failed to fetch comments' }); }
