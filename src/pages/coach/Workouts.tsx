@@ -130,7 +130,7 @@ export default function CoachWorkouts() {
           </>
         ) : (
           <>
-            <h1 className="flex-1 text-[24px] font-bold tracking-tight">{t("training_videos")}</h1>
+            <h1 className="flex-1 text-[24px] font-bold tracking-tight">{t("workouts")}</h1>
             <Button variant="outline" size="sm" onClick={() => setNewPlanOpen(true)} className="gap-1.5">
               <Plus size={15} strokeWidth={2} /> New Plan
             </Button>

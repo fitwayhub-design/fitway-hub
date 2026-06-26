@@ -325,7 +325,7 @@ export default function HomePage() {
           {/* Top meta */}
           <div className="fwh-section-meta">
             <span>{cms("hero", "topMetaLeft", isAr ? "منصة لياقة النخبة · إصدار ٢٠٢٦" : "ELITE FITNESS PLATFORM · V.2026")}</span>
-            <span>{cms("hero", "topMetaRight", isAr ? `يوم ${new Date().getDate()} · ${new Date().getFullYear()}` : `${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()} · ${new Date().getFullYear()}`)}</span>
+            <span>{cms("hero", "topMetaRight", isAr ? `${new Date().toLocaleDateString("ar-EG", { month: "long", day: "numeric" })} · ${new Date().toLocaleDateString("ar-EG", { year: "numeric" })}` : `${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()} · ${new Date().getFullYear()}`)}</span>
           </div>
 
           {/* Eyebrow */}
