@@ -112,7 +112,9 @@ export default function AdminTickets() {
           {selected.body && <p className="text-[14px] leading-relaxed whitespace-pre-wrap text-muted-foreground">{selected.body}</p>}
           <div className="mt-3.5 flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-muted-foreground">
             <span>Athlete: <strong className="text-foreground">{selected.user_name}</strong></span>
-            <span>Coach: <strong className="text-foreground">{selected.coach_name}</strong></span>
+            <span>{Number(selected.coach_id) === 0 || selected.kind === "support"
+              ? <>Type: <strong className="text-foreground">General support</strong></>
+              : <>Coach: <strong className="text-foreground">{selected.coach_name}</strong></>}</span>
             <span>Opened: {new Date(selected.created_at).toLocaleString()}</span>
           </div>
         </Card>
@@ -240,11 +242,17 @@ export default function AdminTickets() {
                 </Avatar>
                 <span className="truncate text-[12px]">{t.user_name}</span>
                 <ArrowRight size={12} strokeWidth={2} className="shrink-0 text-muted-foreground rtl:rotate-180" />
-                <Avatar className="size-6 shrink-0">
-                  <AvatarImage src={t.coach_avatar || getAvatar(t.coach_id, null, null, t.coach_name)} alt="" />
-                  <AvatarFallback className="text-[10px]">{(t.coach_name || "U").slice(0, 1)}</AvatarFallback>
-                </Avatar>
-                <span className="truncate text-[12px]">{t.coach_name}</span>
+                {Number(t.coach_id) === 0 || t.kind === "support" ? (
+                  <span className="truncate text-[12px] font-medium text-[var(--secondary)]">General support</span>
+                ) : (
+                  <>
+                    <Avatar className="size-6 shrink-0">
+                      <AvatarImage src={t.coach_avatar || getAvatar(t.coach_id, null, null, t.coach_name)} alt="" />
+                      <AvatarFallback className="text-[10px]">{(t.coach_name || "U").slice(0, 1)}</AvatarFallback>
+                    </Avatar>
+                    <span className="truncate text-[12px]">{t.coach_name}</span>
+                  </>
+                )}
               </div>
               <StatusPill status={t.status} />
               <span className="text-[11px] whitespace-nowrap text-muted-foreground">{new Date(t.updated_at).toLocaleDateString()}</span>

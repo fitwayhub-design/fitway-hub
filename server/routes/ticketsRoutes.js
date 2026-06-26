@@ -13,7 +13,13 @@ import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { get, run, query } from '../config/database.js';
 import { containsContactInfo, CONTACT_INFO_MESSAGE } from '../utils/contentGuard.js';
+import { getModeratorPermissions, moderatorAreaAllowed } from '../middleware/moderator.js';
 const router = Router();
+// General support tickets (athlete → platform staff) use coach_id = 0 as a
+// sentinel meaning "no coach — handled by admins/moderators". The tickets table
+// has no FK on coach_id, so this needs no schema change.
+const SUPPORT_COACH_ID = 0;
+const isSupportTicket = (t) => Number(t?.coach_id) === SUPPORT_COACH_ID || t?.kind === 'support';
 // ── helpers ────────────────────────────────────────────────────────────────
 async function notify(userId, type, title, body, link) {
     try {
@@ -21,12 +27,36 @@ async function notify(userId, type, title, body, link) {
     }
     catch { /* notifications table optional in some deployments */ }
 }
+// Notify every admin (and moderator) about a support-ticket event.
+async function notifySupportStaff(type, title, body, link) {
+    try {
+        const staff = await query("SELECT id FROM users WHERE role IN ('admin','moderator')");
+        for (const s of staff)
+            await notify(s.id, type, title, body, link);
+    }
+    catch { /* best-effort */ }
+}
+/** Can this moderator handle support tickets (admin always can)? */
+async function staffCanHandleSupport(role) {
+    if (role === 'admin')
+        return true;
+    if (role !== 'moderator')
+        return false;
+    const perms = await getModeratorPermissions();
+    return moderatorAreaAllowed(perms, 'tickets_view');
+}
 async function canSeeTicket(req, ticket) {
     const u = req.user;
     if (!u || !ticket)
         return false;
     if (u.role === 'admin')
         return true;
+    // Support tickets: the athlete who opened it, or staff with tickets access.
+    if (isSupportTicket(ticket)) {
+        if (ticket.user_id === u.id)
+            return true;
+        return await staffCanHandleSupport(u.role);
+    }
     return ticket.user_id === u.id || ticket.coach_id === u.id;
 }
 // ── Tickets ────────────────────────────────────────────────────────────────
@@ -35,7 +65,11 @@ async function canSeeTicket(req, ticket) {
 // role check). Keeps everything in one router rather than scattering into
 // adminRoutes.
 router.get('/admin/all', authenticateToken, async (req, res) => {
-    if (req.user?.role !== 'admin')
+    const role = req.user?.role;
+    const isAdmin = role === 'admin';
+    // Admins see every ticket; a moderator with the `tickets_view` area sees only
+    // general support tickets (not private coach↔athlete plan tickets).
+    if (!isAdmin && !(await staffCanHandleSupport(role)))
         return res.status(403).json({ message: 'Forbidden' });
     try {
         const rows = await query(`SELECT t.*, u.name AS user_name, u.avatar AS user_avatar,
@@ -43,6 +77,7 @@ router.get('/admin/all', authenticateToken, async (req, res) => {
        FROM tickets t
        LEFT JOIN users u ON u.id = t.user_id
        LEFT JOIN users c ON c.id = t.coach_id
+       ${isAdmin ? '' : 'WHERE t.coach_id = 0'}
        ORDER BY t.updated_at DESC, t.id DESC
        LIMIT 500`, []);
         res.json({ tickets: rows });
@@ -135,6 +170,33 @@ router.post('/', authenticateToken, async (req, res) => {
         res.status(500).json({ message: err?.message || 'Failed to open ticket' });
     }
 });
+// Open a GENERAL SUPPORT ticket (athlete → platform staff, no coach). §2.3.
+// Available to subscribed athletes for account/billing/general questions that
+// aren't tied to a coach plan. Routed to admins + moderators (tickets area),
+// not a coach. Uses coach_id = 0 as the "no coach" sentinel.
+router.post('/support', authenticateToken, async (req, res) => {
+    try {
+        const u = req.user;
+        const { subject, body } = req.body || {};
+        if (!subject || !String(subject).trim())
+            return res.status(400).json({ message: 'A subject is required.' });
+        if (containsContactInfo(subject) || containsContactInfo(body))
+            return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
+        // Scoped to subscribed athletes (any active subscription).
+        const sub = await get("SELECT id FROM coach_subscriptions WHERE user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1", [u.id]);
+        if (!sub)
+            return res.status(403).json({ message: 'General support is available to subscribed athletes. Subscribe to a coach to open a support request.' });
+        const result = await run(`INSERT INTO tickets (user_id, coach_id, kind, subject, body, status, created_at, updated_at)
+       VALUES (?, ?, 'support', ?, ?, 'open', NOW(), NOW())`, [u.id, SUPPORT_COACH_ID, String(subject).trim(), body ? String(body) : '']);
+        const ticketId = result.insertId || result.lastID;
+        await notifySupportStaff('ticket_opened', 'New support request', `${u.name || 'An athlete'} opened "${subject}"`, `/admin/tickets`);
+        const ticket = await get('SELECT * FROM tickets WHERE id = ?', [ticketId]);
+        res.json({ ticket });
+    }
+    catch (err) {
+        res.status(500).json({ message: err?.message || 'Failed to open support ticket' });
+    }
+});
 // Get one ticket with all replies.
 router.get('/:id', authenticateToken, async (req, res) => {
     try {
@@ -173,9 +235,20 @@ router.post('/:id/reply', authenticateToken, async (req, res) => {
             return res.status(400).json({ message: CONTACT_INFO_MESSAGE });
         await run('INSERT INTO ticket_replies (ticket_id, author_id, author_role, body, created_at) VALUES (?, ?, ?, ?, NOW())', [ticket.id, u.id, u.role, body]);
         await run('UPDATE tickets SET updated_at = NOW(), status = IF(status = "closed", "open", status) WHERE id = ?', [ticket.id]);
-        const other = u.id === ticket.user_id ? ticket.coach_id : ticket.user_id;
-        if (other)
-            await notify(other, 'ticket_reply', 'New reply on ticket', `${u.name || 'Someone'} replied on "${ticket.subject}"`, `/app/tickets/${ticket.id}`);
+        if (isSupportTicket(ticket)) {
+            // No coach: route the notification between the athlete and the staff pool.
+            if (u.id === ticket.user_id) {
+                await notifySupportStaff('ticket_reply', 'New reply on support ticket', `${u.name || 'Someone'} replied on "${ticket.subject}"`, `/admin/tickets`);
+            }
+            else {
+                await notify(ticket.user_id, 'ticket_reply', 'New reply on ticket', `${u.name || 'Support'} replied on "${ticket.subject}"`, `/app/tickets/${ticket.id}`);
+            }
+        }
+        else {
+            const other = u.id === ticket.user_id ? ticket.coach_id : ticket.user_id;
+            if (other)
+                await notify(other, 'ticket_reply', 'New reply on ticket', `${u.name || 'Someone'} replied on "${ticket.subject}"`, `/app/tickets/${ticket.id}`);
+        }
         res.json({ ok: true });
     }
     catch (err) {

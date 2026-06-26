@@ -50,6 +50,10 @@ export default function Tickets() {
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
   const [composeMode, setComposeMode] = useState(!!preselectCoach && !isCoach);
+  // "coach" = a plan-scoped question to a subscribed coach (existing flow);
+  // "support" = a general request to platform staff (admins/moderators), §2.3.
+  const [composeKind, setComposeKind] = useState<"coach" | "support">("coach");
+  const [newSubject, setNewSubject] = useState("");
   const [newBody, setNewBody] = useState("");
   const [newCoachId, setNewCoachId] = useState<number | "">(preselectCoach || "");
   const [coachOptions, setCoachOptions] = useState<{ id: number; name: string }[]>([]);
@@ -142,6 +146,23 @@ export default function Tickets() {
     } finally { setBusy(false); }
   };
 
+  // General support ticket → platform staff (no coach, no plan item). §2.3.
+  const isSupportTicket = (tk: Ticket) => Number(tk.coach_id) === 0 || tk.kind === "support";
+  const createSupportTicket = async () => {
+    if (!newSubject.trim() || !newBody.trim()) return;
+    setBusy(true);
+    try {
+      const r = await api("/api/tickets/support", { method: "POST", body: JSON.stringify({ subject: newSubject.trim(), body: newBody.trim() }) });
+      if (r.ok) {
+        const d = await r.json();
+        setErr("");
+        setComposeMode(false); setNewSubject(""); setNewBody("");
+        await loadList();
+        if (d.ticket) openTicket(d.ticket);
+      } else { const d = await r.json().catch(() => ({})); setErr(d.message || "Couldn't send support request."); }
+    } finally { setBusy(false); }
+  };
+
   useEffect(() => { loadList(); /* eslint-disable-next-line */ }, []);
   useAutoRefresh(() => loadList(true));
 
@@ -216,7 +237,7 @@ export default function Tickets() {
           <h2 className="mb-2 text-[19px] font-bold tracking-tight">{selected.subject}</h2>
           {selected.body && <p className="text-[14px] leading-relaxed whitespace-pre-wrap text-muted-foreground">{selected.body}</p>}
           <p className="mt-3 text-[11px] text-muted-foreground">
-            {new Date(selected.created_at).toLocaleString()} · {isCoach ? `from ${selected.user_name}` : `to ${selected.coach_name}`}
+            {new Date(selected.created_at).toLocaleString()} · {isCoach ? `from ${selected.user_name}` : `to ${isSupportTicket(selected) ? "Support team" : selected.coach_name}`}
           </p>
         </div>
 
@@ -287,61 +308,88 @@ export default function Tickets() {
         const planMissing = !!newCoachId && days.length === 0;
         return (
           <div className="mb-4 flex flex-col gap-3 rounded-lg bg-card p-5 shadow-soft-sm">
-            <p className="text-[12px] text-muted-foreground">Tickets reference a specific item in your coach plan — pick what you're asking about and your coach will reply here.</p>
+            {/* Who is this for: a subscribed coach (plan question) or platform
+                support staff (general account / billing help). §2.3 */}
+            <div className="flex gap-1.5 rounded-full bg-muted p-1">
+              {(["coach", "support"] as const).map(k => (
+                <button key={k} type="button"
+                  onClick={() => { setComposeKind(k); setErr(""); }}
+                  className={cn("flex-1 rounded-full px-2.5 py-2 text-[12px] font-bold transition", composeKind === k ? "bg-primary text-primary-foreground shadow-soft-sm" : "text-muted-foreground")}>
+                  {k === "coach" ? "Ask my coach" : "General support"}
+                </button>
+              ))}
+            </div>
 
-            <Select value={newCoachId ? String(newCoachId) : ""} onValueChange={v => setNewCoachId(Number(v) || "")}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="— Pick a coach —" /></SelectTrigger>
-              <SelectContent>
-                {coachOptions.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {coachOptions.length === 0 && (
-              <p className="text-[12px] text-muted-foreground">
-                You're not subscribed to a coach yet. <a href="/app/coaching" className="font-semibold text-primary">Find a coach</a>.
-              </p>
-            )}
-
-            {!!newCoachId && (
+            {composeKind === "support" ? (
               <>
-                <div className="flex gap-1.5 rounded-full bg-muted p-1">
-                  {(["workout", "nutrition"] as const).map(k => (
-                    <button key={k} type="button"
-                      onClick={() => { setTicketKind(k); setSelectedDay(""); setSelectedItemKey(""); setSelectedItemLabel(""); }}
-                      className={cn("flex-1 rounded-full px-2.5 py-2 text-[12px] font-bold transition", ticketKind === k ? "bg-primary text-primary-foreground shadow-soft-sm" : "text-muted-foreground")}>
-                      {k === "workout" ? "Workout" : "Nutrition"}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-[12px] text-muted-foreground">For account, billing or other general questions — our team replies here. Available with an active subscription.</p>
+                <input
+                  value={newSubject}
+                  onChange={e => { setNewSubject(e.target.value); if (err) setErr(""); }}
+                  placeholder="Subject — what's it about?"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-[14px] outline-none focus:ring-1 focus:ring-primary"
+                />
+                <Textarea value={newBody} onChange={e => { setNewBody(e.target.value); if (err) setErr(""); }} placeholder="Describe your question…" rows={3} />
+              </>
+            ) : (
+              <>
+                <p className="text-[12px] text-muted-foreground">Tickets reference a specific item in your coach plan — pick what you're asking about and your coach will reply here.</p>
 
-                {planMissing ? (
-                  <p className="py-2 text-[12px] text-muted-foreground">
-                    {ticketKind === "workout"
-                      ? "Your coach hasn't assigned a workout plan yet — you can't open a workout ticket until they do."
-                      : "Your coach hasn't assigned a nutrition plan yet — you can't open a nutrition ticket until they do."}
+                <Select value={newCoachId ? String(newCoachId) : ""} onValueChange={v => setNewCoachId(Number(v) || "")}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="— Pick a coach —" /></SelectTrigger>
+                  <SelectContent>
+                    {coachOptions.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {coachOptions.length === 0 && (
+                  <p className="text-[12px] text-muted-foreground">
+                    You're not subscribed to a coach yet. <a href="/app/coaching" className="font-semibold text-primary">Find a coach</a>.
                   </p>
-                ) : (
+                )}
+
+                {!!newCoachId && (
                   <>
-                    <Select value={selectedDay} onValueChange={v => { setSelectedDay(v); setSelectedItemKey(""); setSelectedItemLabel(""); }}>
-                      <SelectTrigger className="w-full"><SelectValue placeholder="— Pick a day —" /></SelectTrigger>
-                      <SelectContent>
-                        {days.map(d => <SelectItem key={d.day} value={d.day}>{d.day}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-1.5 rounded-full bg-muted p-1">
+                      {(["workout", "nutrition"] as const).map(k => (
+                        <button key={k} type="button"
+                          onClick={() => { setTicketKind(k); setSelectedDay(""); setSelectedItemKey(""); setSelectedItemLabel(""); }}
+                          className={cn("flex-1 rounded-full px-2.5 py-2 text-[12px] font-bold transition", ticketKind === k ? "bg-primary text-primary-foreground shadow-soft-sm" : "text-muted-foreground")}>
+                          {k === "workout" ? "Workout" : "Nutrition"}
+                        </button>
+                      ))}
+                    </div>
 
-                    {!!selectedDay && (
-                      <Select value={selectedItemKey} onValueChange={key => {
-                        const found = itemsForDay.find(it => it.id === key);
-                        setSelectedItemKey(key);
-                        setSelectedItemLabel(found?.name || "");
-                      }}>
-                        <SelectTrigger className="w-full"><SelectValue placeholder={`— Pick ${ticketKind === "workout" ? "an exercise" : "a meal"} —`} /></SelectTrigger>
-                        <SelectContent>
-                          {itemsForDay.map(it => <SelectItem key={it.id} value={it.id}>{it.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                    {planMissing ? (
+                      <p className="py-2 text-[12px] text-muted-foreground">
+                        {ticketKind === "workout"
+                          ? "Your coach hasn't assigned a workout plan yet — you can't open a workout ticket until they do."
+                          : "Your coach hasn't assigned a nutrition plan yet — you can't open a nutrition ticket until they do."}
+                      </p>
+                    ) : (
+                      <>
+                        <Select value={selectedDay} onValueChange={v => { setSelectedDay(v); setSelectedItemKey(""); setSelectedItemLabel(""); }}>
+                          <SelectTrigger className="w-full"><SelectValue placeholder="— Pick a day —" /></SelectTrigger>
+                          <SelectContent>
+                            {days.map(d => <SelectItem key={d.day} value={d.day}>{d.day}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+
+                        {!!selectedDay && (
+                          <Select value={selectedItemKey} onValueChange={key => {
+                            const found = itemsForDay.find(it => it.id === key);
+                            setSelectedItemKey(key);
+                            setSelectedItemLabel(found?.name || "");
+                          }}>
+                            <SelectTrigger className="w-full"><SelectValue placeholder={`— Pick ${ticketKind === "workout" ? "an exercise" : "a meal"} —`} /></SelectTrigger>
+                            <SelectContent>
+                              {itemsForDay.map(it => <SelectItem key={it.id} value={it.id}>{it.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        )}
+
+                        <Textarea value={newBody} onChange={e => setNewBody(e.target.value)} placeholder="What's your question?" rows={3} />
+                      </>
                     )}
-
-                    <Textarea value={newBody} onChange={e => setNewBody(e.target.value)} placeholder="What's your question?" rows={3} />
                   </>
                 )}
               </>
@@ -350,9 +398,15 @@ export default function Tickets() {
             {err && <p className="text-[12px] text-[var(--red)]">{err}</p>}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setComposeMode(false)}>Cancel</Button>
-              <Button size="sm" onClick={createTicket} disabled={busy || !newCoachId || !selectedItemKey || !newBody.trim() || planMissing}>
-                Send ticket
-              </Button>
+              {composeKind === "support" ? (
+                <Button size="sm" onClick={createSupportTicket} disabled={busy || !newSubject.trim() || !newBody.trim()}>
+                  Send request
+                </Button>
+              ) : (
+                <Button size="sm" onClick={createTicket} disabled={busy || !newCoachId || !selectedItemKey || !newBody.trim() || planMissing}>
+                  Send ticket
+                </Button>
+              )}
             </div>
           </div>
         );
@@ -390,7 +444,12 @@ function Section({ label, children }: { label: string; children: any }) {
 }
 
 function TicketCard({ ticket, isCoach, onClick }: { ticket: Ticket; isCoach: boolean; onClick: () => void }) {
-  const peer = isCoach ? { name: ticket.user_name, avatar: ticket.user_avatar, id: ticket.user_id } : { name: ticket.coach_name, avatar: ticket.coach_avatar, id: ticket.coach_id };
+  const isSupport = Number(ticket.coach_id) === 0 || ticket.kind === "support";
+  const peer = isCoach
+    ? { name: ticket.user_name, avatar: ticket.user_avatar, id: ticket.user_id }
+    : isSupport
+      ? { name: "Support team", avatar: undefined as string | undefined, id: 0 }
+      : { name: ticket.coach_name, avatar: ticket.coach_avatar, id: ticket.coach_id };
   return (
     <button onClick={onClick} className="flex w-full items-center gap-3 rounded-lg bg-card p-3.5 text-start shadow-soft-sm transition active:scale-[0.99]">
       <Avatar className="size-10 shrink-0">
