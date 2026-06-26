@@ -856,6 +856,39 @@ router.get('/ads/stats', authenticateToken, adminOnly, async (_req: any, res: Re
   } catch { res.status(500).json({ message: 'Failed to fetch ad stats' }); }
 });
 
+// ── Platform revenue (§5.2) ─────────────────────────────────────────────────
+// "Total Revenue" = gross money the platform has actually collected:
+//   • coaching subscriptions whose payment an admin has VERIFIED
+//     (admin_approval_status = 'approved') and that weren't refunded — this is
+//     the money that previously showed as 0 because subscription payments live
+//     in coach_subscriptions, not the `payments` table the dashboard summed.
+//   • approved ad payments.
+//   • any completed generic payments (premium / coach membership via `payments`).
+// `pendingRevenue` is subscription money awaiting admin verification (not yet
+// collected), surfaced separately so held funds are visible.
+router.get('/revenue', authenticateToken, adminOnly, async (_req: any, res: Response) => {
+  try {
+    const [[subVerified], [subPending], [adApproved], [genCompleted]]: any = await Promise.all([
+      query("SELECT IFNULL(SUM(amount),0) AS total FROM coach_subscriptions WHERE admin_approval_status = 'approved' AND refunded_at IS NULL"),
+      query("SELECT IFNULL(SUM(amount),0) AS total FROM coach_subscriptions WHERE status = 'pending_admin'"),
+      query("SELECT IFNULL(SUM(amount),0) AS total FROM ad_payments WHERE status = 'approved'"),
+      query("SELECT IFNULL(SUM(amount),0) AS total FROM payments WHERE status = 'completed'"),
+    ]);
+    const subscriptionRevenue = Number(subVerified?.total || 0);
+    const adRevenue = Number(adApproved?.total || 0);
+    const otherRevenue = Number(genCompleted?.total || 0);
+    res.json({
+      totalRevenue: subscriptionRevenue + adRevenue + otherRevenue,
+      subscriptionRevenue,
+      adRevenue,
+      otherRevenue,
+      pendingRevenue: Number(subPending?.total || 0),
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err?.message || 'Failed to compute revenue' });
+  }
+});
+
 // ── Payments ───────────────────────────────────────────────────────────────────
 router.get('/payments', authenticateToken, adminOnly, async (_req: any, res: Response) => {
   try {

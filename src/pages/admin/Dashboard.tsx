@@ -123,6 +123,9 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [stats, setStats] = useState({ totalUsers: 0, coaches: 0, revenue: 0 });
+  // Platform revenue from the server (§5.2): verified subscription + ad +
+  // generic payments, with held/pending money surfaced separately.
+  const [revenueBreakdown, setRevenueBreakdown] = useState({ totalRevenue: 0, subscriptionRevenue: 0, adRevenue: 0, pendingRevenue: 0 });
 
   const [showGiftModal, setShowGiftModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -243,7 +246,7 @@ export default function AdminDashboard() {
   const fetchAll = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [usersRes, videosRes, adsRes, paymentsRes, giftsRes, trainingsRes, activityRes] = await Promise.all([
+      const [usersRes, videosRes, adsRes, paymentsRes, giftsRes, trainingsRes, activityRes, revenueRes] = await Promise.all([
         api("/api/admin/users"),
         api("/api/admin/videos"),
         api("/api/admin/ads"),
@@ -251,7 +254,13 @@ export default function AdminDashboard() {
         api("/api/admin/gifts"),
         api("/api/admin/trainings"),
         api("/api/admin/recent-activity"),
+        api("/api/admin/revenue"),
       ]);
+      if (revenueRes.ok) {
+        const rv = await revenueRes.json();
+        setRevenueBreakdown(rv);
+        setStats(s => ({ ...s, revenue: Number(rv.totalRevenue) || 0 }));
+      }
       if (activityRes.ok) { const d = await activityRes.json(); setRecentActivity(d.activities || []); }
       const usersData = await usersRes.json();
       if (usersData.users) {
@@ -271,7 +280,8 @@ export default function AdminDashboard() {
         const d = await paymentsRes.json();
         const p = d.payments || [];
         setPayments(p);
-        setStats(s => ({ ...s, revenue: p.filter((x: Payment) => x.status === "completed").reduce((sum: number, x: Payment) => sum + x.amount, 0) }));
+        // Revenue now comes from /api/admin/revenue (verified subscriptions +
+        // ads + payments), not just the `payments` table — see §5.2 above.
       }
       if (giftsRes.ok) { const d = await giftsRes.json(); setGifts(d.gifts || []); }
       // Fetch coach subscriptions & withdrawals
@@ -969,10 +979,11 @@ export default function AdminDashboard() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { label: t("total_revenue"), value: `${payments.filter(p => p.status === "completed").reduce((s, p) => s + p.amount, 0).toFixed(0)} EGP`, color: "var(--primary)" },
+              { label: t("total_revenue"), value: `${revenueBreakdown.totalRevenue.toFixed(0)} EGP`, color: "var(--primary)" },
+              { label: lang === "ar" ? "قيد التحقق (محتجز)" : "Pending (held)", value: `${revenueBreakdown.pendingRevenue.toFixed(0)} EGP`, color: "var(--amber)" },
               { label: t("transactions"), value: payments.length, color: "var(--cyan)" },
-              { label: t("premium_members"), value: payments.filter(p => p.type === "premium").length, color: "var(--amber)" },
-              { label: t("coach_members"), value: payments.filter(p => p.type === "coach_membership").length, color: "var(--blue)" },
+              { label: t("premium_members"), value: payments.filter(p => p.type === "premium").length, color: "var(--blue)" },
+              { label: t("coach_members"), value: payments.filter(p => p.type === "coach_membership").length, color: "var(--green)" },
             ].map(s => (
               <Card key={s.label} className="gap-0 p-5">
                 <StatLabel>{s.label}</StatLabel>
