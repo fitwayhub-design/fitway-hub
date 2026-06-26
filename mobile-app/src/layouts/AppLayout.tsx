@@ -143,11 +143,15 @@ export function AppLayout() {
   }, [token]);
 
   useEffect(() => {
-    if (token && user && shouldAskForLocation()) {
-      const t = setTimeout(() => setShowLocation(true), 1500);
+    // Defer the location prompt to a location-relevant screen (Find a Coach)
+    // instead of ambushing the athlete on first load (§3.1). Still throttled to
+    // once per 7 days by shouldAskForLocation().
+    const onCoaching = location.pathname.startsWith("/app/coaching");
+    if (token && user && onCoaching && shouldAskForLocation()) {
+      const t = setTimeout(() => setShowLocation(true), 800);
       return () => clearTimeout(t);
     }
-  }, [token, user]);
+  }, [token, user, location.pathname]);
 
   useEffect(() => {
     fetchFeatures();
