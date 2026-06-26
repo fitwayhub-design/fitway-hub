@@ -4,7 +4,7 @@ import {
   Lock, CreditCard, Star, LayoutDashboard,
   Upload, Eye, EyeOff, ToggleLeft, Database, Sun, Moon,
   Plus, Trash2, Smartphone, Bot, Apple, Wallet, Coins,
-  Download, Users, Globe, ShieldCheck, Search,
+  Download, Users, Globe, ShieldCheck, Search, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
@@ -157,6 +157,10 @@ export default function AdminSettings() {
   const [modSearch, setModSearch] = useState("");
   const [modLoading, setModLoading] = useState(false);
   const [modSaving, setModSaving] = useState(false);
+  // Per-account overrides: undefined = not loaded, null = inherits global,
+  // object = this moderator's own custom permission set.
+  const [expandedMod, setExpandedMod] = useState<number | null>(null);
+  const [userPerms, setUserPerms] = useState<Record<number, Record<string, boolean> | null | undefined>>({});
 
   const loadModerators = useCallback(async () => {
     setModLoading(true);
@@ -199,6 +203,37 @@ export default function AdminSettings() {
     } finally {
       setModSaving(false);
     }
+  };
+
+  // Load one moderator's per-account override (null = inherits global).
+  const loadUserPerms = async (userId: number) => {
+    try {
+      const r = await fetch(`${API}/api/admin/moderator-permissions/${userId}`, { headers });
+      const d = await r.json().catch(() => ({}));
+      setUserPerms(p => ({ ...p, [userId]: d.permissions ?? null }));
+    } catch {
+      setUserPerms(p => ({ ...p, [userId]: null }));
+    }
+  };
+
+  // Save (or clear, when perms === null) a moderator's per-account override.
+  const saveUserPerms = async (userId: number, perms: Record<string, boolean> | null) => {
+    setUserPerms(p => ({ ...p, [userId]: perms }));
+    setModSaving(true);
+    try {
+      const r = await fetch(`${API}/api/admin/moderator-permissions/${userId}`, { method: "PUT", headers, body: JSON.stringify({ permissions: perms }) });
+      if (!r.ok) throw new Error();
+      showFlash(l("Access updated", "تم تحديث الصلاحيات"));
+    } catch {
+      showFlash(l("Failed to save access", "فشل حفظ الصلاحيات"), false);
+    } finally {
+      setModSaving(false);
+    }
+  };
+
+  const toggleModExpand = (userId: number) => {
+    setExpandedMod(prev => (prev === userId ? null : userId));
+    if (userPerms[userId] === undefined) loadUserPerms(userId);
   };
 
   const showFlash = (msg: string, ok = true) => {
@@ -576,20 +611,73 @@ export default function AdminSettings() {
             ) : moderators.length === 0 ? (
               <p className="px-5 py-6 text-center text-[13px] text-muted-foreground">{l("No moderators yet. Add one below.", "لا يوجد مشرفون بعد. أضف واحدًا أدناه.")}</p>
             ) : (
-              moderators.map((u, i) => (
-                <div key={u.id}>
-                  <div className="flex items-center justify-between gap-3 px-5 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-foreground">{u.name}</p>
-                      <p className="truncate text-[12px] text-muted-foreground">{u.email}</p>
+              moderators.map((u, i) => {
+                const ov = userPerms[u.id];                 // undefined=not loaded, null=inherits, object=custom
+                const hasCustom = !!ov && typeof ov === "object";
+                const open = expandedMod === u.id;
+                return (
+                  <div key={u.id}>
+                    <div className="flex items-center justify-between gap-3 px-5 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold text-foreground">
+                          {u.name}
+                          {hasCustom && <span className="ms-2 rounded-full bg-[color-mix(in_srgb,var(--secondary)_18%,transparent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--secondary)] align-middle">{l("Custom", "مخصص")}</span>}
+                        </p>
+                        <p className="truncate text-[12px] text-muted-foreground">{u.email}</p>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <Button variant="outline" size="sm" onClick={() => toggleModExpand(u.id)} aria-expanded={open}>
+                          <Lock size={13} strokeWidth={2} /> {l("Access", "الصلاحيات")}
+                          {open ? <ChevronUp size={14} strokeWidth={2} /> : <ChevronDown size={14} strokeWidth={2} />}
+                        </Button>
+                        <Button variant="outline" size="sm" className="text-destructive" onClick={() => setUserRole(u.id, "user")}>
+                          <Trash2 size={14} strokeWidth={2} /> {l("Remove", "إزالة")}
+                        </Button>
+                      </div>
                     </div>
-                    <Button variant="outline" size="sm" className="text-destructive" onClick={() => setUserRole(u.id, "user")}>
-                      <Trash2 size={14} strokeWidth={2} /> {l("Remove", "إزالة")}
-                    </Button>
+
+                    {open && (
+                      <div className="bg-muted/40 px-5 pb-4">
+                        <div className="flex items-center justify-between gap-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-[13px] font-semibold text-foreground">{l("Custom access for this moderator", "صلاحيات مخصصة لهذا المشرف")}</p>
+                            <p className="mt-0.5 text-[12px] text-muted-foreground">
+                              {hasCustom
+                                ? l("Overrides the global access above for this person only.", "يتجاوز الصلاحيات العامة أعلاه لهذا الشخص فقط.")
+                                : l("Following the global access above. Turn on to customize.", "يتبع الصلاحيات العامة أعلاه. فعّل للتخصيص.")}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={hasCustom}
+                            disabled={modSaving || ov === undefined}
+                            onCheckedChange={(on) => saveUserPerms(u.id, on ? { ...modPerms } : null)}
+                            aria-label={l("Custom access", "صلاحيات مخصصة")}
+                          />
+                        </div>
+                        {hasCustom && (
+                          <div className="mt-1 flex flex-col overflow-hidden rounded-md bg-card">
+                            {MODERATOR_AREAS.map((a, idx) => (
+                              <div key={a.key}>
+                                <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                                  <p className="text-[12px] font-medium text-foreground">{l(a.label, a.label)}</p>
+                                  <Switch
+                                    checked={ov![a.key] === true}
+                                    disabled={modSaving}
+                                    onCheckedChange={() => saveUserPerms(u.id, { ...ov!, [a.key]: !(ov![a.key] === true) })}
+                                    aria-label={a.label}
+                                  />
+                                </div>
+                                {idx < MODERATOR_AREAS.length - 1 && <Separator />}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {i < moderators.length - 1 && <Separator />}
                   </div>
-                  {i < moderators.length - 1 && <Separator />}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </Card>

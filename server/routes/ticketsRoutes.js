@@ -13,7 +13,7 @@ import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { get, run, query } from '../config/database.js';
 import { containsContactInfo, CONTACT_INFO_MESSAGE } from '../utils/contentGuard.js';
-import { getModeratorPermissions, moderatorAreaAllowed } from '../middleware/moderator.js';
+import { moderatorCanAccessArea } from '../middleware/moderator.js';
 const router = Router();
 // General support tickets (athlete → platform staff) use coach_id = 0 as a
 // sentinel meaning "no coach — handled by admins/moderators". The tickets table
@@ -36,26 +36,18 @@ async function notifySupportStaff(type, title, body, link) {
     }
     catch { /* best-effort */ }
 }
-/** Can this moderator handle support tickets (admin always can)? */
-async function staffCanHandleSupport(role) {
-    if (role === 'admin')
-        return true;
-    if (role !== 'moderator')
-        return false;
-    const perms = await getModeratorPermissions();
-    return moderatorAreaAllowed(perms, 'tickets_view');
-}
 async function canSeeTicket(req, ticket) {
     const u = req.user;
     if (!u || !ticket)
         return false;
     if (u.role === 'admin')
         return true;
-    // Support tickets: the athlete who opened it, or staff with tickets access.
+    // Support tickets: the athlete who opened it, or staff with tickets access
+    // (admins, or moderators whose effective per-account/global perms grant it).
     if (isSupportTicket(ticket)) {
         if (ticket.user_id === u.id)
             return true;
-        return await staffCanHandleSupport(u.role);
+        return await moderatorCanAccessArea(u, 'tickets_view');
     }
     return ticket.user_id === u.id || ticket.coach_id === u.id;
 }
@@ -67,9 +59,9 @@ async function canSeeTicket(req, ticket) {
 router.get('/admin/all', authenticateToken, async (req, res) => {
     const role = req.user?.role;
     const isAdmin = role === 'admin';
-    // Admins see every ticket; a moderator with the `tickets_view` area sees only
-    // general support tickets (not private coach↔athlete plan tickets).
-    if (!isAdmin && !(await staffCanHandleSupport(role)))
+    // Admins see every ticket; a moderator with the `tickets_view` area (per their
+    // effective per-account/global perms) sees only general support tickets.
+    if (!isAdmin && !(await moderatorCanAccessArea(req.user, 'tickets_view')))
         return res.status(403).json({ message: 'Forbidden' });
     try {
         const rows = await query(`SELECT t.*, u.name AS user_name, u.avatar AS user_avatar,

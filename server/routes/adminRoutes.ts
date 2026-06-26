@@ -3,7 +3,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { get, run, query, getPool, seedDefaultAppSettings } from '../config/database.js';
 import { uploadVideo, uploadFont, upload, uploadBranding, optimizeImage, validateVideoSize, verifyUploadBytes, uploadToR2, multerToJson, sanitiseSvgIfPresent } from '../middleware/upload.js';
 import { sendPushToUser } from '../notificationService.js';
-import { requireModeratorArea, getModeratorPermissions, logModeratorAction } from '../middleware/moderator.js';
+import { requireModeratorArea, getModeratorPermissions, getModeratorUserOverride, logModeratorAction } from '../middleware/moderator.js';
 import bcrypt from 'bcryptjs';
 
 const router = Router();
@@ -1709,6 +1709,39 @@ router.put('/moderator-permissions', authenticateToken, adminOnly, async (req: a
     }
     res.json({ message: 'Moderator permissions saved', permissions: perms });
   } catch { res.status(500).json({ message: 'Failed to save moderator permissions' }); }
+});
+
+// ── Per-account moderator permission overrides ──────────────────────────────
+// Optional per-moderator override that REPLACES the global config above for one
+// person. No row => that moderator inherits the global toggles. Admin-managed.
+router.get('/moderator-permissions/:userId', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    const override = await getModeratorUserOverride(Number(req.params.userId));
+    const global = await getModeratorPermissions();
+    res.json({ permissions: override, global });
+  } catch { res.status(500).json({ message: 'Failed to load moderator access' }); }
+});
+
+router.put('/moderator-permissions/:userId', authenticateToken, adminOnly, async (req: any, res: Response) => {
+  try {
+    const userId = Number(req.params.userId);
+    if (!userId) return res.status(400).json({ message: 'Invalid user' });
+    const perms = req.body?.permissions;
+    // null/undefined clears the override → the moderator inherits global again.
+    if (perms === null || perms === undefined) {
+      await run("DELETE FROM moderator_user_permissions WHERE user_id = ?", [userId]);
+      return res.json({ message: 'Custom access cleared', permissions: null });
+    }
+    if (typeof perms !== 'object') return res.status(400).json({ message: 'permissions must be an object or null' });
+    const value = JSON.stringify(perms);
+    const existing: any = await get("SELECT user_id FROM moderator_user_permissions WHERE user_id = ?", [userId]);
+    if (existing) {
+      await run("UPDATE moderator_user_permissions SET permissions = ? WHERE user_id = ?", [value, userId]);
+    } else {
+      await run("INSERT INTO moderator_user_permissions (user_id, permissions) VALUES (?, ?)", [userId, value]);
+    }
+    res.json({ message: 'Custom access saved', permissions: perms });
+  } catch { res.status(500).json({ message: 'Failed to save moderator access' }); }
 });
 
 // Community moderation endpoints

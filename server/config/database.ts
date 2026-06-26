@@ -240,6 +240,16 @@ async function initTables() {
       UNIQUE KEY unique_user_date (user_id, date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 
+    // Per-moderator permission OVERRIDES. When a row exists for a user, it
+    // replaces the global app_settings.moderator_permissions for that one
+    // moderator; otherwise they inherit the global toggles. Lets admins scope
+    // individuals (e.g. a junior mod) without changing everyone.
+    `CREATE TABLE IF NOT EXISTS moderator_user_permissions (
+      user_id INT PRIMARY KEY,
+      permissions TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+
     // Append-only audit trail for privileged moderation actions (§17). Records
     // who (actor_id/role) did what (action) to which target, in which area.
     `CREATE TABLE IF NOT EXISTS moderator_audit_log (

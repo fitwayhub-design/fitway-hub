@@ -195,3 +195,27 @@ test('moderator gate: safe default grants community moderation only', () => {
   assert.equal(moderatorAreaAllowed(DEFAULT_MODERATOR_PERMISSIONS, 'community_moderate'), true);
   assert.equal(moderatorAreaAllowed(DEFAULT_MODERATOR_PERMISSIONS, 'challenges_view'), false);
 });
+
+// ─── Moderator per-account overrides (§ per-account) ─────────────────────────
+// Resolution rule mirrored from getEffectiveModeratorPermissions: a per-user
+// override REPLACES the global config; absent override inherits global. The
+// default-deny check (moderatorAreaAllowed) then applies to whichever wins.
+const resolveModeratorPerms = (
+  override: Record<string, boolean> | null,
+  global: Record<string, boolean>,
+): Record<string, boolean> => (override ? override : global);
+
+test('moderator override: a custom set replaces the global one', () => {
+  const global = { community_view: true, community_moderate: true };
+  const override = { community_view: true, community_moderate: false, challenges_view: true };
+  const eff = resolveModeratorPerms(override, global);
+  assert.equal(moderatorAreaAllowed(eff, 'community_moderate'), false); // override wins, not global
+  assert.equal(moderatorAreaAllowed(eff, 'challenges_view'), true);     // granted only in override
+});
+
+test('moderator override: absent override inherits the global set', () => {
+  const global = { community_view: true, community_moderate: true };
+  const eff = resolveModeratorPerms(null, global);
+  assert.equal(moderatorAreaAllowed(eff, 'community_moderate'), true);
+  assert.equal(moderatorAreaAllowed(eff, 'challenges_moderate'), false); // still default-deny
+});

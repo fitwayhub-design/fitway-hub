@@ -59,15 +59,53 @@ export function moderatorAreaAllowed(perms: Record<string, boolean>, area: strin
 }
 
 /**
+ * Per-moderator OVERRIDE, if one exists. A row in moderator_user_permissions
+ * replaces the global config for that single moderator; absent => inherit global.
+ */
+export async function getModeratorUserOverride(userId: number): Promise<Record<string, boolean> | null> {
+  try {
+    const row: any = await get('SELECT permissions FROM moderator_user_permissions WHERE user_id = ?', [userId]);
+    if (row?.permissions) {
+      const parsed = JSON.parse(row.permissions);
+      if (parsed && typeof parsed === 'object') return parsed as Record<string, boolean>;
+    }
+  } catch {
+    /* fall back to global */
+  }
+  return null;
+}
+
+/** The permissions actually in force for a moderator: their own override, else global. */
+export async function getEffectiveModeratorPermissions(userId: number): Promise<Record<string, boolean>> {
+  const override = await getModeratorUserOverride(userId);
+  if (override) return override;
+  return getModeratorPermissions();
+}
+
+/**
+ * Single source of truth for "may this user reach `area`": admin always; a
+ * moderator only if their effective (override-or-global) permissions grant it;
+ * anyone else never. Used by the route gate and by ad-hoc checks (e.g. tickets).
+ */
+export async function moderatorCanAccessArea(user: { id: number; role?: string } | undefined, area: string): Promise<boolean> {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (user.role !== 'moderator') return false;
+  const perms = await getEffectiveModeratorPermissions(user.id);
+  return moderatorAreaAllowed(perms, area);
+}
+
+/**
  * Gate for any route a moderator may reach. Admin passes unconditionally; a
- * moderator passes only if `area` is explicitly granted; everyone else 403s.
+ * moderator passes only if `area` is granted by their effective permissions
+ * (per-account override, else global); everyone else 403s.
  */
 export const requireModeratorArea = (area: string) =>
   async (req: any, res: Response, next: NextFunction) => {
     const role = req.user?.role;
     if (role === 'admin') return next();
     if (role !== 'moderator') return res.status(403).json({ message: 'Access denied' });
-    const perms = await getModeratorPermissions();
+    const perms = await getEffectiveModeratorPermissions(req.user.id);
     if (moderatorAreaAllowed(perms, area)) return next();
     return res.status(403).json({ message: 'Your moderator access does not allow this action' });
   };
