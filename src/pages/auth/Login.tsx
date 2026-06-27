@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
+import { usePageTitle } from "@/lib/usePageMeta";
 import { useTheme } from "@/context/ThemeContext";
 import { apiFetch, getApiBase } from "@/lib/api";
 import { Eye, EyeOff, Mail, Lock, Activity, ArrowLeft } from "lucide-react";
@@ -15,6 +16,7 @@ import { Card } from "@/components/ui/card";
 export default function Login() {
   const { t, lang } = useI18n();
   const { branding } = useBranding();
+  usePageTitle(`${lang === "ar" ? "تسجيل الدخول" : "Sign In"} — ${branding?.app_name || "FitWay Hub"}`);
   const { isDark } = useTheme();
   const brandLogo = getBrandLogoForLang(branding, lang, isDark);
   const [email, setEmail] = useState("");

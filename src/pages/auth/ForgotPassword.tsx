@@ -4,6 +4,7 @@ import { Mail, Lock, ShieldQuestion, Activity, ArrowLeft, Eye, EyeOff, CheckCirc
 import { apiFetch } from "@/lib/api";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
+import { usePageTitle } from "@/lib/usePageMeta";
 import { useTheme } from "@/context/ThemeContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ type Method = "otp" | "security";
 export default function ForgotPassword() {
   const { t, lang } = useI18n();
   const { branding } = useBranding();
+  usePageTitle(`${lang === "ar" ? "استعادة كلمة المرور" : "Reset Password"} — ${branding?.app_name || "FitWay Hub"}`);
   const { isDark } = useTheme();
   const brandLogo = getBrandLogoForLang(branding, lang, isDark);
   const [method, setMethod] = useState<Method>("otp"); // OTP is the default; security questions remain as a fallback.

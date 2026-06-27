@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useBranding, getBrandLogoForLang } from "@/context/BrandingContext";
+import { usePageTitle } from "@/lib/usePageMeta";
 import { useTheme } from "@/context/ThemeContext";
 import { apiFetch, getApiBase } from "@/lib/api";
 import { Eye, EyeOff, Mail, Lock, User, Activity, CheckCircle2, Dumbbell, Trophy, Chrome, ArrowLeft, ShieldQuestion, KeyRound } from "lucide-react";
@@ -24,6 +25,7 @@ const SECURITY_QUESTIONS = [
 export default function Register() {
   const { t, lang } = useI18n();
   const { branding } = useBranding();
+  usePageTitle(`${lang === "ar" ? "إنشاء حساب" : "Create Account"} — ${branding?.app_name || "FitWay Hub"}`);
   const { isDark } = useTheme();
   const brandLogo = getBrandLogoForLang(branding, lang, isDark);
   const [name, setName] = useState("");
